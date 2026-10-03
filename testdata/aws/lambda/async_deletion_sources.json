@@ -1,0 +1,105 @@
+{
+  "captured_at": "2026-09-30",
+  "purpose": "Primary-source bounds for exact-owned async deletion/recreation calibration; these are documentation statements, not native observations.",
+  "sources": [
+    {
+      "url": "https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-error-handling.html",
+      "quotes": [
+        "If the function returns an error, by default Lambda attempts to run it two more times, with a one-minute wait between the first two attempts, and two minutes between the second and third attempts.",
+        "For throttling errors (429) and system errors (500-series), Lambda returns the event to the queue and attempts to run the function again for up to 6 hours by default.",
+        "The retry interval increases exponentially from 1 second after the first attempt to a maximum of 5 minutes.",
+        "Even if your function doesn't return an error, it's possible for it to receive the same event from Lambda multiple times because the queue itself is eventually consistent."
+      ],
+      "boundary": "This text names 429 and 500-series errors, not deleted-target404; it does not establish404 terminal scheduling or reincarnation behavior."
+    },
+    {
+      "url": "https://docs.aws.amazon.com/lambda/latest/api/API_PutFunctionEventInvokeConfig.html",
+      "quotes": [
+        "By default, Lambda retries an asynchronous invocation twice if the function returns an error. It retains events in a queue for up to six hours.",
+        "The maximum age of a request that Lambda sends to a function for processing.",
+        "The maximum number of times to retry when the function returns an error."
+      ],
+      "documented_ranges": {
+        "MaximumEventAgeInSeconds": [60, 21600],
+        "MaximumRetryAttempts": [0, 2]
+      },
+      "boundary": "API configuration readback is not a demonstrated queue application barrier. This probe requires completed same-target retry and age controls before deletion."
+    },
+    {
+      "url": "https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html",
+      "quotes": [
+        "When you set reserved concurrency to zero for an asynchronously invoked function, Lambda begins sending new events to the configured dead-letter queue or the on-failure event destination, without any retries.",
+        "To prevent a function from triggering, you can set the function's reserved concurrency to zero.",
+        "Each function can have multiple destinations, so you can configure separate destinations for successful and failed events. Like error handling settings, you can configure destinations on a function, function version, or alias."
+      ],
+      "permission": "SQS destinations require sqs:SendMessage on the execution role.",
+      "boundary": "Reserved concurrency zero is not used as a queuing barrier; a real synchronous blocker occupies the single reserved slot, and a synchronous429 is required."
+    },
+    {
+      "url": "https://docs.aws.amazon.com/lambda/latest/dg/configuration-aliases.html",
+      "quote": "A Lambda alias is a pointer to a function version that you can update.",
+      "boundary": "This establishes mutable alias routing, not whether already queued events resolve it again."
+    },
+    {
+      "url": "https://docs.aws.amazon.com/lambda/latest/api/API_DeleteFunction.html",
+      "quote": "To delete a specific function version, use the Qualifier parameter. Otherwise, all versions and aliases are deleted.",
+      "boundary": "The API page does not specify the fate of already accepted asynchronous events, nor same-name recreation semantics."
+    },
+    {
+      "url": "https://docs.aws.amazon.com/lambda/latest/api/API_DeleteAlias.html",
+      "quote": "Deletes a Lambda function alias.",
+      "boundary": "The API page does not specify terminal delivery, retained controls, or queued-event behavior after recreation."
+    },
+    {
+      "url": "https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html",
+      "quotes": [
+        "Invocations aren't recorded if the invocation request is throttled or otherwise results in an invocation error.",
+        "Throttled requests and other invocation errors don't count as either Invocations or Errors.",
+        "If you configure a dead-letter queue (DLQ) or OnFailure destination, then events are sent there before they're dropped."
+      ],
+      "boundary": "The last quote describes AsyncEventsDropped. Missing metric datapoints are not measured zero; this capture uses actual runtime messages and destination records rather than inferring terminal state from missing metrics."
+    },
+    {
+      "url": "https://docs.aws.amazon.com/lambda/latest/dg/configuration-versions.html",
+      "quote": "Lambda assigns monotonically increasing sequence numbers for versioning. Lambda never reuses version numbers, even after you delete and recreate a function.",
+      "boundary": "Publication-number monotonicity is documented; it does not imply that accepted asynchronous events are fenced against same-name recreation."
+    }
+  ],
+  "prior_capture": {
+    "path": "testdata/aws/lambda/qualified_deletion_retry.json",
+    "unchanged": true,
+    "controls": "Same unchanged alias retry2/count3 and age240/count2 independently completed before deletion.",
+    "deleted_event": "No marker or destination through664.141s; correlated service Invoke about57s after admission does not prove handler entry or terminal behavior.",
+    "new_design": "Nondefault retry1/count2 and age180/slow130/count1 same-target controls; queued alias deletion, whole-function deletion, same-name alias/function recreation, and alias version refresh. If still absent, a22500s window extends beyond documented default six-hour event age by15minutes without treating absence as terminality."
+  },
+  "ethics_review": {
+    "tool": "mcp__ethics_review_review",
+    "decision": "allow",
+    "reason": "permitted",
+    "fresh_attempt_review": {
+      "decision": "allow",
+      "reason": "permitted",
+      "prior_capture": "async_deletion_lifecycle.json",
+      "prior_cleanup_verified_at": "2026-09-30T21:45:39.059429+00:00",
+      "new_capture": "async_deletion_lifecycle_retry.json",
+      "reason_for_fresh_attempt": "First run stopped before deletion because independent unordered SQS runtime-marker queue was not drained when destination controls completed. Fixed completion predicate requires destinations and expected entry markers. Prior evidence remains untouched."
+    },
+    "verified_actor": "arn:aws:iam::000000000000:user/Delegated",
+    "limits": {
+      "region": "us-east-1",
+      "functions": 3,
+      "function_memory_mb": 128,
+      "maximum_reserved_concurrency": 5,
+      "sqs_queues": 3,
+      "execution_roles": 1,
+      "inline_policy": "sqs:SendMessage to three exact-owned queue ARNs only",
+      "async_events": 30,
+      "synchronous_blockers": 3,
+      "blocker_seconds": 45,
+      "terminal_observation_seconds": 22500,
+      "whole_capture_seconds": 24000,
+      "queue_read_calls": 2000
+    },
+    "guards": "Exact actor/account verification; disabled endpoint overrides; unique tagged names; persisted creation inventory; ownership verification before cleanup; no shared IAM changes or denied-policy bypass; --cleanup-only recovery; no existing evidence overwritten."
+  }
+}

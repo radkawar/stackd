@@ -1,0 +1,3298 @@
+{
+  "region": "us-west-2",
+  "caller_account": "000000000000",
+  "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+  "prefix": "sds-e261aeaaa3",
+  "sources": [
+    {
+      "path": "/tmp/stackd_dashboard_size_probe.py",
+      "content": "import ast\nimport json\nimport os\nfrom pathlib import Path\nimport re\nimport sys\nimport time\nimport uuid\n\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import run, result\n\nroot = Path('/home/r/dev/minor/stackd')\nprefix = 'sds-' + uuid.uuid4().hex[:10]\nnames = [prefix + '-a', prefix + '-long-' + 'x' * 40]\nenv = dict(os.environ, AWS_DEFAULT_REGION='us-west-2', AWS_REGION='us-west-2', AWS_PAGER='', AWS_MAX_ATTEMPTS='1', AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\nfor key in list(env):\n    if key.startswith('AWS_ENDPOINT_URL'):\n        del env[key]\npath = root / 'testdata/aws/cloudwatch/dashboard_size.json'\ncapture = {'region':'us-west-2', 'caller_account':'000000000000', 'actor_arn':'', 'prefix':prefix, 'sources':[{'path':__file__, 'content':Path(__file__).read_text()}], 'observations':[], 'cleanup':[], 'cleanup_verification':{}, 'evidence_boundaries':['Owned native dashboard metadata experiment; no metric queries or rendering.', 'Native Size is preserved; no inferred accounting formula is asserted by this capture.']}\n\ndef save():\n    path.write_text(json.dumps(capture, indent=2) + '\\n')\n\ndef call(label, operation, parameters, service='cloudwatch', cleanup=False):\n    started = time.time_ns() // 1000000\n    process = run(service, operation, parameters, env, options=['--debug', '--no-paginate'], timeout=40)\n    decoded = result(process, debug=True)\n    headers = {}\n    for line in process.stderr.splitlines():\n        if 'Response headers: ' in line:\n            headers = ast.literal_eval(line.split('Response headers: ', 1)[1])\n    decoded['request_id'] = next((value for key,value in headers.items() if key.lower() in ('x-amzn-requestid','x-amzn-request-id','x-amz-request-id')), '')\n    if service == 'sts' and decoded['code'] == 'Success':\n        assert decoded['output']['Account'] == capture['caller_account']\n        capture['actor_arn'] = decoded['output']['Arn']\n    observation = {'label':label,'service':service,'operation':operation,'input':parameters,'request_started_ms':started,'region':'us-west-2','caller_account':capture['caller_account'],'actor_arn':capture['actor_arn'],'result':decoded}\n    capture['cleanup' if cleanup else 'observations'].append(observation)\n    save()\n    if not cleanup and decoded['code'] != 'Success':\n        raise RuntimeError(label + ': ' + decoded['code'])\n    return decoded\n\ndef inspect(label, name):\n    call(label+'-get', 'get-dashboard', {'DashboardName':name})\n    call(label+'-list', 'list-dashboards', {'DashboardNamePrefix':name})\n\ncall('identity','get-caller-identity',{},'sts')\ntry:\n    for index,name in enumerate(names):\n        call('create-name-'+str(index), 'put-dashboard', {'DashboardName':name,'DashboardBody':'{\"widgets\":[]}'})\n        inspect('name-'+str(index),name)\n    for index,name in enumerate(names):\n        arn = 'arn:aws:cloudwatch::000000000000:dashboard/' + name\n        call('tag-name-'+str(index), 'tag-resource', {'ResourceARN':arn,'Tags':[{'Key':'x','Value':'y'}]})\n        inspect('tagged-name-'+str(index),name)\n        call('untag-name-'+str(index), 'untag-resource', {'ResourceARN':arn,'TagKeys':['x']})\n        inspect('untagged-name-'+str(index),name)\n    # A fresh incarnation separates variable metadata from prior tag metadata.\n    call('delete-short-incarnation','delete-dashboards',{'DashboardNames':[names[0]]})\n    call('recreate-short','put-dashboard',{'DashboardName':names[0],'DashboardBody':'{\"widgets\":[]}'})\n    inspect('recreated-short', names[0])\n    for label,body in [\n        ('empty-variables',{'widgets':[],'variables':[]}),\n        ('one-variable',{'widgets':[],'variables':[{'type':'property','property':'region','inputType':'input','id':'r','defaultValue':'us-west-2'}]}),\n        ('long-variable',{'widgets':[],'variables':[{'type':'property','property':'region','inputType':'input','id':'longvariable','defaultValue':'us-east-1'}]}),\n        ('remove-variables',{'widgets':[]}),\n        ('unicode-unknown',{'widgets':[],'unknown':'\u00e9\u96ea'}),\n    ]:\n        call(label+'-put','put-dashboard',{'DashboardName':names[0],'DashboardBody':json.dumps(body,ensure_ascii=False,separators=(',',':'))})\n        inspect(label,names[0])\nfinally:\n    call('delete-owned','delete-dashboards',{'DashboardNames':names},cleanup=True)\n    for index,name in enumerate(names):\n        gone = call('verify-absent-'+str(index),'get-dashboard',{'DashboardName':name},cleanup=True)\n        capture['cleanup_verification'][name] = {'code':gone['code'],'observed_absent':gone['code']=='ResourceNotFound'}\n    remaining = call('verify-owned-prefix','list-dashboards',{'DashboardNamePrefix':prefix},cleanup=True)\n    capture['cleanup_verification']['prefix_empty'] = not remaining.get('output',{}).get('DashboardEntries')\n    save()\nprint(json.dumps({'fixture':str(path),'observations':len(capture['observations']),'cleanup':capture['cleanup_verification']}))\n"
+    },
+    {
+      "path": "/tmp/stackd_dashboard_size_probe.py",
+      "content": "import ast\nimport json\nimport os\nfrom pathlib import Path\nimport re\nimport sys\nimport time\nimport uuid\n\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import run, result\n\nroot = Path('/home/r/dev/minor/stackd')\nprefix = 'sds-' + uuid.uuid4().hex[:10]\nnames = [prefix + '-encoding']\nenv = dict(os.environ, AWS_DEFAULT_REGION='us-west-2', AWS_REGION='us-west-2', AWS_PAGER='', AWS_MAX_ATTEMPTS='1', AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\nfor key in list(env):\n    if key.startswith('AWS_ENDPOINT_URL'):\n        del env[key]\npath = root / 'testdata/aws/cloudwatch/dashboard_size.json'\ncapture = json.loads(path.read_text())\ncapture['sources'].append({'path':__file__, 'content':Path(__file__).read_text()})\n\ndef save():\n    path.write_text(json.dumps(capture, indent=2) + '\\n')\n\ndef call(label, operation, parameters, service='cloudwatch', cleanup=False):\n    started = time.time_ns() // 1000000\n    process = run(service, operation, parameters, env, options=['--debug', '--no-paginate'], timeout=40)\n    decoded = result(process, debug=True)\n    headers = {}\n    for line in process.stderr.splitlines():\n        if 'Response headers: ' in line:\n            headers = ast.literal_eval(line.split('Response headers: ', 1)[1])\n    decoded['request_id'] = next((value for key,value in headers.items() if key.lower() in ('x-amzn-requestid','x-amzn-request-id','x-amz-request-id')), '')\n    if service == 'sts' and decoded['code'] == 'Success':\n        assert decoded['output']['Account'] == capture['caller_account']\n        capture['actor_arn'] = decoded['output']['Arn']\n    observation = {'label':label,'service':service,'operation':operation,'input':parameters,'request_started_ms':started,'region':'us-west-2','caller_account':capture['caller_account'],'actor_arn':capture['actor_arn'],'result':decoded}\n    capture['cleanup' if cleanup else 'observations'].append(observation)\n    save()\n    if not cleanup and decoded['code'] != 'Success':\n        raise RuntimeError(label + ': ' + decoded['code'])\n    return decoded\n\ndef inspect(label, name):\n    call(label+'-get', 'get-dashboard', {'DashboardName':name})\n    call(label+'-list', 'list-dashboards', {'DashboardNamePrefix':name})\n\ncall('identity','get-caller-identity',{},'sts')\ntry:\n    name = names[0]\n    arn = 'arn:aws:cloudwatch::000000000000:dashboard/' + name\n    call('create-empty-tags', 'put-dashboard', {'DashboardName':name,'DashboardBody':'{\"widgets\":[]}','Tags':[]})\n    inspect('empty-create-tags',name)\n    for index,text in enumerate(['<', '>', '&', '=', \"'\", '\\u2028', '\\u2029', '\u00e9\u96ea']):\n        body = {'widgets':[], 'unknown':text}\n        call('encoding-'+str(index)+'-put','put-dashboard',{'DashboardName':name,'DashboardBody':json.dumps(body,ensure_ascii=False,separators=(',',':'))})\n        inspect('encoding-'+str(index),name)\n    call('encoding-reset','put-dashboard',{'DashboardName':name,'DashboardBody':'{\"widgets\":[]}'})\n    call('untag-never-tagged','untag-resource',{'ResourceARN':arn,'TagKeys':['missing']})\n    inspect('untag-never-tagged',name)\n    call('tag-empty-list','tag-resource',{'ResourceARN':arn,'Tags':[]})\n    inspect('tag-empty-list',name)\n    call('tag-unicode-equals','tag-resource',{'ResourceARN':arn,'Tags':[{'Key':'k','Value':'\u00e9=\u96ea'},{'Key':'two','Value':'v'}]})\n    inspect('tag-unicode-equals',name)\n    call('untag-all','untag-resource',{'ResourceARN':arn,'TagKeys':['k','two']})\n    inspect('untag-all',name)\nfinally:\n    call('delete-owned','delete-dashboards',{'DashboardNames':names},cleanup=True)\n    for index,name in enumerate(names):\n        gone = call('verify-absent-'+str(index),'get-dashboard',{'DashboardName':name},cleanup=True)\n        capture['cleanup_verification'][name] = {'code':gone['code'],'observed_absent':gone['code']=='ResourceNotFound'}\n    remaining = call('verify-owned-prefix','list-dashboards',{'DashboardNamePrefix':prefix},cleanup=True)\n    capture['cleanup_verification'][prefix+'_empty'] = not remaining.get('output',{}).get('DashboardEntries')\n    save()\nprint(json.dumps({'fixture':str(path),'observations':len(capture['observations']),'cleanup':capture['cleanup_verification']}))\n"
+    },
+    {
+      "path": "/tmp/stackd_dashboard_size_probe.py",
+      "content": "import ast\nimport json\nimport os\nfrom pathlib import Path\nimport re\nimport sys\nimport time\nimport uuid\n\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import run, result\n\nroot = Path('/home/r/dev/minor/stackd')\nprefix = 'sds-' + uuid.uuid4().hex[:10]\nnames = [prefix + '-encoding']\nenv = dict(os.environ, AWS_DEFAULT_REGION='us-west-2', AWS_REGION='us-west-2', AWS_PAGER='', AWS_MAX_ATTEMPTS='1', AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\nfor key in list(env):\n    if key.startswith('AWS_ENDPOINT_URL'):\n        del env[key]\npath = root / 'testdata/aws/cloudwatch/dashboard_size.json'\ncapture = json.loads(path.read_text())\ncapture['sources'].append({'path':__file__, 'content':Path(__file__).read_text()})\n\ndef save():\n    path.write_text(json.dumps(capture, indent=2) + '\\n')\n\ndef call(label, operation, parameters, service='cloudwatch', cleanup=False, allow_error=False):\n    started = time.time_ns() // 1000000\n    process = run(service, operation, parameters, env, options=['--debug', '--no-paginate'], timeout=40)\n    decoded = result(process, debug=True)\n    headers = {}\n    for line in process.stderr.splitlines():\n        if 'Response headers: ' in line:\n            headers = ast.literal_eval(line.split('Response headers: ', 1)[1])\n    decoded['request_id'] = next((value for key,value in headers.items() if key.lower() in ('x-amzn-requestid','x-amzn-request-id','x-amz-request-id')), '')\n    if service == 'sts' and decoded['code'] == 'Success':\n        assert decoded['output']['Account'] == capture['caller_account']\n        capture['actor_arn'] = decoded['output']['Arn']\n    observation = {'label':label,'service':service,'operation':operation,'input':parameters,'request_started_ms':started,'region':'us-west-2','caller_account':capture['caller_account'],'actor_arn':capture['actor_arn'],'result':decoded}\n    capture['cleanup' if cleanup else 'observations'].append(observation)\n    save()\n    if not cleanup and not allow_error and decoded['code'] != 'Success':\n        raise RuntimeError(label + ': ' + decoded['code'])\n    return decoded\n\ndef inspect(label, name):\n    call(label+'-get', 'get-dashboard', {'DashboardName':name})\n    call(label+'-list', 'list-dashboards', {'DashboardNamePrefix':name})\n\ncall('identity','get-caller-identity',{},'sts')\ntry:\n    name = names[0]\n    arn = 'arn:aws:cloudwatch::000000000000:dashboard/' + name\n    call('create-tag-accounting-control', 'put-dashboard', {'DashboardName':name,'DashboardBody':'{\"widgets\":[]}'})\n    for label,operation,parameters in [\n        ('tag-unicode-equals','tag-resource',{'ResourceARN':arn,'Tags':[{'Key':'k','Value':'\u00e9=\u96ea'},{'Key':'two','Value':'v'}]}),\n        ('tag-duplicate-key','tag-resource',{'ResourceARN':arn,'Tags':[{'Key':'d','Value':'first'},{'Key':'d','Value':'last'}]}),\n        ('untag-empty-keys','untag-resource',{'ResourceARN':arn,'TagKeys':[]}),\n        ('tag-reserved-prefix','tag-resource',{'ResourceARN':arn,'Tags':[{'Key':'aws:owned','Value':'probe'}]}),\n        ('tag-empty-key','tag-resource',{'ResourceARN':arn,'Tags':[{'Key':'','Value':'probe'}]}),\n        ('replacement-51-ignored-tags','put-dashboard',{'DashboardName':name,'DashboardBody':'{\"widgets\":[],\"unknown\":\"replacement\"}','Tags':[{'Key':'k'+str(i),'Value':'v'} for i in range(51)]}),\n        ('untag-all','untag-resource',{'ResourceARN':arn,'TagKeys':['k','two','d']}),\n    ]:\n        call(label,operation,parameters,allow_error=True)\n        inspect(label,name)\n        call(label+'-tags','list-tags-for-resource',{'ResourceARN':arn})\nfinally:\n    call('delete-owned','delete-dashboards',{'DashboardNames':names},cleanup=True)\n    for index,name in enumerate(names):\n        gone = call('verify-absent-'+str(index),'get-dashboard',{'DashboardName':name},cleanup=True)\n        capture['cleanup_verification'][name] = {'code':gone['code'],'observed_absent':gone['code']=='ResourceNotFound'}\n    remaining = call('verify-owned-prefix','list-dashboards',{'DashboardNamePrefix':prefix},cleanup=True)\n    capture['cleanup_verification'][prefix+'_empty'] = not remaining.get('output',{}).get('DashboardEntries')\n    save()\nprint(json.dumps({'fixture':str(path),'observations':len(capture['observations']),'cleanup':capture['cleanup_verification']}))\n"
+    },
+    {
+      "path": "/tmp/stackd_dashboard_size_probe.py",
+      "content": "import ast\nimport json\nimport os\nfrom pathlib import Path\nimport re\nimport sys\nimport time\nimport uuid\n\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import run, result\n\nroot = Path('/home/r/dev/minor/stackd')\nprefix = 'sds-' + uuid.uuid4().hex[:10]\nnames = [prefix + '-encoding']\nenv = dict(os.environ, AWS_DEFAULT_REGION='us-west-2', AWS_REGION='us-west-2', AWS_PAGER='', AWS_MAX_ATTEMPTS='1', AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\nfor key in list(env):\n    if key.startswith('AWS_ENDPOINT_URL'):\n        del env[key]\npath = root / 'testdata/aws/cloudwatch/dashboard_size.json'\ncapture = json.loads(path.read_text())\ncapture['sources'].append({'path':__file__, 'content':Path(__file__).read_text()})\n\ndef save():\n    path.write_text(json.dumps(capture, indent=2) + '\\n')\n\ndef call(label, operation, parameters, service='cloudwatch', cleanup=False, allow_error=False):\n    started = time.time_ns() // 1000000\n    process = run(service, operation, parameters, env, options=['--debug', '--no-paginate'], timeout=40)\n    decoded = result(process, debug=True)\n    headers = {}\n    for line in process.stderr.splitlines():\n        if 'Response headers: ' in line:\n            headers = ast.literal_eval(line.split('Response headers: ', 1)[1])\n    decoded['request_id'] = next((value for key,value in headers.items() if key.lower() in ('x-amzn-requestid','x-amzn-request-id','x-amz-request-id')), '')\n    if service == 'sts' and decoded['code'] == 'Success':\n        assert decoded['output']['Account'] == capture['caller_account']\n        capture['actor_arn'] = decoded['output']['Arn']\n    observation = {'label':label,'service':service,'operation':operation,'input':parameters,'request_started_ms':started,'region':'us-west-2','caller_account':capture['caller_account'],'actor_arn':capture['actor_arn'],'result':decoded}\n    capture['cleanup' if cleanup else 'observations'].append(observation)\n    save()\n    if not cleanup and not allow_error and decoded['code'] != 'Success':\n        raise RuntimeError(label + ': ' + decoded['code'])\n    return decoded\n\ndef inspect(label, name):\n    call(label+'-get', 'get-dashboard', {'DashboardName':name})\n    call(label+'-list', 'list-dashboards', {'DashboardNamePrefix':name})\n\ncall('identity','get-caller-identity',{},'sts')\ntry:\n    name = names[0]\n    arn = 'arn:aws:cloudwatch::000000000000:dashboard/' + name\n    call('create-tag-scope-control', 'put-dashboard', {'DashboardName':name,'DashboardBody':'{\"widgets\":[]}','Tags':[{'Key':'Probe','Value':'scope'}]})\n    for label,reference in [\n        ('tags-global-reference',arn),\n        ('tags-regional-reference',arn.replace('cloudwatch::','cloudwatch:us-west-2:')),\n        ('tags-other-region-reference',arn.replace('cloudwatch::','cloudwatch:us-east-1:')),\n        ('tags-other-account-reference',arn.replace('000000000000','999000999000')),\n        ('tags-other-partition-reference',arn.replace('arn:aws:','arn:aws-cn:')),\n        ('tags-missing-reference',arn+'-missing'),\n        ('tags-invalid-resource-name',arn+'/invalid'),\n    ]:\n        call(label,'list-tags-for-resource',{'ResourceARN':reference},allow_error=True)\n    distinct = [name] + [prefix+'-absent-'+str(i) for i in range(100)]\n    call('delete-101-distinct-owned-names','delete-dashboards',{'DashboardNames':distinct},allow_error=True)\n    call('get-after-distinct-delete','get-dashboard',{'DashboardName':name},allow_error=True)\nfinally:\n    call('delete-owned','delete-dashboards',{'DashboardNames':names},cleanup=True)\n    for index,name in enumerate(names):\n        gone = call('verify-absent-'+str(index),'get-dashboard',{'DashboardName':name},cleanup=True)\n        capture['cleanup_verification'][name] = {'code':gone['code'],'observed_absent':gone['code']=='ResourceNotFound'}\n    remaining = call('verify-owned-prefix','list-dashboards',{'DashboardNamePrefix':prefix},cleanup=True)\n    capture['cleanup_verification'][prefix+'_empty'] = not remaining.get('output',{}).get('DashboardEntries')\n    save()\nprint(json.dumps({'fixture':str(path),'observations':len(capture['observations']),'cleanup':capture['cleanup_verification']}))\n"
+    }
+  ],
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790180018304,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200,
+        "request_id": "87371559-1701-48bd-a477-6965706b1150"
+      }
+    },
+    {
+      "label": "create-name-0",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a",
+        "DashboardBody": "{\"widgets\":[]}"
+      },
+      "request_started_ms": 1790180019205,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "c60a53d4-3682-4e42-b72a-c5e4d35123e9"
+      }
+    },
+    {
+      "label": "name-0-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180020593,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-e261aeaaa3-a"
+        },
+        "http_status": 200,
+        "request_id": "3e80e620-cc3b-47ab-b3b9-d6056b8e5e2c"
+      }
+    },
+    {
+      "label": "name-0-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180021685,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-a",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+              "LastModified": "2026-09-23T17:13:41+01:00",
+              "Size": 51
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "6a72b467-8a54-46ff-9c7e-e1fc531bf338"
+      }
+    },
+    {
+      "label": "create-name-1",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "DashboardBody": "{\"widgets\":[]}"
+      },
+      "request_started_ms": 1790180022798,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "ce4eb58e-089f-499f-91ee-4744454073a8"
+      }
+    },
+    {
+      "label": "name-1-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "request_started_ms": 1790180023965,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        "http_status": 200,
+        "request_id": "b8658324-c4de-4815-84e1-4b8b90f22d19"
+      }
+    },
+    {
+      "label": "name-1-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "request_started_ms": 1790180025077,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "LastModified": "2026-09-23T17:13:44+01:00",
+              "Size": 51
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "812e9950-ad49-4abb-84d5-0764351459e7"
+      }
+    },
+    {
+      "label": "tag-name-0",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+        "Tags": [
+          {
+            "Key": "x",
+            "Value": "y"
+          }
+        ]
+      },
+      "request_started_ms": 1790180026183,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "6a4d60de-9912-44e9-9b64-c024bb91d0c5"
+      }
+    },
+    {
+      "label": "tagged-name-0-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180027572,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-e261aeaaa3-a"
+        },
+        "http_status": 200,
+        "request_id": "7564d15c-2050-4a0c-9f7d-d4363ab0f703"
+      }
+    },
+    {
+      "label": "tagged-name-0-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180028745,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-a",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+              "LastModified": "2026-09-23T17:13:48+01:00",
+              "Size": 217
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "9c890869-d85b-4c98-9823-be4e2834a26f"
+      }
+    },
+    {
+      "label": "untag-name-0",
+      "service": "cloudwatch",
+      "operation": "untag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+        "TagKeys": [
+          "x"
+        ]
+      },
+      "request_started_ms": 1790180029833,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "ec899bba-96c9-45f4-b45d-0e12caac9dba"
+      }
+    },
+    {
+      "label": "untagged-name-0-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180031380,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-e261aeaaa3-a"
+        },
+        "http_status": 200,
+        "request_id": "4ad8761a-5453-4f26-9243-a2e63557107d"
+      }
+    },
+    {
+      "label": "untagged-name-0-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180032477,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-a",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+              "LastModified": "2026-09-23T17:13:52+01:00",
+              "Size": 200
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "c709bb5a-fa51-4ef7-b1b8-1483cf4affdc"
+      }
+    },
+    {
+      "label": "tag-name-1",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Tags": [
+          {
+            "Key": "x",
+            "Value": "y"
+          }
+        ]
+      },
+      "request_started_ms": 1790180033552,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "3a5901c5-3d85-460d-ab6a-d77c7c12ef37"
+      }
+    },
+    {
+      "label": "tagged-name-1-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "request_started_ms": 1790180034800,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        "http_status": 200,
+        "request_id": "9edc4bfe-7d6f-4f06-8bd9-f916eb9e53f2"
+      }
+    },
+    {
+      "label": "tagged-name-1-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "request_started_ms": 1790180035892,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "LastModified": "2026-09-23T17:13:55+01:00",
+              "Size": 217
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "f69e627b-0cc3-4036-bb87-d7c00d0481b4"
+      }
+    },
+    {
+      "label": "untag-name-1",
+      "service": "cloudwatch",
+      "operation": "untag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "TagKeys": [
+          "x"
+        ]
+      },
+      "request_started_ms": 1790180036955,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "21038ea5-0a70-4634-9202-2cccb0dbcaff"
+      }
+    },
+    {
+      "label": "untagged-name-1-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "request_started_ms": 1790180038430,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        "http_status": 200,
+        "request_id": "c61f92dc-04f2-498d-ac10-b8556af53a5d"
+      }
+    },
+    {
+      "label": "untagged-name-1-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "request_started_ms": 1790180039745,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "LastModified": "2026-09-23T17:13:59+01:00",
+              "Size": 200
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "a0b896fa-761b-44e5-b3fb-a6e166f8d076"
+      }
+    },
+    {
+      "label": "delete-short-incarnation",
+      "service": "cloudwatch",
+      "operation": "delete-dashboards",
+      "input": {
+        "DashboardNames": [
+          "sds-e261aeaaa3-a"
+        ]
+      },
+      "request_started_ms": 1790180041414,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "8516dadb-b634-4748-8563-39ab29790d10"
+      }
+    },
+    {
+      "label": "recreate-short",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a",
+        "DashboardBody": "{\"widgets\":[]}"
+      },
+      "request_started_ms": 1790180042901,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "db114e7e-5c1e-4528-b6c1-63aff79aa766"
+      }
+    },
+    {
+      "label": "recreated-short-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180044267,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-e261aeaaa3-a"
+        },
+        "http_status": 200,
+        "request_id": "cd71cae2-e728-4764-8d67-c5caca81c640"
+      }
+    },
+    {
+      "label": "recreated-short-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180045371,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-a",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+              "LastModified": "2026-09-23T17:14:05+01:00",
+              "Size": 51
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "a605a167-f104-4a45-a6d7-fadc399fd95d"
+      }
+    },
+    {
+      "label": "empty-variables-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a",
+        "DashboardBody": "{\"widgets\":[],\"variables\":[]}"
+      },
+      "request_started_ms": 1790180046465,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "358ac800-fa39-4d48-a1f1-1464a427abbb"
+      }
+    },
+    {
+      "label": "empty-variables-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180047709,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+          "DashboardBody": "{\"widgets\":[],\"variables\":[]}",
+          "DashboardName": "sds-e261aeaaa3-a"
+        },
+        "http_status": 200,
+        "request_id": "acd535a3-a2e3-4c46-9517-449c83d0af21"
+      }
+    },
+    {
+      "label": "empty-variables-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180048824,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-a",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+              "LastModified": "2026-09-23T17:14:08+01:00",
+              "Size": 66
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "df63b3e5-4dc8-407c-9dca-19ad57baa1ec"
+      }
+    },
+    {
+      "label": "one-variable-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a",
+        "DashboardBody": "{\"widgets\":[],\"variables\":[{\"type\":\"property\",\"property\":\"region\",\"inputType\":\"input\",\"id\":\"r\",\"defaultValue\":\"us-west-2\"}]}"
+      },
+      "request_started_ms": 1790180050002,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "224cfce3-03aa-47a0-adfb-47cbf103816c"
+      }
+    },
+    {
+      "label": "one-variable-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180051276,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+          "DashboardBody": "{\"widgets\":[],\"variables\":[{\"type\":\"property\",\"property\":\"region\",\"inputType\":\"input\",\"id\":\"r\",\"defaultValue\":\"us-west-2\"}]}",
+          "DashboardName": "sds-e261aeaaa3-a"
+        },
+        "http_status": 200,
+        "request_id": "9d5bf8d8-fcc5-4b06-80a9-f470d8ea86e4"
+      }
+    },
+    {
+      "label": "one-variable-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180052281,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-a",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+              "LastModified": "2026-09-23T17:14:12+01:00",
+              "Size": 161
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "18cca744-869b-4db5-a90b-d0a6ecbed2aa"
+      }
+    },
+    {
+      "label": "long-variable-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a",
+        "DashboardBody": "{\"widgets\":[],\"variables\":[{\"type\":\"property\",\"property\":\"region\",\"inputType\":\"input\",\"id\":\"longvariable\",\"defaultValue\":\"us-east-1\"}]}"
+      },
+      "request_started_ms": 1790180053414,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "78095a7c-1545-49a6-b992-b78ca2a1234a"
+      }
+    },
+    {
+      "label": "long-variable-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180054806,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+          "DashboardBody": "{\"widgets\":[],\"variables\":[{\"type\":\"property\",\"property\":\"region\",\"inputType\":\"input\",\"id\":\"longvariable\",\"defaultValue\":\"us-east-1\"}]}",
+          "DashboardName": "sds-e261aeaaa3-a"
+        },
+        "http_status": 200,
+        "request_id": "1a951d6f-7c18-4b4d-8c98-6f0423b1eb52"
+      }
+    },
+    {
+      "label": "long-variable-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180055902,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-a",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+              "LastModified": "2026-09-23T17:14:15+01:00",
+              "Size": 172
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "c4251e5c-a682-4265-bcc2-8e7fb2378837"
+      }
+    },
+    {
+      "label": "remove-variables-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a",
+        "DashboardBody": "{\"widgets\":[]}"
+      },
+      "request_started_ms": 1790180056992,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "cf45c49d-dad7-4059-ab81-52caa4c2b702"
+      }
+    },
+    {
+      "label": "remove-variables-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180058406,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-e261aeaaa3-a"
+        },
+        "http_status": 200,
+        "request_id": "3a241cd0-0715-482e-8931-ec06490f9589"
+      }
+    },
+    {
+      "label": "remove-variables-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180059492,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-a",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+              "LastModified": "2026-09-23T17:14:19+01:00",
+              "Size": 51
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "d27b3ec9-2ecd-4579-9d91-68c1805608d8"
+      }
+    },
+    {
+      "label": "unicode-unknown-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\"\u00e9\u96ea\"}"
+      },
+      "request_started_ms": 1790180061449,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "3c772002-77ac-45e7-9e0b-e63c3889f950"
+      }
+    },
+    {
+      "label": "unicode-unknown-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180062889,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"\u00e9\u96ea\"}",
+          "DashboardName": "sds-e261aeaaa3-a"
+        },
+        "http_status": 200,
+        "request_id": "d36d42bc-e81c-41c4-bb17-c4cb86a0eab8"
+      }
+    },
+    {
+      "label": "unicode-unknown-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180064592,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-e261aeaaa3-a",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-e261aeaaa3-a",
+              "LastModified": "2026-09-23T17:14:23+01:00",
+              "Size": 69
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "0aa0c850-5a53-471f-893c-6766cbd19b49"
+      }
+    },
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790180332451,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200,
+        "request_id": "bc632c33-6a29-491d-ba69-388e5d325e6b"
+      }
+    },
+    {
+      "label": "create-empty-tags",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[]}",
+        "Tags": []
+      },
+      "request_started_ms": 1790180334091,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "61f830ef-0dd2-4cce-9edf-c50b747d6366"
+      }
+    },
+    {
+      "label": "empty-create-tags-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180335390,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "6281969c-3ae1-4e45-a3aa-1bc00266b6ab"
+      }
+    },
+    {
+      "label": "empty-create-tags-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180336490,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:18:56+01:00",
+              "Size": 51
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "1243b27e-ad83-4004-aa78-bb2837bfcc8d"
+      }
+    },
+    {
+      "label": "encoding-0-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\"<\"}"
+      },
+      "request_started_ms": 1790180337551,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "5368370c-a0bf-4df8-abe8-bb0e110f7fa4"
+      }
+    },
+    {
+      "label": "encoding-0-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180338981,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"<\"}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "0de4ebf3-47e8-470d-845c-dc558185cb6b"
+      }
+    },
+    {
+      "label": "encoding-0-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180340353,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:18:59+01:00",
+              "Size": 70
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "efc5aa13-e7ad-43c8-88f1-0f351282d64c"
+      }
+    },
+    {
+      "label": "encoding-1-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\">\"}"
+      },
+      "request_started_ms": 1790180341724,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "7db4b807-6f32-4de4-9a2f-7ea3d398d4b4"
+      }
+    },
+    {
+      "label": "encoding-1-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180343115,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\">\"}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "d6ad82aa-def5-4685-a408-2536f06fd436"
+      }
+    },
+    {
+      "label": "encoding-1-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180344241,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:19:03+01:00",
+              "Size": 70
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "b505b49c-55fd-4253-93bf-b5a57a831e0e"
+      }
+    },
+    {
+      "label": "encoding-2-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\"&\"}"
+      },
+      "request_started_ms": 1790180345349,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "557cf760-4aaf-46f3-814c-d5b1fb60cbaf"
+      }
+    },
+    {
+      "label": "encoding-2-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180346687,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"&\"}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "127e5092-9a23-40d5-bd78-02162870ab14"
+      }
+    },
+    {
+      "label": "encoding-2-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180347663,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:19:07+01:00",
+              "Size": 70
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "14debe78-d504-40f9-bf2c-a5077ba9c099"
+      }
+    },
+    {
+      "label": "encoding-3-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\"=\"}"
+      },
+      "request_started_ms": 1790180348767,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "ed418890-d473-4cfa-8636-5b32db43f22f"
+      }
+    },
+    {
+      "label": "encoding-3-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180350134,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"=\"}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "6a7cdaed-27c2-42c8-bddf-7e6070a017f5"
+      }
+    },
+    {
+      "label": "encoding-3-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180351232,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:19:10+01:00",
+              "Size": 70
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "a85db27a-cbeb-4352-a255-62647b87d469"
+      }
+    },
+    {
+      "label": "encoding-4-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\"'\"}"
+      },
+      "request_started_ms": 1790180352313,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "c85b117d-f0a2-4e0f-8e64-3414ca89dc0e"
+      }
+    },
+    {
+      "label": "encoding-4-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180354763,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"'\"}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "155df1c0-8b3d-46fd-82ea-51b44b4102ff"
+      }
+    },
+    {
+      "label": "encoding-4-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180355891,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:19:15+01:00",
+              "Size": 70
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "a7ebe622-e2a7-4442-91d7-84ff06fd7037"
+      }
+    },
+    {
+      "label": "encoding-5-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\"\u2028\"}"
+      },
+      "request_started_ms": 1790180356976,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "81f52369-bcb7-4b54-bef1-94b517c76863"
+      }
+    },
+    {
+      "label": "encoding-5-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180358401,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"\\u2028\"}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "06703458-902a-4b52-bdeb-9dcd44ca9440"
+      }
+    },
+    {
+      "label": "encoding-5-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180359522,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:19:19+01:00",
+              "Size": 70
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "de50158e-edbe-475f-8933-21903930e042"
+      }
+    },
+    {
+      "label": "encoding-6-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\"\u2029\"}"
+      },
+      "request_started_ms": 1790180360613,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "bdc9a98a-a19f-4c17-b818-f86d270e6b5c"
+      }
+    },
+    {
+      "label": "encoding-6-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180361918,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"\\u2029\"}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "6e73dacd-969c-47c9-b049-29f6a4d9c5fd"
+      }
+    },
+    {
+      "label": "encoding-6-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180362923,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:19:22+01:00",
+              "Size": 70
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "4e06b370-e638-4280-9c93-d2d9c332d0ca"
+      }
+    },
+    {
+      "label": "encoding-7-put",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\"\u00e9\u96ea\"}"
+      },
+      "request_started_ms": 1790180364017,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "da49a57f-8f41-450e-9f18-c1883ae67a16"
+      }
+    },
+    {
+      "label": "encoding-7-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180365526,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"\u00e9\u96ea\"}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "11aece8d-38b2-4245-b0df-3cef2d7e27d5"
+      }
+    },
+    {
+      "label": "encoding-7-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180366622,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:19:26+01:00",
+              "Size": 69
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "32f07eb4-9580-457c-b0b0-067c67521f89"
+      }
+    },
+    {
+      "label": "encoding-reset",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding",
+        "DashboardBody": "{\"widgets\":[]}"
+      },
+      "request_started_ms": 1790180367675,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "5bbd490d-0f3d-4926-82b4-7677df571dd4"
+      }
+    },
+    {
+      "label": "untag-never-tagged",
+      "service": "cloudwatch",
+      "operation": "untag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+        "TagKeys": [
+          "missing"
+        ]
+      },
+      "request_started_ms": 1790180369065,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "394cac43-3223-40af-955d-5940b8f860dc"
+      }
+    },
+    {
+      "label": "untag-never-tagged-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180370435,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-6204a35f2f-encoding"
+        },
+        "http_status": 200,
+        "request_id": "a6091753-dc2b-4454-bd99-69c25c65429f"
+      }
+    },
+    {
+      "label": "untag-never-tagged-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180371534,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-6204a35f2f-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+              "LastModified": "2026-09-23T17:19:31+01:00",
+              "Size": 200
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "8a2dfd61-e5ec-4937-902d-e616bdd92650"
+      }
+    },
+    {
+      "label": "tag-empty-list",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-6204a35f2f-encoding",
+        "Tags": []
+      },
+      "request_started_ms": 1790180372663,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "tags cannot be empty.",
+        "http_status": 400,
+        "request_id": "37728592-e15a-4cdc-806c-954c3203f316"
+      }
+    },
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790180729875,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200,
+        "request_id": "bcde1ccd-c143-4cc3-9d0d-95591b8e2621"
+      }
+    },
+    {
+      "label": "create-tag-accounting-control",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding",
+        "DashboardBody": "{\"widgets\":[]}"
+      },
+      "request_started_ms": 1790180730811,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "646a1875-7f5e-47e9-97ec-ffaa697c51ee"
+      }
+    },
+    {
+      "label": "tag-unicode-equals",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+        "Tags": [
+          {
+            "Key": "k",
+            "Value": "\u00e9=\u96ea"
+          },
+          {
+            "Key": "two",
+            "Value": "v"
+          }
+        ]
+      },
+      "request_started_ms": 1790180733243,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "754cbf20-aee5-43c8-8cb9-56b965886d99"
+      }
+    },
+    {
+      "label": "tag-unicode-equals-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180734733,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-4e448b2302-encoding"
+        },
+        "http_status": 200,
+        "request_id": "355f1dc7-c26c-4ea3-8e34-dca4a6679c18"
+      }
+    },
+    {
+      "label": "tag-unicode-equals-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180735878,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-4e448b2302-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+              "LastModified": "2026-09-23T17:25:35+01:00",
+              "Size": 237
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "24010c63-7654-4d4d-966e-882fef928ea3"
+      }
+    },
+    {
+      "label": "tag-unicode-equals-tags",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180736857,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "k",
+              "Value": "\u00e9=\u96ea"
+            },
+            {
+              "Key": "two",
+              "Value": "v"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "a2ef8a18-2ca7-4f39-8cc2-4033f22efd10"
+      }
+    },
+    {
+      "label": "tag-duplicate-key",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+        "Tags": [
+          {
+            "Key": "d",
+            "Value": "first"
+          },
+          {
+            "Key": "d",
+            "Value": "last"
+          }
+        ]
+      },
+      "request_started_ms": 1790180737996,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "b9b9ff47-584f-4b33-adbb-0167ea124da5"
+      }
+    },
+    {
+      "label": "tag-duplicate-key-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180739500,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-4e448b2302-encoding"
+        },
+        "http_status": 200,
+        "request_id": "802e7764-4ea9-423c-bb1c-032e5f44f818"
+      }
+    },
+    {
+      "label": "tag-duplicate-key-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180740737,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-4e448b2302-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+              "LastModified": "2026-09-23T17:25:40+01:00",
+              "Size": 248
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "f7119d64-4fda-4849-9de1-a3547f6c308a"
+      }
+    },
+    {
+      "label": "tag-duplicate-key-tags",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180741856,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "k",
+              "Value": "\u00e9=\u96ea"
+            },
+            {
+              "Key": "two",
+              "Value": "v"
+            },
+            {
+              "Key": "d",
+              "Value": "last"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "ddd51dc0-43d1-4cd2-a5ac-073ae75868df"
+      }
+    },
+    {
+      "label": "untag-empty-keys",
+      "service": "cloudwatch",
+      "operation": "untag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+        "TagKeys": []
+      },
+      "request_started_ms": 1790180743008,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "tagKeys cannot be empty.",
+        "http_status": 400,
+        "request_id": "3fa941b9-61f1-4201-a57e-75865a3d0bad"
+      }
+    },
+    {
+      "label": "untag-empty-keys-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180743920,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-4e448b2302-encoding"
+        },
+        "http_status": 200,
+        "request_id": "b061aa01-8ea2-4be2-b3ed-015077fb0cea"
+      }
+    },
+    {
+      "label": "untag-empty-keys-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180745105,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-4e448b2302-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+              "LastModified": "2026-09-23T17:25:40+01:00",
+              "Size": 248
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "3bf67f2e-53cf-4a2c-ab2a-7db31d4041be"
+      }
+    },
+    {
+      "label": "untag-empty-keys-tags",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180746236,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "k",
+              "Value": "\u00e9=\u96ea"
+            },
+            {
+              "Key": "two",
+              "Value": "v"
+            },
+            {
+              "Key": "d",
+              "Value": "last"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "1c88b205-2389-481c-a5b0-9b0eaab14468"
+      }
+    },
+    {
+      "label": "tag-reserved-prefix",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+        "Tags": [
+          {
+            "Key": "aws:owned",
+            "Value": "probe"
+          }
+        ]
+      },
+      "request_started_ms": 1790180747380,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "AccessDenied",
+        "message": "The provided tag keys must not start with any case of \"aws:\"",
+        "http_status": 403,
+        "request_id": "bba60cd3-e724-4434-b485-376872a881fa"
+      }
+    },
+    {
+      "label": "tag-reserved-prefix-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180748266,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-4e448b2302-encoding"
+        },
+        "http_status": 200,
+        "request_id": "a9110a28-1c69-4273-aa80-29116bc830fd"
+      }
+    },
+    {
+      "label": "tag-reserved-prefix-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180749411,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-4e448b2302-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+              "LastModified": "2026-09-23T17:25:40+01:00",
+              "Size": 248
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "bf0bf0ad-fa30-4e76-9026-50750431ffc2"
+      }
+    },
+    {
+      "label": "tag-reserved-prefix-tags",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180750510,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "k",
+              "Value": "\u00e9=\u96ea"
+            },
+            {
+              "Key": "two",
+              "Value": "v"
+            },
+            {
+              "Key": "d",
+              "Value": "last"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "9cd4fd61-7453-4e93-9b7c-59bbd0e567e6"
+      }
+    },
+    {
+      "label": "tag-empty-key",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+        "Tags": [
+          {
+            "Key": "",
+            "Value": "probe"
+          }
+        ]
+      },
+      "request_started_ms": 1790180751717,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "CLIError",
+        "message": "AWS CLI failed; raw diagnostics discarded",
+        "request_id": ""
+      }
+    },
+    {
+      "label": "tag-empty-key-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180752068,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-4e448b2302-encoding"
+        },
+        "http_status": 200,
+        "request_id": "f94cc9c9-a7b8-4a7a-9779-1be63590002c"
+      }
+    },
+    {
+      "label": "tag-empty-key-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180753201,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-4e448b2302-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+              "LastModified": "2026-09-23T17:25:40+01:00",
+              "Size": 248
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "855a881b-f244-460b-b96f-ed45dfb3ebb8"
+      }
+    },
+    {
+      "label": "tag-empty-key-tags",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180754290,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "k",
+              "Value": "\u00e9=\u96ea"
+            },
+            {
+              "Key": "two",
+              "Value": "v"
+            },
+            {
+              "Key": "d",
+              "Value": "last"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "69333fed-57be-4d36-8223-bbc342bae373"
+      }
+    },
+    {
+      "label": "replacement-51-ignored-tags",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding",
+        "DashboardBody": "{\"widgets\":[],\"unknown\":\"replacement\"}",
+        "Tags": [
+          {
+            "Key": "k0",
+            "Value": "v"
+          },
+          {
+            "Key": "k1",
+            "Value": "v"
+          },
+          {
+            "Key": "k2",
+            "Value": "v"
+          },
+          {
+            "Key": "k3",
+            "Value": "v"
+          },
+          {
+            "Key": "k4",
+            "Value": "v"
+          },
+          {
+            "Key": "k5",
+            "Value": "v"
+          },
+          {
+            "Key": "k6",
+            "Value": "v"
+          },
+          {
+            "Key": "k7",
+            "Value": "v"
+          },
+          {
+            "Key": "k8",
+            "Value": "v"
+          },
+          {
+            "Key": "k9",
+            "Value": "v"
+          },
+          {
+            "Key": "k10",
+            "Value": "v"
+          },
+          {
+            "Key": "k11",
+            "Value": "v"
+          },
+          {
+            "Key": "k12",
+            "Value": "v"
+          },
+          {
+            "Key": "k13",
+            "Value": "v"
+          },
+          {
+            "Key": "k14",
+            "Value": "v"
+          },
+          {
+            "Key": "k15",
+            "Value": "v"
+          },
+          {
+            "Key": "k16",
+            "Value": "v"
+          },
+          {
+            "Key": "k17",
+            "Value": "v"
+          },
+          {
+            "Key": "k18",
+            "Value": "v"
+          },
+          {
+            "Key": "k19",
+            "Value": "v"
+          },
+          {
+            "Key": "k20",
+            "Value": "v"
+          },
+          {
+            "Key": "k21",
+            "Value": "v"
+          },
+          {
+            "Key": "k22",
+            "Value": "v"
+          },
+          {
+            "Key": "k23",
+            "Value": "v"
+          },
+          {
+            "Key": "k24",
+            "Value": "v"
+          },
+          {
+            "Key": "k25",
+            "Value": "v"
+          },
+          {
+            "Key": "k26",
+            "Value": "v"
+          },
+          {
+            "Key": "k27",
+            "Value": "v"
+          },
+          {
+            "Key": "k28",
+            "Value": "v"
+          },
+          {
+            "Key": "k29",
+            "Value": "v"
+          },
+          {
+            "Key": "k30",
+            "Value": "v"
+          },
+          {
+            "Key": "k31",
+            "Value": "v"
+          },
+          {
+            "Key": "k32",
+            "Value": "v"
+          },
+          {
+            "Key": "k33",
+            "Value": "v"
+          },
+          {
+            "Key": "k34",
+            "Value": "v"
+          },
+          {
+            "Key": "k35",
+            "Value": "v"
+          },
+          {
+            "Key": "k36",
+            "Value": "v"
+          },
+          {
+            "Key": "k37",
+            "Value": "v"
+          },
+          {
+            "Key": "k38",
+            "Value": "v"
+          },
+          {
+            "Key": "k39",
+            "Value": "v"
+          },
+          {
+            "Key": "k40",
+            "Value": "v"
+          },
+          {
+            "Key": "k41",
+            "Value": "v"
+          },
+          {
+            "Key": "k42",
+            "Value": "v"
+          },
+          {
+            "Key": "k43",
+            "Value": "v"
+          },
+          {
+            "Key": "k44",
+            "Value": "v"
+          },
+          {
+            "Key": "k45",
+            "Value": "v"
+          },
+          {
+            "Key": "k46",
+            "Value": "v"
+          },
+          {
+            "Key": "k47",
+            "Value": "v"
+          },
+          {
+            "Key": "k48",
+            "Value": "v"
+          },
+          {
+            "Key": "k49",
+            "Value": "v"
+          },
+          {
+            "Key": "k50",
+            "Value": "v"
+          }
+        ]
+      },
+      "request_started_ms": 1790180755451,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": [
+            {
+              "DataPath": "",
+              "Message": "The \"unknown\" property is not expected, will be ignored"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "cff47a77-de39-4644-9f69-bbe189af455c"
+      }
+    },
+    {
+      "label": "replacement-51-ignored-tags-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180756876,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"replacement\"}",
+          "DashboardName": "sds-4e448b2302-encoding"
+        },
+        "http_status": 200,
+        "request_id": "643d24f7-5722-45d2-803a-93b62dfd8c18"
+      }
+    },
+    {
+      "label": "replacement-51-ignored-tags-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180757987,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-4e448b2302-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+              "LastModified": "2026-09-23T17:25:57+01:00",
+              "Size": 272
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "8aa5df91-12ac-4b54-b4d1-b07e11bc7fee"
+      }
+    },
+    {
+      "label": "replacement-51-ignored-tags-tags",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180759222,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "k",
+              "Value": "\u00e9=\u96ea"
+            },
+            {
+              "Key": "two",
+              "Value": "v"
+            },
+            {
+              "Key": "d",
+              "Value": "last"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "57691174-b3c7-4019-80e5-8f608eb82ab6"
+      }
+    },
+    {
+      "label": "untag-all",
+      "service": "cloudwatch",
+      "operation": "untag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+        "TagKeys": [
+          "k",
+          "two",
+          "d"
+        ]
+      },
+      "request_started_ms": 1790180761178,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "1b932da0-0e49-4e4d-a610-50ee7a811626"
+      }
+    },
+    {
+      "label": "untag-all-get",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180762773,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+          "DashboardBody": "{\"widgets\":[],\"unknown\":\"replacement\"}",
+          "DashboardName": "sds-4e448b2302-encoding"
+        },
+        "http_status": 200,
+        "request_id": "1fe3b06b-f2ac-4652-b5c1-ef983bcbbebb"
+      }
+    },
+    {
+      "label": "untag-all-list",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180763981,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": [
+            {
+              "DashboardName": "sds-4e448b2302-encoding",
+              "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding",
+              "LastModified": "2026-09-23T17:26:03+01:00",
+              "Size": 224
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "4c9648bf-e217-4f87-99fe-cd82cf9b7b2b"
+      }
+    },
+    {
+      "label": "untag-all-tags",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180765091,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": []
+        },
+        "http_status": 200,
+        "request_id": "cd8bbf50-8a72-42f3-8739-d0902896149d"
+      }
+    },
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790183264886,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200,
+        "request_id": "2c2bb24a-272c-4ccd-8efd-12b1d6344bea"
+      }
+    },
+    {
+      "label": "create-tag-scope-control",
+      "service": "cloudwatch",
+      "operation": "put-dashboard",
+      "input": {
+        "DashboardName": "sds-afb096de16-encoding",
+        "DashboardBody": "{\"widgets\":[]}",
+        "Tags": [
+          {
+            "Key": "Probe",
+            "Value": "scope"
+          }
+        ]
+      },
+      "request_started_ms": 1790183265980,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardValidationMessages": []
+        },
+        "http_status": 200,
+        "request_id": "bb450bdc-ebce-4299-a467-5f928e0efee7"
+      }
+    },
+    {
+      "label": "tags-global-reference",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-afb096de16-encoding"
+      },
+      "request_started_ms": 1790183267643,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "Probe",
+              "Value": "scope"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "e886dc26-396c-4444-9604-e821d7dac7e9"
+      }
+    },
+    {
+      "label": "tags-regional-reference",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-west-2:000000000000:dashboard/sds-afb096de16-encoding"
+      },
+      "request_started_ms": 1790183268856,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "ARN is invalid.",
+        "http_status": 400,
+        "request_id": "25ce540c-f382-4b87-9d1a-e22a1d2bf957"
+      }
+    },
+    {
+      "label": "tags-other-region-reference",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:000000000000:dashboard/sds-afb096de16-encoding"
+      },
+      "request_started_ms": 1790183269860,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Resource is not reachable in this region ('us-west-2')",
+        "http_status": 404,
+        "request_id": "963b5582-c031-4ffb-b634-9960a8a627e0"
+      }
+    },
+    {
+      "label": "tags-other-account-reference",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::999000999000:dashboard/sds-afb096de16-encoding"
+      },
+      "request_started_ms": 1790183270847,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "InvalidClientTokenId",
+        "message": "No account found for the given parameters",
+        "http_status": 403,
+        "request_id": "3e19b4e0-9e85-4677-b716-e3f47c7c78b1"
+      }
+    },
+    {
+      "label": "tags-other-partition-reference",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws-cn:cloudwatch::000000000000:dashboard/sds-afb096de16-encoding"
+      },
+      "request_started_ms": 1790183271840,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "",
+        "http_status": 404,
+        "request_id": "53d90384-a673-4877-af85-b097c02fb0be"
+      }
+    },
+    {
+      "label": "tags-missing-reference",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-afb096de16-encoding-missing"
+      },
+      "request_started_ms": 1790183273071,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "",
+        "http_status": 404,
+        "request_id": "def2ad38-0157-4792-b786-87b62686f2e0"
+      }
+    },
+    {
+      "label": "tags-invalid-resource-name",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch::000000000000:dashboard/sds-afb096de16-encoding/invalid"
+      },
+      "request_started_ms": 1790183274293,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "ARN is invalid.",
+        "http_status": 400,
+        "request_id": "dc9cd8dc-63a5-4123-a4a6-b82c993f8e7f"
+      }
+    },
+    {
+      "label": "delete-101-distinct-owned-names",
+      "service": "cloudwatch",
+      "operation": "delete-dashboards",
+      "input": {
+        "DashboardNames": [
+          "sds-afb096de16-encoding",
+          "sds-afb096de16-absent-0",
+          "sds-afb096de16-absent-1",
+          "sds-afb096de16-absent-2",
+          "sds-afb096de16-absent-3",
+          "sds-afb096de16-absent-4",
+          "sds-afb096de16-absent-5",
+          "sds-afb096de16-absent-6",
+          "sds-afb096de16-absent-7",
+          "sds-afb096de16-absent-8",
+          "sds-afb096de16-absent-9",
+          "sds-afb096de16-absent-10",
+          "sds-afb096de16-absent-11",
+          "sds-afb096de16-absent-12",
+          "sds-afb096de16-absent-13",
+          "sds-afb096de16-absent-14",
+          "sds-afb096de16-absent-15",
+          "sds-afb096de16-absent-16",
+          "sds-afb096de16-absent-17",
+          "sds-afb096de16-absent-18",
+          "sds-afb096de16-absent-19",
+          "sds-afb096de16-absent-20",
+          "sds-afb096de16-absent-21",
+          "sds-afb096de16-absent-22",
+          "sds-afb096de16-absent-23",
+          "sds-afb096de16-absent-24",
+          "sds-afb096de16-absent-25",
+          "sds-afb096de16-absent-26",
+          "sds-afb096de16-absent-27",
+          "sds-afb096de16-absent-28",
+          "sds-afb096de16-absent-29",
+          "sds-afb096de16-absent-30",
+          "sds-afb096de16-absent-31",
+          "sds-afb096de16-absent-32",
+          "sds-afb096de16-absent-33",
+          "sds-afb096de16-absent-34",
+          "sds-afb096de16-absent-35",
+          "sds-afb096de16-absent-36",
+          "sds-afb096de16-absent-37",
+          "sds-afb096de16-absent-38",
+          "sds-afb096de16-absent-39",
+          "sds-afb096de16-absent-40",
+          "sds-afb096de16-absent-41",
+          "sds-afb096de16-absent-42",
+          "sds-afb096de16-absent-43",
+          "sds-afb096de16-absent-44",
+          "sds-afb096de16-absent-45",
+          "sds-afb096de16-absent-46",
+          "sds-afb096de16-absent-47",
+          "sds-afb096de16-absent-48",
+          "sds-afb096de16-absent-49",
+          "sds-afb096de16-absent-50",
+          "sds-afb096de16-absent-51",
+          "sds-afb096de16-absent-52",
+          "sds-afb096de16-absent-53",
+          "sds-afb096de16-absent-54",
+          "sds-afb096de16-absent-55",
+          "sds-afb096de16-absent-56",
+          "sds-afb096de16-absent-57",
+          "sds-afb096de16-absent-58",
+          "sds-afb096de16-absent-59",
+          "sds-afb096de16-absent-60",
+          "sds-afb096de16-absent-61",
+          "sds-afb096de16-absent-62",
+          "sds-afb096de16-absent-63",
+          "sds-afb096de16-absent-64",
+          "sds-afb096de16-absent-65",
+          "sds-afb096de16-absent-66",
+          "sds-afb096de16-absent-67",
+          "sds-afb096de16-absent-68",
+          "sds-afb096de16-absent-69",
+          "sds-afb096de16-absent-70",
+          "sds-afb096de16-absent-71",
+          "sds-afb096de16-absent-72",
+          "sds-afb096de16-absent-73",
+          "sds-afb096de16-absent-74",
+          "sds-afb096de16-absent-75",
+          "sds-afb096de16-absent-76",
+          "sds-afb096de16-absent-77",
+          "sds-afb096de16-absent-78",
+          "sds-afb096de16-absent-79",
+          "sds-afb096de16-absent-80",
+          "sds-afb096de16-absent-81",
+          "sds-afb096de16-absent-82",
+          "sds-afb096de16-absent-83",
+          "sds-afb096de16-absent-84",
+          "sds-afb096de16-absent-85",
+          "sds-afb096de16-absent-86",
+          "sds-afb096de16-absent-87",
+          "sds-afb096de16-absent-88",
+          "sds-afb096de16-absent-89",
+          "sds-afb096de16-absent-90",
+          "sds-afb096de16-absent-91",
+          "sds-afb096de16-absent-92",
+          "sds-afb096de16-absent-93",
+          "sds-afb096de16-absent-94",
+          "sds-afb096de16-absent-95",
+          "sds-afb096de16-absent-96",
+          "sds-afb096de16-absent-97",
+          "sds-afb096de16-absent-98",
+          "sds-afb096de16-absent-99"
+        ]
+      },
+      "request_started_ms": 1790183275335,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "Field DashboardNames can contain up to 100 elements.",
+        "http_status": 400,
+        "request_id": "050295bd-87f6-42df-8344-0f04f27c3de0"
+      }
+    },
+    {
+      "label": "get-after-distinct-delete",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-afb096de16-encoding"
+      },
+      "request_started_ms": 1790183276312,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardArn": "arn:aws:cloudwatch::000000000000:dashboard/sds-afb096de16-encoding",
+          "DashboardBody": "{\"widgets\":[]}",
+          "DashboardName": "sds-afb096de16-encoding"
+        },
+        "http_status": 200,
+        "request_id": "869ab0f4-3808-4de3-a0b0-a39304bc6831"
+      }
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "delete-owned",
+      "service": "cloudwatch",
+      "operation": "delete-dashboards",
+      "input": {
+        "DashboardNames": [
+          "sds-e261aeaaa3-a",
+          "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ]
+      },
+      "request_started_ms": 1790180066486,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "6f054dc4-2b39-4d27-b014-bd97d6afe0de"
+      }
+    },
+    {
+      "label": "verify-absent-0",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-a"
+      },
+      "request_started_ms": 1790180067772,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFound",
+        "message": "Dashboard sds-e261aeaaa3-a does not exist",
+        "http_status": 404,
+        "request_id": "46453278-f5a9-4d79-8d51-a92ae91fa705"
+      }
+    },
+    {
+      "label": "verify-absent-1",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "request_started_ms": 1790180068861,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFound",
+        "message": "Dashboard sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx does not exist",
+        "http_status": 404,
+        "request_id": "baaad997-e96d-4d5f-8787-fe5266bc25f9"
+      }
+    },
+    {
+      "label": "verify-owned-prefix",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-e261aeaaa3"
+      },
+      "request_started_ms": 1790180069959,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": []
+        },
+        "http_status": 200,
+        "request_id": "98dba607-9c6b-4c45-a4d8-3c01ce6ae276"
+      }
+    },
+    {
+      "label": "delete-owned",
+      "service": "cloudwatch",
+      "operation": "delete-dashboards",
+      "input": {
+        "DashboardNames": [
+          "sds-6204a35f2f-encoding"
+        ]
+      },
+      "request_started_ms": 1790180373563,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "daffec81-6882-465d-9614-1938efd3ec19"
+      }
+    },
+    {
+      "label": "verify-absent-0",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-6204a35f2f-encoding"
+      },
+      "request_started_ms": 1790180374962,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFound",
+        "message": "Dashboard sds-6204a35f2f-encoding does not exist",
+        "http_status": 404,
+        "request_id": "02e6453e-e67c-4880-a0ec-f736c391aef6"
+      }
+    },
+    {
+      "label": "verify-owned-prefix",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-6204a35f2f"
+      },
+      "request_started_ms": 1790180376106,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": []
+        },
+        "http_status": 200,
+        "request_id": "b20c4601-53b7-4f2a-bdaa-f6168257fa55"
+      }
+    },
+    {
+      "label": "delete-owned",
+      "service": "cloudwatch",
+      "operation": "delete-dashboards",
+      "input": {
+        "DashboardNames": [
+          "sds-4e448b2302-encoding"
+        ]
+      },
+      "request_started_ms": 1790180766194,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "a63336a4-6c70-4b71-a982-0783d655a3f2"
+      }
+    },
+    {
+      "label": "verify-absent-0",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-4e448b2302-encoding"
+      },
+      "request_started_ms": 1790180767456,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFound",
+        "message": "Dashboard sds-4e448b2302-encoding does not exist",
+        "http_status": 404,
+        "request_id": "4d12a9fe-8568-4e6f-91d3-185c21ef2bf5"
+      }
+    },
+    {
+      "label": "verify-owned-prefix",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-4e448b2302"
+      },
+      "request_started_ms": 1790180768747,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": []
+        },
+        "http_status": 200,
+        "request_id": "0a90e625-2fe9-4827-a2dd-f41683ca3bed"
+      }
+    },
+    {
+      "label": "delete-owned",
+      "service": "cloudwatch",
+      "operation": "delete-dashboards",
+      "input": {
+        "DashboardNames": [
+          "sds-afb096de16-encoding"
+        ]
+      },
+      "request_started_ms": 1790183278334,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "1a18d80a-98c0-4f4f-8553-1e49c2e56a6f"
+      }
+    },
+    {
+      "label": "verify-absent-0",
+      "service": "cloudwatch",
+      "operation": "get-dashboard",
+      "input": {
+        "DashboardName": "sds-afb096de16-encoding"
+      },
+      "request_started_ms": 1790183279807,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFound",
+        "message": "Dashboard sds-afb096de16-encoding does not exist",
+        "http_status": 404,
+        "request_id": "3140094f-0971-4a0a-b8bc-d0738e88ca69"
+      }
+    },
+    {
+      "label": "verify-owned-prefix",
+      "service": "cloudwatch",
+      "operation": "list-dashboards",
+      "input": {
+        "DashboardNamePrefix": "sds-afb096de16"
+      },
+      "request_started_ms": 1790183281064,
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "DashboardEntries": []
+        },
+        "http_status": 200,
+        "request_id": "3fee16f3-fcb5-4bcd-bf48-c7b1ea81c30c"
+      }
+    }
+  ],
+  "cleanup_verification": {
+    "sds-e261aeaaa3-a": {
+      "code": "ResourceNotFound",
+      "observed_absent": true
+    },
+    "sds-e261aeaaa3-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+      "code": "ResourceNotFound",
+      "observed_absent": true
+    },
+    "prefix_empty": true,
+    "sds-6204a35f2f-encoding": {
+      "code": "ResourceNotFound",
+      "observed_absent": true
+    },
+    "sds-6204a35f2f_empty": true,
+    "sds-4e448b2302-encoding": {
+      "code": "ResourceNotFound",
+      "observed_absent": true
+    },
+    "sds-4e448b2302_empty": true,
+    "sds-afb096de16-encoding": {
+      "code": "ResourceNotFound",
+      "observed_absent": true
+    },
+    "sds-afb096de16_empty": true
+  },
+  "evidence_boundaries": [
+    "Owned native dashboard metadata experiment; no metric queries or rendering.",
+    "Native Size is preserved; no inferred accounting formula is asserted by this capture."
+  ]
+}

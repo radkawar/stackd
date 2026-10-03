@@ -1,0 +1,1516 @@
+{
+  "source": "Native AWS CLI, real authorized account",
+  "started": "2026-09-19T06:54:19.028131+00:00",
+  "region": "us-east-1",
+  "scope": "One owned PROVISIONED single-shard stream, custom bus/rule, source-conditioned EventBridge role with exact PutRecord stream permission, and exact-rule standard SQS DLQ. No warm commitment, existing policy changes or broad account/org permissions.",
+  "primary_references": [
+    "https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_KinesisParameters.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html"
+  ],
+  "observations": {
+    "delivered_records": 16,
+    "dlq_messages_observed": 0,
+    "partition_key_path": "$.detail.key",
+    "custom_partition_keys": {
+      "string": "\"tenant-1\"",
+      "empty": "\"\"",
+      "missing": "{}",
+      "null": "{}",
+      "integer": "42",
+      "boolean": "true",
+      "object": "{\"a\":1}",
+      "array": "[\"a\",\"b\"]"
+    },
+    "default_partition_key": "Each of eight observed default keys equals the admitted EventId followed by underscore and an opaque UUID.",
+    "transformed_payload": "Both targets received the projected case/target object, while the custom key was selected from the original event's omitted detail.key."
+  },
+  "limitations": [
+    "One account, Region and run; 105-second post-admission observation bound.",
+    "Default UUID suffix generation and stability across retries were not measured. The implementation uses retained delivery identity for stable routing.",
+    "No throttling, KMS errors, oversized key or cross-account deliveries were exercised by this native probe."
+  ],
+  "calls": [
+    {
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "at": "2026-09-19T06:54:19.028160+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "create-stream",
+      "input": {
+        "StreamName": "stackd-eb-kinesis-77d2f1b85ef3",
+        "ShardCount": 1,
+        "StreamModeDetails": {
+          "StreamMode": "PROVISIONED"
+        }
+      },
+      "at": "2026-09-19T06:55:18.958714+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "events",
+      "operation": "create-event-bus",
+      "input": {
+        "Name": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:55:19.821283+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "EventBusArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-kinesis-77d2f1b85ef3"
+        }
+      }
+    },
+    {
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+        "Name": "owned",
+        "EventPattern": "{\"source\": [\"stackd.owned.kinesis-key\"]}"
+      },
+      "at": "2026-09-19T06:55:20.612826+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-kinesis-77d2f1b85ef3/owned"
+        }
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "create-role",
+      "input": {
+        "RoleName": "stackd-eb-kinesis-77d2f1b85ef3",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:000000000000:rule/stackd-eb-kinesis-77d2f1b85ef3/owned\"}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+      },
+      "at": "2026-09-19T06:55:21.386856+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "RoleId": "AROAQAAAAAAAKCD4UEQOC",
+            "Arn": "arn:aws:iam::000000000000:role/stackd-eb-kinesis-77d2f1b85ef3",
+            "CreateDate": "2026-09-19T06:55:22+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "events.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole",
+                  "Condition": {
+                    "ArnEquals": {
+                      "aws:SourceArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-kinesis-77d2f1b85ef3/owned"
+                    },
+                    "StringEquals": {
+                      "aws:SourceAccount": "000000000000"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-eb-kinesis-77d2f1b85ef3",
+        "PolicyName": "owned",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"kinesis:PutRecord\", \"Resource\": \"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3\"}]}"
+      },
+      "at": "2026-09-19T06:55:22.153124+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:55:22.942437+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3"
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-eb-kinesis-77d2f1b85ef3\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:000000000000:rule/stackd-eb-kinesis-77d2f1b85ef3/owned\"}}}]}"
+        }
+      },
+      "at": "2026-09-19T06:55:23.733597+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+        "Rule": "owned",
+        "Targets": [
+          {
+            "Id": "default",
+            "Arn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-kinesis-77d2f1b85ef3",
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-eb-kinesis-77d2f1b85ef3"
+            },
+            "InputTransformer": {
+              "InputPathsMap": {
+                "case": "$.detail.case"
+              },
+              "InputTemplate": "{\"case\":<case>,\"target\":\"default\"}"
+            }
+          },
+          {
+            "Id": "custom",
+            "Arn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-kinesis-77d2f1b85ef3",
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-eb-kinesis-77d2f1b85ef3"
+            },
+            "InputTransformer": {
+              "InputPathsMap": {
+                "case": "$.detail.case"
+              },
+              "InputTemplate": "{\"case\":<case>,\"target\":\"custom\"}"
+            },
+            "KinesisParameters": {
+              "PartitionKeyPath": "$.detail.key"
+            }
+          }
+        ]
+      },
+      "at": "2026-09-19T06:55:24.518451+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      }
+    },
+    {
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "input": {
+        "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+        "Rule": "owned"
+      },
+      "at": "2026-09-19T06:55:25.289187+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": [
+            {
+              "Id": "custom",
+              "Arn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+              "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-kinesis-77d2f1b85ef3",
+              "InputTransformer": {
+                "InputPathsMap": {
+                  "case": "$.detail.case"
+                },
+                "InputTemplate": "{\"case\":<case>,\"target\":\"custom\"}"
+              },
+              "KinesisParameters": {
+                "PartitionKeyPath": "$.detail.key"
+              },
+              "DeadLetterConfig": {
+                "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-eb-kinesis-77d2f1b85ef3"
+              },
+              "RetryPolicy": {
+                "MaximumRetryAttempts": 0,
+                "MaximumEventAgeInSeconds": 60
+              }
+            },
+            {
+              "Id": "default",
+              "Arn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+              "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-kinesis-77d2f1b85ef3",
+              "InputTransformer": {
+                "InputPathsMap": {
+                  "case": "$.detail.case"
+                },
+                "InputTemplate": "{\"case\":<case>,\"target\":\"default\"}"
+              },
+              "DeadLetterConfig": {
+                "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-eb-kinesis-77d2f1b85ef3"
+              },
+              "RetryPolicy": {
+                "MaximumRetryAttempts": 0,
+                "MaximumEventAgeInSeconds": 60
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "describe-stream-summary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:55:26.005442+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "StreamDescriptionSummary": {
+            "StreamName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+            "StreamStatus": "ACTIVE",
+            "StreamModeDetails": {
+              "StreamMode": "PROVISIONED"
+            },
+            "RetentionPeriodHours": 24,
+            "StreamCreationTimestamp": "2026-09-19T07:55:18+01:00",
+            "EnhancedMonitoring": [
+              {
+                "ShardLevelMetrics": []
+              }
+            ],
+            "EncryptionType": "NONE",
+            "OpenShardCount": 1,
+            "ConsumerCount": 0,
+            "MaxRecordSizeInKiB": 1024
+          }
+        }
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "list-shards",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:55:41.839295+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Shards": [
+            {
+              "ShardId": "shardId-999000999000",
+              "HashKeyRange": {
+                "StartingHashKey": "0",
+                "EndingHashKey": "340282366920938463463374607431768211455"
+              },
+              "SequenceNumberRange": {
+                "StartingSequenceNumber": "49678479614292634922734957717922986109140306674751373314"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-shard-iterator",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+        "ShardId": "shardId-999000999000",
+        "ShardIteratorType": "TRIM_HORIZON"
+      },
+      "at": "2026-09-19T06:55:42.560555+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ShardIterator": "AAAAAAAAAAHnJUJN9Gi75CPyJ4KAiIWo17WPSoc4WVhIzYd8gZOaEjObSynkGUSDwJDebNC6q7m5GvgLAleiCuN/Kg6K3/NQmBf3INuxqOz6r+VOsiA59FVV/4sW4+pLVECgtJAbeHfYgx+89pgk5Q88tGcqSTdhoRKEugnZwu+NwoYjdr6V/A8kf1Juq48Chtr09YsKITcS3oCy/e+mUVIikPWk2/8cQesPeNxT938hu6A4h7JEADkgr3LNYD03bGzVU2HliHM="
+        }
+      }
+    },
+    {
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "Source": "stackd.owned.kinesis-key",
+            "DetailType": "partition-key",
+            "Detail": "{\"case\": \"string\", \"key\": \"tenant-1\"}"
+          },
+          {
+            "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "Source": "stackd.owned.kinesis-key",
+            "DetailType": "partition-key",
+            "Detail": "{\"case\": \"missing\"}"
+          },
+          {
+            "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "Source": "stackd.owned.kinesis-key",
+            "DetailType": "partition-key",
+            "Detail": "{\"case\": \"null\", \"key\": null}"
+          },
+          {
+            "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "Source": "stackd.owned.kinesis-key",
+            "DetailType": "partition-key",
+            "Detail": "{\"case\": \"integer\", \"key\": 42}"
+          },
+          {
+            "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "Source": "stackd.owned.kinesis-key",
+            "DetailType": "partition-key",
+            "Detail": "{\"case\": \"boolean\", \"key\": true}"
+          },
+          {
+            "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "Source": "stackd.owned.kinesis-key",
+            "DetailType": "partition-key",
+            "Detail": "{\"case\": \"object\", \"key\": {\"a\": 1}}"
+          },
+          {
+            "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "Source": "stackd.owned.kinesis-key",
+            "DetailType": "partition-key",
+            "Detail": "{\"case\": \"array\", \"key\": [\"a\", \"b\"]}"
+          },
+          {
+            "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "Source": "stackd.owned.kinesis-key",
+            "DetailType": "partition-key",
+            "Detail": "{\"case\": \"empty\", \"key\": \"\"}"
+          }
+        ]
+      },
+      "at": "2026-09-19T06:55:43.337224+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "4d2fb565-7a1c-da78-4ddc-35ff46269b75"
+            },
+            {
+              "EventId": "98e483d9-d9e5-7a77-6bd5-5dcd734f6d91"
+            },
+            {
+              "EventId": "4cc5f584-a8f2-ee1f-d57d-585c3a985a15"
+            },
+            {
+              "EventId": "dc35e1d6-01c0-8705-e26d-7a224b6fcf69"
+            },
+            {
+              "EventId": "0390391b-033c-8674-7406-994a4fbb7669"
+            },
+            {
+              "EventId": "1b064609-0576-70f2-013e-752b111df4a8"
+            },
+            {
+              "EventId": "614bc579-9645-84db-1a9a-4e44e1b89c57"
+            },
+            {
+              "EventId": "b9733254-764a-e84b-41e2-295950a820c0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAHnJUJN9Gi75CPyJ4KAiIWo17WPSoc4WVhIzYd8gZOaEjObSynkGUSDwJDebNC6q7m5GvgLAleiCuN/Kg6K3/NQmBf3INuxqOz6r+VOsiA59FVV/4sW4+pLVECgtJAbeHfYgx+89pgk5Q88tGcqSTdhoRKEugnZwu+NwoYjdr6V/A8kf1Juq48Chtr09YsKITcS3oCy/e+mUVIikPWk2/8cQesPeNxT938hu6A4h7JEADkgr3LNYD03bGzVU2HliHM=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:55:44.061687+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [
+            {
+              "SequenceNumber": "49678479614292634922735038420982253858243183128149491714",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.033000+01:00",
+              "Data": "eyJjYXNlIjoibnVsbCIsInRhcmdldCI6ImRlZmF1bHQifQ==",
+              "PartitionKey": "4cc5f584-a8f2-ee1f-d57d-585c3a985a15_1d717667-6f9d-4e50-3ea4-5fb905f6b561"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420983462784062797757324197890",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.038000+01:00",
+              "Data": "eyJjYXNlIjoiYXJyYXkiLCJ0YXJnZXQiOiJkZWZhdWx0In0=",
+              "PartitionKey": "614bc579-9645-84db-1a9a-4e44e1b89c57_84b211f9-feb3-9b0e-60ef-8c8eb524d88b"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420984671709882412386498904066",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.040000+01:00",
+              "Data": "eyJjYXNlIjoiYXJyYXkiLCJ0YXJnZXQiOiJjdXN0b20ifQ==",
+              "PartitionKey": "[\"a\",\"b\"]"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420985880635702027015673610242",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.040000+01:00",
+              "Data": "eyJjYXNlIjoic3RyaW5nIiwidGFyZ2V0IjoiZGVmYXVsdCJ9",
+              "PartitionKey": "4d2fb565-7a1c-da78-4ddc-35ff46269b75_9479326d-fa5e-cdc7-5b46-606f5ce63de3"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420987089561521641644848316418",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.041000+01:00",
+              "Data": "eyJjYXNlIjoiYm9vbGVhbiIsInRhcmdldCI6ImN1c3RvbSJ9",
+              "PartitionKey": "true"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420988298487341256274023022594",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.042000+01:00",
+              "Data": "eyJjYXNlIjoic3RyaW5nIiwidGFyZ2V0IjoiY3VzdG9tIn0=",
+              "PartitionKey": "\"tenant-1\""
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420989507413160870903197728770",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.045000+01:00",
+              "Data": "eyJjYXNlIjoiYm9vbGVhbiIsInRhcmdldCI6ImRlZmF1bHQifQ==",
+              "PartitionKey": "0390391b-033c-8674-7406-994a4fbb7669_b86d9634-5e36-047f-110a-249a4957b342"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420990716338980485532372434946",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.045000+01:00",
+              "Data": "eyJjYXNlIjoiaW50ZWdlciIsInRhcmdldCI6ImN1c3RvbSJ9",
+              "PartitionKey": "42"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420991925264800100161547141122",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.048000+01:00",
+              "Data": "eyJjYXNlIjoibWlzc2luZyIsInRhcmdldCI6ImN1c3RvbSJ9",
+              "PartitionKey": "{}"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420993134190619714790721847298",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.048000+01:00",
+              "Data": "eyJjYXNlIjoiZW1wdHkiLCJ0YXJnZXQiOiJjdXN0b20ifQ==",
+              "PartitionKey": "\"\""
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420994343116439329419896553474",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.051000+01:00",
+              "Data": "eyJjYXNlIjoibWlzc2luZyIsInRhcmdldCI6ImRlZmF1bHQifQ==",
+              "PartitionKey": "98e483d9-d9e5-7a77-6bd5-5dcd734f6d91_91b6502e-da99-1ea4-45f8-abf99fae7eb4"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420995552042258944049071259650",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.058000+01:00",
+              "Data": "eyJjYXNlIjoibnVsbCIsInRhcmdldCI6ImN1c3RvbSJ9",
+              "PartitionKey": "{}"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038420999178819717787936595378178",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.065000+01:00",
+              "Data": "eyJjYXNlIjoiZW1wdHkiLCJ0YXJnZXQiOiJkZWZhdWx0In0=",
+              "PartitionKey": "b9733254-764a-e84b-41e2-295950a820c0_fecd7250-b35c-d5c9-feed-c46f241bef86"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038421000387745537402565770084354",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.074000+01:00",
+              "Data": "eyJjYXNlIjoiaW50ZWdlciIsInRhcmdldCI6ImRlZmF1bHQifQ==",
+              "PartitionKey": "dc35e1d6-01c0-8705-e26d-7a224b6fcf69_cecf61e1-f813-e7b9-e413-b2f746dc04d3"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038421001596671357017194944790530",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.079000+01:00",
+              "Data": "eyJjYXNlIjoib2JqZWN0IiwidGFyZ2V0IjoiZGVmYXVsdCJ9",
+              "PartitionKey": "1b064609-0576-70f2-013e-752b111df4a8_819111d5-5f31-811e-9620-b7ce8ce470bc"
+            },
+            {
+              "SequenceNumber": "49678479614292634922735038421002805597176631824119496706",
+              "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.083000+01:00",
+              "Data": "eyJjYXNlIjoib2JqZWN0IiwidGFyZ2V0IjoiY3VzdG9tIn0=",
+              "PartitionKey": "{\"a\":1}"
+            }
+          ],
+          "NextShardIterator": "AAAAAAAAAAHCLC2V71RXsdujlIz2shOvFIvlBn4YUrQemZjMmxT7jisdRQiOInkSI9Gd4lW7yHJfyiMXrdH4gD/kv2NvL7JNoCZfaHOPiKqoM9y/1GBAX7SBvl7aIkNZX/eAbmXYfp4OBMX1H03rRGoF2+dtxJUiiKBn0cwVevH8m6UWS8MzZqzp5kSpWCCt/8H6lb6/J9fhDOzqfqfgLASqXQjpe4rplxiO6GJO48z7Y8MgF5CIE/5kLLeokIaf5ZMthfPkh84=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:55:44.785208+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAHCLC2V71RXsdujlIz2shOvFIvlBn4YUrQemZjMmxT7jisdRQiOInkSI9Gd4lW7yHJfyiMXrdH4gD/kv2NvL7JNoCZfaHOPiKqoM9y/1GBAX7SBvl7aIkNZX/eAbmXYfp4OBMX1H03rRGoF2+dtxJUiiKBn0cwVevH8m6UWS8MzZqzp5kSpWCCt/8H6lb6/J9fhDOzqfqfgLASqXQjpe4rplxiO6GJO48z7Y8MgF5CIE/5kLLeokIaf5ZMthfPkh84=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:55:50.500482+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAFht/WP2f1g4jAnnav54c1mlSlyXZdMn9LIN7WBnQGw2jZ+N43Lf/IPCvh393IxbFi7VavTX9EXxR20wePCAM8IDtL5leDldnhXSs4ilL8pqDfTmjzUNgEdKS80p/rzxRbPk2kaGsCECmD2JgY2t6iFeHrLf1pmyvJ7ncAw+E3rRA6zgvuth7T/PyzEKzOZoIzLyINJg7xys3qJPRgigidFYmC1e4sNzDzaiJBdKepr5o/OERBPc49iZBzIyi6a5Ts=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:55:51.213851+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAFht/WP2f1g4jAnnav54c1mlSlyXZdMn9LIN7WBnQGw2jZ+N43Lf/IPCvh393IxbFi7VavTX9EXxR20wePCAM8IDtL5leDldnhXSs4ilL8pqDfTmjzUNgEdKS80p/rzxRbPk2kaGsCECmD2JgY2t6iFeHrLf1pmyvJ7ncAw+E3rRA6zgvuth7T/PyzEKzOZoIzLyINJg7xys3qJPRgigidFYmC1e4sNzDzaiJBdKepr5o/OERBPc49iZBzIyi6a5Ts=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:55:56.912133+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAFfqFWwlLjojCsbRyVgSfZVOCE0FzRkM+krtPFjFuJgftfPLeyJGjnlNiqO12ied0U7SvVnVXdCCOiipjl64sxvNl1WgSYIO+7ctjVgmks/o3OX2LgWfnjF27Pq/WZkZvuSmvyaCrevMuhsGzmbykGvBpDbukIAo92IuAm6BZXPz3Q/tIPJitjiKiUMDzuCb9ZwE0J6ZniDQeQOyGS4LRckEpkeIot6JDGnz2lXnviUiiJlOmJBsxnJxWyNHwYFqOQ=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:55:57.638111+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAFfqFWwlLjojCsbRyVgSfZVOCE0FzRkM+krtPFjFuJgftfPLeyJGjnlNiqO12ied0U7SvVnVXdCCOiipjl64sxvNl1WgSYIO+7ctjVgmks/o3OX2LgWfnjF27Pq/WZkZvuSmvyaCrevMuhsGzmbykGvBpDbukIAo92IuAm6BZXPz3Q/tIPJitjiKiUMDzuCb9ZwE0J6ZniDQeQOyGS4LRckEpkeIot6JDGnz2lXnviUiiJlOmJBsxnJxWyNHwYFqOQ=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:56:03.336661+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAGUW0xw4tDm4kEOsI01CKrXkNiJRiU+rLK4Yq4Gb1GlFI5h+ODggLJXVS+pP7IGTBf9nbF0PGjYxEU7t8jGC69I+5iPh1RL1zMJSRVVTB1hTSTDd025De5ktVVmOvTV41hj6p8M9OnYstiWl+jYlTwQFQ9EaNS7ahfRAT7lnZyhvrP4yGUw1FEWbvq4r+x5qS4YKUOF7o3ThRKWbe7uZJGE7ASyOG01v5bhPmI9ZVKwhDTmzO3HZEpMS7WUCFb+jRk=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:56:04.101870+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAGUW0xw4tDm4kEOsI01CKrXkNiJRiU+rLK4Yq4Gb1GlFI5h+ODggLJXVS+pP7IGTBf9nbF0PGjYxEU7t8jGC69I+5iPh1RL1zMJSRVVTB1hTSTDd025De5ktVVmOvTV41hj6p8M9OnYstiWl+jYlTwQFQ9EaNS7ahfRAT7lnZyhvrP4yGUw1FEWbvq4r+x5qS4YKUOF7o3ThRKWbe7uZJGE7ASyOG01v5bhPmI9ZVKwhDTmzO3HZEpMS7WUCFb+jRk=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:56:09.836596+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAFtPn+YGWO2WCG+tNC70D4S7bAct3njNBz9SQHaq+9/LnbZh/FN4YZh+OrNSse2NmsryiK9GSQq1YkqxFV6uZWqtvOxcJTdW2aS5amaKnS/MH74VGm1STHFsZ4w+leoyBX7o7W6YtOpRySIWAn1iVl13BUpl0gUSZaGkGwCnn5pKj1ujy2PCOntCPA3wZMFXqVLGPsmegi3G1Z9fABnmAp+dyf2++frlsW8syLUOr5rS/dcazCxLaCGVfUpfTA1m/0=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:56:10.623376+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAFtPn+YGWO2WCG+tNC70D4S7bAct3njNBz9SQHaq+9/LnbZh/FN4YZh+OrNSse2NmsryiK9GSQq1YkqxFV6uZWqtvOxcJTdW2aS5amaKnS/MH74VGm1STHFsZ4w+leoyBX7o7W6YtOpRySIWAn1iVl13BUpl0gUSZaGkGwCnn5pKj1ujy2PCOntCPA3wZMFXqVLGPsmegi3G1Z9fABnmAp+dyf2++frlsW8syLUOr5rS/dcazCxLaCGVfUpfTA1m/0=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:56:16.386117+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAHmjurFwhLZwaShrXxzMk9rDJXBcHlDcHnuohIbxbgVgT5MIl4SjIfOLFcZ6kuQDzvtLBtMD2+CSYcUAES16m1PymHv+vuELevJVXZiKvz3I/fxTy6Xdbi4j7OKOOeHhTymp2MFm/ZKeNk0bVFsbBk1v0NRmBLJ9RgI6/QhS92jVbciYI7fHuPJcJRXF50eWqxeq71vzMO4swDPfcVsXxoigXLN7kITUNf21wlIPcc41+VvwELQY1+z/TAui1PKVOw=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:56:17.127242+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAHmjurFwhLZwaShrXxzMk9rDJXBcHlDcHnuohIbxbgVgT5MIl4SjIfOLFcZ6kuQDzvtLBtMD2+CSYcUAES16m1PymHv+vuELevJVXZiKvz3I/fxTy6Xdbi4j7OKOOeHhTymp2MFm/ZKeNk0bVFsbBk1v0NRmBLJ9RgI6/QhS92jVbciYI7fHuPJcJRXF50eWqxeq71vzMO4swDPfcVsXxoigXLN7kITUNf21wlIPcc41+VvwELQY1+z/TAui1PKVOw=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:56:22.843761+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAGNd6FqtPERmxQzWU3/PRdFGdPvLNZ5mgZcAYGMkWFcSpQkCj0dv/KNGAvrZnjnd9y0Ni7h582jR3owu+rgnLsIIjFYJ1xTmS7MTYvzyshhk9zXj6avcc2xgSILCScUSxzV0Kmsw6Rmt9AOfVm0l8DLcbY/P5YHO6P57/FfHScyLbbjYUUZ7V1ldqWirvf6LjY7bh8mxLcQoUistAE1zWrYDn2DiVP14SzaDrFWXqbibaUZvIY+ZU7fxbGDW08UGhI=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:56:23.571509+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAGNd6FqtPERmxQzWU3/PRdFGdPvLNZ5mgZcAYGMkWFcSpQkCj0dv/KNGAvrZnjnd9y0Ni7h582jR3owu+rgnLsIIjFYJ1xTmS7MTYvzyshhk9zXj6avcc2xgSILCScUSxzV0Kmsw6Rmt9AOfVm0l8DLcbY/P5YHO6P57/FfHScyLbbjYUUZ7V1ldqWirvf6LjY7bh8mxLcQoUistAE1zWrYDn2DiVP14SzaDrFWXqbibaUZvIY+ZU7fxbGDW08UGhI=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:56:29.339276+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAFuypD0pssjYdqcpRcfF8tkAuzJc3gigpVGES1t5onoIH4+Pjfekv00TDNJNz99OCkvP4PPi9Q9lfeMX+mxNqTUEx6YFtNfdE0Oe8X2wga1e3da/xK55HSFO79xD42MGFyeAeuAu+L4/n8v99LGkDfyZ7XhBt6aBEB1cfoGpaYl/WBw7Xy9p27WTX4FsL9cvq0WVEGjWGtpWNrt4I7PSjWbYCigJ00zVCsGRLvpFW+YvZ2rhWHe7IYBFjKb8vcxVbA=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:56:30.063304+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAFuypD0pssjYdqcpRcfF8tkAuzJc3gigpVGES1t5onoIH4+Pjfekv00TDNJNz99OCkvP4PPi9Q9lfeMX+mxNqTUEx6YFtNfdE0Oe8X2wga1e3da/xK55HSFO79xD42MGFyeAeuAu+L4/n8v99LGkDfyZ7XhBt6aBEB1cfoGpaYl/WBw7Xy9p27WTX4FsL9cvq0WVEGjWGtpWNrt4I7PSjWbYCigJ00zVCsGRLvpFW+YvZ2rhWHe7IYBFjKb8vcxVbA=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:56:35.764661+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAFQNBFxkKx4BXBqtBNTo9bOxvID/+tna7vZJhQ1Bzb84PWjZnBTTIXgYaXmGC0asLYRqxLqQ2Z/VsbUf63TZ8jEuaJRsnvdaKEJeyHxN8CY1zjIeFXZ/y6Fipr/LkWuptuiEN6xxZ2R3mCU6j/fn0p7iJhGKYkljlsN1WeRRCYlB7LRw9hWcRXOgoIo7sVIHWAUC/Vz3Yq3YDDaRFM4IwBED3uGBRCfjJ2vKdgnrdimENPiEAaBWE/Q/k8ynvUCQ7c=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:56:36.504432+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAFQNBFxkKx4BXBqtBNTo9bOxvID/+tna7vZJhQ1Bzb84PWjZnBTTIXgYaXmGC0asLYRqxLqQ2Z/VsbUf63TZ8jEuaJRsnvdaKEJeyHxN8CY1zjIeFXZ/y6Fipr/LkWuptuiEN6xxZ2R3mCU6j/fn0p7iJhGKYkljlsN1WeRRCYlB7LRw9hWcRXOgoIo7sVIHWAUC/Vz3Yq3YDDaRFM4IwBED3uGBRCfjJ2vKdgnrdimENPiEAaBWE/Q/k8ynvUCQ7c=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:56:42.187572+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAFl4lBWqD/Ej5Xex1buW/GfUmZulWD8xiJLJnxVBipvViZ9Xir8e/3I6LDM2ldXmp1rqH9G1OdtsCdvVfUAGqO+dY1UZ5stBj1AKZbfJWkGAq+U8UBJI5l7qUBInV0uc9V27XvUk9IwQlwDlAlm0zR2EHoz/WjaZJY5rOUc7Pni/065I8YWg5dliMveCRrOkMqLrfpZ/LIw/nEjpsWp2vQzimWGyhOZ8HHXbnnR5qNLV9t5vLnwqt6Yf92g/Us+VW8=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:56:42.909143+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAFl4lBWqD/Ej5Xex1buW/GfUmZulWD8xiJLJnxVBipvViZ9Xir8e/3I6LDM2ldXmp1rqH9G1OdtsCdvVfUAGqO+dY1UZ5stBj1AKZbfJWkGAq+U8UBJI5l7qUBInV0uc9V27XvUk9IwQlwDlAlm0zR2EHoz/WjaZJY5rOUc7Pni/065I8YWg5dliMveCRrOkMqLrfpZ/LIw/nEjpsWp2vQzimWGyhOZ8HHXbnnR5qNLV9t5vLnwqt6Yf92g/Us+VW8=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:56:48.595841+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAFC8TCus91744TQhURpot9PuLWrs7cXsQ8La0V2b8cWtdOAZWRzJjwisQqGBHui03RVWO7Ejl5KU7JUl7HGN+OJMQi0sjF98umSQmedm9qJc328zPtiY1v/DGhIwDcddIkQ9u1tjTNpL2jB4s0FhFAXKGSTjhZjykeLSnhJ01upA5ufTCihOf6O8J0WnZr9yOSdYW9mTFBCkHxAPTh2UqhlQDT3ZrsM21w9bQhwdIFdMhZ7Ge9IW5QF1U3dSIE9w98=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:56:49.277146+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAFC8TCus91744TQhURpot9PuLWrs7cXsQ8La0V2b8cWtdOAZWRzJjwisQqGBHui03RVWO7Ejl5KU7JUl7HGN+OJMQi0sjF98umSQmedm9qJc328zPtiY1v/DGhIwDcddIkQ9u1tjTNpL2jB4s0FhFAXKGSTjhZjykeLSnhJ01upA5ufTCihOf6O8J0WnZr9yOSdYW9mTFBCkHxAPTh2UqhlQDT3ZrsM21w9bQhwdIFdMhZ7Ge9IW5QF1U3dSIE9w98=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:56:54.994573+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAHx/VyY8ZachMx5LZNddvl/lHYaZ54aDHRg7tLAWcaTYVeYLH6CiPqtjEBglNLeHx5mPo5ub+gJwxHA7QeMFkAQInZkZUsA7Z+62Glml2l8fQ2HAy80LFFjiLPf9ew2zJ/XwUVxxfp8paQ6smSTlh2RJo1tVU5XKl0qLDXrkl8h8OxHQBw6lctnGa9ohqhWjQTBZEzJCt1SsQxGXKBOoxXxHGhfPdrcM8DNbhg9Ii58KSfuvOrr02xK0Mhl9u1l/Qo=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:56:55.671263+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAHx/VyY8ZachMx5LZNddvl/lHYaZ54aDHRg7tLAWcaTYVeYLH6CiPqtjEBglNLeHx5mPo5ub+gJwxHA7QeMFkAQInZkZUsA7Z+62Glml2l8fQ2HAy80LFFjiLPf9ew2zJ/XwUVxxfp8paQ6smSTlh2RJo1tVU5XKl0qLDXrkl8h8OxHQBw6lctnGa9ohqhWjQTBZEzJCt1SsQxGXKBOoxXxHGhfPdrcM8DNbhg9Ii58KSfuvOrr02xK0Mhl9u1l/Qo=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:57:01.410802+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAFfeOFq3XorjMYPOz4IdXgrkXdl4v/0thWT9VGa/QXC/LRB0P6Mjd7f5YPkEhkRe9EhgqolQoNJ0PXhHxiqxM1NgVeqPyZzH00gNGFFxPx8hDVVKEtVqTcpqwiOJpVB/LePkjIAknMzfkd0HoT8YCgv1OM8v82lcJ+9cocOnKmkTFBzmniewtPMhmOyPVD6FRnG4aUE0a37k+jVo2plY/T634/KulXENKx/Foirpk5D9R7kRkgqkb9vJRPekCS7KXE=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:57:02.119638+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAFfeOFq3XorjMYPOz4IdXgrkXdl4v/0thWT9VGa/QXC/LRB0P6Mjd7f5YPkEhkRe9EhgqolQoNJ0PXhHxiqxM1NgVeqPyZzH00gNGFFxPx8hDVVKEtVqTcpqwiOJpVB/LePkjIAknMzfkd0HoT8YCgv1OM8v82lcJ+9cocOnKmkTFBzmniewtPMhmOyPVD6FRnG4aUE0a37k+jVo2plY/T634/KulXENKx/Foirpk5D9R7kRkgqkb9vJRPekCS7KXE=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:57:07.857046+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAHoHJ/MTfrymsMoEOT0TXNmtxjq3NztyJhpbT/PIjeAu66IaXc9m11flpMG1op1AgkwibqYrZ51+ct/BeNOERRqT6OYhYRMAOT+nYIR7adqW78eI2zw5AXqh0Yu3aJrzXnp5qeCUKu40fdYGdPYN1JGUlr0I234HaaakZQT1v4yro0sgMOppbLclCsjMn2xZCmWZiQR/BOqfm8faFNGteFaZYaka62N8SqIDAJBmCnWFzEWJMo3Nhrxlfr5YCuIQa4=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:57:08.548567+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAHoHJ/MTfrymsMoEOT0TXNmtxjq3NztyJhpbT/PIjeAu66IaXc9m11flpMG1op1AgkwibqYrZ51+ct/BeNOERRqT6OYhYRMAOT+nYIR7adqW78eI2zw5AXqh0Yu3aJrzXnp5qeCUKu40fdYGdPYN1JGUlr0I234HaaakZQT1v4yro0sgMOppbLclCsjMn2xZCmWZiQR/BOqfm8faFNGteFaZYaka62N8SqIDAJBmCnWFzEWJMo3Nhrxlfr5YCuIQa4=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:57:14.258738+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAF54KdG5RRlTYtP6F9khCtk7Y+Bb78HXi0yv34Fh8h0lsGtYhPPAytaXHjerg0ZOlg2Mp19HwJ4YdJF9zjrE7JfjDqW8WHAue42dFgfh1weoxIHgVNysBB/fml73/Ua+9Zn11QtPYfsF0SFGjGoNFwuWFsKvCSAm2YRVET7QZzSAShoU+DZ3bVs1AGvkGZMODV9taFHitdUhvo+IrCGKx2ZtsrW9J39V8NDPITF0y3C8K58ni3VjfFlB6QT9Wir9lA=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:57:14.956310+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAF54KdG5RRlTYtP6F9khCtk7Y+Bb78HXi0yv34Fh8h0lsGtYhPPAytaXHjerg0ZOlg2Mp19HwJ4YdJF9zjrE7JfjDqW8WHAue42dFgfh1weoxIHgVNysBB/fml73/Ua+9Zn11QtPYfsF0SFGjGoNFwuWFsKvCSAm2YRVET7QZzSAShoU+DZ3bVs1AGvkGZMODV9taFHitdUhvo+IrCGKx2ZtsrW9J39V8NDPITF0y3C8K58ni3VjfFlB6QT9Wir9lA=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:57:20.666162+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAG0lAbVbvdsFJkg6ET7JE/IXEUh6PCvYhufFg2q/n2e2zC/MwlroTReXRydlYPaoRkQqGECebbN5gY6SGCYSQcSGP6FhQVJCvEf7ad+ICQKNF9YWVfoBd0Q9eCVazQyTQM7hziDuqnHbUTj8Y52zMInMlR1+zGmYHZZzMYPtU1l4CGZrjRG6641HQkw2f8p5PlKfUZkkL5xXeYSWSNKcU1PAfeRFyafWnsGFCMEGme0B+WbX127oa9Zt0ccSRmd2TA=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:57:21.452979+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "get-records",
+      "input": {
+        "ShardIterator": "AAAAAAAAAAG0lAbVbvdsFJkg6ET7JE/IXEUh6PCvYhufFg2q/n2e2zC/MwlroTReXRydlYPaoRkQqGECebbN5gY6SGCYSQcSGP6FhQVJCvEf7ad+ICQKNF9YWVfoBd0Q9eCVazQyTQM7hziDuqnHbUTj8Y52zMInMlR1+zGmYHZZzMYPtU1l4CGZrjRG6641HQkw2f8p5PlKfUZkkL5xXeYSWSNKcU1PAfeRFyafWnsGFCMEGme0B+WbX127oa9Zt0ccSRmd2TA=",
+        "Limit": 100
+      },
+      "at": "2026-09-19T06:57:27.204271+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Records": [],
+          "NextShardIterator": "AAAAAAAAAAG/x08ogpxLn4xAi2mzNuCe7jisveFo5rq1LQ8wVZ3KpvKDH23D2zRewPHIplNHfX8m+2ZhQxZHRczNEpBpDl3GUVhAoKgUBLBwG4t0qPgxy5gQf2TxTP/wEd5XRozo8H9ALnKef6C2HgvRto8IUcM6ZOGXXmAh6hS11T4TpR9eOpEDB+fEpiGAEVNLG2NyLzDEApbrvdgLD9tU6k9OzElQKvDH+E7ha1UYECDIgkk265nJr2XBg+VYqrHblOJLWbE=",
+          "MillisBehindLatest": 0
+        }
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 2,
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "at": "2026-09-19T06:57:27.907435+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "events",
+      "operation": "remove-targets",
+      "input": {
+        "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+        "Rule": "owned",
+        "Ids": [
+          "default",
+          "custom"
+        ]
+      },
+      "at": "2026-09-19T06:57:33.659530+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      }
+    },
+    {
+      "service": "events",
+      "operation": "delete-rule",
+      "input": {
+        "EventBusName": "stackd-eb-kinesis-77d2f1b85ef3",
+        "Name": "owned"
+      },
+      "at": "2026-09-19T06:57:34.523592+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "events",
+      "operation": "delete-event-bus",
+      "input": {
+        "Name": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:35.472718+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "delete-role-policy",
+      "input": {
+        "RoleName": "stackd-eb-kinesis-77d2f1b85ef3",
+        "PolicyName": "owned"
+      },
+      "at": "2026-09-19T06:57:36.328663+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "delete-role",
+      "input": {
+        "RoleName": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:37.046649+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:37.813609+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "delete-stream",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+        "EnforceConsumerDeletion": true
+      },
+      "at": "2026-09-19T06:57:38.587587+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "describe-stream-summary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:39.569226+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "StreamDescriptionSummary": {
+            "StreamName": "stackd-eb-kinesis-77d2f1b85ef3",
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+            "StreamStatus": "DELETING",
+            "StreamModeDetails": {
+              "StreamMode": "PROVISIONED"
+            },
+            "RetentionPeriodHours": 24,
+            "StreamCreationTimestamp": "2026-09-19T07:55:18+01:00",
+            "EnhancedMonitoring": [
+              {
+                "ShardLevelMetrics": []
+              }
+            ],
+            "EncryptionType": "NONE",
+            "ConsumerCount": 0,
+            "MaxRecordSizeInKiB": 1024
+          }
+        }
+      }
+    },
+    {
+      "service": "events",
+      "operation": "describe-event-bus",
+      "input": {
+        "Name": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:40.357579+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Event bus stackd-eb-kinesis-77d2f1b85ef3 does not exist."
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "get-role",
+      "input": {
+        "RoleName": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:41.061991+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "message": "The role with name stackd-eb-kinesis-77d2f1b85ef3 cannot be found."
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "get-queue-url",
+      "input": {
+        "QueueName": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:41.774090+00:00",
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist."
+      }
+    },
+    {
+      "service": "kinesis",
+      "operation": "describe-stream-summary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:45.484653+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Stream stackd-eb-kinesis-77d2f1b85ef3 under account 000000000000 not found."
+      }
+    },
+    {
+      "service": "events",
+      "operation": "describe-event-bus",
+      "input": {
+        "Name": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:46.233945+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Event bus stackd-eb-kinesis-77d2f1b85ef3 does not exist."
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "get-role",
+      "input": {
+        "RoleName": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:46.919645+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "message": "The role with name stackd-eb-kinesis-77d2f1b85ef3 cannot be found."
+      }
+    },
+    {
+      "service": "sqs",
+      "operation": "get-queue-url",
+      "input": {
+        "QueueName": "stackd-eb-kinesis-77d2f1b85ef3"
+      },
+      "at": "2026-09-19T06:57:47.620463+00:00",
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist."
+      }
+    }
+  ],
+  "records": [
+    {
+      "SequenceNumber": "49678479614292634922735038420982253858243183128149491714",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.033000+01:00",
+      "Data": "eyJjYXNlIjoibnVsbCIsInRhcmdldCI6ImRlZmF1bHQifQ==",
+      "PartitionKey": "4cc5f584-a8f2-ee1f-d57d-585c3a985a15_1d717667-6f9d-4e50-3ea4-5fb905f6b561"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420983462784062797757324197890",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.038000+01:00",
+      "Data": "eyJjYXNlIjoiYXJyYXkiLCJ0YXJnZXQiOiJkZWZhdWx0In0=",
+      "PartitionKey": "614bc579-9645-84db-1a9a-4e44e1b89c57_84b211f9-feb3-9b0e-60ef-8c8eb524d88b"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420984671709882412386498904066",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.040000+01:00",
+      "Data": "eyJjYXNlIjoiYXJyYXkiLCJ0YXJnZXQiOiJjdXN0b20ifQ==",
+      "PartitionKey": "[\"a\",\"b\"]"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420985880635702027015673610242",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.040000+01:00",
+      "Data": "eyJjYXNlIjoic3RyaW5nIiwidGFyZ2V0IjoiZGVmYXVsdCJ9",
+      "PartitionKey": "4d2fb565-7a1c-da78-4ddc-35ff46269b75_9479326d-fa5e-cdc7-5b46-606f5ce63de3"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420987089561521641644848316418",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.041000+01:00",
+      "Data": "eyJjYXNlIjoiYm9vbGVhbiIsInRhcmdldCI6ImN1c3RvbSJ9",
+      "PartitionKey": "true"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420988298487341256274023022594",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.042000+01:00",
+      "Data": "eyJjYXNlIjoic3RyaW5nIiwidGFyZ2V0IjoiY3VzdG9tIn0=",
+      "PartitionKey": "\"tenant-1\""
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420989507413160870903197728770",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.045000+01:00",
+      "Data": "eyJjYXNlIjoiYm9vbGVhbiIsInRhcmdldCI6ImRlZmF1bHQifQ==",
+      "PartitionKey": "0390391b-033c-8674-7406-994a4fbb7669_b86d9634-5e36-047f-110a-249a4957b342"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420990716338980485532372434946",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.045000+01:00",
+      "Data": "eyJjYXNlIjoiaW50ZWdlciIsInRhcmdldCI6ImN1c3RvbSJ9",
+      "PartitionKey": "42"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420991925264800100161547141122",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.048000+01:00",
+      "Data": "eyJjYXNlIjoibWlzc2luZyIsInRhcmdldCI6ImN1c3RvbSJ9",
+      "PartitionKey": "{}"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420993134190619714790721847298",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.048000+01:00",
+      "Data": "eyJjYXNlIjoiZW1wdHkiLCJ0YXJnZXQiOiJjdXN0b20ifQ==",
+      "PartitionKey": "\"\""
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420994343116439329419896553474",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.051000+01:00",
+      "Data": "eyJjYXNlIjoibWlzc2luZyIsInRhcmdldCI6ImRlZmF1bHQifQ==",
+      "PartitionKey": "98e483d9-d9e5-7a77-6bd5-5dcd734f6d91_91b6502e-da99-1ea4-45f8-abf99fae7eb4"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420995552042258944049071259650",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.058000+01:00",
+      "Data": "eyJjYXNlIjoibnVsbCIsInRhcmdldCI6ImN1c3RvbSJ9",
+      "PartitionKey": "{}"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038420999178819717787936595378178",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.065000+01:00",
+      "Data": "eyJjYXNlIjoiZW1wdHkiLCJ0YXJnZXQiOiJkZWZhdWx0In0=",
+      "PartitionKey": "b9733254-764a-e84b-41e2-295950a820c0_fecd7250-b35c-d5c9-feed-c46f241bef86"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038421000387745537402565770084354",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.074000+01:00",
+      "Data": "eyJjYXNlIjoiaW50ZWdlciIsInRhcmdldCI6ImRlZmF1bHQifQ==",
+      "PartitionKey": "dc35e1d6-01c0-8705-e26d-7a224b6fcf69_cecf61e1-f813-e7b9-e413-b2f746dc04d3"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038421001596671357017194944790530",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.079000+01:00",
+      "Data": "eyJjYXNlIjoib2JqZWN0IiwidGFyZ2V0IjoiZGVmYXVsdCJ9",
+      "PartitionKey": "1b064609-0576-70f2-013e-752b111df4a8_819111d5-5f31-811e-9620-b7ce8ce470bc"
+    },
+    {
+      "SequenceNumber": "49678479614292634922735038421002805597176631824119496706",
+      "ApproximateArrivalTimestamp": "2026-09-19T07:55:44.083000+01:00",
+      "Data": "eyJjYXNlIjoib2JqZWN0IiwidGFyZ2V0IjoiY3VzdG9tIn0=",
+      "PartitionKey": "{\"a\":1}"
+    }
+  ],
+  "dlq": [],
+  "cleanup": {
+    "stream": "ResourceNotFoundException",
+    "bus": "ResourceNotFoundException",
+    "role": "NoSuchEntity",
+    "queue": "AWS.SimpleQueueService.NonExistentQueue",
+    "verified": true
+  },
+  "listedTargets": {
+    "Targets": [
+      {
+        "Id": "custom",
+        "Arn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+        "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-kinesis-77d2f1b85ef3",
+        "InputTransformer": {
+          "InputPathsMap": {
+            "case": "$.detail.case"
+          },
+          "InputTemplate": "{\"case\":<case>,\"target\":\"custom\"}"
+        },
+        "KinesisParameters": {
+          "PartitionKeyPath": "$.detail.key"
+        },
+        "DeadLetterConfig": {
+          "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-eb-kinesis-77d2f1b85ef3"
+        },
+        "RetryPolicy": {
+          "MaximumRetryAttempts": 0,
+          "MaximumEventAgeInSeconds": 60
+        }
+      },
+      {
+        "Id": "default",
+        "Arn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eb-kinesis-77d2f1b85ef3",
+        "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-kinesis-77d2f1b85ef3",
+        "InputTransformer": {
+          "InputPathsMap": {
+            "case": "$.detail.case"
+          },
+          "InputTemplate": "{\"case\":<case>,\"target\":\"default\"}"
+        },
+        "DeadLetterConfig": {
+          "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-eb-kinesis-77d2f1b85ef3"
+        },
+        "RetryPolicy": {
+          "MaximumRetryAttempts": 0,
+          "MaximumEventAgeInSeconds": 60
+        }
+      }
+    ]
+  },
+  "admitted": {
+    "FailedEntryCount": 0,
+    "Entries": [
+      {
+        "EventId": "4d2fb565-7a1c-da78-4ddc-35ff46269b75"
+      },
+      {
+        "EventId": "98e483d9-d9e5-7a77-6bd5-5dcd734f6d91"
+      },
+      {
+        "EventId": "4cc5f584-a8f2-ee1f-d57d-585c3a985a15"
+      },
+      {
+        "EventId": "dc35e1d6-01c0-8705-e26d-7a224b6fcf69"
+      },
+      {
+        "EventId": "0390391b-033c-8674-7406-994a4fbb7669"
+      },
+      {
+        "EventId": "1b064609-0576-70f2-013e-752b111df4a8"
+      },
+      {
+        "EventId": "614bc579-9645-84db-1a9a-4e44e1b89c57"
+      },
+      {
+        "EventId": "b9733254-764a-e84b-41e2-295950a820c0"
+      }
+    ]
+  },
+  "bounded_observation_seconds": 105
+}

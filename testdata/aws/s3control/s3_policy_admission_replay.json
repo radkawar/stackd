@@ -1,0 +1,163 @@
+{
+  "EvidenceClass": "native-unattached-policy-admission-with-local-retention-replay",
+  "Source": "s3control/s3_policy_admission_evidence.json.gz",
+  "Notes": [
+    "Native definitions were never attached and the S3 policy type was not enabled. Every owned native policy was removed.",
+    "Combined member/operator/control-value casing is accepted while assigned enum values remain case-sensitive. Source Content retains its spelling.",
+    "Distinct case aliases of operators are accepted, but every supplied assignment must validate; exact duplicate keys and folded field collisions are rejected.",
+    "Reopen and the selected cross-capture mutation sequence are local retention checks, not native propagation observations."
+  ],
+  "RemainingNativeGaps": [
+    "Effective publication precedence for distinct case aliases of one operator has not been measured; this replay asserts admission and retained source only."
+  ],
+  "Scenarios": [
+    {
+      "Name": "unattached-admission-and-atomic-replacement",
+      "Setup": [
+        {
+          "Label": "create local all-features organization",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "CreateOrganization",
+          "Input": {
+            "FeatureSet": "ALL"
+          },
+          "Code": "Success",
+          "Status": 200
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "admit combined casing without enabling policy type",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "CreatePolicy",
+          "Input": {
+            "Name": "NativeS3Case",
+            "Description": "Native S3 schema replay",
+            "Type": "S3_POLICY",
+            "Content": "{\"S3_ATTRIBUTES\":{\"PUBLIC_ACCESS_BLOCK_CONFIGURATION\":{\"@@ASSIGN\":\"all\",\"@@OPERATORS_ALLOWED_FOR_CHILD_POLICIES\":[\"@@NONE\"]}}}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "policy": "Policy.PolicySummary.Id"
+          }
+        },
+        {
+          "Label": "retain original policy spelling across reopen",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "DescribePolicy",
+          "Input": {
+            "PolicyId": "${policy}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Reopen": true,
+          "Output": {
+            "Policy": {
+              "Content": "{\"S3_ATTRIBUTES\":{\"PUBLIC_ACCESS_BLOCK_CONFIGURATION\":{\"@@ASSIGN\":\"all\",\"@@OPERATORS_ALLOWED_FOR_CHILD_POLICIES\":[\"@@NONE\"]}}}"
+            }
+          }
+        },
+        {
+          "Label": "accept distinct operator case aliases",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "UpdatePolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "Content": "{\"s3_attributes\":{\"public_access_block_configuration\":{\"@@assign\":\"all\",\"@@ASSIGN\":\"none\"}}}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "reject invalid earlier assignment despite valid later alias",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "UpdatePolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "Content": "{\"s3_attributes\":{\"public_access_block_configuration\":{\"@@assign\":\"some\",\"@@ASSIGN\":\"all\"}}}"
+          },
+          "Code": "MalformedPolicyDocumentException",
+          "Status": 400
+        },
+        {
+          "Label": "reject folded field collision",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "UpdatePolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "Content": "{\"s3_attributes\":{\"public_access_block_configuration\":{\"@@assign\":\"all\"},\"PUBLIC_ACCESS_BLOCK_CONFIGURATION\":{\"@@assign\":\"none\"}}}"
+          },
+          "Code": "MalformedPolicyDocumentException",
+          "Status": 400
+        },
+        {
+          "Label": "reject exact duplicate operator",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "UpdatePolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "Content": "{\"s3_attributes\":{\"public_access_block_configuration\":{\"@@assign\":\"all\",\"@@assign\":\"none\"}}}"
+          },
+          "Code": "MalformedPolicyDocumentException",
+          "Status": 400
+        },
+        {
+          "Label": "rejected replacements preserve admitted source after reopen",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "DescribePolicy",
+          "Input": {
+            "PolicyId": "${policy}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Reopen": true,
+          "Output": {
+            "Policy": {
+              "Content": "{\"s3_attributes\":{\"public_access_block_configuration\":{\"@@assign\":\"all\",\"@@ASSIGN\":\"none\"}}}"
+            }
+          }
+        },
+        {
+          "Label": "delete retained unattached policy",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "DeletePolicy",
+          "Input": {
+            "PolicyId": "${policy}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "deleted policy no longer resolves",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "DescribePolicy",
+          "Input": {
+            "PolicyId": "${policy}"
+          },
+          "Code": "PolicyNotFoundException",
+          "Status": 400
+        }
+      ]
+    }
+  ]
+}

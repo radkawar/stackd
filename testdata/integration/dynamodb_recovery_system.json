@@ -1,0 +1,512 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-17T23:59:00Z",
+  "steps": [
+    {
+      "name": "create-indexed-source",
+      "advance": "0s",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "gpk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "by-group",
+            "KeySchema": [
+              {
+                "AttributeName": "gpk",
+                "KeyType": "HASH"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "initial-item",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "Item": {
+          "pk": {
+            "S": "row"
+          },
+          "n": {
+            "N": "1"
+          },
+          "gpk": {
+            "S": "group"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "enable-one-day-pitr",
+      "advance": "1m",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true,
+          "RecoveryPeriodInDays": 1
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "create-independent-user-backup",
+      "advance": "0s",
+      "operation": "CreateBackup",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "BackupName": "manual-history"
+      },
+      "want": {
+        "BackupDetails.BackupType": "USER"
+      },
+      "bind": {
+        "@user": "BackupDetails.BackupArn"
+      }
+    },
+    {
+      "name": "wait-user-snapshot",
+      "advance": "0s",
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "@user"
+      },
+      "want": {
+        "BackupDescription.BackupDetails.BackupStatus": "AVAILABLE"
+      },
+      "waitBackup": true
+    },
+    {
+      "name": "change-before-deletion",
+      "advance": "1s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "Item": {
+          "pk": {
+            "S": "row"
+          },
+          "n": {
+            "N": "2"
+          },
+          "gpk": {
+            "S": "group"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "delete-source-with-pitr",
+      "advance": "0s",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-recovery-system"
+      },
+      "want": {}
+    },
+    {
+      "name": "system-filter-before-pagination",
+      "advance": "0s",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "BackupType": "SYSTEM",
+        "Limit": 1
+      },
+      "want": {
+        "BackupSummaries.0.BackupName": "stackd-recovery-system$DeletedTableBackup",
+        "BackupSummaries.0.BackupStatus": "AVAILABLE",
+        "BackupSummaries.0.BackupType": "SYSTEM"
+      },
+      "bind": {
+        "@system": "BackupSummaries.0.BackupArn",
+        "@expiry": "BackupSummaries.0.BackupExpiryDateTime"
+      },
+      "backups": [
+        "@system"
+      ]
+    },
+    {
+      "name": "user-filter-excludes-system",
+      "advance": "0s",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "BackupType": "USER",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "@user"
+      ]
+    },
+    {
+      "name": "all-first-page-retains-user-order",
+      "advance": "0s",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "BackupType": "ALL",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": "@user"
+      },
+      "backups": [
+        "@user"
+      ]
+    },
+    {
+      "name": "all-next-page-retains-system",
+      "advance": "0s",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "BackupType": "ALL",
+        "Limit": 1,
+        "ExclusiveStartBackupArn": "@user"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "@system"
+      ]
+    },
+    {
+      "name": "system-cannot-be-manually-deleted",
+      "advance": "0s",
+      "operation": "DeleteBackup",
+      "input": {
+        "BackupArn": "@system"
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "admit-system-restore-before-expiry",
+      "advance": "0s",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "@system",
+        "TargetTableName": "stackd-recovery-system-target"
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING"
+      },
+      "restorePaused": true,
+      "waitRestoreBarrier": true
+    },
+    {
+      "name": "expiry-hides-backup-with-pending-restore",
+      "advance": "24h",
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "@system"
+      },
+      "want": {},
+      "code": "BackupNotFoundException"
+    },
+    {
+      "name": "expired-system-omitted-from-list",
+      "advance": "0s",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-recovery-system",
+        "BackupType": "SYSTEM"
+      },
+      "want": {},
+      "backups": []
+    },
+    {
+      "name": "restart-pending-restoration",
+      "advance": "0s",
+      "reopen": true
+    },
+    {
+      "name": "target-remains-owned-after-restart",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-system-target"
+      },
+      "want": {
+        "Table.TableStatus": "CREATING",
+        "Table.RestoreSummary.RestoreInProgress": true
+      }
+    },
+    {
+      "name": "finish-actual-system-copy",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-system-target"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.RestoreSummary": null
+      },
+      "restorePaused": false
+    },
+    {
+      "name": "system-restores-latest-native-data",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-system-target",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 1,
+        "Items": [
+          {
+            "pk": {
+              "S": "row"
+            },
+            "n": {
+              "N": "2"
+            },
+            "gpk": {
+              "S": "group"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "system-restored-pitr-disabled",
+      "advance": "0s",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-system-target"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED"
+      }
+    },
+    {
+      "name": "user-backup-still-restorable",
+      "advance": "0s",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "@user",
+        "TargetTableName": "stackd-recovery-user-target"
+      },
+      "want": {}
+    },
+    {
+      "name": "user-snapshot-did-not-follow-source",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-user-target",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 1,
+        "Items": [
+          {
+            "pk": {
+              "S": "row"
+            },
+            "n": {
+              "N": "1"
+            },
+            "gpk": {
+              "S": "group"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "create-with-pitr-disabled",
+      "advance": "0s",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-recovery-disabled-delete",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "delete-with-pitr-disabled",
+      "advance": "0s",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-recovery-disabled-delete"
+      },
+      "want": {}
+    },
+    {
+      "name": "disabled-source-has-no-system-backup",
+      "advance": "0s",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-recovery-disabled-delete",
+        "BackupType": "ALL"
+      },
+      "want": {},
+      "backups": []
+    },
+    {
+      "name": "create-source-for-late-enable", "advance": "0s", "operation": "CreateTable",
+      "input": {"TableName": "stackd-recovery-late-enable", "BillingMode": "PAY_PER_REQUEST", "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}], "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}]},
+      "want": {}
+    },
+    {
+      "name": "seed-late-enabled-source", "advance": "0s", "operation": "PutItem",
+      "input": {"TableName": "stackd-recovery-late-enable", "Item": {"pk": {"S": "row"}, "n": {"N": "7"}}}, "want": {}
+    },
+    {
+      "name": "create-source-for-late-disable", "advance": "0s", "operation": "CreateTable",
+      "input": {"TableName": "stackd-recovery-late-disable", "BillingMode": "PAY_PER_REQUEST", "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}], "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}]},
+      "want": {}
+    },
+    {
+      "name": "enable-before-deletion", "advance": "1m", "operation": "UpdateContinuousBackups",
+      "input": {"TableName": "stackd-recovery-late-disable", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true, "RecoveryPeriodInDays": 1}}, "want": {}
+    },
+    {
+      "name": "hold-native-controller-outside-data-gate", "advance": "0s", "operation": "RestoreTableFromBackup",
+      "input": {"BackupArn": "@user", "TargetTableName": "stackd-recovery-controller-barrier"},
+      "restorePaused": true, "waitRestoreBarrier": true, "want": {"TableDescription.TableStatus": "CREATING"}
+    },
+    {
+      "name": "admit-deletion-before-enabling", "advance": "0s", "operation": "DeleteTable",
+      "input": {"TableName": "stackd-recovery-late-enable"}, "want": {"TableDescription.TableStatus": "DELETING"}
+    },
+    {
+      "name": "enable-while-source-is-deleting", "advance": "0s", "operation": "UpdateContinuousBackups",
+      "input": {"TableName": "stackd-recovery-late-enable", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true, "RecoveryPeriodInDays": 1}},
+      "want": {"ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "ENABLED"}
+    },
+    {
+      "name": "admit-deletion-before-disabling", "advance": "0s", "operation": "DeleteTable",
+      "input": {"TableName": "stackd-recovery-late-disable"}, "want": {"TableDescription.TableStatus": "DELETING"}
+    },
+    {
+      "name": "disable-while-source-is-deleting", "advance": "0s", "operation": "UpdateContinuousBackups",
+      "input": {"TableName": "stackd-recovery-late-disable", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": false}},
+      "want": {"ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED"}
+    },
+    {
+      "name": "release-native-deletion-controller", "advance": "0s", "operation": "DescribeTable",
+      "input": {"TableName": "stackd-recovery-controller-barrier"}, "restorePaused": false, "want": {"Table.TableStatus": "ACTIVE"}
+    },
+    {
+      "name": "late-enabled-source-finishes-deletion", "advance": "0s", "operation": "DescribeTable",
+      "input": {"TableName": "stackd-recovery-late-enable"}, "waitTableAbsent": true, "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "late-enable-creates-system-backup", "advance": "0s", "operation": "ListBackups",
+      "input": {"TableName": "stackd-recovery-late-enable", "BackupType": "SYSTEM"},
+      "bind": {"@late-system": "BackupSummaries.0.BackupArn"}, "backups": ["@late-system"], "want": {"BackupSummaries.0.BackupStatus": "AVAILABLE"}
+    },
+    {
+      "name": "restore-late-enabled-system-backup", "advance": "0s", "operation": "RestoreTableFromBackup",
+      "input": {"BackupArn": "@late-system", "TargetTableName": "stackd-recovery-late-target"}, "want": {}
+    },
+    {
+      "name": "late-enabled-system-backup-has-real-data", "advance": "0s", "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-late-target", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": {"pk": {"S": "row"}, "n": {"N": "7"}}}
+    },
+    {
+      "name": "late-disabled-source-finishes-deletion", "advance": "0s", "operation": "DescribeTable",
+      "input": {"TableName": "stackd-recovery-late-disable"}, "waitTableAbsent": true, "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "late-disable-prevents-system-backup", "advance": "0s", "operation": "ListBackups",
+      "input": {"TableName": "stackd-recovery-late-disable", "BackupType": "ALL"}, "backups": [], "want": {}
+    },
+    {
+      "name": "create-interrupted-delete-source", "advance": "0s", "operation": "CreateTable",
+      "input": {"TableName": "stackd-recovery-interrupted-delete", "BillingMode": "PAY_PER_REQUEST", "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}], "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}]},
+      "want": {}
+    },
+    {
+      "name": "native-delete-commits-before-response-loss", "advance": "0s", "operation": "DeleteTable",
+      "input": {"TableName": "stackd-recovery-interrupted-delete"}, "commitFailureOperation": "DeleteTable", "want": {"TableDescription.TableStatus": "DELETING"}
+    },
+    {
+      "name": "cannot-enable-history-after-physical-delete", "advance": "0s", "operation": "UpdateContinuousBackups",
+      "input": {"TableName": "stackd-recovery-interrupted-delete", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true, "RecoveryPeriodInDays": 1}},
+      "code": "InternalServerError"
+    },
+    {
+      "name": "reopen-settles-committed-source-deletion", "advance": "0s", "reopen": true, "operation": "DescribeTable",
+      "input": {"TableName": "stackd-recovery-interrupted-delete"}, "waitTableAbsent": true, "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "interrupted-deletion-does-not-wedge-other-writes", "advance": "0s", "operation": "PutItem",
+      "input": {"TableName": "stackd-recovery-late-target", "Item": {"pk": {"S": "sibling"}, "n": {"N": "8"}}}, "want": {}
+    },
+    {
+      "name": "failed-late-enable-created-no-backup", "advance": "0s", "operation": "ListBackups",
+      "input": {"TableName": "stackd-recovery-interrupted-delete", "BackupType": "ALL"}, "backups": [], "want": {}
+    },
+    {
+      "name": "create-interrupted-system-source", "advance": "0s", "operation": "CreateTable",
+      "input": {"TableName": "stackd-recovery-interrupted-system", "BillingMode": "PAY_PER_REQUEST", "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}], "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}]},
+      "want": {}
+    },
+    {
+      "name": "enable-before-interrupted-system-deletion", "advance": "1m", "operation": "UpdateContinuousBackups",
+      "input": {"TableName": "stackd-recovery-interrupted-system", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true, "RecoveryPeriodInDays": 1}}, "want": {}
+    },
+    {
+      "name": "system-delete-commits-before-response-loss", "advance": "0s", "operation": "DeleteTable",
+      "input": {"TableName": "stackd-recovery-interrupted-system"}, "commitFailureOperation": "DeleteTable", "want": {}
+    },
+    {
+      "name": "reopen-after-system-backup-expiry", "advance": "24h1s", "reopen": true, "operation": "DescribeTable",
+      "input": {"TableName": "stackd-recovery-interrupted-system"}, "waitTableAbsent": true, "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "retry-does-not-recreate-expired-system-backup", "advance": "0s", "operation": "ListBackups",
+      "input": {"TableName": "stackd-recovery-interrupted-system", "BackupType": "ALL"}, "backups": [], "want": {}
+    }
+  ]
+}

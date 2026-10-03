@@ -1,0 +1,3445 @@
+{
+  "source": "Native EventBridge rules A/B to the same encrypted SNS topic: publication source-ARN cache boundary",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "prefix": "stackd-sns-escache-119394089596",
+  "started_ms": 1790137765899,
+  "source_revisions": {
+    "stackd": "12be16026c028185447bd9b10521c1f27f4ef6ad"
+  },
+  "source_references": [
+    "https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-dlq.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_RetryPolicy.html"
+  ],
+  "observations": [
+    {
+      "label": "identity-before-mutation",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790137765899,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      },
+      "response_observed_ms": 1790137766557
+    },
+    {
+      "label": "create-bus",
+      "service": "events",
+      "operation": "create-event-bus",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790137766557,
+      "result": {
+        "code": "Success",
+        "output": {
+          "EventBusArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-sns-escache-119394089596"
+        }
+      },
+      "response_observed_ms": 1790137767293
+    },
+    {
+      "label": "create-rule-A",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-A",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "EventPattern": "{\"source\": [\"stackd-sns-escache-119394089596\"], \"detail\": {\"case\": [\"A\"]}}"
+      },
+      "request_started_ms": 1790137767293,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A"
+        }
+      },
+      "response_observed_ms": 1790137768041
+    },
+    {
+      "label": "create-rule-B",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-B",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "EventPattern": "{\"source\": [\"stackd-sns-escache-119394089596\"], \"detail\": {\"case\": [\"B\"]}}"
+      },
+      "request_started_ms": 1790137768041,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B"
+        }
+      },
+      "response_observed_ms": 1790137768767
+    },
+    {
+      "label": "create-rule-fresh",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-fresh",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "EventPattern": "{\"source\": [\"stackd-sns-escache-119394089596\"], \"detail\": {\"case\": [\"fresh\"]}}"
+      },
+      "request_started_ms": 1790137768767,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-fresh"
+        }
+      },
+      "response_observed_ms": 1790137769507
+    },
+    {
+      "label": "create-key",
+      "service": "kms",
+      "operation": "create-key",
+      "input": {
+        "Description": "stackd-sns-escache-119394089596",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"OwnedEventBridgeTopics\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey*\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": [\"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared\", \"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh\"]}}}]}",
+        "Tags": [
+          {
+            "TagKey": "stackd-probe",
+            "TagValue": "stackd-sns-escache-119394089596"
+          }
+        ]
+      },
+      "request_started_ms": 1790137769507,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "CreationDate": "2026-09-23T05:29:30.078000+01:00",
+            "Enabled": true,
+            "Description": "stackd-sns-escache-119394089596",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "Enabled",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+          }
+        }
+      },
+      "response_observed_ms": 1790137770323
+    },
+    {
+      "label": "read-key-policy",
+      "service": "kms",
+      "operation": "get-key-policy",
+      "input": {
+        "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+        "PolicyName": "default"
+      },
+      "request_started_ms": 1790137770323,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Policy": "{\n  \"Version\" : \"2012-10-17\",\n  \"Statement\" : [ {\n    \"Sid\" : \"OwnerAdministration\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"AWS\" : \"arn:aws:iam::000000000000:root\"\n    },\n    \"Action\" : \"kms:*\",\n    \"Resource\" : \"*\"\n  }, {\n    \"Sid\" : \"OwnedEventBridgeTopics\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"Service\" : \"events.amazonaws.com\"\n    },\n    \"Action\" : [ \"kms:GenerateDataKey*\", \"kms:Decrypt\" ],\n    \"Resource\" : \"*\",\n    \"Condition\" : {\n      \"StringEquals\" : {\n        \"kms:EncryptionContext:aws:sns:topicArn\" : [ \"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared\", \"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh\" ]\n      }\n    }\n  } ]\n}",
+          "PolicyName": "default"
+        }
+      },
+      "response_observed_ms": 1790137770999
+    },
+    {
+      "label": "create-queue-collector",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-sns-escache-119394089596-collector",
+        "Attributes": {
+          "SqsManagedSseEnabled": "false"
+        }
+      },
+      "request_started_ms": 1790137771000,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector"
+        }
+      },
+      "response_observed_ms": 1790137771755
+    },
+    {
+      "label": "read-queue-collector",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "AttributeNames": [
+          "QueueArn",
+          "SqsManagedSseEnabled"
+        ]
+      },
+      "request_started_ms": 1790137771755,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-collector",
+            "SqsManagedSseEnabled": "false"
+          }
+        }
+      },
+      "response_observed_ms": 1790137772420
+    },
+    {
+      "label": "queue-policy-collector",
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-collector\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": [\"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared\", \"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+        }
+      },
+      "request_started_ms": 1790137772420,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137773103
+    },
+    {
+      "label": "create-queue-dlq",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-sns-escache-119394089596-dlq",
+        "Attributes": {
+          "SqsManagedSseEnabled": "false"
+        }
+      },
+      "request_started_ms": 1790137773104,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq"
+        }
+      },
+      "response_observed_ms": 1790137773824
+    },
+    {
+      "label": "read-queue-dlq",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "AttributeNames": [
+          "QueueArn",
+          "SqsManagedSseEnabled"
+        ]
+      },
+      "request_started_ms": 1790137773825,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-dlq",
+            "SqsManagedSseEnabled": "false"
+          }
+        }
+      },
+      "response_observed_ms": 1790137774497
+    },
+    {
+      "label": "queue-policy-dlq",
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-dlq\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": [\"arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A\", \"arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B\", \"arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-fresh\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+        }
+      },
+      "request_started_ms": 1790137774498,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137775166
+    },
+    {
+      "label": "create-topic-shared",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-shared",
+        "Attributes": {
+          "KmsMasterKeyId": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+        }
+      },
+      "request_started_ms": 1790137775167,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+        }
+      },
+      "response_observed_ms": 1790137775899
+    },
+    {
+      "label": "topic-policy-shared",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+        "AttributeName": "Policy",
+        "AttributeValue": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sns:Publish\", \"Resource\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": [\"arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A\", \"arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+      },
+      "request_started_ms": 1790137775900,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137776594
+    },
+    {
+      "label": "subscribe-shared",
+      "service": "sns",
+      "operation": "subscribe",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+        "Protocol": "sqs",
+        "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-collector",
+        "Attributes": {
+          "RawMessageDelivery": "true"
+        },
+        "ReturnSubscriptionArn": true
+      },
+      "request_started_ms": 1790137776594,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared:924b01c4-8535-48f9-aef0-524e558497d9"
+        }
+      },
+      "response_observed_ms": 1790137777496
+    },
+    {
+      "label": "create-topic-fresh",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-fresh",
+        "Attributes": {
+          "KmsMasterKeyId": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+        }
+      },
+      "request_started_ms": 1790137777496,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh"
+        }
+      },
+      "response_observed_ms": 1790137778246
+    },
+    {
+      "label": "topic-policy-fresh",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh",
+        "AttributeName": "Policy",
+        "AttributeValue": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sns:Publish\", \"Resource\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": [\"arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-fresh\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+      },
+      "request_started_ms": 1790137778247,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137778945
+    },
+    {
+      "label": "subscribe-fresh",
+      "service": "sns",
+      "operation": "subscribe",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh",
+        "Protocol": "sqs",
+        "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-collector",
+        "Attributes": {
+          "RawMessageDelivery": "true"
+        },
+        "ReturnSubscriptionArn": true
+      },
+      "request_started_ms": 1790137778945,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh:bc8670c6-d827-417e-baac-36f56f0c3c94"
+        }
+      },
+      "response_observed_ms": 1790137779828
+    },
+    {
+      "label": "put-target-A",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-A",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "Targets": [
+          {
+            "Id": "sns",
+            "Arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-dlq"
+            }
+          }
+        ]
+      },
+      "request_started_ms": 1790137779828,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      },
+      "response_observed_ms": 1790137780534
+    },
+    {
+      "label": "read-target-A",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-A",
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790137780535,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": [
+            {
+              "Id": "sns",
+              "Arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+              "DeadLetterConfig": {
+                "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-dlq"
+              },
+              "RetryPolicy": {
+                "MaximumRetryAttempts": 0,
+                "MaximumEventAgeInSeconds": 60
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137781232
+    },
+    {
+      "label": "put-target-B",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-B",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "Targets": [
+          {
+            "Id": "sns",
+            "Arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-dlq"
+            }
+          }
+        ]
+      },
+      "request_started_ms": 1790137781233,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      },
+      "response_observed_ms": 1790137781970
+    },
+    {
+      "label": "read-target-B",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-B",
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790137781970,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": [
+            {
+              "Id": "sns",
+              "Arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+              "DeadLetterConfig": {
+                "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-dlq"
+              },
+              "RetryPolicy": {
+                "MaximumRetryAttempts": 0,
+                "MaximumEventAgeInSeconds": 60
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137782637
+    },
+    {
+      "label": "put-target-fresh",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-fresh",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "Targets": [
+          {
+            "Id": "sns",
+            "Arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh",
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-dlq"
+            }
+          }
+        ]
+      },
+      "request_started_ms": 1790137782637,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      },
+      "response_observed_ms": 1790137783338
+    },
+    {
+      "label": "read-target-fresh",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-fresh",
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790137783338,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": [
+            {
+              "Id": "sns",
+              "Arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh",
+              "DeadLetterConfig": {
+                "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-dlq"
+              },
+              "RetryPolicy": {
+                "MaximumRetryAttempts": 0,
+                "MaximumEventAgeInSeconds": 60
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137784029
+    },
+    {
+      "label": "publish-A-warm",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-sns-escache-119394089596",
+            "Source": "stackd-sns-escache-119394089596",
+            "DetailType": "SNS encrypted source cache",
+            "Detail": "{\"probe\": \"stackd-sns-escache-119394089596\", \"case\": \"A\", \"phase\": \"A-warm\", \"nonce\": \"b9c6700dd8c74580b32bf92f7552a33c\"}"
+          }
+        ]
+      },
+      "request_started_ms": 1790137789029,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "9beb3c2c-5605-ced9-505c-450df2868946"
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137789710
+    },
+    {
+      "label": "receive-A-warm-collector",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137789720,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "03cad84d-c189-4abb-8a75-8ff7988c2b15",
+              "ReceiptHandle": "AQEBdK9rixzr59jDWsYOKT20GrKcs8eqJAYw0WzwT4uJp+BW8kDT4NVJjU3PbUc/DAA1YCMYnEc4WN/Hm4ezqFd90u3qo4i44D411NnofgCUDQH7BlyFzJbnFDvENtXSUhXpGw/oOlrz1Uf7ERuhBMsOdlohWXgdKxs+nknoRvumxkCQXCczVO0C4jXR3Lib4EuZ3Z3H2QhjB88qta9Pa8kdvcZ944p3YAV5Pkn9QEj516gXVKqfNjZTTZSkcKTn5i2tNTpNpOLOehNe0sJfwkYXtQO5rL3/do/groRD4OOfWI08k4xU/DErDADD72SwQ/PAJSW4Asetb4TkJB6qdTsLHtuCyxdTDeD3b1uONQrsii7NZPgA69wSN91i+L/2BE3LkZK6ol7AIXgoe0YGr5myGiR44VUj4H6Zs50D97Ry5V8=",
+              "MD5OfBody": "d3ee4cc541541289e4ba426cd099de04",
+              "Body": "{\"version\":\"0\",\"id\":\"9beb3c2c-5605-ced9-505c-450df2868946\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:29:49Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"A\",\"phase\":\"A-warm\",\"nonce\":\"b9c6700dd8c74580b32bf92f7552a33c\"}}",
+              "Attributes": {
+                "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                "ApproximateFirstReceiveTimestamp": "1790137790322",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790137789739"
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137790449
+    },
+    {
+      "label": "delete-receipt-collector",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "ReceiptHandle": "AQEBdK9rixzr59jDWsYOKT20GrKcs8eqJAYw0WzwT4uJp+BW8kDT4NVJjU3PbUc/DAA1YCMYnEc4WN/Hm4ezqFd90u3qo4i44D411NnofgCUDQH7BlyFzJbnFDvENtXSUhXpGw/oOlrz1Uf7ERuhBMsOdlohWXgdKxs+nknoRvumxkCQXCczVO0C4jXR3Lib4EuZ3Z3H2QhjB88qta9Pa8kdvcZ944p3YAV5Pkn9QEj516gXVKqfNjZTTZSkcKTn5i2tNTpNpOLOehNe0sJfwkYXtQO5rL3/do/groRD4OOfWI08k4xU/DErDADD72SwQ/PAJSW4Asetb4TkJB6qdTsLHtuCyxdTDeD3b1uONQrsii7NZPgA69wSN91i+L/2BE3LkZK6ol7AIXgoe0YGr5myGiR44VUj4H6Zs50D97Ry5V8="
+      },
+      "request_started_ms": 1790137790449,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137791113
+    },
+    {
+      "label": "receive-A-warm-dlq",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137791113,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137793790
+    },
+    {
+      "label": "disable-key",
+      "service": "kms",
+      "operation": "disable-key",
+      "input": {
+        "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+      },
+      "request_started_ms": 1790137793846,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137794585
+    },
+    {
+      "label": "read-disabled-key",
+      "service": "kms",
+      "operation": "describe-key",
+      "input": {
+        "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+      },
+      "request_started_ms": 1790137794586,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "CreationDate": "2026-09-23T05:29:30.078000+01:00",
+            "Enabled": false,
+            "Description": "stackd-sns-escache-119394089596",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "Disabled",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+          }
+        }
+      },
+      "response_observed_ms": 1790137795241
+    },
+    {
+      "label": "direct-disabled-key-corroboration",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "input": {
+        "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+        "KeySpec": "AES_256",
+        "EncryptionContext": {
+          "probe": "stackd-sns-escache-119394089596"
+        }
+      },
+      "request_started_ms": 1790137800242,
+      "result": {
+        "code": "DisabledException",
+        "error": {
+          "Message": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled.",
+          "Code": "DisabledException",
+          "message": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled."
+        }
+      },
+      "response_observed_ms": 1790137800918
+    },
+    {
+      "label": "publish-fresh-disabled",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-sns-escache-119394089596",
+            "Source": "stackd-sns-escache-119394089596",
+            "DetailType": "SNS encrypted source cache",
+            "Detail": "{\"probe\": \"stackd-sns-escache-119394089596\", \"case\": \"fresh\", \"phase\": \"fresh-disabled\", \"nonce\": \"4979e441c0ad40f2a7485c9baf1dc4f6\"}"
+          }
+        ]
+      },
+      "request_started_ms": 1790137800919,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "169c4fc8-fbd5-a19e-0776-649fb464333d"
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137801609
+    },
+    {
+      "label": "receive-fresh-disabled-collector",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137801619,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137804324
+    },
+    {
+      "label": "receive-fresh-disabled-dlq",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137804324,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "28c2b034-d2bb-489a-a868-c5dde6d51c5f",
+              "ReceiptHandle": "AQEBZwu+08GP5LKhvRYYCmG8Ms+NxNmYCSfGqCxGTTzmYcTsG/Jc65ABEGJLpHmqnB1kGkGwecbZW/DtQ1OeD1JjsyKI14obn8oMGXim4eEm/WzVgNUc2IfStRdU+pYNffJa3kAtpAj5M/spArrgR88PiRuVnobpUCTgwhc2/DkuWhnzKdxbwc2mSwqvNTtADpkGfM6Y0RV6ht+G54D7X/X1fNZ9uogzgO1gsLiuk7tgkGmyG87W/OQMbYN3MK0zkVu88mCkeMvdS/4ltJfcYe2lmepSAAy/j+E1Znw2hpuhu/UQD5ZItLKt4p/pV5k5Y731DDstsQnP19o1VX6eFCq/2jLe1Bch7GCa3geRzEu/YESnBIuI8bJJKksKiHSes/aN7f4Aw3Yv2NLi4zqkZ1f0cTQpEOrp0Dq535Qnrm6KIkg=",
+              "MD5OfBody": "e5c7af0e74f3434f2841363950350962",
+              "Body": "{\"version\":\"0\",\"id\":\"169c4fc8-fbd5-a19e-0776-649fb464333d\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:01Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"fresh\",\"phase\":\"fresh-disabled\",\"nonce\":\"4979e441c0ad40f2a7485c9baf1dc4f6\"}}",
+              "Attributes": {
+                "SenderId": "AIDAJXNJGGKNS7OSV23OI",
+                "ApproximateFirstReceiveTimestamp": "1790137804910",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790137801614"
+              },
+              "MD5OfMessageAttributes": "e732ffda6b3d3ba229361c6e81cb16b8",
+              "MessageAttributes": {
+                "ERROR_CODE": {
+                  "StringValue": "NO_PERMISSIONS",
+                  "DataType": "String"
+                },
+                "ERROR_MESSAGE": {
+                  "StringValue": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled. (Service: AWSKMS; Status Code: 400; Error Code: DisabledException; Request ID: f0fdc4cd-622f-4352-8506-79e4531d4f72; Proxy: null) (Service: AmazonSNS; Status Code: 400; Error Code: KMSDisabled; Request ID: 77ac212a-d6c1-547b-8744-42078ec8c0bd; Proxy: null)",
+                  "DataType": "String"
+                },
+                "RULE_ARN": {
+                  "StringValue": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-fresh",
+                  "DataType": "String"
+                },
+                "TARGET_ARN": {
+                  "StringValue": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh",
+                  "DataType": "String"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137805037
+    },
+    {
+      "label": "delete-receipt-dlq",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "ReceiptHandle": "AQEBZwu+08GP5LKhvRYYCmG8Ms+NxNmYCSfGqCxGTTzmYcTsG/Jc65ABEGJLpHmqnB1kGkGwecbZW/DtQ1OeD1JjsyKI14obn8oMGXim4eEm/WzVgNUc2IfStRdU+pYNffJa3kAtpAj5M/spArrgR88PiRuVnobpUCTgwhc2/DkuWhnzKdxbwc2mSwqvNTtADpkGfM6Y0RV6ht+G54D7X/X1fNZ9uogzgO1gsLiuk7tgkGmyG87W/OQMbYN3MK0zkVu88mCkeMvdS/4ltJfcYe2lmepSAAy/j+E1Znw2hpuhu/UQD5ZItLKt4p/pV5k5Y731DDstsQnP19o1VX6eFCq/2jLe1Bch7GCa3geRzEu/YESnBIuI8bJJKksKiHSes/aN7f4Aw3Yv2NLi4zqkZ1f0cTQpEOrp0Dq535Qnrm6KIkg="
+      },
+      "request_started_ms": 1790137805037,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137805715
+    },
+    {
+      "label": "publish-A-disabled-before",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-sns-escache-119394089596",
+            "Source": "stackd-sns-escache-119394089596",
+            "DetailType": "SNS encrypted source cache",
+            "Detail": "{\"probe\": \"stackd-sns-escache-119394089596\", \"case\": \"A\", \"phase\": \"A-disabled-before\", \"nonce\": \"1d8c9eca942c41f9adcf1b0966ae30ba\"}"
+          }
+        ]
+      },
+      "request_started_ms": 1790137805725,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "93eb2071-0fdf-a0e0-07ba-6795dbbd2395"
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137806427
+    },
+    {
+      "label": "receive-A-disabled-before-collector",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137806437,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "23e1caea-8597-468c-82c9-858a710f2dad",
+              "ReceiptHandle": "AQEBaFBrLcN23wGZITxB7ChvibKZ197mEAgLzPFbRNzYNymVyNt87YMdPhlzCZlliLIgR41o6u9nT9VTdtNKARRJtD7KnU/mth+GTAfh4qXYWt6mSMm+kQmYtZnyuVU9nV3RFaUnX6Ih9fOej/wX13lB0wK3tKJOQMekRj0ChC3O5Tju9RLF72PiWF/1mtvX2f14ZE3cTaeiNIbTnknmK77JT1I37PRxAcO1Nh6Cn6WT/572w2Wfi9Hftp3Y/zxqnS1rZ+6gYMqsEIx28HLB5g3NDKymQUWbuvotOuFFYNjXytxzlKWoIuQ/dS8S6KE0UVCVNEdIfVnxdGAPzPvQ3qEz10j8is11b3pg9QPRc8scUHOVSNPceFmLHzePES6JaoWugwM+zEe76cvGV1kLUpHU3eYTnKn3N1OQfNL7nmrmCPE=",
+              "MD5OfBody": "ae1238b7437c77324c4d7e4c1e194ae8",
+              "Body": "{\"version\":\"0\",\"id\":\"93eb2071-0fdf-a0e0-07ba-6795dbbd2395\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:06Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"A\",\"phase\":\"A-disabled-before\",\"nonce\":\"1d8c9eca942c41f9adcf1b0966ae30ba\"}}",
+              "Attributes": {
+                "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                "ApproximateFirstReceiveTimestamp": "1790137807023",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790137806431"
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137807148
+    },
+    {
+      "label": "delete-receipt-collector",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "ReceiptHandle": "AQEBaFBrLcN23wGZITxB7ChvibKZ197mEAgLzPFbRNzYNymVyNt87YMdPhlzCZlliLIgR41o6u9nT9VTdtNKARRJtD7KnU/mth+GTAfh4qXYWt6mSMm+kQmYtZnyuVU9nV3RFaUnX6Ih9fOej/wX13lB0wK3tKJOQMekRj0ChC3O5Tju9RLF72PiWF/1mtvX2f14ZE3cTaeiNIbTnknmK77JT1I37PRxAcO1Nh6Cn6WT/572w2Wfi9Hftp3Y/zxqnS1rZ+6gYMqsEIx28HLB5g3NDKymQUWbuvotOuFFYNjXytxzlKWoIuQ/dS8S6KE0UVCVNEdIfVnxdGAPzPvQ3qEz10j8is11b3pg9QPRc8scUHOVSNPceFmLHzePES6JaoWugwM+zEe76cvGV1kLUpHU3eYTnKn3N1OQfNL7nmrmCPE="
+      },
+      "request_started_ms": 1790137807148,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137807831
+    },
+    {
+      "label": "receive-A-disabled-before-dlq",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137807832,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137810499
+    },
+    {
+      "label": "publish-B-disabled-first",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-sns-escache-119394089596",
+            "Source": "stackd-sns-escache-119394089596",
+            "DetailType": "SNS encrypted source cache",
+            "Detail": "{\"probe\": \"stackd-sns-escache-119394089596\", \"case\": \"B\", \"phase\": \"B-disabled-first\", \"nonce\": \"d2cdb12eb4e7452fae8c788eb34bcfcc\"}"
+          }
+        ]
+      },
+      "request_started_ms": 1790137810509,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "01dec2a4-5d42-4488-d119-99015db29104"
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137811167
+    },
+    {
+      "label": "publish-A-disabled-after",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-sns-escache-119394089596",
+            "Source": "stackd-sns-escache-119394089596",
+            "DetailType": "SNS encrypted source cache",
+            "Detail": "{\"probe\": \"stackd-sns-escache-119394089596\", \"case\": \"A\", \"phase\": \"A-disabled-after\", \"nonce\": \"d1b16ab6d1e9424198cc6e5fda29226b\"}"
+          }
+        ]
+      },
+      "request_started_ms": 1790137811177,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "43d2c488-878a-795c-606a-7647a50cce5c"
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137811844
+    },
+    {
+      "label": "receive-B-first-bracket-collector",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137811854,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "1a61bf10-8239-4ac2-9da0-67c0f6c07e04",
+              "ReceiptHandle": "AQEB4epWd7LpZKUgPQn6bGK/ohP2Zi6pdF6GFFq4XqmJpOkYtuCrNsfi+hw/rYQqtJeoEcifHDdYHqnRGa9SyS7t+hkrUOradizk6uxXKrQsHaNn8/5R5DtoXOlaMyR29vupY4y1X/+T6ax9Tx7z2L3qhfkBXUsHkLgKfsGrwaPHFSVFGhaH/jfUnQAtCmcfrfioGE2mOV2kB+cjn9gukKf6EGu4WmAMzrugEhKeryOR2Pkmpr8trOAQF1VrmFPPya+vOCfhJ1x+I8iVz/rhnhK+0YiSeqcF0SWfcNr8/PEqXvefxEJ4CwAnDH7gClf2gnBUPcy5nuks1ZQC5rVOFZ6nfalqx0RsIShWf9cuPfbkmnpFGhLr6aF3/wprhD8GeshrmvzVkdq8n7of8NVw3ILaaVlkNhzSxqJ5+eKXdJtr9FQ=",
+              "MD5OfBody": "816b9c751abf40cba09fc81bcd8ad312",
+              "Body": "{\"version\":\"0\",\"id\":\"43d2c488-878a-795c-606a-7647a50cce5c\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:11Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"A\",\"phase\":\"A-disabled-after\",\"nonce\":\"d1b16ab6d1e9424198cc6e5fda29226b\"}}",
+              "Attributes": {
+                "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                "ApproximateFirstReceiveTimestamp": "1790137812438",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790137811856"
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137812567
+    },
+    {
+      "label": "delete-receipt-collector",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "ReceiptHandle": "AQEB4epWd7LpZKUgPQn6bGK/ohP2Zi6pdF6GFFq4XqmJpOkYtuCrNsfi+hw/rYQqtJeoEcifHDdYHqnRGa9SyS7t+hkrUOradizk6uxXKrQsHaNn8/5R5DtoXOlaMyR29vupY4y1X/+T6ax9Tx7z2L3qhfkBXUsHkLgKfsGrwaPHFSVFGhaH/jfUnQAtCmcfrfioGE2mOV2kB+cjn9gukKf6EGu4WmAMzrugEhKeryOR2Pkmpr8trOAQF1VrmFPPya+vOCfhJ1x+I8iVz/rhnhK+0YiSeqcF0SWfcNr8/PEqXvefxEJ4CwAnDH7gClf2gnBUPcy5nuks1ZQC5rVOFZ6nfalqx0RsIShWf9cuPfbkmnpFGhLr6aF3/wprhD8GeshrmvzVkdq8n7of8NVw3ILaaVlkNhzSxqJ5+eKXdJtr9FQ="
+      },
+      "request_started_ms": 1790137812568,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137813264
+    },
+    {
+      "label": "receive-B-first-bracket-dlq",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137813264,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "ec856179-a298-44c5-84b9-1d7d8d30e69a",
+              "ReceiptHandle": "AQEBkx5A4dLH+t8mfh7I5WtS79nL9Un0w3dWR1/rPhUJl5kwZ8SgD1nRUvaYKmKUoElGBCydLWhg6mcGR2wp3FHINJ4BQM83r2mwPJRhgGqpJ2IfOht9piaq1jaA/wpLvrCRYb4Fs9rIlhr6C4X/Dmwa7bSfh5FFJPkwd6sVMJIEfXOxxh7TqLJuIT6NNBo17j0QGM0pO9WflH+deYRRRRijsNiuJO5ni8oGHKcLD4A6PehYxupaRjuwzCPW8VaCGy3q4P7cNuAidGvvrJw0dCq3xcXDgFsuAVzTRjC7nJj4AGqMbmsRPYD6r9ZwrNq0neTNJGt8MuUhuiaUyFHNkz+9Wo+GtLny11M1hSIj6yALc6i6RGFFM94GwFjtNilYl4/fyQYEe2suOt5IWSEVXlUg8/MXvM2xPDk37gtnGZg225g=",
+              "MD5OfBody": "37a03e6d94bb5de5fb5da2b64184eeb0",
+              "Body": "{\"version\":\"0\",\"id\":\"01dec2a4-5d42-4488-d119-99015db29104\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:11Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"B\",\"phase\":\"B-disabled-first\",\"nonce\":\"d2cdb12eb4e7452fae8c788eb34bcfcc\"}}",
+              "Attributes": {
+                "SenderId": "AIDAJXNJGGKNS7OSV23OI",
+                "ApproximateFirstReceiveTimestamp": "1790137813842",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790137811188"
+              },
+              "MD5OfMessageAttributes": "4f68c29912200ba6f8854d6d82c71f86",
+              "MessageAttributes": {
+                "ERROR_CODE": {
+                  "StringValue": "NO_PERMISSIONS",
+                  "DataType": "String"
+                },
+                "ERROR_MESSAGE": {
+                  "StringValue": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled. (Service: AWSKMS; Status Code: 400; Error Code: DisabledException; Request ID: 1407d94d-98c6-45ff-aa4d-cb1231f8ef67; Proxy: null) (Service: AmazonSNS; Status Code: 400; Error Code: KMSDisabled; Request ID: b7a98bae-c424-5558-9f88-e8839c37cba3; Proxy: null)",
+                  "DataType": "String"
+                },
+                "RULE_ARN": {
+                  "StringValue": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+                  "DataType": "String"
+                },
+                "TARGET_ARN": {
+                  "StringValue": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+                  "DataType": "String"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137813968
+    },
+    {
+      "label": "delete-receipt-dlq",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "ReceiptHandle": "AQEBkx5A4dLH+t8mfh7I5WtS79nL9Un0w3dWR1/rPhUJl5kwZ8SgD1nRUvaYKmKUoElGBCydLWhg6mcGR2wp3FHINJ4BQM83r2mwPJRhgGqpJ2IfOht9piaq1jaA/wpLvrCRYb4Fs9rIlhr6C4X/Dmwa7bSfh5FFJPkwd6sVMJIEfXOxxh7TqLJuIT6NNBo17j0QGM0pO9WflH+deYRRRRijsNiuJO5ni8oGHKcLD4A6PehYxupaRjuwzCPW8VaCGy3q4P7cNuAidGvvrJw0dCq3xcXDgFsuAVzTRjC7nJj4AGqMbmsRPYD6r9ZwrNq0neTNJGt8MuUhuiaUyFHNkz+9Wo+GtLny11M1hSIj6yALc6i6RGFFM94GwFjtNilYl4/fyQYEe2suOt5IWSEVXlUg8/MXvM2xPDk37gtnGZg225g="
+      },
+      "request_started_ms": 1790137813969,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137814714
+    },
+    {
+      "label": "enable-key",
+      "service": "kms",
+      "operation": "enable-key",
+      "input": {
+        "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+      },
+      "request_started_ms": 1790137814724,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137815429
+    },
+    {
+      "label": "read-enabled-key",
+      "service": "kms",
+      "operation": "describe-key",
+      "input": {
+        "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+      },
+      "request_started_ms": 1790137815430,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "CreationDate": "2026-09-23T05:29:30.078000+01:00",
+            "Enabled": true,
+            "Description": "stackd-sns-escache-119394089596",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "Enabled",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+          }
+        }
+      },
+      "response_observed_ms": 1790137816107
+    },
+    {
+      "label": "publish-B-restored",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-sns-escache-119394089596",
+            "Source": "stackd-sns-escache-119394089596",
+            "DetailType": "SNS encrypted source cache",
+            "Detail": "{\"probe\": \"stackd-sns-escache-119394089596\", \"case\": \"B\", \"phase\": \"B-restored\", \"nonce\": \"c6265e6c6a414f6c8cdc608ad509932a\"}"
+          }
+        ]
+      },
+      "request_started_ms": 1790137821108,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "0274964b-797b-1955-e14d-d819ecea8350"
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137821796
+    },
+    {
+      "label": "receive-B-restored-collector",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137821806,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "e39b4036-4337-4b62-b2e2-e4b719913e3e",
+              "ReceiptHandle": "AQEBmtZKge1+x/ZRXJvDljUgJ7WRpy/IpoZ+OV42OEbbdkOkfzjiksRCGrqHrfKNb1sJxbaftAB6w+ZGLO9rcvR+V61fHpQOTi11Shvq0sZEpuJ2xo35fpTnnVg5Dtowt1ZUNOuVcTeBdyjNlqhYdCgXCpMAbLM7SNOFLLe5yj1cKyKXskooX7OAFDZCMs3RB5xIQH3Xv0VmPMk4x031zYmomyTxE5VqN4xcO7i60e1iVJy1FGi+te/ucntUu5pWccBynNqxL5CzWu09F68W4z42tcEr/9R/91byeBvxOGocgy1ItmwpXTyw2vE2N06l+egG68UavWBNcwV5XvZzdgRxT+DQJ7IMKV8+itdQ9g9763sqXJM/bxvZmYbeKMZldwUTMoowFzK9wjwgN0Cx0lKFSQ+xXEge6V6WgR7OxXYyp+A=",
+              "MD5OfBody": "795e3d9de90218546547dc8bbb114232",
+              "Body": "{\"version\":\"0\",\"id\":\"0274964b-797b-1955-e14d-d819ecea8350\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:21Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"B\",\"phase\":\"B-restored\",\"nonce\":\"c6265e6c6a414f6c8cdc608ad509932a\"}}",
+              "Attributes": {
+                "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                "ApproximateFirstReceiveTimestamp": "1790137822395",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790137821804"
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790137822528
+    },
+    {
+      "label": "delete-receipt-collector",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "ReceiptHandle": "AQEBmtZKge1+x/ZRXJvDljUgJ7WRpy/IpoZ+OV42OEbbdkOkfzjiksRCGrqHrfKNb1sJxbaftAB6w+ZGLO9rcvR+V61fHpQOTi11Shvq0sZEpuJ2xo35fpTnnVg5Dtowt1ZUNOuVcTeBdyjNlqhYdCgXCpMAbLM7SNOFLLe5yj1cKyKXskooX7OAFDZCMs3RB5xIQH3Xv0VmPMk4x031zYmomyTxE5VqN4xcO7i60e1iVJy1FGi+te/ucntUu5pWccBynNqxL5CzWu09F68W4z42tcEr/9R/91byeBvxOGocgy1ItmwpXTyw2vE2N06l+egG68UavWBNcwV5XvZzdgRxT+DQJ7IMKV8+itdQ9g9763sqXJM/bxvZmYbeKMZldwUTMoowFzK9wjwgN0Cx0lKFSQ+xXEge6V6WgR7OxXYyp+A="
+      },
+      "request_started_ms": 1790137822529,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137823207
+    },
+    {
+      "label": "receive-B-restored-dlq",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790137823208,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790137825896
+    },
+    {
+      "label": "publish-B-restored-renewal",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-sns-escache-119394089596",
+            "Source": "stackd-sns-escache-119394089596",
+            "DetailType": "SNS encrypted source cache",
+            "Detail": "{\"probe\": \"stackd-sns-escache-119394089596\", \"case\": \"B\", \"phase\": \"B-restored-renewal\", \"nonce\": \"c5b7d8b1ba1d4b69affdc3df90910f77\"}"
+          }
+        ]
+      },
+      "request_started_ms": 1790138119711,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "cd3d678d-00f7-ff66-dbef-13d69f7bfbf3"
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790138120424
+    },
+    {
+      "label": "receive-B-restored-renewal-collector",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790138120426,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "81b2a4b1-559c-481c-80b5-c81fd6c33365",
+              "ReceiptHandle": "AQEB2OV8hFzSHSU18tC6yfCWpRNSMt0PbWMBI2k8EJbU9KzkbXs9gtiyaicfzk6aZG6SQd/AjRQqEuRTeYUVI3+MzxhqBnPAze9hpYTUwcSQYk34UTaPMOpI6OIPMmoS/h7KUDX/XGejzkgT1KJjOZ9Mp9hhi3IK5kec9E/qvyuJ2eGJJbGcti4y59Bx2Fb4j6Uq+CCDTl5HNt+K0LzV5ZFcyYoCe2tbKW/NjjBmPC9WBbLP2mkwSQo9D0wPJ+T6FK7HMbvg35kOkQtXaU+s6ugqdUO3e+tumbk17uYIJhgJmPCgGCMBO2FNrUGwnyhos07zdDrDsaePk7nZsdGJ+rMD3AT2wmhhq0ZEQ1ecH0QnevbtnBmO8Kz/BENZy1na8d/yJjQr4nRgGX91ieNVSBUiYFxUoauCPlqB9y4+wahUsT0=",
+              "MD5OfBody": "a09ed8012b2dea06bc63c73526408227",
+              "Body": "{\"version\":\"0\",\"id\":\"cd3d678d-00f7-ff66-dbef-13d69f7bfbf3\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:35:20Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"B\",\"phase\":\"B-restored-renewal\",\"nonce\":\"c5b7d8b1ba1d4b69affdc3df90910f77\"}}",
+              "Attributes": {
+                "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                "ApproximateFirstReceiveTimestamp": "1790138121006",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790138120456"
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790138121132
+    },
+    {
+      "label": "delete-receipt-collector",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "ReceiptHandle": "AQEB2OV8hFzSHSU18tC6yfCWpRNSMt0PbWMBI2k8EJbU9KzkbXs9gtiyaicfzk6aZG6SQd/AjRQqEuRTeYUVI3+MzxhqBnPAze9hpYTUwcSQYk34UTaPMOpI6OIPMmoS/h7KUDX/XGejzkgT1KJjOZ9Mp9hhi3IK5kec9E/qvyuJ2eGJJbGcti4y59Bx2Fb4j6Uq+CCDTl5HNt+K0LzV5ZFcyYoCe2tbKW/NjjBmPC9WBbLP2mkwSQo9D0wPJ+T6FK7HMbvg35kOkQtXaU+s6ugqdUO3e+tumbk17uYIJhgJmPCgGCMBO2FNrUGwnyhos07zdDrDsaePk7nZsdGJ+rMD3AT2wmhhq0ZEQ1ecH0QnevbtnBmO8Kz/BENZy1na8d/yJjQr4nRgGX91ieNVSBUiYFxUoauCPlqB9y4+wahUsT0="
+      },
+      "request_started_ms": 1790138121133,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138121792
+    },
+    {
+      "label": "receive-B-restored-renewal-dlq",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "WaitTimeSeconds": 2,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790138121793,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138124458
+    }
+  ],
+  "receipts": [
+    {
+      "phase": "A-warm",
+      "case": "A",
+      "observed_in_window": "A-warm",
+      "queue": "collector",
+      "observed_ms": 1790137790449,
+      "message": {
+        "MessageId": "03cad84d-c189-4abb-8a75-8ff7988c2b15",
+        "ReceiptHandle": "AQEBdK9rixzr59jDWsYOKT20GrKcs8eqJAYw0WzwT4uJp+BW8kDT4NVJjU3PbUc/DAA1YCMYnEc4WN/Hm4ezqFd90u3qo4i44D411NnofgCUDQH7BlyFzJbnFDvENtXSUhXpGw/oOlrz1Uf7ERuhBMsOdlohWXgdKxs+nknoRvumxkCQXCczVO0C4jXR3Lib4EuZ3Z3H2QhjB88qta9Pa8kdvcZ944p3YAV5Pkn9QEj516gXVKqfNjZTTZSkcKTn5i2tNTpNpOLOehNe0sJfwkYXtQO5rL3/do/groRD4OOfWI08k4xU/DErDADD72SwQ/PAJSW4Asetb4TkJB6qdTsLHtuCyxdTDeD3b1uONQrsii7NZPgA69wSN91i+L/2BE3LkZK6ol7AIXgoe0YGr5myGiR44VUj4H6Zs50D97Ry5V8=",
+        "MD5OfBody": "d3ee4cc541541289e4ba426cd099de04",
+        "Body": "{\"version\":\"0\",\"id\":\"9beb3c2c-5605-ced9-505c-450df2868946\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:29:49Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"A\",\"phase\":\"A-warm\",\"nonce\":\"b9c6700dd8c74580b32bf92f7552a33c\"}}",
+        "Attributes": {
+          "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+          "ApproximateFirstReceiveTimestamp": "1790137790322",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790137789739"
+        }
+      },
+      "decoded_event": {
+        "version": "0",
+        "id": "9beb3c2c-5605-ced9-505c-450df2868946",
+        "detail-type": "SNS encrypted source cache",
+        "source": "stackd-sns-escache-119394089596",
+        "account": "000000000000",
+        "time": "2026-09-23T04:29:49Z",
+        "region": "us-east-1",
+        "resources": [],
+        "detail": {
+          "probe": "stackd-sns-escache-119394089596",
+          "case": "A",
+          "phase": "A-warm",
+          "nonce": "b9c6700dd8c74580b32bf92f7552a33c"
+        }
+      },
+      "decoded_message_attributes": {},
+      "correlated": true
+    },
+    {
+      "phase": "fresh-disabled",
+      "case": "fresh",
+      "observed_in_window": "fresh-disabled",
+      "queue": "dlq",
+      "observed_ms": 1790137805037,
+      "message": {
+        "MessageId": "28c2b034-d2bb-489a-a868-c5dde6d51c5f",
+        "ReceiptHandle": "AQEBZwu+08GP5LKhvRYYCmG8Ms+NxNmYCSfGqCxGTTzmYcTsG/Jc65ABEGJLpHmqnB1kGkGwecbZW/DtQ1OeD1JjsyKI14obn8oMGXim4eEm/WzVgNUc2IfStRdU+pYNffJa3kAtpAj5M/spArrgR88PiRuVnobpUCTgwhc2/DkuWhnzKdxbwc2mSwqvNTtADpkGfM6Y0RV6ht+G54D7X/X1fNZ9uogzgO1gsLiuk7tgkGmyG87W/OQMbYN3MK0zkVu88mCkeMvdS/4ltJfcYe2lmepSAAy/j+E1Znw2hpuhu/UQD5ZItLKt4p/pV5k5Y731DDstsQnP19o1VX6eFCq/2jLe1Bch7GCa3geRzEu/YESnBIuI8bJJKksKiHSes/aN7f4Aw3Yv2NLi4zqkZ1f0cTQpEOrp0Dq535Qnrm6KIkg=",
+        "MD5OfBody": "e5c7af0e74f3434f2841363950350962",
+        "Body": "{\"version\":\"0\",\"id\":\"169c4fc8-fbd5-a19e-0776-649fb464333d\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:01Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"fresh\",\"phase\":\"fresh-disabled\",\"nonce\":\"4979e441c0ad40f2a7485c9baf1dc4f6\"}}",
+        "Attributes": {
+          "SenderId": "AIDAJXNJGGKNS7OSV23OI",
+          "ApproximateFirstReceiveTimestamp": "1790137804910",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790137801614"
+        },
+        "MD5OfMessageAttributes": "e732ffda6b3d3ba229361c6e81cb16b8",
+        "MessageAttributes": {
+          "ERROR_CODE": {
+            "StringValue": "NO_PERMISSIONS",
+            "DataType": "String"
+          },
+          "ERROR_MESSAGE": {
+            "StringValue": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled. (Service: AWSKMS; Status Code: 400; Error Code: DisabledException; Request ID: f0fdc4cd-622f-4352-8506-79e4531d4f72; Proxy: null) (Service: AmazonSNS; Status Code: 400; Error Code: KMSDisabled; Request ID: 77ac212a-d6c1-547b-8744-42078ec8c0bd; Proxy: null)",
+            "DataType": "String"
+          },
+          "RULE_ARN": {
+            "StringValue": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-fresh",
+            "DataType": "String"
+          },
+          "TARGET_ARN": {
+            "StringValue": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh",
+            "DataType": "String"
+          }
+        }
+      },
+      "decoded_event": {
+        "version": "0",
+        "id": "169c4fc8-fbd5-a19e-0776-649fb464333d",
+        "detail-type": "SNS encrypted source cache",
+        "source": "stackd-sns-escache-119394089596",
+        "account": "000000000000",
+        "time": "2026-09-23T04:30:01Z",
+        "region": "us-east-1",
+        "resources": [],
+        "detail": {
+          "probe": "stackd-sns-escache-119394089596",
+          "case": "fresh",
+          "phase": "fresh-disabled",
+          "nonce": "4979e441c0ad40f2a7485c9baf1dc4f6"
+        }
+      },
+      "decoded_message_attributes": {
+        "ERROR_CODE": "NO_PERMISSIONS",
+        "ERROR_MESSAGE": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled. (Service: AWSKMS; Status Code: 400; Error Code: DisabledException; Request ID: f0fdc4cd-622f-4352-8506-79e4531d4f72; Proxy: null) (Service: AmazonSNS; Status Code: 400; Error Code: KMSDisabled; Request ID: 77ac212a-d6c1-547b-8744-42078ec8c0bd; Proxy: null)",
+        "RULE_ARN": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-fresh",
+        "TARGET_ARN": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh"
+      },
+      "correlated": true
+    },
+    {
+      "phase": "A-disabled-before",
+      "case": "A",
+      "observed_in_window": "A-disabled-before",
+      "queue": "collector",
+      "observed_ms": 1790137807148,
+      "message": {
+        "MessageId": "23e1caea-8597-468c-82c9-858a710f2dad",
+        "ReceiptHandle": "AQEBaFBrLcN23wGZITxB7ChvibKZ197mEAgLzPFbRNzYNymVyNt87YMdPhlzCZlliLIgR41o6u9nT9VTdtNKARRJtD7KnU/mth+GTAfh4qXYWt6mSMm+kQmYtZnyuVU9nV3RFaUnX6Ih9fOej/wX13lB0wK3tKJOQMekRj0ChC3O5Tju9RLF72PiWF/1mtvX2f14ZE3cTaeiNIbTnknmK77JT1I37PRxAcO1Nh6Cn6WT/572w2Wfi9Hftp3Y/zxqnS1rZ+6gYMqsEIx28HLB5g3NDKymQUWbuvotOuFFYNjXytxzlKWoIuQ/dS8S6KE0UVCVNEdIfVnxdGAPzPvQ3qEz10j8is11b3pg9QPRc8scUHOVSNPceFmLHzePES6JaoWugwM+zEe76cvGV1kLUpHU3eYTnKn3N1OQfNL7nmrmCPE=",
+        "MD5OfBody": "ae1238b7437c77324c4d7e4c1e194ae8",
+        "Body": "{\"version\":\"0\",\"id\":\"93eb2071-0fdf-a0e0-07ba-6795dbbd2395\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:06Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"A\",\"phase\":\"A-disabled-before\",\"nonce\":\"1d8c9eca942c41f9adcf1b0966ae30ba\"}}",
+        "Attributes": {
+          "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+          "ApproximateFirstReceiveTimestamp": "1790137807023",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790137806431"
+        }
+      },
+      "decoded_event": {
+        "version": "0",
+        "id": "93eb2071-0fdf-a0e0-07ba-6795dbbd2395",
+        "detail-type": "SNS encrypted source cache",
+        "source": "stackd-sns-escache-119394089596",
+        "account": "000000000000",
+        "time": "2026-09-23T04:30:06Z",
+        "region": "us-east-1",
+        "resources": [],
+        "detail": {
+          "probe": "stackd-sns-escache-119394089596",
+          "case": "A",
+          "phase": "A-disabled-before",
+          "nonce": "1d8c9eca942c41f9adcf1b0966ae30ba"
+        }
+      },
+      "decoded_message_attributes": {},
+      "correlated": true
+    },
+    {
+      "phase": "A-disabled-after",
+      "case": "A",
+      "observed_in_window": "B-first-bracket",
+      "queue": "collector",
+      "observed_ms": 1790137812568,
+      "message": {
+        "MessageId": "1a61bf10-8239-4ac2-9da0-67c0f6c07e04",
+        "ReceiptHandle": "AQEB4epWd7LpZKUgPQn6bGK/ohP2Zi6pdF6GFFq4XqmJpOkYtuCrNsfi+hw/rYQqtJeoEcifHDdYHqnRGa9SyS7t+hkrUOradizk6uxXKrQsHaNn8/5R5DtoXOlaMyR29vupY4y1X/+T6ax9Tx7z2L3qhfkBXUsHkLgKfsGrwaPHFSVFGhaH/jfUnQAtCmcfrfioGE2mOV2kB+cjn9gukKf6EGu4WmAMzrugEhKeryOR2Pkmpr8trOAQF1VrmFPPya+vOCfhJ1x+I8iVz/rhnhK+0YiSeqcF0SWfcNr8/PEqXvefxEJ4CwAnDH7gClf2gnBUPcy5nuks1ZQC5rVOFZ6nfalqx0RsIShWf9cuPfbkmnpFGhLr6aF3/wprhD8GeshrmvzVkdq8n7of8NVw3ILaaVlkNhzSxqJ5+eKXdJtr9FQ=",
+        "MD5OfBody": "816b9c751abf40cba09fc81bcd8ad312",
+        "Body": "{\"version\":\"0\",\"id\":\"43d2c488-878a-795c-606a-7647a50cce5c\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:11Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"A\",\"phase\":\"A-disabled-after\",\"nonce\":\"d1b16ab6d1e9424198cc6e5fda29226b\"}}",
+        "Attributes": {
+          "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+          "ApproximateFirstReceiveTimestamp": "1790137812438",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790137811856"
+        }
+      },
+      "decoded_event": {
+        "version": "0",
+        "id": "43d2c488-878a-795c-606a-7647a50cce5c",
+        "detail-type": "SNS encrypted source cache",
+        "source": "stackd-sns-escache-119394089596",
+        "account": "000000000000",
+        "time": "2026-09-23T04:30:11Z",
+        "region": "us-east-1",
+        "resources": [],
+        "detail": {
+          "probe": "stackd-sns-escache-119394089596",
+          "case": "A",
+          "phase": "A-disabled-after",
+          "nonce": "d1b16ab6d1e9424198cc6e5fda29226b"
+        }
+      },
+      "decoded_message_attributes": {},
+      "correlated": true
+    },
+    {
+      "phase": "B-disabled-first",
+      "case": "B",
+      "observed_in_window": "B-first-bracket",
+      "queue": "dlq",
+      "observed_ms": 1790137813969,
+      "message": {
+        "MessageId": "ec856179-a298-44c5-84b9-1d7d8d30e69a",
+        "ReceiptHandle": "AQEBkx5A4dLH+t8mfh7I5WtS79nL9Un0w3dWR1/rPhUJl5kwZ8SgD1nRUvaYKmKUoElGBCydLWhg6mcGR2wp3FHINJ4BQM83r2mwPJRhgGqpJ2IfOht9piaq1jaA/wpLvrCRYb4Fs9rIlhr6C4X/Dmwa7bSfh5FFJPkwd6sVMJIEfXOxxh7TqLJuIT6NNBo17j0QGM0pO9WflH+deYRRRRijsNiuJO5ni8oGHKcLD4A6PehYxupaRjuwzCPW8VaCGy3q4P7cNuAidGvvrJw0dCq3xcXDgFsuAVzTRjC7nJj4AGqMbmsRPYD6r9ZwrNq0neTNJGt8MuUhuiaUyFHNkz+9Wo+GtLny11M1hSIj6yALc6i6RGFFM94GwFjtNilYl4/fyQYEe2suOt5IWSEVXlUg8/MXvM2xPDk37gtnGZg225g=",
+        "MD5OfBody": "37a03e6d94bb5de5fb5da2b64184eeb0",
+        "Body": "{\"version\":\"0\",\"id\":\"01dec2a4-5d42-4488-d119-99015db29104\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:11Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"B\",\"phase\":\"B-disabled-first\",\"nonce\":\"d2cdb12eb4e7452fae8c788eb34bcfcc\"}}",
+        "Attributes": {
+          "SenderId": "AIDAJXNJGGKNS7OSV23OI",
+          "ApproximateFirstReceiveTimestamp": "1790137813842",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790137811188"
+        },
+        "MD5OfMessageAttributes": "4f68c29912200ba6f8854d6d82c71f86",
+        "MessageAttributes": {
+          "ERROR_CODE": {
+            "StringValue": "NO_PERMISSIONS",
+            "DataType": "String"
+          },
+          "ERROR_MESSAGE": {
+            "StringValue": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled. (Service: AWSKMS; Status Code: 400; Error Code: DisabledException; Request ID: 1407d94d-98c6-45ff-aa4d-cb1231f8ef67; Proxy: null) (Service: AmazonSNS; Status Code: 400; Error Code: KMSDisabled; Request ID: b7a98bae-c424-5558-9f88-e8839c37cba3; Proxy: null)",
+            "DataType": "String"
+          },
+          "RULE_ARN": {
+            "StringValue": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+            "DataType": "String"
+          },
+          "TARGET_ARN": {
+            "StringValue": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+            "DataType": "String"
+          }
+        }
+      },
+      "decoded_event": {
+        "version": "0",
+        "id": "01dec2a4-5d42-4488-d119-99015db29104",
+        "detail-type": "SNS encrypted source cache",
+        "source": "stackd-sns-escache-119394089596",
+        "account": "000000000000",
+        "time": "2026-09-23T04:30:11Z",
+        "region": "us-east-1",
+        "resources": [],
+        "detail": {
+          "probe": "stackd-sns-escache-119394089596",
+          "case": "B",
+          "phase": "B-disabled-first",
+          "nonce": "d2cdb12eb4e7452fae8c788eb34bcfcc"
+        }
+      },
+      "decoded_message_attributes": {
+        "ERROR_CODE": "NO_PERMISSIONS",
+        "ERROR_MESSAGE": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled. (Service: AWSKMS; Status Code: 400; Error Code: DisabledException; Request ID: 1407d94d-98c6-45ff-aa4d-cb1231f8ef67; Proxy: null) (Service: AmazonSNS; Status Code: 400; Error Code: KMSDisabled; Request ID: b7a98bae-c424-5558-9f88-e8839c37cba3; Proxy: null)",
+        "RULE_ARN": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+        "TARGET_ARN": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+      },
+      "correlated": true
+    },
+    {
+      "phase": "B-restored",
+      "case": "B",
+      "observed_in_window": "B-restored",
+      "queue": "collector",
+      "observed_ms": 1790137822529,
+      "message": {
+        "MessageId": "e39b4036-4337-4b62-b2e2-e4b719913e3e",
+        "ReceiptHandle": "AQEBmtZKge1+x/ZRXJvDljUgJ7WRpy/IpoZ+OV42OEbbdkOkfzjiksRCGrqHrfKNb1sJxbaftAB6w+ZGLO9rcvR+V61fHpQOTi11Shvq0sZEpuJ2xo35fpTnnVg5Dtowt1ZUNOuVcTeBdyjNlqhYdCgXCpMAbLM7SNOFLLe5yj1cKyKXskooX7OAFDZCMs3RB5xIQH3Xv0VmPMk4x031zYmomyTxE5VqN4xcO7i60e1iVJy1FGi+te/ucntUu5pWccBynNqxL5CzWu09F68W4z42tcEr/9R/91byeBvxOGocgy1ItmwpXTyw2vE2N06l+egG68UavWBNcwV5XvZzdgRxT+DQJ7IMKV8+itdQ9g9763sqXJM/bxvZmYbeKMZldwUTMoowFzK9wjwgN0Cx0lKFSQ+xXEge6V6WgR7OxXYyp+A=",
+        "MD5OfBody": "795e3d9de90218546547dc8bbb114232",
+        "Body": "{\"version\":\"0\",\"id\":\"0274964b-797b-1955-e14d-d819ecea8350\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:30:21Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"B\",\"phase\":\"B-restored\",\"nonce\":\"c6265e6c6a414f6c8cdc608ad509932a\"}}",
+        "Attributes": {
+          "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+          "ApproximateFirstReceiveTimestamp": "1790137822395",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790137821804"
+        }
+      },
+      "decoded_event": {
+        "version": "0",
+        "id": "0274964b-797b-1955-e14d-d819ecea8350",
+        "detail-type": "SNS encrypted source cache",
+        "source": "stackd-sns-escache-119394089596",
+        "account": "000000000000",
+        "time": "2026-09-23T04:30:21Z",
+        "region": "us-east-1",
+        "resources": [],
+        "detail": {
+          "probe": "stackd-sns-escache-119394089596",
+          "case": "B",
+          "phase": "B-restored",
+          "nonce": "c6265e6c6a414f6c8cdc608ad509932a"
+        }
+      },
+      "decoded_message_attributes": {},
+      "correlated": true
+    },
+    {
+      "phase": "B-restored-renewal",
+      "case": "B",
+      "observed_in_window": "B-restored-renewal",
+      "queue": "collector",
+      "observed_ms": 1790138121133,
+      "message": {
+        "MessageId": "81b2a4b1-559c-481c-80b5-c81fd6c33365",
+        "ReceiptHandle": "AQEB2OV8hFzSHSU18tC6yfCWpRNSMt0PbWMBI2k8EJbU9KzkbXs9gtiyaicfzk6aZG6SQd/AjRQqEuRTeYUVI3+MzxhqBnPAze9hpYTUwcSQYk34UTaPMOpI6OIPMmoS/h7KUDX/XGejzkgT1KJjOZ9Mp9hhi3IK5kec9E/qvyuJ2eGJJbGcti4y59Bx2Fb4j6Uq+CCDTl5HNt+K0LzV5ZFcyYoCe2tbKW/NjjBmPC9WBbLP2mkwSQo9D0wPJ+T6FK7HMbvg35kOkQtXaU+s6ugqdUO3e+tumbk17uYIJhgJmPCgGCMBO2FNrUGwnyhos07zdDrDsaePk7nZsdGJ+rMD3AT2wmhhq0ZEQ1ecH0QnevbtnBmO8Kz/BENZy1na8d/yJjQr4nRgGX91ieNVSBUiYFxUoauCPlqB9y4+wahUsT0=",
+        "MD5OfBody": "a09ed8012b2dea06bc63c73526408227",
+        "Body": "{\"version\":\"0\",\"id\":\"cd3d678d-00f7-ff66-dbef-13d69f7bfbf3\",\"detail-type\":\"SNS encrypted source cache\",\"source\":\"stackd-sns-escache-119394089596\",\"account\":\"000000000000\",\"time\":\"2026-09-23T04:35:20Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"probe\":\"stackd-sns-escache-119394089596\",\"case\":\"B\",\"phase\":\"B-restored-renewal\",\"nonce\":\"c5b7d8b1ba1d4b69affdc3df90910f77\"}}",
+        "Attributes": {
+          "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+          "ApproximateFirstReceiveTimestamp": "1790138121006",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790138120456"
+        }
+      },
+      "decoded_event": {
+        "version": "0",
+        "id": "cd3d678d-00f7-ff66-dbef-13d69f7bfbf3",
+        "detail-type": "SNS encrypted source cache",
+        "source": "stackd-sns-escache-119394089596",
+        "account": "000000000000",
+        "time": "2026-09-23T04:35:20Z",
+        "region": "us-east-1",
+        "resources": [],
+        "detail": {
+          "probe": "stackd-sns-escache-119394089596",
+          "case": "B",
+          "phase": "B-restored-renewal",
+          "nonce": "c5b7d8b1ba1d4b69affdc3df90910f77"
+        }
+      },
+      "decoded_message_attributes": {},
+      "correlated": true
+    }
+  ],
+  "windows": [
+    {
+      "phase": "A-warm",
+      "started_ms": 1790137789720,
+      "ended_ms": 1790137793791,
+      "maximum_seconds": 90,
+      "expected_phases": [
+        "A-warm"
+      ],
+      "pending_phases": []
+    },
+    {
+      "phase": "fresh-disabled",
+      "started_ms": 1790137801619,
+      "ended_ms": 1790137805715,
+      "maximum_seconds": 75,
+      "expected_phases": [
+        "fresh-disabled"
+      ],
+      "pending_phases": []
+    },
+    {
+      "phase": "A-disabled-before",
+      "started_ms": 1790137806437,
+      "ended_ms": 1790137810500,
+      "maximum_seconds": 35,
+      "expected_phases": [
+        "A-disabled-before"
+      ],
+      "pending_phases": []
+    },
+    {
+      "phase": "B-first-bracket",
+      "started_ms": 1790137811854,
+      "ended_ms": 1790137814714,
+      "maximum_seconds": 75,
+      "expected_phases": [
+        "B-disabled-first",
+        "A-disabled-after"
+      ],
+      "pending_phases": []
+    },
+    {
+      "phase": "B-restored",
+      "started_ms": 1790137821806,
+      "ended_ms": 1790137825897,
+      "maximum_seconds": 90,
+      "expected_phases": [
+        "B-restored"
+      ],
+      "pending_phases": []
+    },
+    {
+      "phase": "wait-before-B-renewal",
+      "started_ms": 1790137825906,
+      "ended_ms": 1790138119711,
+      "requested_seconds": 293.805
+    },
+    {
+      "phase": "B-restored-renewal",
+      "started_ms": 1790138120426,
+      "ended_ms": 1790138124459,
+      "maximum_seconds": 90,
+      "expected_phases": [
+        "B-restored-renewal"
+      ],
+      "pending_phases": []
+    }
+  ],
+  "events": {
+    "A-warm": {
+      "case": "A",
+      "event_id": "9beb3c2c-5605-ced9-505c-450df2868946",
+      "detail": {
+        "probe": "stackd-sns-escache-119394089596",
+        "case": "A",
+        "phase": "A-warm",
+        "nonce": "b9c6700dd8c74580b32bf92f7552a33c"
+      },
+      "put_events_observation_label": "publish-A-warm",
+      "accepted_observed_ms": 1790137789711
+    },
+    "fresh-disabled": {
+      "case": "fresh",
+      "event_id": "169c4fc8-fbd5-a19e-0776-649fb464333d",
+      "detail": {
+        "probe": "stackd-sns-escache-119394089596",
+        "case": "fresh",
+        "phase": "fresh-disabled",
+        "nonce": "4979e441c0ad40f2a7485c9baf1dc4f6"
+      },
+      "put_events_observation_label": "publish-fresh-disabled",
+      "accepted_observed_ms": 1790137801609
+    },
+    "A-disabled-before": {
+      "case": "A",
+      "event_id": "93eb2071-0fdf-a0e0-07ba-6795dbbd2395",
+      "detail": {
+        "probe": "stackd-sns-escache-119394089596",
+        "case": "A",
+        "phase": "A-disabled-before",
+        "nonce": "1d8c9eca942c41f9adcf1b0966ae30ba"
+      },
+      "put_events_observation_label": "publish-A-disabled-before",
+      "accepted_observed_ms": 1790137806428
+    },
+    "B-disabled-first": {
+      "case": "B",
+      "event_id": "01dec2a4-5d42-4488-d119-99015db29104",
+      "detail": {
+        "probe": "stackd-sns-escache-119394089596",
+        "case": "B",
+        "phase": "B-disabled-first",
+        "nonce": "d2cdb12eb4e7452fae8c788eb34bcfcc"
+      },
+      "put_events_observation_label": "publish-B-disabled-first",
+      "accepted_observed_ms": 1790137811168
+    },
+    "A-disabled-after": {
+      "case": "A",
+      "event_id": "43d2c488-878a-795c-606a-7647a50cce5c",
+      "detail": {
+        "probe": "stackd-sns-escache-119394089596",
+        "case": "A",
+        "phase": "A-disabled-after",
+        "nonce": "d1b16ab6d1e9424198cc6e5fda29226b"
+      },
+      "put_events_observation_label": "publish-A-disabled-after",
+      "accepted_observed_ms": 1790137811845
+    },
+    "B-restored": {
+      "case": "B",
+      "event_id": "0274964b-797b-1955-e14d-d819ecea8350",
+      "detail": {
+        "probe": "stackd-sns-escache-119394089596",
+        "case": "B",
+        "phase": "B-restored",
+        "nonce": "c6265e6c6a414f6c8cdc608ad509932a"
+      },
+      "put_events_observation_label": "publish-B-restored",
+      "accepted_observed_ms": 1790137821797
+    },
+    "B-restored-renewal": {
+      "case": "B",
+      "event_id": "cd3d678d-00f7-ff66-dbef-13d69f7bfbf3",
+      "detail": {
+        "probe": "stackd-sns-escache-119394089596",
+        "case": "B",
+        "phase": "B-restored-renewal",
+        "nonce": "c5b7d8b1ba1d4b69affdc3df90910f77"
+      },
+      "put_events_observation_label": "publish-B-restored-renewal",
+      "accepted_observed_ms": 1790138120425
+    }
+  },
+  "cloudtrail": {
+    "events": [
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "0f71fb2c-0f93-3e29-94f2-e98a70124050",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T04:30:21Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "Decrypt",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "encryptionAlgorithm": "SYMMETRIC_DEFAULT",
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+            }
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+          },
+          "requestID": "0302a26a-4f91-4388-93a2-c8321abaf998",
+          "eventID": "0f71fb2c-0f93-3e29-94f2-e98a70124050",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "e888295b-c09a-4bb4-a15a-6ec1b6ff734c",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "55b4c468-c298-3f30-86ec-91529a01a2bf",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T04:30:21Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GenerateDataKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "keySpec": "AES_256",
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+            }
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+          },
+          "requestID": "b419fc70-5cf2-4f29-bf16-25ab644e884c",
+          "eventID": "55b4c468-c298-3f30-86ec-91529a01a2bf",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "bfa0873f-46f7-4dfb-bbe3-84afe908df17",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "1059b7f5-aff2-4760-b021-c9b2e3e92d20",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "REDACTED_CALLER_ACCESS_KEY",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T04:30:16Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "DescribeKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.describe-key",
+          "requestParameters": {
+            "keyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+          },
+          "responseElements": null,
+          "requestID": "6365a4d1-679c-4ca0-8e0c-a8ee25276763",
+          "eventID": "1059b7f5-aff2-4760-b021-c9b2e3e92d20",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "2ede6c78-b2c7-4107-ad04-59987936f146",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "REDACTED_CALLER_ACCESS_KEY",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T04:30:15Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "EnableKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.enable-key",
+          "requestParameters": {
+            "keyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+          },
+          "responseElements": {
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+          },
+          "requestID": "acadf0d5-e4cc-4cf3-94cc-0f3d9c309544",
+          "eventID": "2ede6c78-b2c7-4107-ad04-59987936f146",
+          "readOnly": false,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "44c915ef-caf9-3ed4-bd83-13a86c765dbe",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T04:30:11Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GenerateDataKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "errorCode": "DisabledException",
+          "errorMessage": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled.",
+          "requestParameters": {
+            "keySpec": "AES_256",
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+          },
+          "responseElements": null,
+          "requestID": "1407d94d-98c6-45ff-aa4d-cb1231f8ef67",
+          "eventID": "44c915ef-caf9-3ed4-bd83-13a86c765dbe",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "91b76b13-9360-4cd9-b96c-ee006c0df439",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "10364d25-012f-3e40-82d9-64aafa73ca08",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T04:30:01Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GenerateDataKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "errorCode": "DisabledException",
+          "errorMessage": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled.",
+          "requestParameters": {
+            "keySpec": "AES_256",
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+          },
+          "responseElements": null,
+          "requestID": "f0fdc4cd-622f-4352-8506-79e4531d4f72",
+          "eventID": "10364d25-012f-3e40-82d9-64aafa73ca08",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "646bd599-4f9b-4098-a9a3-867ceaa5c145",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "36a08f0d-0351-4e54-8261-79e14747a7a5",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "REDACTED_CALLER_ACCESS_KEY",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T04:30:00Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GenerateDataKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.generate-data-key",
+          "errorCode": "DisabledException",
+          "errorMessage": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled.",
+          "requestParameters": {
+            "keyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "keySpec": "AES_256",
+            "encryptionContext": {
+              "probe": "stackd-sns-escache-119394089596"
+            }
+          },
+          "responseElements": null,
+          "requestID": "fc4cc6f7-0be6-493e-9e63-eb244a55d8a0",
+          "eventID": "36a08f0d-0351-4e54-8261-79e14747a7a5",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "f7caf80e-06f9-4314-b745-0deec56f6e4b",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "REDACTED_CALLER_ACCESS_KEY",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T04:29:55Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "DescribeKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.describe-key",
+          "requestParameters": {
+            "keyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+          },
+          "responseElements": null,
+          "requestID": "15c79657-4a07-420a-a8a0-5410b60c434c",
+          "eventID": "f7caf80e-06f9-4314-b745-0deec56f6e4b",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "9be9c91f-bb66-49ae-a5ea-470018c4f3d2",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "REDACTED_CALLER_ACCESS_KEY",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T04:29:54Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "DisableKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.disable-key",
+          "requestParameters": {
+            "keyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+          },
+          "responseElements": {
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+          },
+          "requestID": "3edcb55e-829a-4301-982c-d05fafa4ddc4",
+          "eventID": "9be9c91f-bb66-49ae-a5ea-470018c4f3d2",
+          "readOnly": false,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "240a6c6e-b082-3a76-91df-7375ca8d0f0d",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T04:29:49Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "Decrypt",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "encryptionAlgorithm": "SYMMETRIC_DEFAULT",
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+            }
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+          },
+          "requestID": "46803d75-0bad-4ff6-ba8b-8794303091a7",
+          "eventID": "240a6c6e-b082-3a76-91df-7375ca8d0f0d",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "e311711c-fea2-4285-93e4-4088d7421727",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "f3f256d0-e8af-3926-82a8-651878737822",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T04:29:49Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GenerateDataKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "keySpec": "AES_256",
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+            }
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+          },
+          "requestID": "4f406e11-2904-4906-8dc3-0af9ff3af715",
+          "eventID": "f3f256d0-e8af-3926-82a8-651878737822",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "4ef0c0bc-b095-49b2-a08c-2d6fdbde4e6b",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "1c5e7de9-0a4f-491b-bd59-2df01f6c7012",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "REDACTED_CALLER_ACCESS_KEY",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T04:29:30Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "CreateKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.create-key",
+          "requestParameters": {
+            "keySpec": "SYMMETRIC_DEFAULT",
+            "description": "stackd-sns-escache-119394089596",
+            "keyUsage": "ENCRYPT_DECRYPT",
+            "origin": "AWS_KMS",
+            "tags": [
+              {
+                "tagKey": "stackd-probe",
+                "tagValue": "stackd-sns-escache-119394089596"
+              }
+            ],
+            "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"OwnedEventBridgeTopics\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey*\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": [\"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared\", \"arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh\"]}}}]}",
+            "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "bypassPolicyLockoutSafetyCheck": false
+          },
+          "responseElements": {
+            "keyMetadata": {
+              "aWSAccountId": "000000000000",
+              "keyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+              "arn": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+              "creationDate": "2026-09-23T04:29:30Z",
+              "enabled": true,
+              "description": "stackd-sns-escache-119394089596",
+              "keyUsage": "ENCRYPT_DECRYPT",
+              "keyState": "Enabled",
+              "origin": "AWS_KMS",
+              "keyManager": "CUSTOMER",
+              "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+              "keySpec": "SYMMETRIC_DEFAULT",
+              "encryptionAlgorithms": [
+                "SYMMETRIC_DEFAULT"
+              ],
+              "multiRegion": false,
+              "currentKeyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+            }
+          },
+          "requestID": "379d8454-e57c-409b-9a85-cd5719dff69b",
+          "eventID": "1c5e7de9-0a4f-491b-bd59-2df01f6c7012",
+          "readOnly": false,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "first_observed_ms": 1790138145993,
+        "lookup_event_id": "ccd0cb80-1f08-43a0-ad39-609bcf07373c",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "REDACTED_CALLER_ACCESS_KEY",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T04:29:30Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GetKeyPolicy",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.get-key-policy",
+          "requestParameters": {
+            "keyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "policyName": "default"
+          },
+          "responseElements": null,
+          "requestID": "f49baa8d-6799-4f20-9556-87268b01dcfa",
+          "eventID": "ccd0cb80-1f08-43a0-ad39-609bcf07373c",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      }
+    ],
+    "lookups": [
+      {
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "EventSource",
+              "AttributeValue": "kms.amazonaws.com"
+            }
+          ],
+          "StartTime": "2026-09-23T04:29:20.899000+00:00",
+          "EndTime": "2026-09-23T04:35:29.468000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790138144846,
+        "response_observed_ms": 1790138145993,
+        "result_code": "Success",
+        "returned_event_count": 40,
+        "next_token": null
+      }
+    ],
+    "window": {
+      "start": "2026-09-23T04:29:20.899000+00:00",
+      "end": "2026-09-23T04:35:29.468000+00:00",
+      "maximum_poll_seconds": 660,
+      "poll_started_ms": 1790138144846
+    },
+    "poll_finished_ms": 1790138145995
+  },
+  "cleanup": [
+    {
+      "label": "remove-target-A",
+      "service": "events",
+      "operation": "remove-targets",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-A",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "Ids": [
+          "sns"
+        ],
+        "Force": true
+      },
+      "request_started_ms": 1790138124470,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      },
+      "response_observed_ms": 1790138125142
+    },
+    {
+      "label": "verify-targets-A",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-A",
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790138125143,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": []
+        }
+      },
+      "response_observed_ms": 1790138125819
+    },
+    {
+      "label": "delete-rule-A",
+      "service": "events",
+      "operation": "delete-rule",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-A",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "Force": true
+      },
+      "request_started_ms": 1790138125820,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138126542
+    },
+    {
+      "label": "verify-rule-A",
+      "service": "events",
+      "operation": "describe-rule",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-A",
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790138126543,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Rule stackd-sns-escache-119394089596-A does not exist on EventBus stackd-sns-escache-119394089596.",
+          "Code": "ResourceNotFoundException"
+        }
+      },
+      "response_observed_ms": 1790138127212
+    },
+    {
+      "label": "remove-target-B",
+      "service": "events",
+      "operation": "remove-targets",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-B",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "Ids": [
+          "sns"
+        ],
+        "Force": true
+      },
+      "request_started_ms": 1790138127213,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      },
+      "response_observed_ms": 1790138127898
+    },
+    {
+      "label": "verify-targets-B",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-B",
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790138127898,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": []
+        }
+      },
+      "response_observed_ms": 1790138128597
+    },
+    {
+      "label": "delete-rule-B",
+      "service": "events",
+      "operation": "delete-rule",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-B",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "Force": true
+      },
+      "request_started_ms": 1790138128598,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138129312
+    },
+    {
+      "label": "verify-rule-B",
+      "service": "events",
+      "operation": "describe-rule",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-B",
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790138129313,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Rule stackd-sns-escache-119394089596-B does not exist on EventBus stackd-sns-escache-119394089596.",
+          "Code": "ResourceNotFoundException"
+        }
+      },
+      "response_observed_ms": 1790138129979
+    },
+    {
+      "label": "remove-target-fresh",
+      "service": "events",
+      "operation": "remove-targets",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-fresh",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "Ids": [
+          "sns"
+        ],
+        "Force": true
+      },
+      "request_started_ms": 1790138129980,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      },
+      "response_observed_ms": 1790138130684
+    },
+    {
+      "label": "verify-targets-fresh",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "input": {
+        "Rule": "stackd-sns-escache-119394089596-fresh",
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790138130685,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": []
+        }
+      },
+      "response_observed_ms": 1790138131371
+    },
+    {
+      "label": "delete-rule-fresh",
+      "service": "events",
+      "operation": "delete-rule",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-fresh",
+        "EventBusName": "stackd-sns-escache-119394089596",
+        "Force": true
+      },
+      "request_started_ms": 1790138131372,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138132089
+    },
+    {
+      "label": "verify-rule-fresh",
+      "service": "events",
+      "operation": "describe-rule",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596-fresh",
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790138132091,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Rule stackd-sns-escache-119394089596-fresh does not exist on EventBus stackd-sns-escache-119394089596.",
+          "Code": "ResourceNotFoundException"
+        }
+      },
+      "response_observed_ms": 1790138132792
+    },
+    {
+      "label": "verify-rules-empty",
+      "service": "events",
+      "operation": "list-rules",
+      "input": {
+        "EventBusName": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790138132793,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Rules": []
+        }
+      },
+      "response_observed_ms": 1790138133476
+    },
+    {
+      "label": "delete-bus",
+      "service": "events",
+      "operation": "delete-event-bus",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790138133477,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138134233
+    },
+    {
+      "label": "verify-bus",
+      "service": "events",
+      "operation": "describe-event-bus",
+      "input": {
+        "Name": "stackd-sns-escache-119394089596"
+      },
+      "request_started_ms": 1790138134234,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Event bus stackd-sns-escache-119394089596 does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      },
+      "response_observed_ms": 1790138134910
+    },
+    {
+      "label": "delete-subscription-shared",
+      "service": "sns",
+      "operation": "unsubscribe",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared:924b01c4-8535-48f9-aef0-524e558497d9"
+      },
+      "request_started_ms": 1790138134911,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138135701
+    },
+    {
+      "label": "verify-subscription-shared",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared:924b01c4-8535-48f9-aef0-524e558497d9"
+      },
+      "request_started_ms": 1790138135702,
+      "result": {
+        "code": "NotFound",
+        "error": {
+          "Code": "NotFound",
+          "Message": "Subscription does not exist"
+        }
+      },
+      "response_observed_ms": 1790138136362
+    },
+    {
+      "label": "delete-subscription-fresh",
+      "service": "sns",
+      "operation": "unsubscribe",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh:bc8670c6-d827-417e-baac-36f56f0c3c94"
+      },
+      "request_started_ms": 1790138136363,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138137156
+    },
+    {
+      "label": "verify-subscription-fresh",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh:bc8670c6-d827-417e-baac-36f56f0c3c94"
+      },
+      "request_started_ms": 1790138137157,
+      "result": {
+        "code": "NotFound",
+        "error": {
+          "Code": "NotFound",
+          "Message": "Subscription does not exist"
+        }
+      },
+      "response_observed_ms": 1790138137833
+    },
+    {
+      "label": "delete-topic-shared",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+      },
+      "request_started_ms": 1790138137834,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138138607
+    },
+    {
+      "label": "verify-topic-shared",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+      },
+      "request_started_ms": 1790138138608,
+      "result": {
+        "code": "NotFound",
+        "error": {
+          "Code": "NotFound",
+          "Message": "Topic does not exist"
+        }
+      },
+      "response_observed_ms": 1790138139266
+    },
+    {
+      "label": "delete-topic-fresh",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh"
+      },
+      "request_started_ms": 1790138139267,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138140010
+    },
+    {
+      "label": "verify-topic-fresh",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh"
+      },
+      "request_started_ms": 1790138140011,
+      "result": {
+        "code": "NotFound",
+        "error": {
+          "Code": "NotFound",
+          "Message": "Topic does not exist"
+        }
+      },
+      "response_observed_ms": 1790138140678
+    },
+    {
+      "label": "delete-queue-collector",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector"
+      },
+      "request_started_ms": 1790138140679,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138141430
+    },
+    {
+      "label": "verify-queue-collector",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "request_started_ms": 1790138141431,
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "error": {
+          "Message": "The specified queue does not exist.",
+          "Code": "AWS.SimpleQueueService.NonExistentQueue"
+        }
+      },
+      "response_observed_ms": 1790138142086
+    },
+    {
+      "label": "delete-queue-dlq",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq"
+      },
+      "request_started_ms": 1790138142088,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790138142773
+    },
+    {
+      "label": "verify-queue-dlq",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "request_started_ms": 1790138142774,
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "error": {
+          "Message": "The specified queue does not exist.",
+          "Code": "AWS.SimpleQueueService.NonExistentQueue"
+        }
+      },
+      "response_observed_ms": 1790138143415
+    },
+    {
+      "label": "schedule-key-deletion",
+      "service": "kms",
+      "operation": "schedule-key-deletion",
+      "input": {
+        "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+        "PendingWindowInDays": 7
+      },
+      "request_started_ms": 1790138143416,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyId": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+          "DeletionDate": "2026-09-30T05:35:44.027000+01:00",
+          "KeyState": "PendingDeletion",
+          "PendingWindowInDays": 7
+        }
+      },
+      "response_observed_ms": 1790138144141
+    },
+    {
+      "label": "verify-key-pending-deletion",
+      "service": "kms",
+      "operation": "describe-key",
+      "input": {
+        "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+      },
+      "request_started_ms": 1790138144142,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+            "CreationDate": "2026-09-23T05:29:30.078000+01:00",
+            "Enabled": false,
+            "Description": "stackd-sns-escache-119394089596",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "PendingDeletion",
+            "DeletionDate": "2026-09-30T05:35:44.027000+01:00",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+          }
+        }
+      },
+      "response_observed_ms": 1790138144836
+    }
+  ],
+  "owned_resources": {
+    "rules": {
+      "A": {
+        "name": "stackd-sns-escache-119394089596-A",
+        "arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A"
+      },
+      "B": {
+        "name": "stackd-sns-escache-119394089596-B",
+        "arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B"
+      },
+      "fresh": {
+        "name": "stackd-sns-escache-119394089596-fresh",
+        "arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-fresh"
+      }
+    },
+    "topics": {
+      "shared": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+      "fresh": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh"
+    },
+    "subscriptions": {
+      "shared": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared:924b01c4-8535-48f9-aef0-524e558497d9",
+      "fresh": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh:bc8670c6-d827-417e-baac-36f56f0c3c94"
+    },
+    "queues": {
+      "collector": {
+        "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-collector",
+        "arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-collector"
+      },
+      "dlq": {
+        "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-escache-119394089596-dlq",
+        "arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-escache-119394089596-dlq"
+      }
+    },
+    "bus": "stackd-sns-escache-119394089596",
+    "key": {
+      "AWSAccountId": "000000000000",
+      "KeyId": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+      "Arn": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+      "CreationDate": "2026-09-23T05:29:30.078000+01:00",
+      "Enabled": true,
+      "Description": "stackd-sns-escache-119394089596",
+      "KeyUsage": "ENCRYPT_DECRYPT",
+      "KeyState": "Enabled",
+      "Origin": "AWS_KMS",
+      "KeyManager": "CUSTOMER",
+      "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+      "KeySpec": "SYMMETRIC_DEFAULT",
+      "EncryptionAlgorithms": [
+        "SYMMETRIC_DEFAULT"
+      ],
+      "MultiRegion": false,
+      "CurrentKeyMaterialId": "c750750461dc43c9ca1930690ed00725ce763c66a065d4be74bc7c2149ad459d"
+    }
+  },
+  "limitations": [
+    "One account/region and one native run; receipts distinguish actual delivery from bounded missing outcomes.",
+    "No broad SNS KMS service grant. EventBridge KMS grant is restricted only by owned topic encryption context, not source rule.",
+    "CloudTrail history is bounded and eventually consistent; absence of records is not proof of no KMS call."
+  ],
+  "probe_source": {
+    "filename": "sns_event_source_cache_probe.py",
+    "content": "#!/usr/bin/env python3\nimport datetime, json, os, sys, time, uuid\nfrom pathlib import Path\nsys.path.insert(0, str(Path.cwd() / 'scripts/aws'))\nfrom aws_cli import observe\nACCOUNT='000000000000'; REGION='us-east-1'\nPREFIX='stackd-sns-escache-'+uuid.uuid4().hex[:12]\nOUT=Path('testdata/aws/sns/encryption_event_source_cache.json')\nassert not OUT.exists()\nENV={k:v for k,v in os.environ.items() if not k.startswith('AWS_ENDPOINT_URL')}\nENV.update(AWS_DEFAULT_REGION=REGION,AWS_REGION=REGION,AWS_MAX_ATTEMPTS='1',AWS_PAGER='',AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\ndef ms(): return time.time_ns()//1000000\nSTART=ms()\nCAP={'source':'Native EventBridge rules A/B to the same encrypted SNS topic: publication source-ARN cache boundary','account':ACCOUNT,'region':REGION,'prefix':PREFIX,'started_ms':START,'source_revisions':{'stackd':'12be16026c028185447bd9b10521c1f27f4ef6ad'},'source_references':['https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html','https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-dlq.html','https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_RetryPolicy.html'],'observations':[],'receipts':[],'windows':[],'events':{},'cloudtrail':{'events':[],'lookups':[]},'cleanup':[],'owned_resources':{'rules':{},'topics':{},'subscriptions':{},'queues':{}},'limitations':['One account/region and one native run; receipts distinguish actual delivery from bounded missing outcomes.','No broad SNS KMS service grant. EventBridge KMS grant is restricted only by owned topic encryption context, not source rule.','CloudTrail history is bounded and eventually consistent; absence of records is not proof of no KMS call.'],'probe_source':{'filename':Path(__file__).name,'content':Path(__file__).read_text(),'helper_path':'scripts/aws/aws_cli.py','helper_content':Path('scripts/aws/aws_cli.py').read_text(),'adapted_from':'testdata/aws/sns/encryption_service_sources.json:probe_source'}}\nR=CAP['owned_resources']; key=None; bus=False\ndef save(): OUT.write_text(json.dumps(CAP,indent=2)+'\\n')\ndef call(label,service,operation,args=None,strict=True,cleanup=False):\n    row={'label':label,'service':service,'operation':operation,'input':args or {},'request_started_ms':ms()}\n    res=observe(service,operation,args,ENV)\n    row.update(result=res,response_observed_ms=ms()); CAP['cleanup' if cleanup else 'observations'].append(row); save()\n    print(label+': '+res['code'],flush=True)\n    if strict and res['code']!='Success': raise RuntimeError(label+': '+json.dumps(res))\n    return res.get('output',{}) if strict else res\n\ndef policy(statements): return json.dumps({'Version':'2012-10-17','Statement':statements})\ndef receive(phase,expected,seconds):\n    started=ms(); deadline=time.monotonic()+seconds; pending=set(expected)\n    while pending and time.monotonic()<deadline:\n        for kind,q in R['queues'].items():\n            out=call('receive-'+phase+'-'+kind,'sqs','receive-message',{'QueueUrl':q['url'],'WaitTimeSeconds':2,'MaxNumberOfMessages':10,'MessageAttributeNames':['All'],'MessageSystemAttributeNames':['All']})\n            for message in out.get('Messages',[]):\n                event=json.loads(message['Body']); attrs={k:v.get('StringValue') for k,v in message.get('MessageAttributes',{}).items()}\n                label=event.get('detail',{}).get('phase'); case=event.get('detail',{}).get('case'); published=CAP['events'].get(label,{})\n                target=R['topics'].get('fresh' if case=='fresh' else 'shared')\n                correlated=bool(published and published['event_id']==event.get('id') and event.get('detail',{}).get('probe')==PREFIX and (kind=='collector' or attrs.get('TARGET_ARN')==target))\n                CAP['receipts'].append({'phase':label,'case':case,'observed_in_window':phase,'queue':kind,'observed_ms':ms(),'message':message,'decoded_event':event,'decoded_message_attributes':attrs,'correlated':correlated})\n                call('delete-receipt-'+kind,'sqs','delete-message',{'QueueUrl':q['url'],'ReceiptHandle':message['ReceiptHandle']})\n                if correlated: pending.discard(label)\n    CAP['windows'].append({'phase':phase,'started_ms':started,'ended_ms':ms(),'maximum_seconds':seconds,'expected_phases':expected,'pending_phases':sorted(pending)}); save()\n    return pending\n\ndef publish(case,phase):\n    detail={'probe':PREFIX,'case':case,'phase':phase,'nonce':uuid.uuid4().hex}\n    result=call('publish-'+phase,'events','put-events',{'Entries':[{'EventBusName':PREFIX,'Source':PREFIX,'DetailType':'SNS encrypted source cache','Detail':json.dumps(detail)}]})\n    assert result['FailedEntryCount']==0,result\n    CAP['events'][phase]={'case':case,'event_id':result['Entries'][0]['EventId'],'detail':detail,'put_events_observation_label':'publish-'+phase,'accepted_observed_ms':ms()}; save()\n\ndef collector(phase): return any(r['phase']==phase and r['correlated'] and r['queue']=='collector' for r in CAP['receipts'])\ntry:\n    identity=call('identity-before-mutation','sts','get-caller-identity'); CAP['identity']=identity\n    assert identity['Account']==ACCOUNT,'Unexpected account; no mutations'\n    call('create-bus','events','create-event-bus',{'Name':PREFIX}); bus=True; R['bus']=PREFIX\n    for case in ['A','B','fresh']:\n        name=PREFIX+'-'+case\n        arn=call('create-rule-'+case,'events','put-rule',{'Name':name,'EventBusName':PREFIX,'EventPattern':json.dumps({'source':[PREFIX],'detail':{'case':[case]}})})['RuleArn']\n        R['rules'][case]={'name':name,'arn':arn}\n    topics={case:'arn:aws:sns:'+REGION+':'+ACCOUNT+':'+PREFIX+'-'+case for case in ['shared','fresh']}\n    key=call('create-key','kms','create-key',{'Description':PREFIX,'Policy':policy([{'Sid':'OwnerAdministration','Effect':'Allow','Principal':{'AWS':'arn:aws:iam::'+ACCOUNT+':root'},'Action':'kms:*','Resource':'*'},{'Sid':'OwnedEventBridgeTopics','Effect':'Allow','Principal':{'Service':'events.amazonaws.com'},'Action':['kms:GenerateDataKey*','kms:Decrypt'],'Resource':'*','Condition':{'StringEquals':{'kms:EncryptionContext:aws:sns:topicArn':list(topics.values())}}}]),'Tags':[{'TagKey':'stackd-probe','TagValue':PREFIX}]})['KeyMetadata']; R['key']=key\n    call('read-key-policy','kms','get-key-policy',{'KeyId':key['KeyId'],'PolicyName':'default'})\n    for kind in ['collector','dlq']:\n        url=call('create-queue-'+kind,'sqs','create-queue',{'QueueName':PREFIX+'-'+kind,'Attributes':{'SqsManagedSseEnabled':'false'}})['QueueUrl']; R['queues'][kind]={'url':url}\n        R['queues'][kind]['arn']=call('read-queue-'+kind,'sqs','get-queue-attributes',{'QueueUrl':url,'AttributeNames':['QueueArn','SqsManagedSseEnabled']})['Attributes']['QueueArn']\n        principal='sns.amazonaws.com' if kind=='collector' else 'events.amazonaws.com'\n        sources=list(topics.values()) if kind=='collector' else [r['arn'] for r in R['rules'].values()]\n        call('queue-policy-'+kind,'sqs','set-queue-attributes',{'QueueUrl':url,'Attributes':{'Policy':policy([{'Effect':'Allow','Principal':{'Service':principal},'Action':'sqs:SendMessage','Resource':R['queues'][kind]['arn'],'Condition':{'ArnEquals':{'aws:SourceArn':sources},'StringEquals':{'aws:SourceAccount':ACCOUNT}}}])}})\n    for case,expected_arn in topics.items():\n        topic=call('create-topic-'+case,'sns','create-topic',{'Name':PREFIX+'-'+case,'Attributes':{'KmsMasterKeyId':key['Arn']}})['TopicArn']; assert topic==expected_arn; R['topics'][case]=topic\n        sources=[R['rules'][r]['arn'] for r in (['A','B'] if case=='shared' else ['fresh'])]\n        call('topic-policy-'+case,'sns','set-topic-attributes',{'TopicArn':topic,'AttributeName':'Policy','AttributeValue':policy([{'Effect':'Allow','Principal':{'Service':'events.amazonaws.com'},'Action':'sns:Publish','Resource':topic,'Condition':{'ArnEquals':{'aws:SourceArn':sources},'StringEquals':{'aws:SourceAccount':ACCOUNT}}}])})\n        R['subscriptions'][case]=call('subscribe-'+case,'sns','subscribe',{'TopicArn':topic,'Protocol':'sqs','Endpoint':R['queues']['collector']['arn'],'Attributes':{'RawMessageDelivery':'true'},'ReturnSubscriptionArn':True})['SubscriptionArn']\n    for case,r in R['rules'].items():\n        target=R['topics']['fresh' if case=='fresh' else 'shared']\n        out=call('put-target-'+case,'events','put-targets',{'Rule':r['name'],'EventBusName':PREFIX,'Targets':[{'Id':'sns','Arn':target,'RetryPolicy':{'MaximumRetryAttempts':0,'MaximumEventAgeInSeconds':60},'DeadLetterConfig':{'Arn':R['queues']['dlq']['arn']}}]}); assert out['FailedEntryCount']==0\n        call('read-target-'+case,'events','list-targets-by-rule',{'Rule':r['name'],'EventBusName':PREFIX})\n    time.sleep(5)\n    publish('A','A-warm'); receive('A-warm',['A-warm'],90); assert collector('A-warm'),'No actual A warm receipt'\n    call('disable-key','kms','disable-key',{'KeyId':key['KeyId']})\n    call('read-disabled-key','kms','describe-key',{'KeyId':key['KeyId']})\n    time.sleep(5)\n    call('direct-disabled-key-corroboration','kms','generate-data-key',{'KeyId':key['KeyId'],'KeySpec':'AES_256','EncryptionContext':{'probe':PREFIX}},strict=False)\n    publish('fresh','fresh-disabled'); receive('fresh-disabled',['fresh-disabled'],75)\n    publish('A','A-disabled-before'); receive('A-disabled-before',['A-disabled-before'],35)\n    publish('B','B-disabled-first')\n    publish('A','A-disabled-after'); receive('B-first-bracket',['B-disabled-first','A-disabled-after'],75)\n    call('enable-key','kms','enable-key',{'KeyId':key['KeyId']})\n    call('read-enabled-key','kms','describe-key',{'KeyId':key['KeyId']})\n    time.sleep(5)\n    publish('B','B-restored'); receive('B-restored',['B-restored'],90)\n    # Renew B after the initial A publication's documented five-minute reuse interval.\n    wait_start=ms(); delay=max(0,(CAP['events']['A-warm']['accepted_observed_ms']+330000-ms())/1000)\n    time.sleep(delay); CAP['windows'].append({'phase':'wait-before-B-renewal','started_ms':wait_start,'ended_ms':ms(),'requested_seconds':delay})\n    publish('B','B-restored-renewal'); receive('B-restored-renewal',['B-restored-renewal'],90)\n    CAP['delivery_finished_ms']=ms(); save()\nexcept Exception as error:\n    CAP['failure']=str(error); save()\nfinally:\n    for case,r in R['rules'].items():\n        call('remove-target-'+case,'events','remove-targets',{'Rule':r['name'],'EventBusName':PREFIX,'Ids':['sns'],'Force':True},strict=False,cleanup=True)\n        call('verify-targets-'+case,'events','list-targets-by-rule',{'Rule':r['name'],'EventBusName':PREFIX},strict=False,cleanup=True)\n        call('delete-rule-'+case,'events','delete-rule',{'Name':r['name'],'EventBusName':PREFIX,'Force':True},strict=False,cleanup=True)\n        call('verify-rule-'+case,'events','describe-rule',{'Name':r['name'],'EventBusName':PREFIX},strict=False,cleanup=True)\n    if bus:\n        call('verify-rules-empty','events','list-rules',{'EventBusName':PREFIX},strict=False,cleanup=True)\n        call('delete-bus','events','delete-event-bus',{'Name':PREFIX},strict=False,cleanup=True)\n        call('verify-bus','events','describe-event-bus',{'Name':PREFIX},strict=False,cleanup=True)\n    for case,sub in R['subscriptions'].items():\n        call('delete-subscription-'+case,'sns','unsubscribe',{'SubscriptionArn':sub},strict=False,cleanup=True)\n        call('verify-subscription-'+case,'sns','get-subscription-attributes',{'SubscriptionArn':sub},strict=False,cleanup=True)\n    for case,topic in R['topics'].items():\n        call('delete-topic-'+case,'sns','delete-topic',{'TopicArn':topic},strict=False,cleanup=True)\n        call('verify-topic-'+case,'sns','get-topic-attributes',{'TopicArn':topic},strict=False,cleanup=True)\n    for kind,q in R['queues'].items():\n        call('delete-queue-'+kind,'sqs','delete-queue',{'QueueUrl':q['url']},strict=False,cleanup=True)\n        call('verify-queue-'+kind,'sqs','get-queue-attributes',{'QueueUrl':q['url'],'AttributeNames':['QueueArn']},strict=False,cleanup=True)\n    if key:\n        call('schedule-key-deletion','kms','schedule-key-deletion',{'KeyId':key['KeyId'],'PendingWindowInDays':7},strict=False,cleanup=True)\n        call('verify-key-pending-deletion','kms','describe-key',{'KeyId':key['KeyId']},strict=False,cleanup=True)\n    CAP['cleanup_finished_ms']=ms(); save()\nif key:\n    end=CAP.get('delivery_finished_ms',CAP['cleanup_finished_ms'])\n    args={'LookupAttributes':[{'AttributeKey':'EventSource','AttributeValue':'kms.amazonaws.com'}],'StartTime':datetime.datetime.fromtimestamp((START-5000)/1000,datetime.timezone.utc).isoformat(),'EndTime':datetime.datetime.fromtimestamp((end+5000)/1000,datetime.timezone.utc).isoformat(),'MaxResults':50}\n    deadline=time.monotonic()+660; seen=set(); CAP['cloudtrail']['window']={'start':args['StartTime'],'end':args['EndTime'],'maximum_poll_seconds':660,'poll_started_ms':ms()}\n    while True:\n        page_args=dict(args)\n        while True:\n            started=ms(); res=observe('cloudtrail','lookup-events',page_args,ENV,paginate=False); ended=ms()\n            lookup={'input':page_args,'request_started_ms':started,'response_observed_ms':ended,'result_code':res['code']}\n            if res['code']!='Success': lookup['error']=res; CAP['cloudtrail']['lookups'].append(lookup); break\n            out=res['output']; lookup['returned_event_count']=len(out.get('Events',[])); lookup['next_token']=out.get('NextToken')\n            for item in out.get('Events',[]):\n                event=json.loads(item['CloudTrailEvent'])\n                if key['KeyId'] not in json.dumps(event) or event['eventID'] in seen: continue\n                seen.add(event['eventID'])\n                ident=event.get('userIdentity',{})\n                if ident.get('accessKeyId'): ident['accessKeyId']='REDACTED_AWS_INTERNAL_FAS_ACCESS_KEY' if ident.get('invokedBy') or ident.get('type')=='AWSService' else 'REDACTED_CALLER_ACCESS_KEY'\n                CAP['cloudtrail']['events'].append({'first_observed_ms':ended,'lookup_event_id':item.get('EventId'),'event':event})\n            CAP['cloudtrail']['lookups'].append(lookup); save()\n            token=out.get('NextToken')\n            if not token: break\n            page_args=dict(args,NextToken=token); time.sleep(.6)\n        sources={row['event'].get('requestParameters',{}).get('encryptionContext',{}).get('aws:sns:sourceArn') for row in CAP['cloudtrail']['events'] if row['event']['eventName']=='GenerateDataKey' and not row['event'].get('errorCode') and row['event'].get('requestParameters')}\n        print(json.dumps({'crypto_source_arns':sorted(s for s in sources if s),'owned_cloudtrail_events':len(seen)}),flush=True)\n        if all(R['rules'][case]['arn'] in sources for case in ['A','B']) or time.monotonic()>=deadline: break\n        time.sleep(30)\n    CAP['cloudtrail']['poll_finished_ms']=ms()\nCAP['finished_ms']=ms(); save()\nprint(json.dumps({'fixture':str(OUT),'failure':CAP.get('failure'),'receipts':[(r['phase'],r['queue']) for r in CAP['receipts']],'key':key}),flush=True)\n",
+    "helper_path": "scripts/aws/aws_cli.py",
+    "helper_content": "\"\"\"AWS CLI transport shared by native behavior probes.\n\nCallers own endpoint/retry choices, observations and resource cleanup. JSON shapes\nremain open because probes deliberately exercise invalid and newly added inputs.\n\"\"\"\nimport ast\nimport json\nimport re\nimport subprocess\nfrom collections.abc import Mapping, Sequence\nfrom typing import Any, NotRequired, TypedDict\n\n\nclass ProbeResult(TypedDict):\n    code: str\n    output: NotRequired[dict[str, Any]]\n    error: NotRequired[dict[str, Any]]\n    message: NotRequired[str]\n    http_status: NotRequired[int]\n\n\nclass CLITimeout(RuntimeError):\n    \"\"\"A bounded CLI call expired; command arguments may contain secrets.\"\"\"\n\n\nclass AWSCLIError(RuntimeError):\n    \"\"\"A failed strict call, retaining native JSON error fields for its caller.\"\"\"\n\n    def __init__(self, service: str, operation: str, stderr: str, details: dict[str, Any]):\n        super().__init__(f\"{service}:{operation}: {stderr.strip()}\")\n        self.details = details\n\n\ndef run(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n        env: Mapping[str, str] | None = None, *, options: Sequence[str] = (),\n        timeout: float | None = None) -> subprocess.CompletedProcess[str]:\n    \"\"\"Execute one CLI command without interpreting service or client failures.\"\"\"\n    command = [\"aws\", service, operation, \"--output\", \"json\", \"--no-cli-pager\"]\n    if parameters is not None:\n        command += [\"--cli-input-json\", json.dumps(parameters)]\n    try:\n        return subprocess.run(command + list(options), env=env, capture_output=True,\n                              text=True, check=False, timeout=timeout)\n    except subprocess.TimeoutExpired:\n        raise CLITimeout(\"AWS CLI timed out during \" + operation) from None\n\n\ndef call(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n         env: Mapping[str, str] | None = None, *, paginate: bool = True,\n         error_format: str | None = None) -> dict[str, Any]:\n    \"\"\"Return JSON output; service and CLI-validation errors retain typed details.\n\n    Configuration and transport failures abort capture instead of becoming\n    observations of AWS behavior. AWS CLI uses 252 for input errors and 254\n    for service errors.\n    \"\"\"\n    options = [\"--cli-connect-timeout\", \"10\", \"--cli-read-timeout\", \"30\"]\n    if error_format is not None:\n        options += [\"--cli-error-format\", error_format]\n    if not paginate:\n        options.append(\"--no-paginate\")\n    process = run(service, operation, parameters or None, env, options=options)\n    if process.returncode:\n        diagnosis = f\"{service}:{operation}: {process.stderr.strip()}\"\n        if error_format == \"json\" and process.returncode in (252, 254):\n            try:\n                details = json.loads(process.stderr)\n            except json.JSONDecodeError:\n                raise RuntimeError(diagnosis) from None\n            if isinstance(details, dict) and isinstance(details.get(\"Code\"), str):\n                raise AWSCLIError(service, operation, process.stderr, details)\n        raise RuntimeError(diagnosis)\n    return result(process)[\"output\"]\n\n\ndef observe(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n            env: Mapping[str, str] | None = None, *, paginate: bool = True) -> ProbeResult:\n    \"\"\"Capture native JSON success/error fields; callers own output redaction.\"\"\"\n    try:\n        output = call(service, operation, parameters, env, paginate=paginate, error_format=\"json\")\n    except AWSCLIError as error:\n        return {\"code\": error.details[\"Code\"], \"error\": error.details}\n    return {\"code\": \"Success\", \"output\": output}\n\n\ndef _text_error(stderr: str) -> tuple[str, str | None]:\n    match = re.search(r\"An error occurred \\(([^)]+)\\)(?:.*?operation(?: \\([^)]*\\))?: (.*))?\", stderr)\n    return (match[1], match[2]) if match else (\"CLIError\", None)\n\n\ndef result(process: subprocess.CompletedProcess[str], *, cli_error: str = \"CLIError\",\n           cli_message: str | None = \"AWS CLI failed; raw diagnostics discarded\",\n           debug: bool = False) -> ProbeResult:\n    \"\"\"Decode an observation, separating modeled errors from CLI rejection.\n\n    A None client message retains the final three diagnostic lines for probes\n    whose captured CLI-validation observations include those lines.\n    \"\"\"\n    if process.returncode:\n        code, message = _text_error(process.stderr)\n        decoded: ProbeResult = {\n            \"code\": code if message is not None else cli_error,\n            \"message\": message if message is not None else cli_message if cli_message is not None\n            else \" \".join(process.stderr.splitlines()[-3:]),\n        }\n    else:\n        decoded = {\"code\": \"Success\", \"output\": json.loads(process.stdout) if process.stdout.strip() else {}}\n    if debug:\n        statuses = re.findall(r'\"[A-Z]+ [^\"\\r\\n]* HTTP/1\\.[01]\" (\\d{3})', process.stderr)\n        if statuses:\n            decoded[\"http_status\"] = int(statuses[-1])\n    return decoded\n\n\ndef error_code(process: subprocess.CompletedProcess[str]) -> str:\n    \"\"\"Decode code-only observations, including CLI ParamValidation errors.\"\"\"\n    return _text_error(process.stderr)[0]\n\n\ndef raw_xml(process: subprocess.CompletedProcess[str]) -> bytes | None:\n    \"\"\"Extract the last XML response from CLI debug output; discard other logs.\"\"\"\n    raw = None\n    for line in process.stderr.splitlines():\n        if line.startswith((\"b'<\", 'b\"<')):\n            try:\n                candidate = ast.literal_eval(line)\n                if candidate.startswith(b\"<\"):\n                    raw = candidate\n            except (ValueError, SyntaxError):\n                pass\n    return raw\n",
+    "adapted_from": "testdata/aws/sns/encryption_service_sources.json:probe_source"
+  },
+  "identity": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated"
+  },
+  "delivery_finished_ms": 1790138124468,
+  "cleanup_finished_ms": 1790138144837,
+  "finished_ms": 1790138145995,
+  "findings": [
+    {
+      "phase": "A-warm",
+      "case": "A",
+      "event_id": "9beb3c2c-5605-ced9-505c-450df2868946",
+      "source_rule_arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A",
+      "topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+      "outcome": "collector",
+      "evidence": [
+        {
+          "queue": "collector",
+          "sqs_message_id": "03cad84d-c189-4abb-8a75-8ff7988c2b15",
+          "receipt_observed_ms": 1790137790449,
+          "error_code": null,
+          "error_message": null,
+          "correlated_kms_request_ids": [],
+          "cloudtrail_event_ids": []
+        }
+      ]
+    },
+    {
+      "phase": "fresh-disabled",
+      "case": "fresh",
+      "event_id": "169c4fc8-fbd5-a19e-0776-649fb464333d",
+      "source_rule_arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-fresh",
+      "topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-fresh",
+      "outcome": "dlq",
+      "evidence": [
+        {
+          "queue": "dlq",
+          "sqs_message_id": "28c2b034-d2bb-489a-a868-c5dde6d51c5f",
+          "receipt_observed_ms": 1790137805037,
+          "error_code": "NO_PERMISSIONS",
+          "error_message": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled. (Service: AWSKMS; Status Code: 400; Error Code: DisabledException; Request ID: f0fdc4cd-622f-4352-8506-79e4531d4f72; Proxy: null) (Service: AmazonSNS; Status Code: 400; Error Code: KMSDisabled; Request ID: 77ac212a-d6c1-547b-8744-42078ec8c0bd; Proxy: null)",
+          "correlated_kms_request_ids": [
+            "f0fdc4cd-622f-4352-8506-79e4531d4f72",
+            "77ac212a-d6c1-547b-8744-42078ec8c0bd"
+          ],
+          "cloudtrail_event_ids": [
+            "10364d25-012f-3e40-82d9-64aafa73ca08"
+          ]
+        }
+      ]
+    },
+    {
+      "phase": "A-disabled-before",
+      "case": "A",
+      "event_id": "93eb2071-0fdf-a0e0-07ba-6795dbbd2395",
+      "source_rule_arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A",
+      "topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+      "outcome": "collector",
+      "evidence": [
+        {
+          "queue": "collector",
+          "sqs_message_id": "23e1caea-8597-468c-82c9-858a710f2dad",
+          "receipt_observed_ms": 1790137807148,
+          "error_code": null,
+          "error_message": null,
+          "correlated_kms_request_ids": [],
+          "cloudtrail_event_ids": []
+        }
+      ]
+    },
+    {
+      "phase": "B-disabled-first",
+      "case": "B",
+      "event_id": "01dec2a4-5d42-4488-d119-99015db29104",
+      "source_rule_arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+      "topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+      "outcome": "dlq",
+      "evidence": [
+        {
+          "queue": "dlq",
+          "sqs_message_id": "ec856179-a298-44c5-84b9-1d7d8d30e69a",
+          "receipt_observed_ms": 1790137813969,
+          "error_code": "NO_PERMISSIONS",
+          "error_message": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50 is disabled. (Service: AWSKMS; Status Code: 400; Error Code: DisabledException; Request ID: 1407d94d-98c6-45ff-aa4d-cb1231f8ef67; Proxy: null) (Service: AmazonSNS; Status Code: 400; Error Code: KMSDisabled; Request ID: b7a98bae-c424-5558-9f88-e8839c37cba3; Proxy: null)",
+          "correlated_kms_request_ids": [
+            "1407d94d-98c6-45ff-aa4d-cb1231f8ef67",
+            "b7a98bae-c424-5558-9f88-e8839c37cba3"
+          ],
+          "cloudtrail_event_ids": [
+            "44c915ef-caf9-3ed4-bd83-13a86c765dbe"
+          ]
+        }
+      ]
+    },
+    {
+      "phase": "A-disabled-after",
+      "case": "A",
+      "event_id": "43d2c488-878a-795c-606a-7647a50cce5c",
+      "source_rule_arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A",
+      "topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+      "outcome": "collector",
+      "evidence": [
+        {
+          "queue": "collector",
+          "sqs_message_id": "1a61bf10-8239-4ac2-9da0-67c0f6c07e04",
+          "receipt_observed_ms": 1790137812568,
+          "error_code": null,
+          "error_message": null,
+          "correlated_kms_request_ids": [],
+          "cloudtrail_event_ids": []
+        }
+      ]
+    },
+    {
+      "phase": "B-restored",
+      "case": "B",
+      "event_id": "0274964b-797b-1955-e14d-d819ecea8350",
+      "source_rule_arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+      "topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+      "outcome": "collector",
+      "evidence": [
+        {
+          "queue": "collector",
+          "sqs_message_id": "e39b4036-4337-4b62-b2e2-e4b719913e3e",
+          "receipt_observed_ms": 1790137822529,
+          "error_code": null,
+          "error_message": null,
+          "correlated_kms_request_ids": [],
+          "cloudtrail_event_ids": []
+        }
+      ]
+    },
+    {
+      "phase": "B-restored-renewal",
+      "case": "B",
+      "event_id": "cd3d678d-00f7-ff66-dbef-13d69f7bfbf3",
+      "source_rule_arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+      "topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared",
+      "outcome": "collector",
+      "evidence": [
+        {
+          "queue": "collector",
+          "sqs_message_id": "81b2a4b1-559c-481c-80b5-c81fd6c33365",
+          "receipt_observed_ms": 1790138121133,
+          "error_code": null,
+          "error_message": null,
+          "correlated_kms_request_ids": [],
+          "cloudtrail_event_ids": []
+        }
+      ]
+    }
+  ],
+  "crypto_evidence": [
+    {
+      "event_id": "0f71fb2c-0f93-3e29-94f2-e98a70124050",
+      "request_id": "0302a26a-4f91-4388-93a2-c8321abaf998",
+      "event_time": "2026-09-23T04:30:21Z",
+      "event_name": "Decrypt",
+      "error_code": null,
+      "actor": {
+        "type": "AWSService",
+        "invokedBy": "sns.amazonaws.com"
+      },
+      "encryption_context": {
+        "aws:sns:sourceArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+        "aws:sns:sourceAccount": "000000000000",
+        "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+      },
+      "resources": [
+        {
+          "accountId": "000000000000",
+          "type": "AWS::KMS::Key",
+          "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+        }
+      ]
+    },
+    {
+      "event_id": "55b4c468-c298-3f30-86ec-91529a01a2bf",
+      "request_id": "b419fc70-5cf2-4f29-bf16-25ab644e884c",
+      "event_time": "2026-09-23T04:30:21Z",
+      "event_name": "GenerateDataKey",
+      "error_code": null,
+      "actor": {
+        "type": "AWSService",
+        "invokedBy": "sns.amazonaws.com"
+      },
+      "encryption_context": {
+        "aws:sns:sourceArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-B",
+        "aws:sns:sourceAccount": "000000000000",
+        "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+      },
+      "resources": [
+        {
+          "accountId": "000000000000",
+          "type": "AWS::KMS::Key",
+          "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+        }
+      ]
+    },
+    {
+      "event_id": "44c915ef-caf9-3ed4-bd83-13a86c765dbe",
+      "request_id": "1407d94d-98c6-45ff-aa4d-cb1231f8ef67",
+      "event_time": "2026-09-23T04:30:11Z",
+      "event_name": "GenerateDataKey",
+      "error_code": "DisabledException",
+      "actor": {
+        "type": "AWSService",
+        "invokedBy": "sns.amazonaws.com"
+      },
+      "encryption_context": {},
+      "resources": [
+        {
+          "accountId": "000000000000",
+          "type": "AWS::KMS::Key",
+          "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+        }
+      ]
+    },
+    {
+      "event_id": "10364d25-012f-3e40-82d9-64aafa73ca08",
+      "request_id": "f0fdc4cd-622f-4352-8506-79e4531d4f72",
+      "event_time": "2026-09-23T04:30:01Z",
+      "event_name": "GenerateDataKey",
+      "error_code": "DisabledException",
+      "actor": {
+        "type": "AWSService",
+        "invokedBy": "sns.amazonaws.com"
+      },
+      "encryption_context": {},
+      "resources": [
+        {
+          "accountId": "000000000000",
+          "type": "AWS::KMS::Key",
+          "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+        }
+      ]
+    },
+    {
+      "event_id": "36a08f0d-0351-4e54-8261-79e14747a7a5",
+      "request_id": "fc4cc6f7-0be6-493e-9e63-eb244a55d8a0",
+      "event_time": "2026-09-23T04:30:00Z",
+      "event_name": "GenerateDataKey",
+      "error_code": "DisabledException",
+      "actor": {
+        "type": "IAMUser",
+        "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+        "arn": "arn:aws:iam::000000000000:user/Delegated",
+        "accountId": "000000000000",
+        "accessKeyId": "REDACTED_CALLER_ACCESS_KEY",
+        "userName": "Delegated"
+      },
+      "encryption_context": {
+        "probe": "stackd-sns-escache-119394089596"
+      },
+      "resources": [
+        {
+          "accountId": "000000000000",
+          "type": "AWS::KMS::Key",
+          "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+        }
+      ]
+    },
+    {
+      "event_id": "240a6c6e-b082-3a76-91df-7375ca8d0f0d",
+      "request_id": "46803d75-0bad-4ff6-ba8b-8794303091a7",
+      "event_time": "2026-09-23T04:29:49Z",
+      "event_name": "Decrypt",
+      "error_code": null,
+      "actor": {
+        "type": "AWSService",
+        "invokedBy": "sns.amazonaws.com"
+      },
+      "encryption_context": {
+        "aws:sns:sourceArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A",
+        "aws:sns:sourceAccount": "000000000000",
+        "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+      },
+      "resources": [
+        {
+          "accountId": "000000000000",
+          "type": "AWS::KMS::Key",
+          "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+        }
+      ]
+    },
+    {
+      "event_id": "f3f256d0-e8af-3926-82a8-651878737822",
+      "request_id": "4f406e11-2904-4906-8dc3-0af9ff3af715",
+      "event_time": "2026-09-23T04:29:49Z",
+      "event_name": "GenerateDataKey",
+      "error_code": null,
+      "actor": {
+        "type": "AWSService",
+        "invokedBy": "sns.amazonaws.com"
+      },
+      "encryption_context": {
+        "aws:sns:sourceArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-sns-escache-119394089596/stackd-sns-escache-119394089596-A",
+        "aws:sns:sourceAccount": "000000000000",
+        "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-escache-119394089596-shared"
+      },
+      "resources": [
+        {
+          "accountId": "000000000000",
+          "type": "AWS::KMS::Key",
+          "ARN": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50"
+        }
+      ]
+    }
+  ],
+  "conclusion": {
+    "source_arn_sharing": "not_shared_in_observed_run",
+    "summary": "A retained usable warm publication authority while the same topic and key rejected previously unwarmed rule B with an actual KMSDisabled EventBridge DLQ receipt. A successful controls bracket B first publication; never-warmed fresh topic independently produced actual KMSDisabled DLQ evidence. Restoring the key delivered B messages and produced successful KMS crypto with B rule source ARN.",
+    "a_warm_to_b_first_publication_ms": 20060,
+    "a_warm_to_disabled_after_receipt_ms": 22119,
+    "scope": "Supports retaining source ARN in EventBridge publication cache identity; does not establish all AWS service-principal, fleet-wide cache or timing behavior.",
+    "quiet_windows_are_denial": false
+  },
+  "cleanup_summary": {
+    "verified": true,
+    "independently_verified_absent": {
+      "custom_event_bus": 1,
+      "rules": 3,
+      "targets": 3,
+      "topics": 2,
+      "subscriptions": 2,
+      "queues": 2
+    },
+    "verification_observation_labels": [
+      "verify-targets-A",
+      "verify-rule-A",
+      "verify-targets-B",
+      "verify-rule-B",
+      "verify-targets-fresh",
+      "verify-rule-fresh",
+      "verify-rules-empty",
+      "verify-bus",
+      "verify-subscription-shared",
+      "verify-subscription-fresh",
+      "verify-topic-shared",
+      "verify-topic-fresh",
+      "verify-queue-collector",
+      "verify-queue-dlq",
+      "verify-key-pending-deletion"
+    ],
+    "key_id": "ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+    "key_arn": "arn:aws:kms:us-east-1:000000000000:key/ffe051d3-732a-4197-a3c9-6da0d2eafd50",
+    "key_state": "PendingDeletion",
+    "pending_window_days": 7,
+    "deletion_date": "2026-09-30T05:35:44.027000+01:00"
+  },
+  "analysis_source": {
+    "filename": "sns_event_source_cache_finalize.py",
+    "content": "import json, re\nfrom pathlib import Path\np=Path('testdata/aws/sns/encryption_event_source_cache.json')\ns=json.loads(p.read_text())\nassert s.get('finished_ms') and not s.get('failure'),s.get('failure')\nR=s['owned_resources']; obs={o['label']:o for o in s['observations']}; clean={o['label']:o for o in s['cleanup']}\nfindings=[]\nfor phase,published in s['events'].items():\n    case=published['case']; topic=R['topics']['fresh' if case=='fresh' else 'shared']; rule=R['rules'][case]['arn']\n    receipts=[r for r in s['receipts'] if r['phase']==phase and r['correlated']]\n    rows=[]\n    for r in receipts:\n        assert r['decoded_event']['id']==published['event_id']\n        assert r['decoded_event']['detail']==published['detail']\n        if r['queue']=='dlq':\n            assert r['decoded_message_attributes']['RULE_ARN']==rule\n            assert r['decoded_message_attributes']['TARGET_ARN']==topic\n        request_ids=re.findall(r'Request ID: ([0-9a-f-]+)',r['decoded_message_attributes'].get('ERROR_MESSAGE',''))\n        correlated_events=[x['event'] for x in s['cloudtrail']['events'] if x['event'].get('requestID') in request_ids]\n        rows.append({'queue':r['queue'],'sqs_message_id':r['message']['MessageId'],'receipt_observed_ms':r['observed_ms'],'error_code':r['decoded_message_attributes'].get('ERROR_CODE'),'error_message':r['decoded_message_attributes'].get('ERROR_MESSAGE'),'correlated_kms_request_ids':request_ids,'cloudtrail_event_ids':[e['eventID'] for e in correlated_events]})\n    findings.append({'phase':phase,'case':case,'event_id':published['event_id'],'source_rule_arn':rule,'topic_arn':topic,'outcome':'collector' if any(r['queue']=='collector' for r in receipts) else 'dlq' if receipts else 'bounded_missing','evidence':rows})\nby_phase={f['phase']:f for f in findings}\nfor phase in ['A-warm','A-disabled-before','A-disabled-after','B-restored','B-restored-renewal']: assert by_phase[phase]['outcome']=='collector',(phase,by_phase[phase])\nfor phase in ['fresh-disabled','B-disabled-first']:\n    assert by_phase[phase]['outcome']=='dlq',by_phase[phase]\n    assert 'KMSDisabled' in by_phase[phase]['evidence'][0]['error_message']\na_warm=by_phase['A-warm']['evidence'][0]['receipt_observed_ms']\nb_start=obs['publish-B-disabled-first']['request_started_ms']\nassert by_phase['A-disabled-before']['evidence'][0]['receipt_observed_ms'] < b_start < obs['publish-A-disabled-after']['request_started_ms']\nassert by_phase['A-disabled-after']['evidence'][0]['receipt_observed_ms']-a_warm <300000\nassert obs['disable-key']['response_observed_ms'] < obs['publish-fresh-disabled']['request_started_ms'] < b_start < obs['enable-key']['request_started_ms']\ncrypto=[]\nfor item in s['cloudtrail']['events']:\n    e=item['event']; params=e.get('requestParameters') or {}; context=params.get('encryptionContext',{})\n    if e['eventName'] not in ['GenerateDataKey','Decrypt']: continue\n    crypto.append({'event_id':e['eventID'],'request_id':e.get('requestID'),'event_time':e['eventTime'],'event_name':e['eventName'],'error_code':e.get('errorCode'),'actor':e['userIdentity'],'encryption_context':context,'resources':e.get('resources',[])})\nfor case in ['A','B']:\n    assert any(c['event_name']=='GenerateDataKey' and not c['error_code'] and c['encryption_context'].get('aws:sns:sourceArn')==R['rules'][case]['arn'] for c in crypto),(case,crypto)\nexpected_absent={}\nfor case in R['rules']:\n    assert clean['verify-targets-'+case]['result']['code']=='Success'\n    assert clean['verify-targets-'+case]['result']['output']['Targets']==[]\n    expected_absent['verify-rule-'+case]='ResourceNotFoundException'\nassert clean['verify-rules-empty']['result']['output']['Rules']==[]\nexpected_absent['verify-bus']='ResourceNotFoundException'\nfor case in R['subscriptions']: expected_absent['verify-subscription-'+case]='NotFound'\nfor case in R['topics']: expected_absent['verify-topic-'+case]='NotFound'\nfor kind in R['queues']:\n    row=clean['verify-queue-'+kind]\n    assert row['result']['code'] in ['AWS.SimpleQueueService.NonExistentQueue','QueueDoesNotExist'],row\nfor label,code in expected_absent.items(): assert clean[label]['result']['code']==code,(label,clean[label])\nscheduled=clean['schedule-key-deletion']['result']; assert scheduled['code']=='Success'\nkey=clean['verify-key-pending-deletion']['result']['output']['KeyMetadata']; assert key['KeyState']=='PendingDeletion'\nassert key['DeletionDate']==scheduled['output']['DeletionDate']\ns['findings']=findings\ns['crypto_evidence']=crypto\ns['conclusion']={'source_arn_sharing':'not_shared_in_observed_run','summary':'A retained usable warm publication authority while the same topic and key rejected previously unwarmed rule B with an actual KMSDisabled EventBridge DLQ receipt. A successful controls bracket B first publication; never-warmed fresh topic independently produced actual KMSDisabled DLQ evidence. Restoring the key delivered B messages and produced successful KMS crypto with B rule source ARN.','a_warm_to_b_first_publication_ms':b_start-a_warm,'a_warm_to_disabled_after_receipt_ms':by_phase['A-disabled-after']['evidence'][0]['receipt_observed_ms']-a_warm,'scope':'Supports retaining source ARN in EventBridge publication cache identity; does not establish all AWS service-principal, fleet-wide cache or timing behavior.','quiet_windows_are_denial':False}\ns['cleanup_summary']={'verified':True,'independently_verified_absent':{'custom_event_bus':1,'rules':3,'targets':3,'topics':2,'subscriptions':2,'queues':2},'verification_observation_labels':[k for k in clean if k.startswith('verify-')],'key_id':key['KeyId'],'key_arn':key['Arn'],'key_state':key['KeyState'],'pending_window_days':7,'deletion_date':key['DeletionDate']}\ns['analysis_source']={'filename':Path(__file__).name,'content':Path(__file__).read_text()}\np.write_text(json.dumps(s,indent=2)+'\\n')\nprint(json.dumps({'fixture':str(p),'conclusion':s['conclusion'],'cleanup':s['cleanup_summary'],'crypto_events':len(crypto)},indent=2))\n"
+  }
+}

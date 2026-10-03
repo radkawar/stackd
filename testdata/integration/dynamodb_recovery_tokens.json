@@ -1,0 +1,273 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-17T23:59:00Z",
+  "steps": [
+    {
+      "name": "create",
+      "advance": "0s",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-recovery-tokens",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}],
+        "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}]
+      },
+      "want": {}
+    },
+    {
+      "name": "seed-non-idempotent-update-counter",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-tokens",
+        "Item": {"pk": {"S": "counter"}, "n": {"N": "0"}}
+      },
+      "want": {}
+    },
+    {
+      "name": "enable",
+      "advance": "1m",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-tokens",
+        "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true, "RecoveryPeriodInDays": 1}
+      },
+      "want": {}
+    },
+    {
+      "name": "put-a-commits-before-response-loss",
+      "advance": "1s",
+      "operation": "TransactWriteItems",
+      "commitFailureOperation": "TransactWriteItems",
+      "input": {
+        "ClientRequestToken": "pitr-lost-put",
+        "TransactItems": [
+          {"Put": {"TableName": "stackd-recovery-tokens", "Item": {"pk": {"S": "row"}, "value": {"S": "A"}}}},
+          {"Update": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "counter"}}, "UpdateExpression": "ADD n :one", "ExpressionAttributeValues": {":one": {"N": "1"}}}}
+        ]
+      },
+      "code": "InternalServerError"
+    },
+    {
+      "name": "reopen-observes-committed-a",
+      "advance": "0s",
+      "reopen": true,
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": {"pk": {"S": "row"}, "value": {"S": "A"}}}
+    },
+    {
+      "name": "put-b-after-resolving-original-capture",
+      "advance": "1s",
+      "operation": "PutItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Item": {"pk": {"S": "row"}, "value": {"S": "B"}}},
+      "want": {}
+    },
+    {
+      "name": "native-put-token-retry-is-no-op",
+      "advance": "1s",
+      "operation": "TransactWriteItems",
+      "input": {
+        "ClientRequestToken": "pitr-lost-put",
+        "TransactItems": [
+          {"Put": {"TableName": "stackd-recovery-tokens", "Item": {"pk": {"S": "row"}, "value": {"S": "A"}}}},
+          {"Update": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "counter"}}, "UpdateExpression": "ADD n :one", "ExpressionAttributeValues": {":one": {"N": "1"}}}}
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "live-put-retry-keeps-b",
+      "advance": "0s",
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": {"pk": {"S": "row"}, "value": {"S": "B"}}}
+    },
+    {
+      "name": "original-update-expression-was-not-replayed",
+      "advance": "0s",
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "counter"}}, "ConsistentRead": true},
+      "want": {"Item": {"pk": {"S": "counter"}, "n": {"N": "1"}}}
+    },
+    {
+      "name": "move-live-item-beyond-put-cut",
+      "advance": "1s",
+      "operation": "PutItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Item": {"pk": {"S": "row"}, "value": {"S": "C"}}},
+      "want": {}
+    },
+    {
+      "name": "restore-put-retry-cut",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {"SourceTableName": "stackd-recovery-tokens", "TargetTableName": "stackd-recovery-token-put", "RestoreDateTime": 1789689603},
+      "want": {}
+    },
+    {
+      "name": "historical-put-retry-keeps-b",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {"TableName": "stackd-recovery-token-put", "ConsistentRead": true},
+      "want": {"Items": [{"pk": {"S": "row"}, "value": {"S": "B"}}, {"pk": {"S": "counter"}, "n": {"N": "1"}}], "Count": 2}
+    },
+    {
+      "name": "restore-original-put-time",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {"SourceTableName": "stackd-recovery-tokens", "TargetTableName": "stackd-recovery-token-original-put", "RestoreDateTime": 1789689601},
+      "want": {}
+    },
+    {
+      "name": "original-capture-retains-commit-time-and-update",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {"TableName": "stackd-recovery-token-original-put", "ConsistentRead": true},
+      "want": {"Items": [{"pk": {"S": "row"}, "value": {"S": "A"}}, {"pk": {"S": "counter"}, "n": {"N": "1"}}], "Count": 2}
+    },
+    {
+      "name": "delete-commits-before-response-loss",
+      "advance": "1s",
+      "operation": "TransactWriteItems",
+      "commitFailureOperation": "TransactWriteItems",
+      "input": {"ClientRequestToken": "pitr-lost-delete", "TransactItems": [{"Delete": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "row"}}}}]},
+      "code": "InternalServerError"
+    },
+    {
+      "name": "reopen-observes-committed-delete",
+      "advance": "0s",
+      "reopen": true,
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": null}
+    },
+    {
+      "name": "recreate-b-after-delete",
+      "advance": "1s",
+      "operation": "PutItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Item": {"pk": {"S": "row"}, "value": {"S": "B"}}},
+      "want": {}
+    },
+    {
+      "name": "native-delete-token-retry-is-no-op",
+      "advance": "1s",
+      "operation": "TransactWriteItems",
+      "input": {"ClientRequestToken": "pitr-lost-delete", "TransactItems": [{"Delete": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "row"}}}}]},
+      "want": {}
+    },
+    {
+      "name": "live-delete-retry-keeps-recreated-b",
+      "advance": "0s",
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": {"pk": {"S": "row"}, "value": {"S": "B"}}}
+    },
+    {
+      "name": "move-live-item-beyond-delete-cut",
+      "advance": "1s",
+      "operation": "PutItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Item": {"pk": {"S": "row"}, "value": {"S": "C"}}},
+      "want": {}
+    },
+    {
+      "name": "restore-delete-retry-cut",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {"SourceTableName": "stackd-recovery-tokens", "TargetTableName": "stackd-recovery-token-delete", "RestoreDateTime": 1789689607},
+      "want": {}
+    },
+    {
+      "name": "historical-delete-retry-keeps-recreated-b",
+      "advance": "0s",
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-token-delete", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": {"pk": {"S": "row"}, "value": {"S": "B"}}}
+    },
+    {
+      "name": "restore-original-delete-time",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {"SourceTableName": "stackd-recovery-tokens", "TargetTableName": "stackd-recovery-token-original-delete", "RestoreDateTime": 1789689605},
+      "want": {}
+    },
+    {
+      "name": "original-delete-remains-absent-at-commit-time",
+      "advance": "0s",
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-token-original-delete", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": null}
+    },
+    {
+      "name": "partiql-delete-commits-before-response-loss",
+      "advance": "1s",
+      "operation": "ExecuteTransaction",
+      "commitFailureOperation": "ExecuteTransaction",
+      "input": {"ClientRequestToken": "pitr-lost-partiql-delete", "TransactStatements": [{"Statement": "DELETE FROM \"stackd-recovery-tokens\" WHERE \"pk\"=?", "Parameters": [{"S": "row"}]}]},
+      "code": "InternalServerError"
+    },
+    {
+      "name": "reopen-observes-committed-partiql-delete",
+      "advance": "0s",
+      "reopen": true,
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": null}
+    },
+    {
+      "name": "recreate-b-after-partiql-delete",
+      "advance": "1s",
+      "operation": "PutItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Item": {"pk": {"S": "row"}, "value": {"S": "B"}}},
+      "want": {}
+    },
+    {
+      "name": "native-partiql-delete-token-retry-is-no-op",
+      "advance": "1s",
+      "operation": "ExecuteTransaction",
+      "input": {"ClientRequestToken": "pitr-lost-partiql-delete", "TransactStatements": [{"Statement": "DELETE FROM \"stackd-recovery-tokens\" WHERE \"pk\"=?", "Parameters": [{"S": "row"}]}]},
+      "want": {}
+    },
+    {
+      "name": "live-partiql-delete-retry-keeps-recreated-b",
+      "advance": "0s",
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": {"pk": {"S": "row"}, "value": {"S": "B"}}}
+    },
+    {
+      "name": "move-live-item-beyond-partiql-delete-cut",
+      "advance": "1s",
+      "operation": "PutItem",
+      "input": {"TableName": "stackd-recovery-tokens", "Item": {"pk": {"S": "row"}, "value": {"S": "C"}}},
+      "want": {}
+    },
+    {
+      "name": "restore-partiql-delete-retry-cut",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {"SourceTableName": "stackd-recovery-tokens", "TargetTableName": "stackd-recovery-token-partiql", "RestoreDateTime": 1789689611},
+      "want": {}
+    },
+    {
+      "name": "historical-partiql-delete-retry-keeps-recreated-b",
+      "advance": "0s",
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-token-partiql", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": {"pk": {"S": "row"}, "value": {"S": "B"}}}
+    },
+    {
+      "name": "restore-original-partiql-delete-time",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {"SourceTableName": "stackd-recovery-tokens", "TargetTableName": "stackd-recovery-token-original-partiql", "RestoreDateTime": 1789689609},
+      "want": {}
+    },
+    {
+      "name": "original-partiql-delete-remains-absent-at-commit-time",
+      "advance": "0s",
+      "operation": "GetItem",
+      "input": {"TableName": "stackd-recovery-token-original-partiql", "Key": {"pk": {"S": "row"}}, "ConsistentRead": true},
+      "want": {"Item": null}
+    }
+  ]
+}

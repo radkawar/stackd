@@ -1,0 +1,65 @@
+{
+  "service": "AWS Config",
+  "capture_date": "2026-09-28",
+  "account": "000000000000",
+  "mutation_region": "us-west-2",
+  "ownership_prefix": "stackd-next-config-76aa721f4d",
+  "authorization": "Main explicitly authorized the isolated us-west-2 recorder/channel lifecycle through AWSConfig after read-only verification that the region had no recorder or delivery channel.",
+  "protected_baseline": {
+    "region": "us-east-1",
+    "recorder": "default",
+    "channel": "default",
+    "bucket": "config-bucket-000000000000",
+    "recorders_channels_and_status_unchanged": true,
+    "evidence": ["lifecycle.json", "final_baseline.json"]
+  },
+  "method": "Actual boto3 AWS API calls and AWS CLI read-only checks. No fabricated response fixtures. SDK response metadata/request IDs are retained; credential fields and SQS receipt handles are not retained.",
+  "probe": "scripts/aws/configservice_probe.py",
+  "capture_notes": [
+    "The original background probe queried SQS history using an ARN, then encountered empty unbounded history pages. Actual Config SQS resource IDs are queue URLs; bounded earlierTime/laterTime queries returned the native items. The probe source now uses the observed identifiers and time range.",
+    "After recording reached SUCCESS, exact-owned queue and bucket tags were changed. Native ResourceDiscovered observations arrived approximately 17 minutes after initial recorder start. The capture does not claim a fixed AWS discovery latency.",
+    "The exact-owned recorder role's inline policy was expanded using documented AWS_ConfigRole discovery/read prerequisites. The capture does not establish that these additions caused discovery; the original policy and changed policy are both retained.",
+    "Supplemental native calls continued the original exact-owned resources through visibility/tag/versioning changes, deletion, retained history and a final snapshot. The original background process was interrupted after this continuation; its finally cleanup ran. Its recorder deletion was throttled, then completed successfully in the separate cleanup capture.",
+    "Native zero-width history ranges returned no items, while nonzero ranges containing either exact endpoint included the item. Inverted bounds returned InvalidTimeRangeException.",
+    "SQS numeric and boolean configuration attributes are JSON strings in the native history item, despite the searchable resource schema's numeric property declarations.",
+    "No new user, access key, service-linked role, KMS key, baseline recorder, baseline channel, or unrelated resource was created or modified. The Config service's retained observation history remains AWS-managed after resource deletion."
+  ],
+  "evidence": {
+    "lifecycle.json": "Initial identity and regional singleton baselines, recorder/channel errors, owned resource creation, raw initial history attempts, original cleanup attempts.",
+    "discovery.json": "Native Config recorder-change SNS message and zero-byte writability marker metadata.",
+    "baseline_resource_lookup.json": "Read-only protected-region resource identifier and ResourceNotRecorded observations; no baseline mutations.",
+    "owned_initial_history.json": "Initial corrected-identifier native non-observations.",
+    "queue_url_history.json": "Additional corrected-identifier observation window before discovery.",
+    "early_snapshot.json": "Actual accepted snapshot ID and delivered gzip JSON object, including native headers and recorder configuration item.",
+    "discovery_permissions.json": "Exact-owned inline-role permission change and primary managed-policy source.",
+    "ready_resource_changes.json": "Exact-owned queue and S3 bucket tag changes after recorder readiness.",
+    "owned_role_assumptions.json": "Native CloudTrail role-assumption events for the owned Config role, with credentials omitted.",
+    "owned_discovery_calls.json": "Native CloudTrail owner-discovery read observations scoped to the owned role.",
+    "owned_current_config.json": "Native current-item lookup before resource discovery.",
+    "snapshot_notifications.json": "Native SNS S3 ResourceDiscovered item, including supplementary configuration field shapes.",
+    "owned_resource_shapes.json": "Bounded native GetResourceConfigHistory outputs for the owned SQS queue and S3 bucket.",
+    "resource_transitions.json": "Actual queue visibility/tag and bucket versioning changes, both deletions, retained history, timestamp boundary requests, final S3 snapshot and ACL, and native SNS snapshot/deletion notifications.",
+    "cleanup.json": "Successful final recorder deletion and exact-owned recorder/channel/bucket/queue/topic/role absence checks.",
+    "final_baseline.json": "Final read-only identity and Config state; us-west-2 singleton absent and us-east-1 baseline unchanged."
+  },
+  "cleanup": {
+    "complete": true,
+    "configuration_recorders": [],
+    "delivery_channels": [],
+    "buckets": "Both exact-owned names returned HTTP 404.",
+    "queues": "Both exact-owned names returned AWS.SimpleQueueService.NonExistentQueue.",
+    "topic": "Exact-owned ARN returned NotFound.",
+    "role": "Exact-owned name returned NoSuchEntity.",
+    "subscription_and_objects": "Original finally cleanup unsubscribed the exact subscription and deleted all enumerated objects before deleting the delivery bucket."
+  },
+  "sources": [
+    "https://docs.aws.amazon.com/config/latest/APIReference/API_PutConfigurationRecorder.html",
+    "https://docs.aws.amazon.com/config/latest/APIReference/API_PutDeliveryChannel.html",
+    "https://docs.aws.amazon.com/config/latest/APIReference/API_GetResourceConfigHistory.html",
+    "https://docs.aws.amazon.com/config/latest/developerguide/s3-bucket-policy.html",
+    "https://docs.aws.amazon.com/config/latest/developerguide/sns-topic-policy.html",
+    "https://docs.aws.amazon.com/config/latest/developerguide/s3-kms-key-policy.html",
+    "https://docs.aws.amazon.com/config/latest/developerguide/view-configuration-snapshot.html",
+    "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWS_ConfigRole.html"
+  ]
+}

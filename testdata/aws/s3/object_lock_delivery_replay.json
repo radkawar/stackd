@@ -1,0 +1,2774 @@
+{
+  "Source": "object_lock_notification_evidence.json.gz",
+  "Start": "2026-09-21T07:18:00Z",
+  "Notes": [
+    "Positive explicit retention mutations: source calls 26,28,30,34,37,39,41,43,45,48,50 each correlate by exact request ID to classic SQS and direct EventBridge-to-SQS deliveries. SourceSequence names the native call id; Source names the delivered-envelope index.",
+    "Fixed dates and all retention payload millisecond timestamps remain literal native values. Variable mutation At is native retain-until-date minus its days/calendar-years duration; release uses the preceding three-day duration. Other At values are source request-start timestamps truncated to milliseconds. This binds service time without deleting date assertions.",
+    "Retained pending jobs drain only after the full mutation sequence and final reopen. Reopen after each explicit retention change also preserves subsequent mutation state. Millisecond event retention snapshots must not drift to delivery time or final cleared state.",
+    "Implicit fixed and variable default Put/Copy/CompleteMultipartUpload controls compare only positively observed ObjectCreated payloads. Extra deliveries are not rejected: bounded native missing events are not suppression guarantees, nor exactly-once or eventual-delivery SLAs.",
+    "Account and generated request/version/upload IDs are rebound to local public responses. Opaque event IDs/owner/principal/extended IDs, source IPs, event timestamps and ObjectCreated sequencers use the existing native comparison rules. ObjectRetention sequencer/reason/retention-block absence is preserved by complete payload equality."
+  ],
+  "Setup": [
+    {
+      "Label": "create-owned-lock-bucket",
+      "Source": "object_lock_notification_evidence.json.gz",
+      "Sequence": 1,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-locknotify-0921081929-6d11d6",
+        "ObjectLockEnabledForBucket": true
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-classic_sqs",
+      "Source": "object_lock_notification_evidence.json.gz",
+      "Sequence": 2,
+      "Service": "sqs",
+      "Operation": "CreateQueue",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueName": "stackd-locknotify-0921081929-6d11d6-classic",
+        "Attributes": {
+          "MessageRetentionPeriod": "3600",
+          "VisibilityTimeout": "30"
+        }
+      },
+      "Output": {},
+      "Bind": {
+        "queue_classic": "QueueUrl"
+      }
+    },
+    {
+      "Label": "create-direct_eventbridge_sqs",
+      "Source": "object_lock_notification_evidence.json.gz",
+      "Sequence": 4,
+      "Service": "sqs",
+      "Operation": "CreateQueue",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueName": "stackd-locknotify-0921081929-6d11d6-eventbridge",
+        "Attributes": {
+          "MessageRetentionPeriod": "3600",
+          "VisibilityTimeout": "30"
+        }
+      },
+      "Output": {},
+      "Bind": {
+        "queue_eventbridge": "QueueUrl"
+      }
+    },
+    {
+      "Label": "create-owned-eventbridge-rule",
+      "Source": "object_lock_notification_evidence.json.gz",
+      "Sequence": 6,
+      "Service": "eventbridge",
+      "Operation": "PutRule",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-locknotify-0921081929-6d11d6",
+        "EventPattern": "{\"source\": [\"aws.s3\"], \"detail\": {\"bucket\": {\"name\": [\"stackd-locknotify-0921081929-6d11d6\"]}}}",
+        "State": "ENABLED"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "policy-classic_sqs",
+      "Source": "object_lock_notification_evidence.json.gz",
+      "Sequence": 7,
+      "Service": "sqs",
+      "Operation": "SetQueueAttributes",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueUrl": "${queue_classic}",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-locknotify-0921081929-6d11d6-classic\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:s3:::stackd-locknotify-0921081929-6d11d6\"}, \"StringEquals\": {\"aws:SourceAccount\": \"123456789012\"}}}]}"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "policy-direct_eventbridge_sqs",
+      "Source": "object_lock_notification_evidence.json.gz",
+      "Sequence": 8,
+      "Service": "sqs",
+      "Operation": "SetQueueAttributes",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueUrl": "${queue_eventbridge}",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-locknotify-0921081929-6d11d6-eventbridge\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/stackd-locknotify-0921081929-6d11d6\"}, \"StringEquals\": {\"aws:SourceAccount\": \"123456789012\"}}}]}"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "target-owned-eventbridge-queue",
+      "Source": "object_lock_notification_evidence.json.gz",
+      "Sequence": 9,
+      "Service": "eventbridge",
+      "Operation": "PutTargets",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Rule": "stackd-locknotify-0921081929-6d11d6",
+        "Targets": [
+          {
+            "Id": "owned-queue",
+            "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-locknotify-0921081929-6d11d6-eventbridge"
+          }
+        ]
+      },
+      "Output": {}
+    },
+    {
+      "Label": "configure-retention-created-and-eventbridge",
+      "Source": "object_lock_notification_evidence.json.gz",
+      "Sequence": 10,
+      "Service": "s3",
+      "Operation": "PutBucketNotificationConfiguration",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-locknotify-0921081929-6d11d6",
+        "NotificationConfiguration": {
+          "QueueConfigurations": [
+            {
+              "Id": "retention-and-created",
+              "QueueArn": "arn:aws:sqs:us-east-1:123456789012:stackd-locknotify-0921081929-6d11d6-classic",
+              "Events": [
+                "s3:ObjectRetention:Put",
+                "s3:ObjectCreated:*"
+              ]
+            }
+          ],
+          "EventBridgeConfiguration": {}
+        }
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Sequence": 20,
+      "Label": "publication-positive-1",
+      "At": "2026-09-21T07:19:57.908Z",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/publication/control-1",
+      "Body": "native retention notification payload",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version20": "Header.x-amz-version-id"
+      },
+      "ETag": "\"cfdd82f478d873448dc83cfa18ae7b43\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[20]",
+          "SourceSequence": 20,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:19:58.338Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "ArOmSrcXKYMMzVm9yjjm14PqYLVaze8khHDwFoEP5iB44a10XhZxVjP4HVvx7s4NRUdgmXgjl17c1x56FoQaWV1TH4no+px+",
+              "x-amz-request-id": "${request20}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "publication/control-1",
+                "sequencer": "006AB0DA9E4F89B212",
+                "size": 37,
+                "versionId": "${version20}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[0]",
+          "SourceSequence": 20,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "publication/control-1",
+                "sequencer": "006AB0DA9E4F89B212",
+                "size": 37,
+                "version-id": "${version20}"
+              },
+              "reason": "PutObject",
+              "request-id": "${request20}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "3413182b-e4d1-3da9-5b93-3dfe48ca8eeb",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:19:58Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 25,
+      "Label": "fixed-base-put",
+      "At": "2026-09-21T07:20:00.481Z",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/fixed/space%20%2B%20percent%25%20unicode-%C3%A9",
+      "Body": "native retention notification payload",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version25": "Header.x-amz-version-id"
+      },
+      "ETag": "\"cfdd82f478d873448dc83cfa18ae7b43\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[21]",
+          "SourceSequence": 25,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:00.994Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "Nq186Z0Kw0JrFuM7yjO94FEHQscqzt4nydL6aIMgBnBDhb5pPSm1ESu+sDACw9su3xzQ1gHDL8cwcfBuh0UoH48gA+iOaIru",
+              "x-amz-request-id": "${request25}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space+%2B+percent%25+unicode-%C3%A9",
+                "sequencer": "006AB0DAA0F084FD37",
+                "size": 37,
+                "versionId": "${version25}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[14]",
+          "SourceSequence": 25,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space + percent% unicode-é",
+                "sequencer": "006AB0DAA0F084FD37",
+                "size": 37,
+                "version-id": "${version25}"
+              },
+              "reason": "PutObject",
+              "request-id": "${request25}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "66ac1c25-0aff-b668-2062-77fc25ea882b",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:00Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 26,
+      "Label": "fixed-set",
+      "At": "2026-09-21T07:20:01.073Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/fixed/space%20%2B%20percent%25%20unicode-%C3%A9?retention=&versionId=${version25}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><RetainUntilDate>2026-09-24T07:20:01Z</RetainUntilDate></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version25}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[9]",
+          "SourceSequence": 26,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:01.387Z",
+            "eventVersion": "2.6",
+            "objectRetentionEventData": {
+              "mode": "GOVERNANCE",
+              "retainUntilDate": "2026-09-24T07:20:01.000Z"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "044C3x05cBtReY/dTOw09RUih5EYQrd+ScdpBzoDLr7iaFDbkYGW//7P73En2DlMFlPoTgsttjgVOJINyKAxMouWsoRBhuDZ",
+              "x-amz-request-id": "${request26}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space+%2B+percent%25+unicode-%C3%A9",
+                "size": 37,
+                "versionId": "${version25}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[1]",
+          "SourceSequence": 26,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space + percent% unicode-é",
+                "size": 37,
+                "version-id": "${version25}"
+              },
+              "object-retention-event-data": {
+                "mode": "GOVERNANCE",
+                "retain-until-date": "2026-09-24T07:20:01.000Z"
+              },
+              "request-id": "${request26}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "c4b84268-914b-7dca-9299-4cf2d46d4abb",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:01Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 28,
+      "Label": "fixed-extend",
+      "At": "2026-09-21T07:20:01.884Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/fixed/space%20%2B%20percent%25%20unicode-%C3%A9?retention=&versionId=${version25}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><RetainUntilDate>2026-09-25T07:20:01Z</RetainUntilDate></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version25}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[2]",
+          "SourceSequence": 28,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:02.255Z",
+            "eventVersion": "2.6",
+            "objectRetentionEventData": {
+              "mode": "GOVERNANCE",
+              "retainUntilDate": "2026-09-25T07:20:01.000Z"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "IdFWcbuA4e/ea68x5h9Fyiyk6+m9LcGvmTjGBTX5ca/LKoY5c8BcHldZbYxMRM/tHGwF8ifhdRNHp+lLmIaUmKIFDNLu1I8x",
+              "x-amz-request-id": "${request28}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space+%2B+percent%25+unicode-%C3%A9",
+                "size": 37,
+                "versionId": "${version25}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[10]",
+          "SourceSequence": 28,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space + percent% unicode-é",
+                "size": 37,
+                "version-id": "${version25}"
+              },
+              "object-retention-event-data": {
+                "mode": "GOVERNANCE",
+                "retain-until-date": "2026-09-25T07:20:01.000Z"
+              },
+              "request-id": "${request28}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "9a1b1ff6-8788-b807-e148-94239dae5f94",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:02Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 30,
+      "Label": "fixed-noop",
+      "At": "2026-09-21T07:20:02.716Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/fixed/space%20%2B%20percent%25%20unicode-%C3%A9?retention=&versionId=${version25}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><RetainUntilDate>2026-09-25T07:20:01Z</RetainUntilDate></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version25}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[10]",
+          "SourceSequence": 30,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:03.001Z",
+            "eventVersion": "2.6",
+            "objectRetentionEventData": {
+              "mode": "GOVERNANCE",
+              "retainUntilDate": "2026-09-25T07:20:01.000Z"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "z0qRc/ee/yafzJxhkbt6kvoP2oq15Y/AZSr9EYRNyYMWlLCqWcdaHzdvxQjjRHixgelYsj99XUJX639zwDrtY0KL8HQbTtJe",
+              "x-amz-request-id": "${request30}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space+%2B+percent%25+unicode-%C3%A9",
+                "size": 37,
+                "versionId": "${version25}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[2]",
+          "SourceSequence": 30,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space + percent% unicode-é",
+                "size": 37,
+                "version-id": "${version25}"
+              },
+              "object-retention-event-data": {
+                "mode": "GOVERNANCE",
+                "retain-until-date": "2026-09-25T07:20:01.000Z"
+              },
+              "request-id": "${request30}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "2c76d2cc-b1e2-bdb7-a567-6360c51e7a57",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:03Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 34,
+      "Label": "fixed-clear-bypass",
+      "At": "2026-09-21T07:20:04.208Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/fixed/space%20%2B%20percent%25%20unicode-%C3%A9?retention=&versionId=${version25}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}",
+        "x-amz-bypass-governance-retention": "true"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version25}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[3]",
+          "SourceSequence": 34,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:04.498Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "bkfmSEWHzI+RchvLyxxUcHqQvtkgBGGaU6FyENBtAWetmN2V61RpE0lU+ZDiWniWxRcS1RgkSH0kOFw/iXRcYHGKsqWHDljc",
+              "x-amz-request-id": "${request34}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space+%2B+percent%25+unicode-%C3%A9",
+                "size": 37,
+                "versionId": "${version25}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[21]",
+          "SourceSequence": 34,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "fixed/space + percent% unicode-é",
+                "size": 37,
+                "version-id": "${version25}"
+              },
+              "request-id": "${request34}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "636626d8-53bf-1fef-32a3-1f05c514e23e",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:04Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 36,
+      "Label": "variable-base-put",
+      "At": "2026-09-21T07:20:04.935Z",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/variable/object",
+      "Body": "native retention notification payload",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version36": "Header.x-amz-version-id"
+      },
+      "ETag": "\"cfdd82f478d873448dc83cfa18ae7b43\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[11]",
+          "SourceSequence": 36,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:05.243Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "L0iH+VSthr5pAD/tv/3eXCPtLmBSQ+6WisxBoAaPhLq6L8yg5mNG4uUzGcHIANO1W+yX7hbrSAF27g2J749803nzzkQLyvW+",
+              "x-amz-request-id": "${request36}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "sequencer": "006AB0DAA5387FC404",
+                "size": 37,
+                "versionId": "${version36}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[15]",
+          "SourceSequence": 36,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "sequencer": "006AB0DAA5387FC404",
+                "size": 37,
+                "version-id": "${version36}"
+              },
+              "reason": "PutObject",
+              "request-id": "${request36}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "1b162747-097d-60cf-7684-ce7446d50eb2",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:05Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 37,
+      "Label": "variable-set-days",
+      "At": "2026-09-21T07:20:05.622Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/variable/object?retention=&versionId=${version36}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Days>2</Days></EventHoldDuration></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version36}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[4]",
+          "SourceSequence": 37,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:05.636Z",
+            "eventVersion": "2.6",
+            "objectRetentionEventData": {
+              "eventHold": "ON",
+              "eventHoldDuration": {
+                "days": 2
+              },
+              "mode": "GOVERNANCE",
+              "retainUntilDate": "2026-09-23T07:20:05.622Z"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "L4tdrDVPvhVCW7NDFUqgmHq5cDOzjpkKATuzvgZBN21a89XRaE9B8K9HN44fo3aqr9pUsbzgeqCjTglwQBP5C9QtwUiyl7N2",
+              "x-amz-request-id": "${request37}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "versionId": "${version36}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[3]",
+          "SourceSequence": 37,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "version-id": "${version36}"
+              },
+              "object-retention-event-data": {
+                "event-hold": "ON",
+                "event-hold-duration": {
+                  "days": 2
+                },
+                "mode": "GOVERNANCE",
+                "retain-until-date": "2026-09-23T07:20:05.622Z"
+              },
+              "request-id": "${request37}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "f0ac501b-5048-e03b-f5db-bef5b5d50031",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:05Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 39,
+      "Label": "variable-change-duration",
+      "At": "2026-09-21T07:20:06.468Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/variable/object?retention=&versionId=${version36}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Days>3</Days></EventHoldDuration></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version36}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[22]",
+          "SourceSequence": 39,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:06.482Z",
+            "eventVersion": "2.6",
+            "objectRetentionEventData": {
+              "eventHold": "ON",
+              "eventHoldDuration": {
+                "days": 3
+              },
+              "mode": "GOVERNANCE",
+              "retainUntilDate": "2026-09-24T07:20:06.468Z"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "K4hVOnwoT00hRNtxlXvFL4jORtD40/WbRTknOGjCiY5VYEIX7E3rotxfBGFBPyYMbnbKsZ+TrzKjj6pu44W6pevlsPDROZ7U",
+              "x-amz-request-id": "${request39}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "versionId": "${version36}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[7]",
+          "SourceSequence": 39,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "version-id": "${version36}"
+              },
+              "object-retention-event-data": {
+                "event-hold": "ON",
+                "event-hold-duration": {
+                  "days": 3
+                },
+                "mode": "GOVERNANCE",
+                "retain-until-date": "2026-09-24T07:20:06.468Z"
+              },
+              "request-id": "${request39}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "f0dc79ba-cfac-89c3-3663-18ba6e51d20a",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:06Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 41,
+      "Label": "variable-noop",
+      "At": "2026-09-21T07:20:07.195Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/variable/object?retention=&versionId=${version36}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Days>3</Days></EventHoldDuration></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version36}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[17]",
+          "SourceSequence": 41,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:07.211Z",
+            "eventVersion": "2.6",
+            "objectRetentionEventData": {
+              "eventHold": "ON",
+              "eventHoldDuration": {
+                "days": 3
+              },
+              "mode": "GOVERNANCE",
+              "retainUntilDate": "2026-09-24T07:20:07.195Z"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "wJFI7V+qX94ftYaOHu3D22V14O4SvObHk1Omf1pdgb70IZD66vqR1bCAID1RitzDDefZP/9YI2tH+5baNnog7X9fx5zUfmpd",
+              "x-amz-request-id": "${request41}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "versionId": "${version36}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[11]",
+          "SourceSequence": 41,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "version-id": "${version36}"
+              },
+              "object-retention-event-data": {
+                "event-hold": "ON",
+                "event-hold-duration": {
+                  "days": 3
+                },
+                "mode": "GOVERNANCE",
+                "retain-until-date": "2026-09-24T07:20:07.195Z"
+              },
+              "request-id": "${request41}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "c345af1d-a8fa-976b-1bc0-c9eda1b4f569",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:07Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 43,
+      "Label": "variable-release",
+      "At": "2026-09-21T07:20:08.167Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/variable/object?retention=&versionId=${version36}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>OFF</EventHold></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version36}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[23]",
+          "SourceSequence": 43,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:08.181Z",
+            "eventVersion": "2.6",
+            "objectRetentionEventData": {
+              "eventHold": "OFF",
+              "mode": "GOVERNANCE",
+              "retainUntilDate": "2026-09-24T07:20:08.167Z"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "YiOSonHvgPnM/Cb0bYTZ1rmH9YXQg8aXZ2yIjXOxLD3/0YrNiHzyhEjgv5JCZog5tOzafSkwNqqqWkMQnoIPVXbIiFZ4mcQO",
+              "x-amz-request-id": "${request43}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "versionId": "${version36}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[4]",
+          "SourceSequence": 43,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "version-id": "${version36}"
+              },
+              "object-retention-event-data": {
+                "event-hold": "OFF",
+                "mode": "GOVERNANCE",
+                "retain-until-date": "2026-09-24T07:20:08.167Z"
+              },
+              "request-id": "${request43}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "83e1e6ec-0bdb-0ade-be08-05ec65941ce7",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:08Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 45,
+      "Label": "variable-clear-bypass",
+      "At": "2026-09-21T07:20:08.674Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/variable/object?retention=&versionId=${version36}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}",
+        "x-amz-bypass-governance-retention": "true"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version36}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[5]",
+          "SourceSequence": 45,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:09.001Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "ILQoXd2yu2tpLW3UOhznuH4jnLQEwLV3hUD5iqpPVciX7lerrc/GtnJa/roQSKALiy9hJyTHk6OWVDz5otq0vGBxRY7mkwCb",
+              "x-amz-request-id": "${request45}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "versionId": "${version36}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[16]",
+          "SourceSequence": 45,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/object",
+                "size": 37,
+                "version-id": "${version36}"
+              },
+              "request-id": "${request45}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "c9d6b689-0eb3-d4f2-767f-8f077184b415",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:09Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 47,
+      "Label": "variable-years-base-put",
+      "At": "2026-09-21T07:20:09.450Z",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/variable/years",
+      "Body": "native retention notification payload",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version47": "Header.x-amz-version-id"
+      },
+      "ETag": "\"cfdd82f478d873448dc83cfa18ae7b43\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[18]",
+          "SourceSequence": 47,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:09.727Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "SYUUlkEpVPjP8jQN1qzLbRqYf5cTJgNR8OrloBzrRWvZ5NjqCY6grl7XSrt7dorW/Nmi8+S5Wf5SgPJC+Yt4pO+mY1aKOtHD",
+              "x-amz-request-id": "${request47}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/years",
+                "sequencer": "006AB0DAA9B0413063",
+                "size": 37,
+                "versionId": "${version47}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[8]",
+          "SourceSequence": 47,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/years",
+                "sequencer": "006AB0DAA9B0413063",
+                "size": 37,
+                "version-id": "${version47}"
+              },
+              "reason": "PutObject",
+              "request-id": "${request47}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "509059ca-c3ac-c815-e884-ec326e271f20",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:09Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 48,
+      "Label": "variable-set-years",
+      "At": "2026-09-21T07:20:10.125Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/variable/years?retention=&versionId=${version47}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Years>1</Years></EventHoldDuration></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version47}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[6]",
+          "SourceSequence": 48,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:10.141Z",
+            "eventVersion": "2.6",
+            "objectRetentionEventData": {
+              "eventHold": "ON",
+              "eventHoldDuration": {
+                "years": 1
+              },
+              "mode": "GOVERNANCE",
+              "retainUntilDate": "2027-09-21T07:20:10.125Z"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "QUNIwIbDHLgrQTTfIFoFvNi7eTWmT40SaVF3UvVQhe+HrTEwdgYjxKJxKGRCDjBAke8GHvIjiJOl8kr1947o3JyIZhWytDvs",
+              "x-amz-request-id": "${request48}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/years",
+                "size": 37,
+                "versionId": "${version47}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[5]",
+          "SourceSequence": 48,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/years",
+                "size": 37,
+                "version-id": "${version47}"
+              },
+              "object-retention-event-data": {
+                "event-hold": "ON",
+                "event-hold-duration": {
+                  "years": 1
+                },
+                "mode": "GOVERNANCE",
+                "retain-until-date": "2027-09-21T07:20:10.125Z"
+              },
+              "request-id": "${request48}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "a124957f-a60b-2682-b233-0236f76dd05b",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:10Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 50,
+      "Label": "variable-years-clear-bypass",
+      "At": "2026-09-21T07:20:10.566Z",
+      "Operation": "PutObjectRetention",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/variable/years?retention=&versionId=${version47}",
+      "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"></Retention>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}",
+        "x-amz-bypass-governance-retention": "true"
+      },
+      "Status": 200,
+      "ResponseHeaders": {
+        "x-amz-version-id": "${version47}"
+      },
+      "Reopen": true,
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[7]",
+          "SourceSequence": 50,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectRetention:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:10.996Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "Jpo3ccMbsWRQaiy2VC6M4zSrifmn76aPn8kKuDKqscNCcK6yY2Ow8X1HK/SIAM/OZiwELpwFKI8/NEquKQKypGZopQVYfMkR",
+              "x-amz-request-id": "${request50}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/years",
+                "size": 37,
+                "versionId": "${version47}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[17]",
+          "SourceSequence": 50,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "variable/years",
+                "size": 37,
+                "version-id": "${version47}"
+              },
+              "request-id": "${request50}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Retention Updated",
+            "id": "b274ddda-98e4-ba91-4bc4-410d3a1e5ffc",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:10Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 55,
+      "Label": "configure-fixed-default",
+      "At": "2026-09-21T07:20:12.790Z",
+      "Operation": "PutObjectLockConfiguration",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/?object-lock=",
+      "Body": "<ObjectLockConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><Days>1</Days></DefaultRetention></Rule></ObjectLockConfiguration>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Reopen": true
+    },
+    {
+      "Sequence": 56,
+      "Label": "implicit-fixed-default-put",
+      "At": "2026-09-21T07:20:13.262Z",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-fixed-default/put",
+      "Body": "native retention notification payload",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version56": "Header.x-amz-version-id"
+      },
+      "ETag": "\"cfdd82f478d873448dc83cfa18ae7b43\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[12]",
+          "SourceSequence": 56,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:13.549Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "QEEq97RGbuBktd5HKWIxkdN52T+sN67Euv91c/8K8U1IqItL8L0joo/fHeHumBWBI4lMf72Et31HVRXEAT3XBfOqBDyR4P5d",
+              "x-amz-request-id": "${request56}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "implicit-fixed-default/put",
+                "sequencer": "006AB0DAAD844DA8E0",
+                "size": 37,
+                "versionId": "${version56}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[12]",
+          "SourceSequence": 56,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "implicit-fixed-default/put",
+                "sequencer": "006AB0DAAD844DA8E0",
+                "size": 37,
+                "version-id": "${version56}"
+              },
+              "reason": "PutObject",
+              "request-id": "${request56}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "f3d310d9-ba60-cfa8-24b2-ed0480a2ab64",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:13Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 57,
+      "Label": "implicit-fixed-default-copy",
+      "At": "2026-09-21T07:20:13.630Z",
+      "Operation": "CopyObject",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-fixed-default/copy",
+      "Body": "",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}",
+        "x-amz-copy-source": "/stackd-locknotify-0921081929-6d11d6/implicit-fixed-default/put?versionId=${version56}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version57": "Header.x-amz-version-id"
+      },
+      "ETag": "\"cfdd82f478d873448dc83cfa18ae7b43\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[8]",
+          "SourceSequence": 57,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:Copy",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:14.263Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "WQ+FoVPL32cixHLPJA4vHdXw83wBApRQUuLphcR9KGQc3cHxWTLHx/r5kCxW7ABmUa2JaOpG+XbrlMOAMUAv1TZ+w4Ag9V9k",
+              "x-amz-request-id": "${request57}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "hasObjectAnnotation": false,
+                "key": "implicit-fixed-default/copy",
+                "sequencer": "006AB0DAAE398D46D4",
+                "size": 37,
+                "versionId": "${version57}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[18]",
+          "SourceSequence": 57,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "has-object-annotation": false,
+                "key": "implicit-fixed-default/copy",
+                "sequencer": "006AB0DAAE398D46D4",
+                "size": 37,
+                "version-id": "${version57}"
+              },
+              "reason": "CopyObject",
+              "request-id": "${request57}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "ae51a6f7-77d4-ae20-0336-42142caaff09",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:14Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 58,
+      "Label": "implicit-fixed-default-mpu-init",
+      "At": "2026-09-21T07:20:14.345Z",
+      "Operation": "CreateMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-fixed-default/mpu?uploads=",
+      "Body": "",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "upload58": "UploadId"
+      },
+      "Reopen": true
+    },
+    {
+      "Sequence": 59,
+      "Label": "implicit-fixed-default-mpu-part",
+      "At": "2026-09-21T07:20:14.768Z",
+      "Operation": "UploadPart",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-fixed-default/mpu?partNumber=1&uploadId=${upload58}",
+      "Body": "multipart notification payload",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ETag": "\"308fb0d49adfa7338e8318f10472f4f2\""
+    },
+    {
+      "Sequence": 60,
+      "Label": "implicit-fixed-default-mpu-complete",
+      "At": "2026-09-21T07:20:15.302Z",
+      "Operation": "CompleteMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-fixed-default/mpu?uploadId=${upload58}",
+      "Body": "<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>\"308fb0d49adfa7338e8318f10472f4f2\"</ETag></Part></CompleteMultipartUpload>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version60": "Header.x-amz-version-id"
+      },
+      "ETag": "\"932026723689bd550980a6ee63060b1c-1\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[19]",
+          "SourceSequence": 60,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:CompleteMultipartUpload",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:15.595Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "uD98MIaANPKTBW248KkPTE+aD8A1XomOTioS+app+5lYI5SiF9QKbt6TCZ5/Yt2yL5NIFF2nStBAUngRJkcbyqpdB/Fg27Je",
+              "x-amz-request-id": "${request60}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "932026723689bd550980a6ee63060b1c-1",
+                "key": "implicit-fixed-default/mpu",
+                "sequencer": "006AB0DAAEA5C60446",
+                "size": 30,
+                "versionId": "${version60}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[6]",
+          "SourceSequence": 60,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "932026723689bd550980a6ee63060b1c-1",
+                "key": "implicit-fixed-default/mpu",
+                "sequencer": "006AB0DAAEA5C60446",
+                "size": 30,
+                "version-id": "${version60}"
+              },
+              "reason": "CompleteMultipartUpload",
+              "request-id": "${request60}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "24ca0eec-a9f4-0c48-da2f-7a962a8be93e",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:15Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 64,
+      "Label": "configure-variable-default",
+      "At": "2026-09-21T07:20:16.935Z",
+      "Operation": "PutObjectLockConfiguration",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/?object-lock=",
+      "Body": "<ObjectLockConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><DefaultEventHold><Days>2</Days></DefaultEventHold></DefaultRetention></Rule></ObjectLockConfiguration>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Reopen": true
+    },
+    {
+      "Sequence": 65,
+      "Label": "implicit-variable-default-put",
+      "At": "2026-09-21T07:20:17.441Z",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-variable-default/put",
+      "Body": "native retention notification payload",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version65": "Header.x-amz-version-id"
+      },
+      "ETag": "\"cfdd82f478d873448dc83cfa18ae7b43\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[15]",
+          "SourceSequence": 65,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:17.745Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "FHp2ppxJwpBnmSed9yEdrzQyblV/X88zYziaUtOk28Yl+4TlV5lL9KnIrLgNrT6LpvuakCKR+ZOLTdGdQTWeelivaIoBlw4S",
+              "x-amz-request-id": "${request65}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "implicit-variable-default/put",
+                "sequencer": "006AB0DAB1B4BA1C73",
+                "size": 37,
+                "versionId": "${version65}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[19]",
+          "SourceSequence": 65,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "implicit-variable-default/put",
+                "sequencer": "006AB0DAB1B4BA1C73",
+                "size": 37,
+                "version-id": "${version65}"
+              },
+              "reason": "PutObject",
+              "request-id": "${request65}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "5508e4dc-607a-6696-2e6d-8d071cc72348",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:17Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 66,
+      "Label": "implicit-variable-default-copy",
+      "At": "2026-09-21T07:20:17.821Z",
+      "Operation": "CopyObject",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-variable-default/copy",
+      "Body": "",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}",
+        "x-amz-copy-source": "/stackd-locknotify-0921081929-6d11d6/implicit-variable-default/put?versionId=${version65}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version66": "Header.x-amz-version-id"
+      },
+      "ETag": "\"cfdd82f478d873448dc83cfa18ae7b43\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[13]",
+          "SourceSequence": 66,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:Copy",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:18.104Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "583xDnHi1rDEbN5owN4RliqXDTQHE6t3cX11EEVDuv1E9ZvrXAZLGj2vRNdFU2BJmJXs2F3oj7LWNUfygltJsz9NONbyaClv",
+              "x-amz-request-id": "${request66}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "hasObjectAnnotation": false,
+                "key": "implicit-variable-default/copy",
+                "sequencer": "006AB0DAB212D3A71D",
+                "size": 37,
+                "versionId": "${version66}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[9]",
+          "SourceSequence": 66,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "has-object-annotation": false,
+                "key": "implicit-variable-default/copy",
+                "sequencer": "006AB0DAB212D3A71D",
+                "size": 37,
+                "version-id": "${version66}"
+              },
+              "reason": "CopyObject",
+              "request-id": "${request66}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "4ca8c3bd-f2fa-d3fb-ddbb-b75bdd25849e",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:18Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 67,
+      "Label": "implicit-variable-default-mpu-init",
+      "At": "2026-09-21T07:20:18.190Z",
+      "Operation": "CreateMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-variable-default/mpu?uploads=",
+      "Body": "",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "upload67": "UploadId"
+      },
+      "Reopen": true
+    },
+    {
+      "Sequence": 68,
+      "Label": "implicit-variable-default-mpu-part",
+      "At": "2026-09-21T07:20:18.553Z",
+      "Operation": "UploadPart",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-variable-default/mpu?partNumber=1&uploadId=${upload67}",
+      "Body": "multipart notification payload",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "ETag": "\"308fb0d49adfa7338e8318f10472f4f2\""
+    },
+    {
+      "Sequence": 69,
+      "Label": "implicit-variable-default-mpu-complete",
+      "At": "2026-09-21T07:20:18.929Z",
+      "Operation": "CompleteMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/implicit-variable-default/mpu?uploadId=${upload67}",
+      "Body": "<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>\"308fb0d49adfa7338e8318f10472f4f2\"</ETag></Part></CompleteMultipartUpload>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version69": "Header.x-amz-version-id"
+      },
+      "ETag": "\"932026723689bd550980a6ee63060b1c-1\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[16]",
+          "SourceSequence": 69,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:CompleteMultipartUpload",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:19.236Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "M5ETgIlCHcwYdFAcu7WhzPxl0FIbyic8AAVpN5cwYiL8xft/NPXOiSIPlDJDdkYLGWlULfTt/Dy4oHnLmkXOZm90qHBrL81M",
+              "x-amz-request-id": "${request69}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "932026723689bd550980a6ee63060b1c-1",
+                "key": "implicit-variable-default/mpu",
+                "sequencer": "006AB0DAB2713ADBA4",
+                "size": 30,
+                "versionId": "${version69}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[20]",
+          "SourceSequence": 69,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "932026723689bd550980a6ee63060b1c-1",
+                "key": "implicit-variable-default/mpu",
+                "sequencer": "006AB0DAB2713ADBA4",
+                "size": 30,
+                "version-id": "${version69}"
+              },
+              "reason": "CompleteMultipartUpload",
+              "request-id": "${request69}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "42938051-6a9a-2633-424f-6132eb464db6",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:19Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 73,
+      "Label": "clear-default",
+      "At": "2026-09-21T07:20:20.600Z",
+      "Operation": "PutObjectLockConfiguration",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/?object-lock=",
+      "Body": "<ObjectLockConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><ObjectLockEnabled>Enabled</ObjectLockEnabled></ObjectLockConfiguration>",
+      "Headers": {
+        "Content-Type": "application/xml",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Reopen": true
+    },
+    {
+      "Sequence": 74,
+      "Label": "post-matrix-positive",
+      "At": "2026-09-21T07:20:21.077Z",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-locknotify-0921081929-6d11d6/post-matrix/control",
+      "Body": "native retention notification payload",
+      "Headers": {
+        "Content-Type": "application/octet-stream",
+        "content-md5": "${bodyMD5}"
+      },
+      "Status": 200,
+      "Bind": {
+        "version74": "Header.x-amz-version-id"
+      },
+      "ETag": "\"cfdd82f478d873448dc83cfa18ae7b43\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.classic_sqs[14]",
+          "SourceSequence": 74,
+          "Payload": {
+            "awsRegion": "us-east-1",
+            "eventName": "ObjectCreated:Put",
+            "eventSource": "aws:s3",
+            "eventTime": "2026-09-21T07:20:21.359Z",
+            "eventVersion": "2.6",
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-id-2": "3ZyytYk94uG9O8jhyG7D16f1vcil+UGeaSPE81njp18fPzh7w2yHrHsG8SJ99t4cJoAnasWp04OfiYMAbx40/6+NpFoUC/rL",
+              "x-amz-request-id": "${request74}"
+            },
+            "s3": {
+              "bucket": {
+                "arn": "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6",
+                "name": "stackd-locknotify-0921081929-6d11d6",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                }
+              },
+              "configurationId": "retention-and-created",
+              "object": {
+                "eTag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "post-matrix/control",
+                "sequencer": "006AB0DAB553C9AD73",
+                "size": 37,
+                "versionId": "${version74}"
+              },
+              "s3SchemaVersion": "1.0"
+            },
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "object_lock_notification_evidence.json.gz#deliveries.direct_eventbridge_sqs[13]",
+          "SourceSequence": 74,
+          "Payload": {
+            "account": "123456789012",
+            "detail": {
+              "bucket": {
+                "name": "stackd-locknotify-0921081929-6d11d6"
+              },
+              "event-version": "1.2",
+              "object": {
+                "etag": "cfdd82f478d873448dc83cfa18ae7b43",
+                "key": "post-matrix/control",
+                "sequencer": "006AB0DAB553C9AD73",
+                "size": 37,
+                "version-id": "${version74}"
+              },
+              "reason": "PutObject",
+              "request-id": "${request74}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "version": "0"
+            },
+            "detail-type": "Object Created",
+            "id": "a6bd54e2-98b1-b56f-02bb-c61ad1eaa8a8",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-locknotify-0921081929-6d11d6"
+            ],
+            "source": "aws.s3",
+            "time": "2026-09-21T07:20:21Z",
+            "version": "0"
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    }
+  ]
+}

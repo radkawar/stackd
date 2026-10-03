@@ -1,0 +1,2804 @@
+{
+  "retrieved_at": "2026-09-13T21:04:53.187730+00:00",
+  "region": "us-east-1",
+  "scope": "One uniquely owned group and five owned streams; direct Logs API ingestion, not Lambda invocation; no existing resources changed or unrelated resources listed",
+  "primary_references": [
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_CreateLogGroup.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DeleteLogGroup.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_CreateLogStream.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DeleteLogStream.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutRetentionPolicy.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DeleteRetentionPolicy.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_TagResource.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_ListTagsForResource.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_UntagResource.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DescribeLogGroups.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutLogEvents.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_GetLogEvents.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DescribeLogStreams.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_RejectedLogEventsInfo.html"
+  ],
+  "identity_relationships": {
+    "caller_account": "123456789012",
+    "group_account_matches_caller": true,
+    "substitutions": "Caller account becomes 123456789012; caller ARN/UserId are not retained; unique group becomes /stackd/native-logs-ingestion-owned. Opaque tokens and all timestamps are unchanged, preserving equality and order."
+  },
+  "clock_anchor_ms": 1789333493187,
+  "clock_design": "All event timestamps are anchor plus the recorded offset. Rejection probes use at least one hour beyond the future limit and at least a day beyond the 14-day limit; no exact racing wall-clock cutoff is inferred. The 24-hour span cases compare event timestamps, not wall time.",
+  "limitations": [
+    "Single account, region and run; not a claim of parity for the 57 pinned Logs operations.",
+    "No concurrent ingestion, token expiry, 10000-event boundary, Lambda delivery, retention-time deletion, or long-horizon visibility probe.",
+    "Large byte-budget events are deliberately 16 days old to avoid retaining megabytes. Their success means request admitted with per-event rejection, not large-event ingestion. Inputs are deterministic construction summaries, not literal API requests.",
+    "Large requests use shared run/result text-error decoding; these results preserve native code/message but not JSON error envelopes. Other requests use shared observe and retain native JSON errors.",
+    "PutLogEvents success is admission evidence, not proof every event is readable. Explicit-range terminal pagination retains the actual messages observed; absence during this bounded capture is not a claim of permanent loss or a reason to reinterpret native rejection indices.",
+    "DescribeLogStreams metadata can lag up to an hour or longer per AWS; bounded polling records visibility and does not assert immediate consistency."
+  ],
+  "request_counts": {
+    "sts": 1,
+    "logs": 94,
+    "total": 95,
+    "automatic_retries": false
+  },
+  "observations": [
+    {
+      "label": "create-group",
+      "service": "logs",
+      "operation": "create-log-group",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "tags": {
+          "owner": "stackd-probe",
+          "phase": "created"
+        }
+      },
+      "request_started_ms": 1789333493187,
+      "request_finished_ms": 1789333493903,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-group-duplicate",
+      "service": "logs",
+      "operation": "create-log-group",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333493903,
+      "request_finished_ms": 1789333494616,
+      "result": {
+        "code": "ResourceAlreadyExistsException",
+        "error": {
+          "Message": "The specified log group already exists",
+          "Code": "ResourceAlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "describe-group-defaults",
+      "service": "logs",
+      "operation": "describe-log-groups",
+      "input": {
+        "logGroupNamePrefix": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333494616,
+      "request_finished_ms": 1789333495337,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logGroups": [
+            {
+              "logGroupName": "/stackd/native-logs-ingestion-owned",
+              "creationTime": 1789333493741,
+              "metricFilterCount": 0,
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:*",
+              "storedBytes": 0,
+              "logGroupClass": "STANDARD",
+              "logGroupArn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned",
+              "deletionProtectionEnabled": false,
+              "bearerTokenAuthenticationEnabled": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "tags-created",
+      "service": "logs",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333495338,
+      "request_finished_ms": 1789333496022,
+      "result": {
+        "code": "Success",
+        "output": {
+          "tags": {
+            "owner": "stackd-probe",
+            "phase": "created"
+          }
+        }
+      }
+    },
+    {
+      "label": "tags-merge-replace",
+      "service": "logs",
+      "operation": "tag-resource",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned",
+        "tags": {
+          "phase": "updated",
+          "extra": "value"
+        }
+      },
+      "request_started_ms": 1789333496022,
+      "request_finished_ms": 1789333496716,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "tags-updated",
+      "service": "logs",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333496717,
+      "request_finished_ms": 1789333497427,
+      "result": {
+        "code": "Success",
+        "output": {
+          "tags": {
+            "owner": "stackd-probe",
+            "phase": "updated",
+            "extra": "value"
+          }
+        }
+      }
+    },
+    {
+      "label": "untag-existing-and-missing",
+      "service": "logs",
+      "operation": "untag-resource",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned",
+        "tagKeys": [
+          "phase",
+          "absent"
+        ]
+      },
+      "request_started_ms": 1789333497427,
+      "request_finished_ms": 1789333498141,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "tags-after-untag",
+      "service": "logs",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333498142,
+      "request_finished_ms": 1789333498826,
+      "result": {
+        "code": "Success",
+        "output": {
+          "tags": {
+            "owner": "stackd-probe",
+            "extra": "value"
+          }
+        }
+      }
+    },
+    {
+      "label": "retention-one-day",
+      "service": "logs",
+      "operation": "put-retention-policy",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "retentionInDays": 1
+      },
+      "request_started_ms": 1789333498826,
+      "request_finished_ms": 1789333499525,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "describe-retention-one-day",
+      "service": "logs",
+      "operation": "describe-log-groups",
+      "input": {
+        "logGroupNamePrefix": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333499525,
+      "request_finished_ms": 1789333500216,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logGroups": [
+            {
+              "logGroupName": "/stackd/native-logs-ingestion-owned",
+              "creationTime": 1789333493741,
+              "retentionInDays": 1,
+              "metricFilterCount": 0,
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:*",
+              "storedBytes": 0,
+              "logGroupClass": "STANDARD",
+              "logGroupArn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned",
+              "deletionProtectionEnabled": false,
+              "bearerTokenAuthenticationEnabled": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "create-stream-sequence",
+      "service": "logs",
+      "operation": "create-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence"
+      },
+      "request_started_ms": 1789333500216,
+      "request_finished_ms": 1789333500898,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-stream-mixed",
+      "service": "logs",
+      "operation": "create-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-mixed"
+      },
+      "request_started_ms": 1789333500898,
+      "request_finished_ms": 1789333501594,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-stream-span",
+      "service": "logs",
+      "operation": "create-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-span"
+      },
+      "request_started_ms": 1789333501595,
+      "request_finished_ms": 1789333502291,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-stream-bytes",
+      "service": "logs",
+      "operation": "create-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-bytes"
+      },
+      "request_started_ms": 1789333502291,
+      "request_finished_ms": 1789333503000,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-stream-lifecycle",
+      "service": "logs",
+      "operation": "create-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-lifecycle"
+      },
+      "request_started_ms": 1789333503000,
+      "request_finished_ms": 1789333503695,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-stream-duplicate",
+      "service": "logs",
+      "operation": "create-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence"
+      },
+      "request_started_ms": 1789333503695,
+      "request_finished_ms": 1789333504391,
+      "result": {
+        "code": "ResourceAlreadyExistsException",
+        "error": {
+          "Message": "The specified log stream already exists",
+          "Code": "ResourceAlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "describe-stream-before-ingestion",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333504392,
+      "request_finished_ms": 1789333505060,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "create-stream-missing-group",
+      "service": "logs",
+      "operation": "create-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned-missing",
+        "logStreamName": "owned-missing"
+      },
+      "request_started_ms": 1789333505061,
+      "request_finished_ms": 1789333505746,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log group does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "delete-missing-group",
+      "service": "logs",
+      "operation": "delete-log-group",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned-missing"
+      },
+      "request_started_ms": 1789333505747,
+      "request_finished_ms": 1789333506435,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log group does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "delete-missing-stream",
+      "service": "logs",
+      "operation": "delete-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-missing"
+      },
+      "request_started_ms": 1789333506436,
+      "request_finished_ms": 1789333507115,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log stream does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "delete-stream-missing-group",
+      "service": "logs",
+      "operation": "delete-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned-missing",
+        "logStreamName": "owned-missing"
+      },
+      "request_started_ms": 1789333507115,
+      "request_finished_ms": 1789333507806,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log group does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "put-missing-stream",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-missing",
+        "logEvents": [
+          {
+            "timestamp": 1789329893187,
+            "message": "missing"
+          }
+        ]
+      },
+      "request_started_ms": 1789333507806,
+      "request_finished_ms": 1789333508493,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log stream does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "put-missing-group",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned-missing",
+        "logStreamName": "owned-missing",
+        "logEvents": [
+          {
+            "timestamp": 1789329893187,
+            "message": "missing"
+          }
+        ]
+      },
+      "request_started_ms": 1789333508493,
+      "request_finished_ms": 1789333509168,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log group does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "get-missing-stream",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-missing"
+      },
+      "request_started_ms": 1789333509169,
+      "request_finished_ms": 1789333509864,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log stream does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "delete-stream",
+      "service": "logs",
+      "operation": "delete-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-lifecycle"
+      },
+      "request_started_ms": 1789333509865,
+      "request_finished_ms": 1789333510587,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "delete-stream-again",
+      "service": "logs",
+      "operation": "delete-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-lifecycle"
+      },
+      "request_started_ms": 1789333510588,
+      "request_finished_ms": 1789333511282,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log stream does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "get-deleted-stream",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-lifecycle"
+      },
+      "request_started_ms": 1789333511283,
+      "request_finished_ms": 1789333511969,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log stream does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "sequence-omitted-first",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "logEvents": [
+          {
+            "timestamp": 1789332893187,
+            "message": "A"
+          },
+          {
+            "timestamp": 1789332894187,
+            "message": "B"
+          },
+          {
+            "timestamp": 1789332895187,
+            "message": "C"
+          }
+        ]
+      },
+      "request_started_ms": 1789333511969,
+      "request_finished_ms": 1789333512689,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49677559853173528147003566463269387669963365505610810194"
+        }
+      }
+    },
+    {
+      "label": "sequence-arbitrary-ignored",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "logEvents": [
+          {
+            "timestamp": 1789332896187,
+            "message": "D"
+          }
+        ],
+        "sequenceToken": "not-a-valid-sequence-token"
+      },
+      "request_started_ms": 1789333512690,
+      "request_finished_ms": 1789333513404,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49677038996924069775373797210443060382890924534763880498"
+        }
+      }
+    },
+    {
+      "label": "sequence-omitted-after-write",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "logEvents": [
+          {
+            "timestamp": 1789332897187,
+            "message": "E"
+          }
+        ]
+      },
+      "request_started_ms": 1789333513404,
+      "request_finished_ms": 1789333514117,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49677559853173528147003566463836373879362626657267483474"
+        }
+      }
+    },
+    {
+      "label": "sequence-stale-token",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "logEvents": [
+          {
+            "timestamp": 1789332898187,
+            "message": "F"
+          }
+        ],
+        "sequenceToken": "49677559853173528147003566463269387669963365505610810194"
+      },
+      "request_started_ms": 1789333514117,
+      "request_finished_ms": 1789333514813,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49678099893014622689046654033221066140822983438353040722"
+        }
+      }
+    },
+    {
+      "label": "sequence-duplicate-original-batch",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "logEvents": [
+          {
+            "timestamp": 1789332893187,
+            "message": "A"
+          },
+          {
+            "timestamp": 1789332894187,
+            "message": "B"
+          },
+          {
+            "timestamp": 1789332895187,
+            "message": "C"
+          }
+        ],
+        "sequenceToken": "49677559853173528147003566463269387669963365505610810194"
+      },
+      "request_started_ms": 1789333514813,
+      "request_finished_ms": 1789333515564,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49676971139190745407262603900813960939414974369269548626"
+        }
+      }
+    },
+    {
+      "label": "describe-stream-immediate",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333515564,
+      "request_finished_ms": 1789333516261,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546278530612352619462356238593466",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "chronological-order-reversed",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "logEvents": [
+          {
+            "timestamp": 1789332900187,
+            "message": "reversed-late"
+          },
+          {
+            "timestamp": 1789332899187,
+            "message": "reversed-early"
+          }
+        ]
+      },
+      "request_started_ms": 1789333516261,
+      "request_finished_ms": 1789333516939,
+      "result": {
+        "code": "InvalidParameterException",
+        "error": {
+          "Message": "Log events in a single PutLogEvents request must be in chronological order.",
+          "Code": "InvalidParameterException"
+        }
+      }
+    },
+    {
+      "label": "mixed-retention-old-valid-future",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-mixed",
+        "logEvents": [
+          {
+            "timestamp": 1787951093187,
+            "message": "too-old-0"
+          },
+          {
+            "timestamp": 1788037493187,
+            "message": "too-old-1"
+          },
+          {
+            "timestamp": 1789160693187,
+            "message": "retention-expired-2"
+          },
+          {
+            "timestamp": 1789203893187,
+            "message": "retention-expired-3"
+          },
+          {
+            "timestamp": 1789326293187,
+            "message": "valid-4"
+          },
+          {
+            "timestamp": 1789329893187,
+            "message": "valid-5"
+          },
+          {
+            "timestamp": 1789344293187,
+            "message": "too-new-6"
+          },
+          {
+            "timestamp": 1789347893187,
+            "message": "too-new-7"
+          }
+        ]
+      },
+      "request_started_ms": 1789333516940,
+      "request_finished_ms": 1789333517644,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49678181565056064012945961221269224198617654432307873314",
+          "rejectedLogEventsInfo": {
+            "tooNewLogEventStartIndex": 6,
+            "tooOldLogEventEndIndex": 2,
+            "expiredLogEventEndIndex": 4
+          }
+        }
+      }
+    },
+    {
+      "label": "get-mixed-retention",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-mixed",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333517645,
+      "request_finished_ms": 1789333518464,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789329893187,
+              "message": "valid-5",
+              "ingestionTime": 1789333517508
+            }
+          ],
+          "nextForwardToken": "f/39903390024077303017355828649160594872194833792032899073/s",
+          "nextBackwardToken": "b/39903390024077303017355828649160594872194833792032899073/s"
+        }
+      }
+    },
+    {
+      "label": "delete-retention",
+      "service": "logs",
+      "operation": "delete-retention-policy",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333518464,
+      "request_finished_ms": 1789333519340,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "describe-retention-removed",
+      "service": "logs",
+      "operation": "describe-log-groups",
+      "input": {
+        "logGroupNamePrefix": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333519340,
+      "request_finished_ms": 1789333520036,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logGroups": [
+            {
+              "logGroupName": "/stackd/native-logs-ingestion-owned",
+              "creationTime": 1789333493741,
+              "metricFilterCount": 0,
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:*",
+              "storedBytes": 0,
+              "logGroupClass": "STANDARD",
+              "logGroupArn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned",
+              "deletionProtectionEnabled": false,
+              "bearerTokenAuthenticationEnabled": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "delete-retention-again",
+      "service": "logs",
+      "operation": "delete-retention-policy",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333520037,
+      "request_finished_ms": 1789333520764,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "mixed-old-valid-future-no-retention",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-mixed",
+        "logEvents": [
+          {
+            "timestamp": 1787951093187,
+            "message": "old-0"
+          },
+          {
+            "timestamp": 1788037493187,
+            "message": "old-1"
+          },
+          {
+            "timestamp": 1789326293187,
+            "message": "valid-2"
+          },
+          {
+            "timestamp": 1789329893187,
+            "message": "valid-3"
+          },
+          {
+            "timestamp": 1789344293187,
+            "message": "future-4"
+          },
+          {
+            "timestamp": 1789347893187,
+            "message": "future-5"
+          }
+        ]
+      },
+      "request_started_ms": 1789333520764,
+      "request_finished_ms": 1789333521476,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49676971139190745407262603903021459486031287654599886418",
+          "rejectedLogEventsInfo": {
+            "tooNewLogEventStartIndex": 4,
+            "tooOldLogEventEndIndex": 2
+          }
+        }
+      }
+    },
+    {
+      "label": "span-exactly-24h",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-span",
+        "logEvents": [
+          {
+            "timestamp": 1789239893187,
+            "message": "span-exact-first"
+          },
+          {
+            "timestamp": 1789326293187,
+            "message": "span-exact-last"
+          }
+        ]
+      },
+      "request_started_ms": 1789333521477,
+      "request_finished_ms": 1789333522186,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49677038996924069775373797215034560645787286758773227570"
+        }
+      }
+    },
+    {
+      "label": "span-24h-plus-1ms",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-span",
+        "logEvents": [
+          {
+            "timestamp": 1789239893186,
+            "message": "span-over-first"
+          },
+          {
+            "timestamp": 1789326293187,
+            "message": "span-over-last"
+          }
+        ]
+      },
+      "request_started_ms": 1789333522187,
+      "request_finished_ms": 1789333522885,
+      "result": {
+        "code": "InvalidParameterException",
+        "error": {
+          "Message": "The batch of log events in a single PutLogEvents request cannot span more than 24 hours.",
+          "Code": "InvalidParameterException"
+        }
+      }
+    },
+    {
+      "label": "span-valid-23h-with-rejected-extremes",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-span",
+        "logEvents": [
+          {
+            "timestamp": 1787951093187,
+            "message": "span-old"
+          },
+          {
+            "timestamp": 1789243493187,
+            "message": "span-valid-first"
+          },
+          {
+            "timestamp": 1789326293187,
+            "message": "span-valid-last"
+          },
+          {
+            "timestamp": 1789344293187,
+            "message": "span-future"
+          }
+        ]
+      },
+      "request_started_ms": 1789333522886,
+      "request_finished_ms": 1789333523761,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49678125370054959846382359131714676574079597105479943218",
+          "rejectedLogEventsInfo": {
+            "tooNewLogEventStartIndex": 3,
+            "tooOldLogEventEndIndex": 1
+          }
+        }
+      }
+    },
+    {
+      "label": "byte-ascii-same-character-count",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-bytes",
+        "logEvents": [
+          {
+            "timestamp": 1787951093187,
+            "messageConstruction": {
+              "repeat": "a",
+              "count": 524276,
+              "utf8_bytes": 524276
+            }
+          }
+        ],
+        "batch_bytes_including_26_per_event": 524302
+      },
+      "request_started_ms": 1789333523762,
+      "request_finished_ms": 1789333525232,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49039859686140658845507769410798814368203837285769930608",
+          "rejectedLogEventsInfo": {
+            "tooOldLogEventEndIndex": 1
+          }
+        }
+      }
+    },
+    {
+      "label": "byte-utf8-exact-batch-budget",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-bytes",
+        "logEvents": [
+          {
+            "timestamp": 1787951093187,
+            "messageConstruction": {
+              "repeat": "é",
+              "count": 524275,
+              "utf8_bytes": 1048550
+            }
+          }
+        ],
+        "batch_bytes_including_26_per_event": 1048576
+      },
+      "request_started_ms": 1789333525233,
+      "request_finished_ms": 1789333527897,
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49039859686140662385241919904432445470945683571931048748",
+          "rejectedLogEventsInfo": {
+            "tooOldLogEventEndIndex": 1
+          }
+        }
+      }
+    },
+    {
+      "label": "byte-utf8-two-bytes-over-budget",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-bytes",
+        "logEvents": [
+          {
+            "timestamp": 1787951093187,
+            "messageConstruction": {
+              "repeat": "é",
+              "count": 524276,
+              "utf8_bytes": 1048552
+            }
+          }
+        ],
+        "batch_bytes_including_26_per_event": 1048578
+      },
+      "request_started_ms": 1789333527898,
+      "request_finished_ms": 1789333530376,
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Log event too large: 1048578 bytes exceeds limit of 1048576"
+      }
+    },
+    {
+      "label": "visibility-events-0",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333530377,
+      "request_finished_ms": 1789333531650,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332896187,
+              "message": "D",
+              "ingestionTime": 1789333513276
+            },
+            {
+              "timestamp": 1789332897187,
+              "message": "E",
+              "ingestionTime": 1789333513983
+            },
+            {
+              "timestamp": 1789332898187,
+              "message": "F",
+              "ingestionTime": 1789333514688
+            }
+          ],
+          "nextForwardToken": "f/39903457037816624601878368960585244879732185235875037184/s",
+          "nextBackwardToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+        }
+      }
+    },
+    {
+      "label": "visibility-metadata-0",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333531650,
+      "request_finished_ms": 1789333532425,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546329895844637929770368667006179",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "visibility-events-1",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333534427,
+      "request_finished_ms": 1789333535192,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332896187,
+              "message": "D",
+              "ingestionTime": 1789333513276
+            },
+            {
+              "timestamp": 1789332897187,
+              "message": "E",
+              "ingestionTime": 1789333513983
+            },
+            {
+              "timestamp": 1789332898187,
+              "message": "F",
+              "ingestionTime": 1789333514688
+            }
+          ],
+          "nextForwardToken": "f/39903457037816624601878368960585244879732185235875037184/s",
+          "nextBackwardToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+        }
+      }
+    },
+    {
+      "label": "visibility-metadata-1",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333535193,
+      "request_finished_ms": 1789333535904,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546891435959619391074304240019909",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "visibility-events-2",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333539905,
+      "request_finished_ms": 1789333541178,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332896187,
+              "message": "D",
+              "ingestionTime": 1789333513276
+            },
+            {
+              "timestamp": 1789332897187,
+              "message": "E",
+              "ingestionTime": 1789333513983
+            },
+            {
+              "timestamp": 1789332898187,
+              "message": "F",
+              "ingestionTime": 1789333514688
+            }
+          ],
+          "nextForwardToken": "f/39903457037816624601878368960585244879732185235875037184/s",
+          "nextBackwardToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+        }
+      }
+    },
+    {
+      "label": "visibility-metadata-2",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333541180,
+      "request_finished_ms": 1789333541874,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546546390859708210969756841033533",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "visibility-events-3",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333549875,
+      "request_finished_ms": 1789333550629,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332896187,
+              "message": "D",
+              "ingestionTime": 1789333513276
+            },
+            {
+              "timestamp": 1789332897187,
+              "message": "E",
+              "ingestionTime": 1789333513983
+            },
+            {
+              "timestamp": 1789332898187,
+              "message": "F",
+              "ingestionTime": 1789333514688
+            }
+          ],
+          "nextForwardToken": "f/39903457037816624601878368960585244879732185235875037184/s",
+          "nextBackwardToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+        }
+      }
+    },
+    {
+      "label": "visibility-metadata-3",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333550630,
+      "request_finished_ms": 1789333551366,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546301897414186534603357394630203",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "visibility-events-4",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333561367,
+      "request_finished_ms": 1789333562143,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332896187,
+              "message": "D",
+              "ingestionTime": 1789333513276
+            },
+            {
+              "timestamp": 1789332897187,
+              "message": "E",
+              "ingestionTime": 1789333513983
+            },
+            {
+              "timestamp": 1789332898187,
+              "message": "F",
+              "ingestionTime": 1789333514688
+            }
+          ],
+          "nextForwardToken": "f/39903457037816624601878368960585244879732185235875037184/s",
+          "nextBackwardToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+        }
+      }
+    },
+    {
+      "label": "visibility-metadata-4",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333562144,
+      "request_finished_ms": 1789333562821,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546015323214607954188442962340151",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "visibility-events-5",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333572822,
+      "request_finished_ms": 1789333574196,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903450236100489420474404617952716383909083236282630143/s",
+          "nextBackwardToken": "b/39903450236089339047875139306382552987682566370117025792/s"
+        }
+      }
+    },
+    {
+      "label": "visibility-metadata-5",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333574197,
+      "request_finished_ms": 1789333574899,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546390943787872614209528871285931",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "visibility-events-6",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333584900,
+      "request_finished_ms": 1789333585798,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332896187,
+              "message": "D",
+              "ingestionTime": 1789333513276
+            },
+            {
+              "timestamp": 1789332897187,
+              "message": "E",
+              "ingestionTime": 1789333513983
+            },
+            {
+              "timestamp": 1789332898187,
+              "message": "F",
+              "ingestionTime": 1789333514688
+            }
+          ],
+          "nextForwardToken": "f/39903457037816624601878368960585244879732185235875037184/s",
+          "nextBackwardToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+        }
+      }
+    },
+    {
+      "label": "visibility-metadata-6",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333585799,
+      "request_finished_ms": 1789333586526,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546532809752673857392153959587554",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "visibility-events-7",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333596527,
+      "request_finished_ms": 1789333597878,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332896187,
+              "message": "D",
+              "ingestionTime": 1789333513276
+            },
+            {
+              "timestamp": 1789332897187,
+              "message": "E",
+              "ingestionTime": 1789333513983
+            },
+            {
+              "timestamp": 1789332898187,
+              "message": "F",
+              "ingestionTime": 1789333514688
+            }
+          ],
+          "nextForwardToken": "f/39903457037816624601878368960585244879732185235875037184/s",
+          "nextBackwardToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+        }
+      }
+    },
+    {
+      "label": "visibility-metadata-7",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-sequence"
+      },
+      "request_started_ms": 1789333597879,
+      "request_finished_ms": 1789333598565,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546658568793289161063605794205960",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "get-forward-page-0",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188
+      },
+      "request_started_ms": 1789333598566,
+      "request_finished_ms": 1789333599462,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            }
+          ],
+          "nextForwardToken": "f/39903456948613643807755876391853576417842424971060117505/s",
+          "nextBackwardToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+        }
+      }
+    },
+    {
+      "label": "get-forward-page-1",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188,
+        "nextToken": "f/39903456948613643807755876391853576417842424971060117505/s"
+      },
+      "request_started_ms": 1789333599463,
+      "request_finished_ms": 1789333600404,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            }
+          ],
+          "nextForwardToken": "f/39903456970914389006286499536878781152030935805233070082/s",
+          "nextBackwardToken": "b/39903456948613643807755876395343062879382574299252654081/s"
+        }
+      }
+    },
+    {
+      "label": "get-forward-page-2",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188,
+        "nextToken": "f/39903456970914389006286499536878781152030935805233070082/s"
+      },
+      "request_started_ms": 1789333600405,
+      "request_finished_ms": 1789333601504,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332896187,
+              "message": "D",
+              "ingestionTime": 1789333513276
+            },
+            {
+              "timestamp": 1789332897187,
+              "message": "E",
+              "ingestionTime": 1789333513983
+            },
+            {
+              "timestamp": 1789332898187,
+              "message": "F",
+              "ingestionTime": 1789333514688
+            }
+          ],
+          "nextForwardToken": "f/39903457037816624601878368960585244879732185235875037184/s",
+          "nextBackwardToken": "b/39903456993215134204817122675806606444983539344474439680/s"
+        }
+      }
+    },
+    {
+      "label": "get-forward-page-3",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188,
+        "nextToken": "f/39903457037816624601878368960585244879732185235875037184/s"
+      },
+      "request_started_ms": 1789333601505,
+      "request_finished_ms": 1789333602265,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903457037850075717512993409488325259931990921815490559/s",
+          "nextBackwardToken": "b/39903457037816624601878368960585244879732185235875037184/s"
+        }
+      }
+    },
+    {
+      "label": "get-forward-page-4",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188,
+        "nextToken": "f/39903457037850075717512993409488325259931990921815490559/s"
+      },
+      "request_started_ms": 1789333602266,
+      "request_finished_ms": 1789333603003,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903457037850075717512993409488325259931990921815490559/s",
+          "nextBackwardToken": "b/39903457037850075717512993409488325259931990921815490559/s"
+        }
+      }
+    },
+    {
+      "label": "get-backward-page-0",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": false,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188
+      },
+      "request_started_ms": 1789333603004,
+      "request_finished_ms": 1789333603761,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332896187,
+              "message": "D",
+              "ingestionTime": 1789333513276
+            },
+            {
+              "timestamp": 1789332897187,
+              "message": "E",
+              "ingestionTime": 1789333513983
+            },
+            {
+              "timestamp": 1789332898187,
+              "message": "F",
+              "ingestionTime": 1789333514688
+            }
+          ],
+          "nextForwardToken": "f/39903457037816624601878368960585244879732185235875037184/s",
+          "nextBackwardToken": "b/39903456993215134204817122675806606444983539344474439680/s"
+        }
+      }
+    },
+    {
+      "label": "get-backward-page-1",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": false,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188,
+        "nextToken": "b/39903456993215134204817122675806606444983539344474439680/s"
+      },
+      "request_started_ms": 1789333603763,
+      "request_finished_ms": 1789333604524,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            }
+          ],
+          "nextForwardToken": "f/39903456970914389006286499536878781152030935805233070082/s",
+          "nextBackwardToken": "b/39903456948613643807755876395343062879382574299252654081/s"
+        }
+      }
+    },
+    {
+      "label": "get-backward-page-2",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": false,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188,
+        "nextToken": "b/39903456948613643807755876395343062879382574299252654081/s"
+      },
+      "request_started_ms": 1789333604525,
+      "request_finished_ms": 1789333605259,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332893187,
+              "message": "A",
+              "ingestionTime": 1789333515433
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            }
+          ],
+          "nextForwardToken": "f/39903456948613643807755876391853576417842424971060117505/s",
+          "nextBackwardToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+        }
+      }
+    },
+    {
+      "label": "get-backward-page-3",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": false,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188,
+        "nextToken": "b/39903456926312898609225253250317858145194063465079701504/s"
+      },
+      "request_started_ms": 1789333605260,
+      "request_finished_ms": 1789333605975,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903456926312898609225253250317858145194063465079701504/s",
+          "nextBackwardToken": "b/39903456926312898607062081767098034782191018164241825792/s"
+        }
+      }
+    },
+    {
+      "label": "get-backward-page-4",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": false,
+        "limit": 3,
+        "startTime": 1789332893187,
+        "endTime": 1789332898188,
+        "nextToken": "b/39903456926312898607062081767098034782191018164241825792/s"
+      },
+      "request_started_ms": 1789333605977,
+      "request_finished_ms": 1789333606693,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903456926312898607062081767098034782191018164241825792/s",
+          "nextBackwardToken": "b/39903456926312898607062081767098034782191018164241825792/s"
+        }
+      }
+    },
+    {
+      "label": "boundaries-inclusive-start-exclusive-end",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true,
+        "startTime": 1789332894187,
+        "endTime": 1789332895187
+      },
+      "request_started_ms": 1789333606694,
+      "request_finished_ms": 1789333607544,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333512547
+            },
+            {
+              "timestamp": 1789332894187,
+              "message": "B",
+              "ingestionTime": 1789333515433
+            }
+          ],
+          "nextForwardToken": "f/39903456948613643807755876395343062879382574299252654081/s",
+          "nextBackwardToken": "b/39903456948613643807755876391853576417842424971060117505/s"
+        }
+      }
+    },
+    {
+      "label": "boundaries-one-millisecond-at-event",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true,
+        "startTime": 1789332895187,
+        "endTime": 1789332895188
+      },
+      "request_started_ms": 1789333607545,
+      "request_finished_ms": 1789333608794,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789332895187,
+              "message": "C",
+              "ingestionTime": 1789333515433
+            }
+          ],
+          "nextForwardToken": "f/39903456970914389006286499536878781152030935805233070082/s",
+          "nextBackwardToken": "b/39903456970914389006286499536878781152030935805233070082/s"
+        }
+      }
+    },
+    {
+      "label": "boundaries-one-millisecond-before-event",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true,
+        "startTime": 1789332895186,
+        "endTime": 1789332895187
+      },
+      "request_started_ms": 1789333608795,
+      "request_finished_ms": 1789333609586,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903456970925539376722593361739634723714258042368262143/s",
+          "nextBackwardToken": "b/39903456970892088258924797427027935609215092814696677376/s"
+        }
+      }
+    },
+    {
+      "label": "boundaries-equal-start-end",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence",
+        "startFromHead": true,
+        "startTime": 1789332894187,
+        "endTime": 1789332894187
+      },
+      "request_started_ms": 1789333609588,
+      "request_finished_ms": 1789333610327,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903456948624794178191970220203916451065896536387846143/s",
+          "nextBackwardToken": "b/39903456948613643805592704908633753054839379670222241792/s"
+        }
+      }
+    },
+    {
+      "label": "get-final-mixed",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-mixed",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333610329,
+      "request_finished_ms": 1789333611171,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789326293187,
+              "message": "valid-2",
+              "ingestionTime": 1789333521348
+            },
+            {
+              "timestamp": 1789329893187,
+              "message": "valid-5",
+              "ingestionTime": 1789333517508
+            },
+            {
+              "timestamp": 1789329893187,
+              "message": "valid-3",
+              "ingestionTime": 1789333521348
+            }
+          ],
+          "nextForwardToken": "f/39903390024077303017355828653802912790599423086686306305/s",
+          "nextBackwardToken": "b/39903309741394588307112519125217131256498001557188706304/s"
+        }
+      }
+    },
+    {
+      "label": "get-explicit-range-mixed-0",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-mixed",
+        "startFromHead": true,
+        "startTime": 1787864693187,
+        "endTime": 1789351493187
+      },
+      "request_started_ms": 1789333611172,
+      "request_finished_ms": 1789333612020,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789326293187,
+              "message": "valid-2",
+              "ingestionTime": 1789333521348
+            },
+            {
+              "timestamp": 1789329893187,
+              "message": "valid-5",
+              "ingestionTime": 1789333517508
+            },
+            {
+              "timestamp": 1789329893187,
+              "message": "valid-3",
+              "ingestionTime": 1789333521348
+            }
+          ],
+          "nextForwardToken": "f/39903390024077303017355828653802912790599423086686306305/s",
+          "nextBackwardToken": "b/39903309741394588307112519125217131256498001557188706304/s"
+        }
+      }
+    },
+    {
+      "label": "get-explicit-range-mixed-1",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-mixed",
+        "startFromHead": true,
+        "startTime": 1787864693187,
+        "endTime": 1789351493187,
+        "nextToken": "f/39903390024077303017355828653802912790599423086686306305/s"
+      },
+      "request_started_ms": 1789333612021,
+      "request_finished_ms": 1789333612875,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903390024088453387791922471513380233333017089159430143/s",
+          "nextBackwardToken": "b/39903390024077303017355828653802912790599423086686306305/s"
+        }
+      }
+    },
+    {
+      "label": "get-explicit-range-mixed-2",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-mixed",
+        "startFromHead": true,
+        "startTime": 1787864693187,
+        "endTime": 1789351493187,
+        "nextToken": "f/39903390024088453387791922471513380233333017089159430143/s"
+      },
+      "request_started_ms": 1789333612876,
+      "request_finished_ms": 1789333613702,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903390024088453387791922471513380233333017089159430143/s",
+          "nextBackwardToken": "b/39903390024088453387791922471513380233333017089159430143/s"
+        }
+      }
+    },
+    {
+      "label": "get-final-span",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-span",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333613703,
+      "request_finished_ms": 1789333614596,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789243493187,
+              "message": "span-valid-first",
+              "ingestionTime": 1789333523636
+            },
+            {
+              "timestamp": 1789326293187,
+              "message": "span-valid-last",
+              "ingestionTime": 1789333523636
+            }
+          ],
+          "nextForwardToken": "f/39903309741394588307112519127983136060694391999802966017/s",
+          "nextBackwardToken": "b/39901463239692149971516399970510160776361696821358166016/s"
+        }
+      }
+    },
+    {
+      "label": "get-explicit-range-span-0",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-span",
+        "startFromHead": true,
+        "startTime": 1787864693187,
+        "endTime": 1789351493187
+      },
+      "request_started_ms": 1789333614597,
+      "request_finished_ms": 1789333615448,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789243493187,
+              "message": "span-valid-first",
+              "ingestionTime": 1789333523636
+            },
+            {
+              "timestamp": 1789326293187,
+              "message": "span-valid-last",
+              "ingestionTime": 1789333523636
+            }
+          ],
+          "nextForwardToken": "f/39903309741394588307112519127983136060694391999802966017/s",
+          "nextBackwardToken": "b/39901463239692149971516399970510160776361696821358166016/s"
+        }
+      }
+    },
+    {
+      "label": "get-explicit-range-span-1",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-span",
+        "startFromHead": true,
+        "startTime": 1787864693187,
+        "endTime": 1789351493187,
+        "nextToken": "f/39903309741394588307112519127983136060694391999802966017/s"
+      },
+      "request_started_ms": 1789333615449,
+      "request_finished_ms": 1789333616210,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903309741405738677548612942927598699231595559661830143/s",
+          "nextBackwardToken": "b/39903309741394588307112519127983136060694391999802966017/s"
+        }
+      }
+    },
+    {
+      "label": "get-explicit-range-span-2",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-span",
+        "startFromHead": true,
+        "startTime": 1787864693187,
+        "endTime": 1789351493187,
+        "nextToken": "f/39903309741405738677548612942927598699231595559661830143/s"
+      },
+      "request_started_ms": 1789333616211,
+      "request_finished_ms": 1789333617466,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903309741405738677548612942927598699231595559661830143/s",
+          "nextBackwardToken": "b/39903309741405738677548612942927598699231595559661830143/s"
+        }
+      }
+    },
+    {
+      "label": "get-final-bytes",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-bytes",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789333617467,
+      "request_finished_ms": 1789333618317,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903473093271581399635124158128695653119857152415989759/s",
+          "nextBackwardToken": "b/39903473093260431027035858846558532256893340286250385408/s"
+        }
+      }
+    },
+    {
+      "label": "get-explicit-range-bytes-0",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-bytes",
+        "startFromHead": true,
+        "startTime": 1787864693187,
+        "endTime": 1789351493187
+      },
+      "request_started_ms": 1789333618319,
+      "request_finished_ms": 1789333619091,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903473110220147750518397745695841540332611896961105919/s",
+          "nextBackwardToken": "b/39903473110208997377919132434125678144106095030795501568/s"
+        }
+      }
+    },
+    {
+      "label": "get-explicit-range-bytes-1",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-bytes",
+        "startFromHead": true,
+        "startTime": 1787864693187,
+        "endTime": 1789351493187,
+        "nextToken": "f/39903473110220147750518397745695841540332611896961105919/s"
+      },
+      "request_started_ms": 1789333619093,
+      "request_finished_ms": 1789333619765,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "nextForwardToken": "f/39903473110220147750518397745695841540332611896961105919/s",
+          "nextBackwardToken": "b/39903473110220147750518397745695841540332611896961105919/s"
+        }
+      }
+    },
+    {
+      "label": "describe-streams-final",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-"
+      },
+      "request_started_ms": 1789333619766,
+      "request_finished_ms": 1789333620447,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "owned-bytes",
+              "creationTime": 1789333502871,
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-bytes",
+              "storedBytes": 0
+            },
+            {
+              "logStreamName": "owned-mixed",
+              "creationTime": 1789333501474,
+              "firstEventTimestamp": 1789326293187,
+              "lastEventTimestamp": 1789329893187,
+              "lastIngestionTime": 1789333517508,
+              "uploadSequenceToken": "49039859686140648735399633385702186447741644026088118560",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-mixed",
+              "storedBytes": 0
+            },
+            {
+              "logStreamName": "owned-sequence",
+              "creationTime": 1789333500778,
+              "firstEventTimestamp": 1789332893187,
+              "lastEventTimestamp": 1789332895187,
+              "lastIngestionTime": 1789333512547,
+              "uploadSequenceToken": "49039859686140642141099546296734541694043967829374523833",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-sequence",
+              "storedBytes": 0
+            },
+            {
+              "logStreamName": "owned-span",
+              "creationTime": 1789333502166,
+              "firstEventTimestamp": 1789239893187,
+              "lastEventTimestamp": 1789326293187,
+              "lastIngestionTime": 1789333522055,
+              "uploadSequenceToken": "49039859686140654779399330219714661801135263685909010747",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/stackd/native-logs-ingestion-owned:log-stream:owned-span",
+              "storedBytes": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "delete-group",
+      "service": "logs",
+      "operation": "delete-log-group",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333620448,
+      "request_finished_ms": 1789333621239,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "delete-group-again",
+      "service": "logs",
+      "operation": "delete-log-group",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333621240,
+      "request_finished_ms": 1789333622079,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log group does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "get-after-group-deletion",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamName": "owned-sequence"
+      },
+      "request_started_ms": 1789333622081,
+      "request_finished_ms": 1789333622782,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log group does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "cleanup-delete-group",
+      "service": "logs",
+      "operation": "delete-log-group",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333622783,
+      "request_finished_ms": 1789333623495,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log group does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "cleanup-owned-prefix",
+      "service": "logs",
+      "operation": "describe-log-groups",
+      "input": {
+        "logGroupNamePrefix": "/stackd/native-logs-ingestion-owned"
+      },
+      "request_started_ms": 1789333623497,
+      "request_finished_ms": 1789333624172,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logGroups": []
+        }
+      }
+    },
+    {
+      "label": "cleanup-streams-missing-group",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/stackd/native-logs-ingestion-owned",
+        "logStreamNamePrefix": "owned-"
+      },
+      "request_started_ms": 1789333624173,
+      "request_finished_ms": 1789333624867,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The specified log group does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "verification_labels": [
+      "cleanup-delete-group",
+      "cleanup-owned-prefix",
+      "cleanup-streams-missing-group"
+    ],
+    "group_count": 1,
+    "stream_count_created": 5
+  },
+  "visibility": {
+    "attempts": 8,
+    "events_visible": true,
+    "metadata_visible": false,
+    "maximum_sleep_seconds": 54
+  },
+  "pagination": {
+    "forward": {
+      "pages": 5,
+      "event_counts": [
+        3,
+        3,
+        3,
+        0,
+        0
+      ],
+      "terminal_token_equals_input": true,
+      "messages_in_page_order": [
+        [
+          "A",
+          "A",
+          "B"
+        ],
+        [
+          "B",
+          "C",
+          "C"
+        ],
+        [
+          "D",
+          "E",
+          "F"
+        ],
+        [],
+        []
+      ]
+    },
+    "backward": {
+      "pages": 5,
+      "event_counts": [
+        3,
+        3,
+        3,
+        0,
+        0
+      ],
+      "terminal_token_equals_input": true,
+      "messages_in_page_order": [
+        [
+          "D",
+          "E",
+          "F"
+        ],
+        [
+          "B",
+          "C",
+          "C"
+        ],
+        [
+          "A",
+          "A",
+          "B"
+        ],
+        [],
+        []
+      ]
+    },
+    "mixed_explicit_range": {
+      "pages": 3,
+      "terminal_token_equals_input": true,
+      "messages_in_page_order": [
+        "valid-2",
+        "valid-5",
+        "valid-3"
+      ],
+      "reason": "Default-start single pages are samples, not completeness evidence; explicit range pagination checks old and mixed partial acceptance."
+    },
+    "span_explicit_range": {
+      "pages": 3,
+      "terminal_token_equals_input": true,
+      "messages_in_page_order": [
+        "span-valid-first",
+        "span-valid-last"
+      ],
+      "reason": "Default-start single pages are samples, not completeness evidence; explicit range pagination checks old and mixed partial acceptance."
+    },
+    "bytes_explicit_range": {
+      "pages": 2,
+      "terminal_token_equals_input": true,
+      "messages_in_page_order": [],
+      "reason": "Default-start single pages are samples, not completeness evidence; explicit range pagination checks old and mixed partial acceptance."
+    }
+  }
+}

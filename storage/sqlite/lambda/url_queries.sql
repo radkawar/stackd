@@ -1,0 +1,11 @@
+-- name: GetFunctionURL :one
+SELECT * FROM lambda_function_urls WHERE partition=? AND account=? AND region=? AND function_name=? AND qualifier=?;
+-- name: GetFunctionURLByID :one
+SELECT * FROM lambda_function_urls WHERE id=?;
+-- name: ListFunctionURLs :many
+SELECT * FROM lambda_function_urls WHERE partition=? AND account=? AND region=? AND function_name=? ORDER BY qualifier;
+-- name: PutFunctionURL :exec
+INSERT INTO lambda_function_urls(partition,account,region,function_name,qualifier,id,created,modified,applies_at,auth_type,invoke_mode,cors_present,allow_credentials,allow_headers,allow_methods,allow_origins,expose_headers,max_age,effective_auth_type,effective_invoke_mode,effective_cors_present,effective_allow_credentials,effective_allow_headers,effective_allow_methods,effective_allow_origins,effective_expose_headers,effective_max_age)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,function_name,qualifier) DO UPDATE SET id=excluded.id,created=excluded.created,modified=excluded.modified,applies_at=excluded.applies_at,auth_type=excluded.auth_type,invoke_mode=excluded.invoke_mode,cors_present=excluded.cors_present,allow_credentials=excluded.allow_credentials,allow_headers=excluded.allow_headers,allow_methods=excluded.allow_methods,allow_origins=excluded.allow_origins,expose_headers=excluded.expose_headers,max_age=excluded.max_age,effective_auth_type=excluded.effective_auth_type,effective_invoke_mode=excluded.effective_invoke_mode,effective_cors_present=excluded.effective_cors_present,effective_allow_credentials=excluded.effective_allow_credentials,effective_allow_headers=excluded.effective_allow_headers,effective_allow_methods=excluded.effective_allow_methods,effective_allow_origins=excluded.effective_allow_origins,effective_expose_headers=excluded.effective_expose_headers,effective_max_age=excluded.effective_max_age;
+-- name: DeleteFunctionURL :exec
+DELETE FROM lambda_function_urls WHERE partition=? AND account=? AND region=? AND function_name=? AND qualifier=?;

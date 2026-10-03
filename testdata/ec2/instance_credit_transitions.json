@@ -1,0 +1,98 @@
+{
+  "scope": "Documentation-derived reducer cases, not measured native balances. Credits are vCPU durations. Reduced-cap balances require more accrual time than the bounded native capture permits. Native stopped type/mode responses are replayed separately from instance_credits_transitions_owned.json.",
+  "native_evidence": {
+    "capture": "testdata/aws/ec2/instance_credits_transitions_owned.json",
+    "metrics": "testdata/aws/ec2/instance_credits_transitions_metrics.json",
+    "observations": [
+      "0.7819975 positive earned credits observed before the T3-to-T3a transition.",
+      "After T3.micro -> T3a.micro start, balance 1.3575797 exceeded the 0.47281393 credits possible from a zero reset even assuming zero CPU usage and a full extra metric bucket.",
+      "After stopped T3a.micro -> M5.large -> T2.micro -> T3.nano and start, balance 1.82781395 exceeded the zero-reset upper bound 0.131787365.",
+      "Standard mode survived the entire sequence. Observed surplus balance and charged-credit samples were zero. Three guest console boot markers showed distinct boot IDs and two CPUs; final nano reported 425968 KiB versus 939248 KiB on T3a.micro.",
+      "Immediate stopped DescribeInstances calls lagged the successful type changes; stabilized running observations supply CPU-configuration expectations. No AWS read-propagation latency is emulated by this reducer."
+    ],
+    "boundary": "One isolated ordinary Linux guest; no non-burstable or T2 guest start, no above-new-cap native balance, no seven-day wait, no T4g/T8i transition. Bounds exclude complete balance reset, not partial loss or exact nanosecond carry. Exact carry and reduced-cap cases below derive from the documented retention/accrual rules."
+  },
+  "sources": {
+    "retention_and_cap": {
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-credits-baseline-concepts.html",
+      "retrieved_at": "2026-09-26",
+      "retained_source": "testdata/aws/ec2/instance_credit_defaults.json#/credit_table/source_markdown",
+      "quotes": [
+        "After the limit is reached, any new credits that are earned are discarded",
+        "For T8i, T4g, T3a, and T3, the CPU credit balance persists for seven days after an instance stops and the credits are lost thereafter. If you start the instance within seven days, no credits are lost."
+      ],
+      "derivation": "Apply the cap to newly accrued credits, not existing retained credits when a stopped instance changes type. AWS documentation does not include a reduced-cap resize example; these are derived boundary cases, not a native reduced-cap observation."
+    },
+    "t2_start": {
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-standard-mode-concepts.html",
+      "retrieved_at": "2026-09-26",
+      "retained_source": "testdata/aws/ec2/instance_credits_api.json#/sources",
+      "quotes": [
+        "For T2 Standard, when the instance is stopped, it loses all its accrued credits, and its credit balance is reset to zero. When it is restarted, it receives a new set of launch credits",
+        "T2 Standard instances get 30 launch credits per vCPU at launch or start"
+      ]
+    },
+    "mode_and_charging": {
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html",
+      "retrieved_at": "2026-09-26",
+      "retained_source": "testdata/aws/ec2/instance_credits_api.json#/sources",
+      "rules": "Stop settles outstanding surplus before resizing. Switching Unlimited to Standard carries earned balance and charges surplus; switching to Unlimited removes T2 launch credits only."
+    }
+  },
+  "cases": [
+    {
+      "name": "smaller-cap-retains-earned-and-only-limits-new-accrual",
+      "evidence": "retention_and_cap; documented-rule derivation, not native high-balance evidence",
+      "type": "t3.micro", "mode": "standard", "earned": "200m", "stopped_for": "1m",
+      "types": ["t3.nano"], "retained": "200m", "active": true,
+      "start_after": "0s", "started": "200m", "launch": "0s", "quota": "200ms",
+      "samples": [
+        {"elapsed": "10m", "usage": "0s", "earned": "200m"},
+        {"elapsed": "1m", "usage": "20m", "earned": "180m6s"},
+        {"elapsed": "1m", "usage": "60m", "earned": "140m12s"},
+        {"elapsed": "1h", "usage": "60m", "earned": "144m"}
+      ]
+    },
+    {
+      "name": "fixed-performance-roundtrip-retains-standard-and-earned",
+      "evidence": "retention_and_cap plus native stopped type/mode sequence; exact balance synthetic",
+      "type": "t3.micro", "mode": "standard", "earned": "1m", "stopped_for": "1m",
+      "types": ["m5.large", "t3a.micro"], "retained": "1m", "active": true,
+      "start_after": "0s", "started": "1m", "launch": "0s", "quota": "200ms"
+    },
+    {
+      "name": "fixed-performance-disables-metering-without-discarding-retention",
+      "evidence": "retention_and_cap; no fixed-performance guest was started natively",
+      "type": "t3.micro", "mode": "unlimited", "earned": "1m", "stopped_for": "1m",
+      "types": ["m5.large"], "retained": "1m", "active": false
+    },
+    {
+      "name": "expired-retention-is-not-revived-by-family-change",
+      "evidence": "retention_and_cap; exact seven-day documented boundary",
+      "type": "t3.micro", "mode": "unlimited", "earned": "1m", "stopped_for": "168h",
+      "types": ["m5.large", "t3a.nano"], "retained": "0s", "active": true,
+      "start_after": "0s", "started": "0s", "launch": "0s", "quota": "0s"
+    },
+    {
+      "name": "stopped-resizes-do-not-renew-seven-day-window",
+      "evidence": "retention_and_cap; boundary occurs after resize but before start",
+      "type": "t3.micro", "mode": "standard", "earned": "1m", "stopped_for": "167h59m59s",
+      "types": ["m5.large", "t3a.nano"], "retained": "1m", "active": true,
+      "start_after": "1s", "started": "0s", "launch": "0s", "quota": "10ms"
+    },
+    {
+      "name": "t2-start-uses-launch-policy-not-prior-t3-balance",
+      "evidence": "t2_start; documentation-derived T2 restart policy, not a native T2 start",
+      "type": "t3.micro", "mode": "standard", "earned": "1m", "stopped_for": "1m",
+      "types": ["t2.micro"], "retained": "1m", "active": true,
+      "start_after": "0s", "started": "0s", "launch": "30m", "quota": "100ms"
+    },
+    {
+      "name": "leaving-t2-does-not-grant-new-launch-credits",
+      "evidence": "t2_start and retention_and_cap; no T3 launch credits",
+      "type": "t2.micro", "mode": "standard", "earned": "0s", "stopped_for": "1m",
+      "types": ["t3a.nano"], "retained": "0s", "active": true,
+      "start_after": "0s", "started": "0s", "launch": "0s", "quota": "10ms"
+    }
+  ]
+}

@@ -1,0 +1,246 @@
+{
+  "evidence": {
+    "source": "../aws/eventbridge/kinesis_targets.json",
+    "references": [
+      "calls[operation=create-role].input",
+      "calls[operation=put-role-policy].input",
+      "calls[operation=put-targets].input",
+      "calls[operation=put-events].input",
+      "observations.custom_partition_keys",
+      "observations.default_partition_key",
+      "records"
+    ],
+    "bindings": {
+      "account": "000000000000",
+      "name": "stackd-eventbridge-kinesis-replay"
+    },
+    "local_invariants": [
+      "Reopen retained target configuration before admission.",
+      "Fill the real shard write quota, retain retries across reopen after target removal, and read original transformed bytes and keys from Kafka. Retry delay and suffix stability are not native assertions.",
+      "Revoke the role permission and observe an SQS DLQ error with no new stream record. NO_PERMISSIONS shape is corroborated by ../aws/eventbridge/target_roles.json runs[].cases[name=id-deny].receipt; this Kinesis failure was not captured natively."
+    ]
+  },
+  "stream": {
+    "StreamName": "stackd-eventbridge-kinesis-replay",
+    "ShardCount": 1,
+    "StreamModeDetails": {
+      "StreamMode": "PROVISIONED"
+    }
+  },
+  "bus": {
+    "Name": "stackd-eventbridge-kinesis-replay"
+  },
+  "rule": {
+    "EventBusName": "stackd-eventbridge-kinesis-replay",
+    "Name": "owned",
+    "EventPattern": "{\"source\": [\"stackd.owned.kinesis-key\"]}"
+  },
+  "role": {
+    "RoleName": "stackd-eventbridge-kinesis-replay",
+    "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:000000000000:rule/stackd-eventbridge-kinesis-replay/owned\"}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+  },
+  "policy": {
+    "RoleName": "stackd-eventbridge-kinesis-replay",
+    "PolicyName": "owned",
+    "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"kinesis:PutRecord\", \"Resource\": \"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eventbridge-kinesis-replay\"}]}"
+  },
+  "queue": {
+    "QueueName": "stackd-eventbridge-kinesis-replay"
+  },
+  "queue_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-eventbridge-kinesis-replay\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:000000000000:rule/stackd-eventbridge-kinesis-replay/owned\"}}}]}",
+  "targets": {
+    "EventBusName": "stackd-eventbridge-kinesis-replay",
+    "Rule": "owned",
+    "Targets": [
+      {
+        "Id": "default",
+        "Arn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eventbridge-kinesis-replay",
+        "RoleArn": "arn:aws:iam::000000000000:role/stackd-eventbridge-kinesis-replay",
+        "RetryPolicy": {
+          "MaximumRetryAttempts": 0,
+          "MaximumEventAgeInSeconds": 60
+        },
+        "DeadLetterConfig": {
+          "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-eventbridge-kinesis-replay"
+        },
+        "InputTransformer": {
+          "InputPathsMap": {
+            "case": "$.detail.case"
+          },
+          "InputTemplate": "{\"case\":<case>,\"target\":\"default\"}"
+        }
+      },
+      {
+        "Id": "custom",
+        "Arn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-eventbridge-kinesis-replay",
+        "RoleArn": "arn:aws:iam::000000000000:role/stackd-eventbridge-kinesis-replay",
+        "RetryPolicy": {
+          "MaximumRetryAttempts": 0,
+          "MaximumEventAgeInSeconds": 60
+        },
+        "DeadLetterConfig": {
+          "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-eventbridge-kinesis-replay"
+        },
+        "InputTransformer": {
+          "InputPathsMap": {
+            "case": "$.detail.case"
+          },
+          "InputTemplate": "{\"case\":<case>,\"target\":\"custom\"}"
+        },
+        "KinesisParameters": {
+          "PartitionKeyPath": "$.detail.key"
+        }
+      }
+    ]
+  },
+  "send": {
+    "Entries": [
+      {
+        "EventBusName": "stackd-eventbridge-kinesis-replay",
+        "Source": "stackd.owned.kinesis-key",
+        "DetailType": "partition-key",
+        "Detail": "{\"case\": \"string\", \"key\": \"tenant-1\"}"
+      },
+      {
+        "EventBusName": "stackd-eventbridge-kinesis-replay",
+        "Source": "stackd.owned.kinesis-key",
+        "DetailType": "partition-key",
+        "Detail": "{\"case\": \"missing\"}"
+      },
+      {
+        "EventBusName": "stackd-eventbridge-kinesis-replay",
+        "Source": "stackd.owned.kinesis-key",
+        "DetailType": "partition-key",
+        "Detail": "{\"case\": \"null\", \"key\": null}"
+      },
+      {
+        "EventBusName": "stackd-eventbridge-kinesis-replay",
+        "Source": "stackd.owned.kinesis-key",
+        "DetailType": "partition-key",
+        "Detail": "{\"case\": \"integer\", \"key\": 42}"
+      },
+      {
+        "EventBusName": "stackd-eventbridge-kinesis-replay",
+        "Source": "stackd.owned.kinesis-key",
+        "DetailType": "partition-key",
+        "Detail": "{\"case\": \"boolean\", \"key\": true}"
+      },
+      {
+        "EventBusName": "stackd-eventbridge-kinesis-replay",
+        "Source": "stackd.owned.kinesis-key",
+        "DetailType": "partition-key",
+        "Detail": "{\"case\": \"object\", \"key\": {\"a\": 1}}"
+      },
+      {
+        "EventBusName": "stackd-eventbridge-kinesis-replay",
+        "Source": "stackd.owned.kinesis-key",
+        "DetailType": "partition-key",
+        "Detail": "{\"case\": \"array\", \"key\": [\"a\", \"b\"]}"
+      },
+      {
+        "EventBusName": "stackd-eventbridge-kinesis-replay",
+        "Source": "stackd.owned.kinesis-key",
+        "DetailType": "partition-key",
+        "Detail": "{\"case\": \"empty\", \"key\": \"\"}"
+      }
+    ]
+  },
+  "records": [
+    {
+      "case": "null",
+      "target": "default",
+      "data": "{\"case\":\"null\",\"target\":\"default\"}",
+      "partition_key": null
+    },
+    {
+      "case": "array",
+      "target": "default",
+      "data": "{\"case\":\"array\",\"target\":\"default\"}",
+      "partition_key": null
+    },
+    {
+      "case": "array",
+      "target": "custom",
+      "data": "{\"case\":\"array\",\"target\":\"custom\"}",
+      "partition_key": "[\"a\",\"b\"]"
+    },
+    {
+      "case": "string",
+      "target": "default",
+      "data": "{\"case\":\"string\",\"target\":\"default\"}",
+      "partition_key": null
+    },
+    {
+      "case": "boolean",
+      "target": "custom",
+      "data": "{\"case\":\"boolean\",\"target\":\"custom\"}",
+      "partition_key": "true"
+    },
+    {
+      "case": "string",
+      "target": "custom",
+      "data": "{\"case\":\"string\",\"target\":\"custom\"}",
+      "partition_key": "\"tenant-1\""
+    },
+    {
+      "case": "boolean",
+      "target": "default",
+      "data": "{\"case\":\"boolean\",\"target\":\"default\"}",
+      "partition_key": null
+    },
+    {
+      "case": "integer",
+      "target": "custom",
+      "data": "{\"case\":\"integer\",\"target\":\"custom\"}",
+      "partition_key": "42"
+    },
+    {
+      "case": "missing",
+      "target": "custom",
+      "data": "{\"case\":\"missing\",\"target\":\"custom\"}",
+      "partition_key": "{}"
+    },
+    {
+      "case": "empty",
+      "target": "custom",
+      "data": "{\"case\":\"empty\",\"target\":\"custom\"}",
+      "partition_key": "\"\""
+    },
+    {
+      "case": "missing",
+      "target": "default",
+      "data": "{\"case\":\"missing\",\"target\":\"default\"}",
+      "partition_key": null
+    },
+    {
+      "case": "null",
+      "target": "custom",
+      "data": "{\"case\":\"null\",\"target\":\"custom\"}",
+      "partition_key": "{}"
+    },
+    {
+      "case": "empty",
+      "target": "default",
+      "data": "{\"case\":\"empty\",\"target\":\"default\"}",
+      "partition_key": null
+    },
+    {
+      "case": "integer",
+      "target": "default",
+      "data": "{\"case\":\"integer\",\"target\":\"default\"}",
+      "partition_key": null
+    },
+    {
+      "case": "object",
+      "target": "default",
+      "data": "{\"case\":\"object\",\"target\":\"default\"}",
+      "partition_key": null
+    },
+    {
+      "case": "object",
+      "target": "custom",
+      "data": "{\"case\":\"object\",\"target\":\"custom\"}",
+      "partition_key": "{\"a\":1}"
+    }
+  ]
+}

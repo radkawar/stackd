@@ -1,0 +1,33 @@
+{
+  "account": "000000000000",
+  "selections": [
+    {
+      "source": "audit", "setup": 9,
+      "pairs": [[13,10],[14,9]]
+    },
+    {
+      "source": "audit_data", "setup": 1, "excludedBeforeSelection": 11,
+      "pairs": [[11,18],[12,16],[13,1],[14,17],[15,3],[16,2],[17,15],[18,6],[19,12],[20,14],[21,30],[22,8],[23,5],[24,32],[25,4],[26,13],[41,7]],
+      "reopen": true
+    },
+    {
+      "source": "partiql", "setup": 2, "excludedBeforeSelection": 11,
+      "pairs": [[11,29],[12,34],[13,35],[14,33],[16,2],[17,31],[18,1],[19,3],[20,32]]
+    }
+  ],
+  "forbidden": ["classic-nonkey-wave1","updated-nonkey-wave1","failed-nonkey-wave1","batch-nonkey-wave1","transaction-nonkey-wave1","partiql-nonkey-wave1","partiql-updated-nonkey-wave1","private-first","updated-first","insert-private-first"],
+  "comparison": {
+    "pairs": "One-based [calls index, events index]; audit uses cloudTrailEvents; other files use events. Wrapped event members are authoritative. Original inputs and expected projections remain in their captures.",
+    "bindings": "Only the native account is rebound to the shared local CloudTrail/S3/EventBridge fixture account. Table names and ordered resource arrays are retained.",
+    "normalization": "Only items attribute-name arrays are sorted: their native order differs between identical wave requests. requestItems and resources are never reordered.",
+    "managementResponse": "Compare stable UpdateTable table identity/schema/billing/deletion-protection/stream-specification fields. Do not compare native timestamps, table IDs, stream generation labels, item counts or asynchronous table status.",
+    "selectors": "Before selecting audit_data, repeat its successful PutItem under management-only selection; before selecting partiql, repeat its PutItem under the other table's exact Data resource selector. Both calls must be absent from delivered logs and EventBridge messages. Per the EventBridge CloudTrail delivery guide, ENABLED matches selected Data and write management, but excludes read-only management. Data is excluded from CloudTrail Event History."
+  },
+  "exclusions": [
+    "Streams calls and ordered table+stream resources belong to the independent Streams replay, not this manifest.",
+    "audit.json's missing item events are a bounded non-observation, not a negative contract; audit_data.json supplies delivered item envelopes.",
+    "partiql call 15 has no independently correlated first-wave event; parameterized statements are covered by audit_data. IAM condition-policy experiments and duplicate second waves are not replayed here.",
+    "No selected capture proves secondary-index resource shape, multi-table resource ordering, cross-account recipient views, or multi-region delivery. Assert captured single-table account/region/recipient scoping without inventing those contracts.",
+    "Native source IPs, user agents, generated IDs, wall-clock times, actor principal IDs and diagnostic wording are not pinned. SDK request IDs must correlate actual consumers and identity must reflect locally issued credentials."
+  ]
+}

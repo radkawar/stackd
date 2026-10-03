@@ -1,0 +1,77 @@
+-- Rolling refresh state is service-owned; effects remain ordinary scaling activities.
+CREATE TABLE asg_refreshes (
+ refresh_pk INTEGER PRIMARY KEY,
+ partition TEXT NOT NULL,
+ account_id TEXT NOT NULL,
+ region TEXT NOT NULL,
+ group_name TEXT NOT NULL,
+ group_id TEXT NOT NULL,
+ refresh_id TEXT NOT NULL,
+ origin_event_id TEXT NOT NULL,
+ requested_at TIMESTAMP NOT NULL,
+ blocked_since TIMESTAMP,
+ pause_until TIMESTAMP,
+ active_deadline TIMESTAMP NOT NULL,
+ checkpoint INTEGER NOT NULL,
+ wait_for_transitioning BOOLEAN NOT NULL,
+ status TEXT,
+ status_reason TEXT,
+ strategy TEXT,
+ start_time TIMESTAMP,
+ end_time TIMESTAMP,
+ percentage_complete INTEGER,
+ instances_to_update INTEGER,
+ has_desired BOOLEAN NOT NULL,
+ has_progress BOOLEAN NOT NULL,
+ has_warm_progress BOOLEAN NOT NULL,
+ has_rollback BOOLEAN NOT NULL,
+ has_rollback_progress BOOLEAN NOT NULL,
+ has_rollback_warm_progress BOOLEAN NOT NULL,
+ original_id TEXT,
+ original_name TEXT,
+ original_version TEXT,
+ target_id TEXT,
+ target_name TEXT,
+ target_version TEXT,
+ desired_id TEXT,
+ desired_name TEXT,
+ desired_version TEXT,
+ min_healthy INTEGER,
+ max_healthy INTEGER,
+ instance_warmup INTEGER,
+ checkpoint_delay INTEGER,
+ bake_time INTEGER,
+ skip_matching BOOLEAN,
+ auto_rollback BOOLEAN,
+ protected_instances TEXT,
+ standby_instances TEXT,
+ live_percentage INTEGER,
+ live_remaining INTEGER,
+ warm_percentage INTEGER,
+ warm_remaining INTEGER,
+ rollback_live_percentage INTEGER,
+ rollback_live_remaining INTEGER,
+ rollback_warm_percentage INTEGER,
+ rollback_warm_remaining INTEGER,
+ rollback_reason TEXT,
+ rollback_start TIMESTAMP,
+ rollback_percentage INTEGER,
+ rollback_remaining INTEGER,
+ UNIQUE(partition,account_id,region,refresh_id)
+);
+CREATE INDEX asg_refresh_group ON asg_refreshes(partition,account_id,region,group_name,requested_at);
+CREATE TABLE asg_refresh_members (
+ refresh_pk INTEGER NOT NULL REFERENCES asg_refreshes(refresh_pk) ON DELETE CASCADE,
+ position INTEGER NOT NULL, instance_id TEXT NOT NULL, warm BOOLEAN NOT NULL,
+ PRIMARY KEY(refresh_pk,position)
+);
+CREATE TABLE asg_refresh_checkpoints (
+ refresh_pk INTEGER NOT NULL REFERENCES asg_refreshes(refresh_pk) ON DELETE CASCADE,
+ position INTEGER NOT NULL, percentage INTEGER NOT NULL,
+ PRIMARY KEY(refresh_pk,position)
+);
+CREATE TABLE asg_refresh_alarms (
+ refresh_pk INTEGER NOT NULL REFERENCES asg_refreshes(refresh_pk) ON DELETE CASCADE,
+ position INTEGER NOT NULL, name TEXT NOT NULL,
+ PRIMARY KEY(refresh_pk,position)
+);

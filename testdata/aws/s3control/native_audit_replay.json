@@ -1,0 +1,179 @@
+{
+  "Source": "readonly_native_evidence.json.gz#cloudtrail[0].events[0]",
+  "AuditBucket": "s3control-audit-logs",
+  "AuditPrefix": "owned/AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Record is an actually captured request-correlated native LookupEvents result, not a native trail-delivery observation. The local trail setup and memory/SQLite delivery check reuse the shared audit runner.",
+    "The native malformed header request is preserved. Native requestParameters contains Host only; responseElements is null; eventSource is s3.amazonaws.com and eventName is GetAccountPublicAccessBlock."
+  ],
+  "Setup": [
+    {
+      "Label": "create-s3control-audit-logs",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "s3control-audit-logs"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "configure-trail-delivery-policy",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "s3control-audit-logs",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AWSCloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::s3control-audit-logs\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/s3control-audit\"}}}, {\"Sid\": \"AWSCloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::s3control-audit-logs/owned/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/s3control-audit\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "Output": {}
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create-classic-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EnableLogFileValidation": false,
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "IsOrganizationTrail": false,
+        "Name": "s3control-audit",
+        "S3BucketName": "s3control-audit-logs",
+        "S3KeyPrefix": "owned"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "scope-owned-object-data-and-write-management",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EventSelectors": [
+          {
+            "ExcludeManagementEventSources": [
+              "kms.amazonaws.com",
+              "rdsdata.amazonaws.com"
+            ],
+            "IncludeManagementEvents": true,
+            "ReadWriteType": "All"
+          }
+        ],
+        "TrailName": "s3control-audit"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "s3control-audit"
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "owner_short_header_prefixed",
+      "Source": "readonly_native_evidence.json.gz#cloudtrail[0].events[0]",
+      "Sequence": 9,
+      "Service": "s3control",
+      "Actor": "audit-user",
+      "Operation": "GetPublicAccessBlock",
+      "Raw": {
+        "Label": "owner_short_header_prefixed",
+        "Source": "readonly_native_evidence.json.gz#observations",
+        "Sequence": 9,
+        "Actor": "audit-user",
+        "Operation": "GetPublicAccessBlock",
+        "Method": "GET",
+        "Target": "/v20180820/configuration/publicAccessBlock",
+        "RequestHost": "123456789012.s3-control.us-east-1.amazonaws.com",
+        "Region": "us-east-1",
+        "Headers": {
+          "X-amz-account-id": "123",
+          "User-Agent": "stackd-readonly-s3control-native-get/1"
+        },
+        "ResponseFormat": "s3control",
+        "Status": 404,
+        "Code": "NoSuchPublicAccessBlockConfiguration",
+        "ErrorDetails": {
+          "AccountId": "123456789012"
+        },
+        "ResponseHeaders": {
+          "Content-Type": "application/xml"
+        }
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAEXAMPLEOWNER00000",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T22:51:42Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccountPublicAccessBlock",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "192.0.2.10",
+        "userAgent": "[stackd-readonly-s3control-native-get/1]",
+        "errorCode": "NoSuchPublicAccessBlockConfiguration",
+        "errorMessage": "The public access block configuration was not found",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789944702251,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789944702266,
+          "x-amz-id-2": "Bc4iaj1Bh2wDrvpPTo81zkR+XCbf8jlWeng19zuQAam4ek5qdgV00rR0NskcpvtNpw0CrSYocIv6np5iSr/GHrvqlJoHxVah",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 391
+        },
+        "requestID": "T0EXV7VQBD6CNMXH",
+        "eventID": "afd5b20e-86ae-4cfe-9b54-a6829affb573",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    }
+  ]
+}

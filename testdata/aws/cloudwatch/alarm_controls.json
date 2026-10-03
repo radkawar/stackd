@@ -1,0 +1,4073 @@
+{
+  "source": "native AWS CLI through scripts/aws/aws_cli.py run/result(debug=True)",
+  "primary_references": [
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricAlarm.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_SetAlarmState.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_DescribeAlarms.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_DescribeAlarmsForMetric.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_DescribeAlarmHistory.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_DeleteAlarms.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_TagResource.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_UntagResource.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html"
+  ],
+  "region": "us-east-1",
+  "identity_relationships": {
+    "expected_caller_account": "123456789012",
+    "prefix": "stackd-native-alarm-controls-fixture000",
+    "alarm_names": {
+      "a": "stackd-native-alarm-controls-fixture000-a",
+      "b": "stackd-native-alarm-controls-fixture000-b",
+      "math": "stackd-native-alarm-controls-fixture000-math",
+      "composite": "stackd-native-alarm-controls-fixture000-composite",
+      "missing": "stackd-native-alarm-controls-fixture000-missing"
+    },
+    "caller": {
+      "UserId": "AIDANATIVECONTROLFIXTURE",
+      "Account": "123456789012",
+      "Arn": "arn:aws:iam::123456789012:user/native-fixture"
+    },
+    "unpublished_metric": {
+      "Namespace": "Stackd/NativeAlarmControls",
+      "MetricName": "stackd-native-alarm-controls-fixture000-unpublished"
+    }
+  },
+  "scope_description": "Metric alarm control/admission, retention, filtering, tags; small composite contrast. No metrics published and no action targets configured.",
+  "scope": {
+    "anchor_seconds": 1789364413
+  },
+  "cleanup": [
+    {
+      "label": "finally-owned-delete",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a",
+          "stackd-native-alarm-controls-fixture000-b",
+          "stackd-native-alarm-controls-fixture000-composite",
+          "stackd-native-alarm-controls-fixture000-math"
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "finally-owned-verify",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a",
+          "stackd-native-alarm-controls-fixture000-b",
+          "stackd-native-alarm-controls-fixture000-composite",
+          "stackd-native-alarm-controls-fixture000-math"
+        ],
+        "AlarmTypes": [
+          "MetricAlarm",
+          "CompositeAlarm"
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-finally-delete",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-finally-verify",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ],
+        "AlarmTypes": [
+          "MetricAlarm",
+          "CompositeAlarm"
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    }
+  ],
+  "limitations": [
+    "Single account and region; no alarm action delivery, metric evaluation, or long-term retention tested. CLI-side validation is distinguished from service errors by absent HTTP status.",
+    "Valid but absent action target ARN admission not tested: assigned scope prohibited configured actions. Invalid action ARN was submitted with actions disabled and rejected.",
+    "No claim about precedence of conflicting AlarmNames versus a nonmatching prefix: tested simultaneous filters matched. Arbitrary DescribeAlarms token acceptance is observed, not a guarantee of every token format.",
+    "Three zero-valued period/M/N cases were rejected by AWS CLI parameter validation and are not native service semantics. request_counts counts CLI invocations; native_http_responses excludes these three.",
+    "The initial rich update failed because EvaluateLowSampleCountPercentile was supplied with Average. Supplemental valid p90 creation and replacement provide the successful replacement evidence.",
+    "Owned alarms all deleted with empty DescribeAlarms results. No metric points published. AWS retains alarm history after deletion; history has no cleanup API used here."
+  ],
+  "execution_notes": {
+    "maximum_concurrently_owned_alarms": 4,
+    "no_configured_action_targets": true,
+    "no_metric_publication": true,
+    "automatic_retries": false,
+    "automatic_pagination": false,
+    "repository_edits": false,
+    "debug_logs": "discarded immediately after aws_cli.result(debug=True)",
+    "shared_kernel_isolation": "One STS call occurred before shared-kernel collision was detected. No controls mutations occurred before rebuilding functions in native_alarm_controls_ns. No peer artifacts touched.",
+    "total_native_calls": 163
+  },
+  "capture_file": "/tmp/stackd-native-alarm-controls.json",
+  "comparison_notes": [
+    "Captured requests, outputs, error messages, codes, HTTP statuses, request times and cleanup are retained. Only account and generated resource prefix/caller identifiers are normalized; no expected outputs are synthesized.",
+    "Scenarios omit redundant writes and reads. The first scenario retains all configuration-changing writes and state transitions for alarm a needed by its captured history. The supplement runs in isolation, so its StateUpdate history comparison selects captured events since supplement creation, rather than replaying earlier generations just for counts.",
+    "The driver invokes AWS SDK v2 via replayMetric/awstest.CallSDK on memory and SQLite. A manual clock advances one millisecond per request, never replaying native evaluation latency. Alarm list selection compares exact names/types; configuration/state tests compare control fields, including presence of omitted configuration and raw StateReasonData. Initial service-generated reason prose and SDK-only metadata are not wording oracles.",
+    "Native SDK JSON is decoded into the same generated SDK output type as the observed result, preserving optional pointer presence while treating absent/nil response lists as the same empty collection. Tags and dimensions are unordered keyed collections; history order is retained.",
+    "Timestamps retain presence, equality and relative ordering per alarm/field across reads, not elapsed native durations. History timestamp comparisons have their own domain because native history creation can lag the alarm configuration timestamp by a millisecond. Retention additionally requires the entire previously observed local history items, including opaque HistoryData and timestamps, remain byte-for-byte unchanged.",
+    "History compares event identity/type and parsed old/new manual states (including structured reason data); configuration events compare Create/Update/Delete rather than duplicating every configuration field. This proves no same-state history entries and retained state history without pinning generated summary prose. Initial state reason prose is excluded.",
+    "No evaluation timing, composite asynchronous state, action delivery timing, opaque pagination tokens or timed history publication is asserted here. Captured complete history is compared once control writes are locally committed; Main owns timed replay."
+  ],
+  "scenarios": [
+    {
+      "name": "admission-tags-selection-retention",
+      "steps": [
+        {
+          "label": "create-minimal"
+        },
+        {
+          "label": "set-alarm-object"
+        },
+        {
+          "label": "restore-ignore-before-state-probes"
+        },
+        {
+          "label": "set-ok-empty-reason"
+        },
+        {
+          "label": "set-malformed-reason-json"
+        },
+        {
+          "label": "describe-after-invalid-reason",
+          "compare": "controls"
+        },
+        {
+          "label": "disable-existing"
+        },
+        {
+          "label": "describe-disabled",
+          "compare": "controls"
+        },
+        {
+          "label": "enable-mixed-missing"
+        },
+        {
+          "label": "describe-after-enable-mixed",
+          "compare": "controls"
+        },
+        {
+          "label": "disable-mixed-missing"
+        },
+        {
+          "label": "describe-after-disable-mixed",
+          "compare": "controls"
+        },
+        {
+          "label": "missing-set-alarm-state"
+        },
+        {
+          "label": "missing-list-tags-for-resource"
+        },
+        {
+          "label": "missing-tag-resource"
+        },
+        {
+          "label": "missing-untag-resource"
+        },
+        {
+          "label": "atomic-baseline"
+        },
+        {
+          "label": "invalid-update-metric-and-metrics"
+        },
+        {
+          "label": "after-invalid-update-metric-and-metrics",
+          "compare": "controls"
+        },
+        {
+          "label": "invalid-update-both-statistics"
+        },
+        {
+          "label": "after-invalid-update-both-statistics",
+          "compare": "controls"
+        },
+        {
+          "label": "invalid-update-invalid-extended-statistic"
+        },
+        {
+          "label": "after-invalid-update-invalid-extended-statistic",
+          "compare": "controls"
+        },
+        {
+          "label": "invalid-update-invalid-action-arn"
+        },
+        {
+          "label": "after-invalid-update-invalid-action-arn",
+          "compare": "controls"
+        },
+        {
+          "label": "create-tagged-dimensioned"
+        },
+        {
+          "label": "tags-after-create",
+          "compare": "tags"
+        },
+        {
+          "label": "update-tagged-with-new-tags"
+        },
+        {
+          "label": "tags-after-put-update",
+          "compare": "tags"
+        },
+        {
+          "label": "tag-upsert"
+        },
+        {
+          "label": "tags-after-upsert",
+          "compare": "tags"
+        },
+        {
+          "label": "tag-duplicate-keys"
+        },
+        {
+          "label": "tags-after-duplicate-keys",
+          "compare": "tags"
+        },
+        {
+          "label": "tag-invalid-mixed-atomic"
+        },
+        {
+          "label": "tags-after-invalid-mixed",
+          "compare": "tags"
+        },
+        {
+          "label": "untag-existing-and-missing"
+        },
+        {
+          "label": "tags-after-untag",
+          "compare": "tags"
+        },
+        {
+          "label": "create-math"
+        },
+        {
+          "label": "create-composite"
+        },
+        {
+          "label": "describe-prefix-default-types",
+          "compare": "selection"
+        },
+        {
+          "label": "describe-prefix-all-types",
+          "compare": "selection"
+        },
+        {
+          "label": "describe-names-composite-default",
+          "compare": "selection"
+        },
+        {
+          "label": "describe-names-duplicates-and-missing",
+          "compare": "selection"
+        },
+        {
+          "label": "for-metric-no-dimensions",
+          "compare": "selection"
+        },
+        {
+          "label": "for-metric-exact-dimensions",
+          "compare": "selection"
+        },
+        {
+          "label": "for-metric-reversed-dimensions",
+          "compare": "selection"
+        },
+        {
+          "label": "for-metric-subset-dimensions",
+          "compare": "selection"
+        },
+        {
+          "label": "for-metric-wrong-statistic",
+          "compare": "selection"
+        },
+        {
+          "label": "for-metric-matching-statistic-period",
+          "compare": "selection"
+        },
+        {
+          "label": "for-metric-wrong-unit",
+          "compare": "selection"
+        },
+        {
+          "label": "metric-over-composite"
+        },
+        {
+          "label": "composite-over-metric"
+        },
+        {
+          "label": "describe-composite-after-type-conflict",
+          "compare": "selection"
+        },
+        {
+          "label": "history-before-delete",
+          "compare": "history"
+        },
+        {
+          "label": "history-invalid-token"
+        },
+        {
+          "label": "delete-mixed-existing-missing"
+        },
+        {
+          "label": "describe-after-delete",
+          "compare": "selection"
+        },
+        {
+          "label": "delete-idempotent"
+        },
+        {
+          "label": "tags-deleted"
+        },
+        {
+          "label": "history-immediate-after-delete",
+          "compare": "history",
+          "retains": "history-before-delete"
+        },
+        {
+          "label": "recreate-same-name"
+        },
+        {
+          "label": "describe-recreated",
+          "compare": "controls"
+        },
+        {
+          "label": "tags-recreated",
+          "compare": "tags"
+        },
+        {
+          "label": "history-after-recreate",
+          "compare": "history",
+          "retains": "history-immediate-after-delete"
+        },
+        {
+          "label": "history-never-existent",
+          "compare": "history"
+        }
+      ]
+    },
+    {
+      "name": "replacement-and-state-noops",
+      "steps": [
+        {
+          "label": "invalid-create-reserved-tag"
+        },
+        {
+          "label": "describe-after-failed-tag-create",
+          "compare": "selection"
+        },
+        {
+          "label": "invalid-create-51-tags"
+        },
+        {
+          "label": "describe-after-51-tags-create",
+          "compare": "selection"
+        },
+        {
+          "label": "supplement-create-valid-rich"
+        },
+        {
+          "label": "supplement-describe-rich",
+          "compare": "controls"
+        },
+        {
+          "label": "supplement-set-alarm"
+        },
+        {
+          "label": "supplement-describe-first-state",
+          "compare": "controls"
+        },
+        {
+          "label": "supplement-same-state-new-reason"
+        },
+        {
+          "label": "supplement-describe-same-state-delayed",
+          "compare": "controls"
+        },
+        {
+          "label": "supplement-same-state-omit-data"
+        },
+        {
+          "label": "supplement-describe-same-state-omit",
+          "compare": "controls"
+        },
+        {
+          "label": "supplement-replace-with-minimal"
+        },
+        {
+          "label": "supplement-describe-minimal-state-preserved",
+          "compare": "controls"
+        },
+        {
+          "label": "supplement-tags-after-replacement",
+          "compare": "tags"
+        },
+        {
+          "label": "supplement-transition-omit-data"
+        },
+        {
+          "label": "supplement-describe-transition-omit-data",
+          "compare": "controls"
+        },
+        {
+          "label": "supplement-transition-array-data"
+        },
+        {
+          "label": "supplement-describe-array-data",
+          "compare": "controls"
+        },
+        {
+          "label": "supplement-transition-null-data"
+        },
+        {
+          "label": "supplement-describe-null-data",
+          "compare": "controls"
+        },
+        {
+          "label": "supplement-delete-invalid-mixed"
+        },
+        {
+          "label": "supplement-describe-after-invalid-delete",
+          "compare": "controls"
+        },
+        {
+          "label": "supplement-tag-51-atomic"
+        },
+        {
+          "label": "supplement-tags-after-51-failure",
+          "compare": "tags"
+        },
+        {
+          "label": "supplement-history-state-updates",
+          "compare": "history",
+          "history_since_ms": 1789364632053
+        }
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "label": "create-minimal",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold"
+      },
+      "request_started_ms": 1789364413492,
+      "request_finished_ms": 1789364414471,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "set-alarm-object",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "StateValue": "ALARM",
+        "StateReason": "first reason",
+        "StateReasonData": "{ \"z\": 2, \"a\": [1] }"
+      },
+      "request_started_ms": 1789364418477,
+      "request_finished_ms": 1789364419317,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "restore-ignore-before-state-probes",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "ignore"
+      },
+      "request_started_ms": 1789364425325,
+      "request_finished_ms": 1789364426121,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "set-ok-empty-reason",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "StateValue": "OK",
+        "StateReason": "",
+        "StateReasonData": "{}"
+      },
+      "request_started_ms": 1789364426121,
+      "request_finished_ms": 1789364426851,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "set-malformed-reason-json",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "StateValue": "ALARM",
+        "StateReason": "must-not-apply",
+        "StateReasonData": "{\"unfinished\":"
+      },
+      "request_started_ms": 1789364427602,
+      "request_finished_ms": 1789364428599,
+      "result": {
+        "code": "InvalidFormat",
+        "message": "",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "describe-after-invalid-reason",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364428599,
+      "request_finished_ms": 1789364429373,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:26.013000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReason": "",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "disable-existing",
+      "service": "cloudwatch",
+      "operation": "disable-alarm-actions",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364436654,
+      "request_finished_ms": 1789364437366,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-disabled",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364437368,
+      "request_finished_ms": 1789364438113,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:37.245000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "enable-mixed-missing",
+      "service": "cloudwatch",
+      "operation": "enable-alarm-actions",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a",
+          "stackd-native-alarm-controls-fixture000-missing"
+        ]
+      },
+      "request_started_ms": 1789364438114,
+      "request_finished_ms": 1789364438909,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-after-enable-mixed",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364438925,
+      "request_finished_ms": 1789364439684,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:38.794000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "disable-mixed-missing",
+      "service": "cloudwatch",
+      "operation": "disable-alarm-actions",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a",
+          "stackd-native-alarm-controls-fixture000-missing"
+        ]
+      },
+      "request_started_ms": 1789364439687,
+      "request_finished_ms": 1789364440494,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-after-disable-mixed",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364440494,
+      "request_finished_ms": 1789364441307,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:40.382000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "missing-set-alarm-state",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-missing",
+        "StateValue": "OK",
+        "StateReason": "missing"
+      },
+      "request_started_ms": 1789364442847,
+      "request_finished_ms": 1789364443625,
+      "result": {
+        "code": "ResourceNotFound",
+        "message": "",
+        "http_status": 404
+      }
+    },
+    {
+      "label": "missing-list-tags-for-resource",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-missing"
+      },
+      "request_started_ms": 1789364443626,
+      "request_finished_ms": 1789364444375,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "",
+        "http_status": 404
+      }
+    },
+    {
+      "label": "missing-tag-resource",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-missing",
+        "Tags": [
+          {
+            "Key": "k",
+            "Value": "v"
+          }
+        ]
+      },
+      "request_started_ms": 1789364444394,
+      "request_finished_ms": 1789364445228,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "",
+        "http_status": 404
+      }
+    },
+    {
+      "label": "missing-untag-resource",
+      "service": "cloudwatch",
+      "operation": "untag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-missing",
+        "TagKeys": [
+          "k"
+        ]
+      },
+      "request_started_ms": 1789364445230,
+      "request_finished_ms": 1789364446043,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "",
+        "http_status": 404
+      }
+    },
+    {
+      "label": "atomic-baseline",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmDescription": "atomic-baseline",
+        "TreatMissingData": "ignore",
+        "ActionsEnabled": false
+      },
+      "request_started_ms": 1789364446044,
+      "request_finished_ms": 1789364446761,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "invalid-update-metric-and-metrics",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmDescription": "must-not-apply-metric-and-metrics",
+        "TreatMissingData": "ignore",
+        "Metrics": [
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeAlarmControls",
+                "MetricName": "stackd-native-alarm-controls-fixture000-unpublished"
+              },
+              "Period": 60,
+              "Stat": "Average"
+            },
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1789364446762,
+      "request_finished_ms": 1789364447499,
+      "result": {
+        "code": "ValidationError",
+        "message": "MetricName should not be set if list of Metrics is set.",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "after-invalid-update-metric-and-metrics",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364447500,
+      "request_finished_ms": 1789364448261,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "atomic-baseline",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:46.652000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "invalid-update-both-statistics",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmDescription": "must-not-apply-both-statistics",
+        "TreatMissingData": "ignore",
+        "ExtendedStatistic": "p90"
+      },
+      "request_started_ms": 1789364448262,
+      "request_finished_ms": 1789364449072,
+      "result": {
+        "code": "ValidationError",
+        "message": "PutMetricAlarm request can not be made with both Statistic and ExtendedStatistic parameters. Only one of them should be present",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "after-invalid-update-both-statistics",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364449073,
+      "request_finished_ms": 1789364449822,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "atomic-baseline",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:46.652000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "invalid-update-invalid-extended-statistic",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmDescription": "must-not-apply-invalid-extended-statistic",
+        "TreatMissingData": "ignore",
+        "ExtendedStatistic": "p101"
+      },
+      "request_started_ms": 1789364452998,
+      "request_finished_ms": 1789364453822,
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "The value p101 for parameter ExtendedStatistic is not supported.",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "after-invalid-update-invalid-extended-statistic",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364453823,
+      "request_finished_ms": 1789364454633,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "atomic-baseline",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:46.652000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "invalid-update-invalid-action-arn",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmDescription": "must-not-apply-invalid-action-arn",
+        "TreatMissingData": "ignore",
+        "AlarmActions": [
+          "not-an-arn"
+        ],
+        "ActionsEnabled": false
+      },
+      "request_started_ms": 1789364471198,
+      "request_finished_ms": 1789364471951,
+      "result": {
+        "code": "ValidationError",
+        "message": "Invalid arn syntax: not-an-arn",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "after-invalid-update-invalid-action-arn",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364471957,
+      "request_finished_ms": 1789364472731,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "atomic-baseline",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:46.652000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "create-tagged-dimensioned",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-b",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Sum",
+        "Period": 120,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "Z",
+            "Value": "last"
+          },
+          {
+            "Name": "A",
+            "Value": "first"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "create",
+            "Value": "original"
+          },
+          {
+            "Key": "keep",
+            "Value": "yes"
+          }
+        ]
+      },
+      "request_started_ms": 1789364475905,
+      "request_finished_ms": 1789364476808,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tags-after-create",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b"
+      },
+      "request_started_ms": 1789364476810,
+      "request_finished_ms": 1789364477587,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "create",
+              "Value": "original"
+            },
+            {
+              "Key": "keep",
+              "Value": "yes"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "update-tagged-with-new-tags",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-b",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Sum",
+        "Period": 120,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "Z",
+            "Value": "last"
+          },
+          {
+            "Name": "A",
+            "Value": "first"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "create",
+            "Value": "ignored"
+          },
+          {
+            "Key": "new",
+            "Value": "ignored"
+          }
+        ]
+      },
+      "request_started_ms": 1789364477590,
+      "request_finished_ms": 1789364478384,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tags-after-put-update",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b"
+      },
+      "request_started_ms": 1789364478385,
+      "request_finished_ms": 1789364479196,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "create",
+              "Value": "original"
+            },
+            {
+              "Key": "keep",
+              "Value": "yes"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tag-upsert",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b",
+        "Tags": [
+          {
+            "Key": "create",
+            "Value": "replaced"
+          },
+          {
+            "Key": "added",
+            "Value": ""
+          }
+        ]
+      },
+      "request_started_ms": 1789364479197,
+      "request_finished_ms": 1789364479954,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tags-after-upsert",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b"
+      },
+      "request_started_ms": 1789364479957,
+      "request_finished_ms": 1789364480784,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "added",
+              "Value": ""
+            },
+            {
+              "Key": "create",
+              "Value": "replaced"
+            },
+            {
+              "Key": "keep",
+              "Value": "yes"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tag-duplicate-keys",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b",
+        "Tags": [
+          {
+            "Key": "dup",
+            "Value": "first"
+          },
+          {
+            "Key": "dup",
+            "Value": "second"
+          }
+        ]
+      },
+      "request_started_ms": 1789364480801,
+      "request_finished_ms": 1789364481552,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tags-after-duplicate-keys",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b"
+      },
+      "request_started_ms": 1789364481554,
+      "request_finished_ms": 1789364482337,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "create",
+              "Value": "replaced"
+            },
+            {
+              "Key": "added",
+              "Value": ""
+            },
+            {
+              "Key": "dup",
+              "Value": "second"
+            },
+            {
+              "Key": "keep",
+              "Value": "yes"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tag-invalid-mixed-atomic",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b",
+        "Tags": [
+          {
+            "Key": "must-not-apply",
+            "Value": "valid"
+          },
+          {
+            "Key": "aws:reserved",
+            "Value": "invalid"
+          }
+        ]
+      },
+      "request_started_ms": 1789364482346,
+      "request_finished_ms": 1789364483139,
+      "result": {
+        "code": "AccessDenied",
+        "message": "The provided tag keys must not start with any case of \"aws:\"",
+        "http_status": 403
+      }
+    },
+    {
+      "label": "tags-after-invalid-mixed",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b"
+      },
+      "request_started_ms": 1789364483141,
+      "request_finished_ms": 1789364483896,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "create",
+              "Value": "replaced"
+            },
+            {
+              "Key": "added",
+              "Value": ""
+            },
+            {
+              "Key": "dup",
+              "Value": "second"
+            },
+            {
+              "Key": "keep",
+              "Value": "yes"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "untag-existing-and-missing",
+      "service": "cloudwatch",
+      "operation": "untag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b",
+        "TagKeys": [
+          "added",
+          "never-present"
+        ]
+      },
+      "request_started_ms": 1789364483898,
+      "request_finished_ms": 1789364484645,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tags-after-untag",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b"
+      },
+      "request_started_ms": 1789364484647,
+      "request_finished_ms": 1789364485449,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "create",
+              "Value": "replaced"
+            },
+            {
+              "Key": "dup",
+              "Value": "second"
+            },
+            {
+              "Key": "keep",
+              "Value": "yes"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "create-math",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-math",
+        "EvaluationPeriods": 1,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Metrics": [
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeAlarmControls",
+                "MetricName": "stackd-native-alarm-controls-fixture000-unpublished"
+              },
+              "Period": 60,
+              "Stat": "Average"
+            },
+            "ReturnData": false
+          },
+          {
+            "Id": "e1",
+            "Expression": "m1*2",
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1789364485452,
+      "request_finished_ms": 1789364486250,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "create-composite",
+      "service": "cloudwatch",
+      "operation": "put-composite-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-composite",
+        "AlarmRule": "FALSE",
+        "Tags": [
+          {
+            "Key": "kind",
+            "Value": "composite"
+          }
+        ]
+      },
+      "request_started_ms": 1789364486252,
+      "request_finished_ms": 1789364487078,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-prefix-default-types",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNamePrefix": "stackd-native-alarm-controls-fixture000"
+      },
+      "request_started_ms": 1789364495080,
+      "request_finished_ms": 1789364496311,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "atomic-baseline",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:46.652000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-b",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Sum",
+              "Dimensions": [
+                {
+                  "Name": "Z",
+                  "Value": "last"
+                },
+                {
+                  "Name": "A",
+                  "Value": "first"
+                }
+              ],
+              "Period": 120,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:41:16.685000+01:00"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-math",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-math",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:26.108000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-14T06:41:26.108000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "Metrics": [
+                {
+                  "Id": "m1",
+                  "MetricStat": {
+                    "Metric": {
+                      "Namespace": "Stackd/NativeAlarmControls",
+                      "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+                      "Dimensions": []
+                    },
+                    "Period": 60,
+                    "Stat": "Average"
+                  },
+                  "ReturnData": false
+                },
+                {
+                  "Id": "e1",
+                  "Expression": "m1*2",
+                  "ReturnData": true
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-14T06:41:26.108000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-prefix-all-types",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNamePrefix": "stackd-native-alarm-controls-fixture000",
+        "AlarmTypes": [
+          "MetricAlarm",
+          "CompositeAlarm"
+        ]
+      },
+      "request_started_ms": 1789364496313,
+      "request_finished_ms": 1789364497089,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [
+            {
+              "ActionsEnabled": true,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-composite",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:26.933000+01:00",
+              "AlarmName": "stackd-native-alarm-controls-fixture000-composite",
+              "AlarmRule": "FALSE",
+              "InsufficientDataActions": [],
+              "OKActions": [],
+              "StateReason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-composite was created and its alarm rule evaluates to OK",
+              "StateReasonData": "{\"triggeringAlarms\":[]}",
+              "StateUpdatedTimestamp": "2026-09-14T06:41:26.933000+01:00",
+              "StateValue": "OK",
+              "StateTransitionedTimestamp": "2026-09-14T06:41:26.933000+01:00"
+            }
+          ],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "atomic-baseline",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:46.652000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-b",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Sum",
+              "Dimensions": [
+                {
+                  "Name": "Z",
+                  "Value": "last"
+                },
+                {
+                  "Name": "A",
+                  "Value": "first"
+                }
+              ],
+              "Period": 120,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:41:16.685000+01:00"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-math",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-math",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:26.108000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-14T06:41:26.108000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "Metrics": [
+                {
+                  "Id": "m1",
+                  "MetricStat": {
+                    "Metric": {
+                      "Namespace": "Stackd/NativeAlarmControls",
+                      "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+                      "Dimensions": []
+                    },
+                    "Period": 60,
+                    "Stat": "Average"
+                  },
+                  "ReturnData": false
+                },
+                {
+                  "Id": "e1",
+                  "Expression": "m1*2",
+                  "ReturnData": true
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-14T06:41:26.108000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-names-composite-default",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-composite"
+        ]
+      },
+      "request_started_ms": 1789364497092,
+      "request_finished_ms": 1789364497883,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-names-duplicates-and-missing",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a",
+          "stackd-native-alarm-controls-fixture000-missing",
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364497885,
+      "request_finished_ms": 1789364498624,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "atomic-baseline",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:46.652000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "for-metric-no-dimensions",
+      "service": "cloudwatch",
+      "operation": "describe-alarms-for-metric",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished"
+      },
+      "request_started_ms": 1789364503179,
+      "request_finished_ms": 1789364503991,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "atomic-baseline",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:46.652000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReasonData": "{}",
+              "StateUpdatedTimestamp": "2026-09-14T06:40:26.741000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:40:26.741000+01:00"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "for-metric-exact-dimensions",
+      "service": "cloudwatch",
+      "operation": "describe-alarms-for-metric",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Dimensions": [
+          {
+            "Name": "Z",
+            "Value": "last"
+          },
+          {
+            "Name": "A",
+            "Value": "first"
+          }
+        ]
+      },
+      "request_started_ms": 1789364504001,
+      "request_finished_ms": 1789364504766,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-b",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Sum",
+              "Dimensions": [
+                {
+                  "Name": "Z",
+                  "Value": "last"
+                },
+                {
+                  "Name": "A",
+                  "Value": "first"
+                }
+              ],
+              "Period": 120,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:41:16.685000+01:00"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "for-metric-reversed-dimensions",
+      "service": "cloudwatch",
+      "operation": "describe-alarms-for-metric",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Dimensions": [
+          {
+            "Name": "A",
+            "Value": "first"
+          },
+          {
+            "Name": "Z",
+            "Value": "last"
+          }
+        ]
+      },
+      "request_started_ms": 1789364504773,
+      "request_finished_ms": 1789364505584,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-b",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Sum",
+              "Dimensions": [
+                {
+                  "Name": "Z",
+                  "Value": "last"
+                },
+                {
+                  "Name": "A",
+                  "Value": "first"
+                }
+              ],
+              "Period": 120,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:41:16.685000+01:00"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "for-metric-subset-dimensions",
+      "service": "cloudwatch",
+      "operation": "describe-alarms-for-metric",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Dimensions": [
+          {
+            "Name": "Z",
+            "Value": "last"
+          }
+        ]
+      },
+      "request_started_ms": 1789364505587,
+      "request_finished_ms": 1789364506353,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "for-metric-wrong-statistic",
+      "service": "cloudwatch",
+      "operation": "describe-alarms-for-metric",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Dimensions": [
+          {
+            "Name": "Z",
+            "Value": "last"
+          },
+          {
+            "Name": "A",
+            "Value": "first"
+          }
+        ],
+        "Statistic": "Average"
+      },
+      "request_started_ms": 1789364506357,
+      "request_finished_ms": 1789364507194,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "for-metric-matching-statistic-period",
+      "service": "cloudwatch",
+      "operation": "describe-alarms-for-metric",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Dimensions": [
+          {
+            "Name": "Z",
+            "Value": "last"
+          },
+          {
+            "Name": "A",
+            "Value": "first"
+          }
+        ],
+        "Statistic": "Sum",
+        "Period": 120
+      },
+      "request_started_ms": 1789364507198,
+      "request_finished_ms": 1789364507922,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-b",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-b",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-14T06:41:16.685000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Sum",
+              "Dimensions": [
+                {
+                  "Name": "Z",
+                  "Value": "last"
+                },
+                {
+                  "Name": "A",
+                  "Value": "first"
+                }
+              ],
+              "Period": 120,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:41:16.685000+01:00"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "for-metric-wrong-unit",
+      "service": "cloudwatch",
+      "operation": "describe-alarms-for-metric",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Dimensions": [
+          {
+            "Name": "Z",
+            "Value": "last"
+          },
+          {
+            "Name": "A",
+            "Value": "first"
+          }
+        ],
+        "Unit": "Count"
+      },
+      "request_started_ms": 1789364507929,
+      "request_finished_ms": 1789364508648,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "metric-over-composite",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-composite",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold"
+      },
+      "request_started_ms": 1789364508651,
+      "request_finished_ms": 1789364509443,
+      "result": {
+        "code": "ValidationError",
+        "message": "AlarmName [stackd-native-alarm-controls-fixture000-composite] is already used by another alarm of a different type",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "composite-over-metric",
+      "service": "cloudwatch",
+      "operation": "put-composite-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "AlarmRule": "FALSE"
+      },
+      "request_started_ms": 1789364509445,
+      "request_finished_ms": 1789364510147,
+      "result": {
+        "code": "ValidationError",
+        "message": "AlarmName [stackd-native-alarm-controls-fixture000-a] is already used by another alarm of a different type",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "describe-composite-after-type-conflict",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-composite"
+        ],
+        "AlarmTypes": [
+          "MetricAlarm",
+          "CompositeAlarm"
+        ]
+      },
+      "request_started_ms": 1789364510149,
+      "request_finished_ms": 1789364510899,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [
+            {
+              "ActionsEnabled": true,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-composite",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:26.933000+01:00",
+              "AlarmName": "stackd-native-alarm-controls-fixture000-composite",
+              "AlarmRule": "FALSE",
+              "InsufficientDataActions": [],
+              "OKActions": [],
+              "StateReason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-composite was created and its alarm rule evaluates to OK",
+              "StateReasonData": "{\"triggeringAlarms\":[]}",
+              "StateUpdatedTimestamp": "2026-09-14T06:41:26.933000+01:00",
+              "StateValue": "OK",
+              "StateTransitionedTimestamp": "2026-09-14T06:41:26.933000+01:00"
+            }
+          ],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "history-before-delete",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "MaxRecords": 100,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1789364528382,
+      "request_finished_ms": 1789364529437,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:14.346000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" created",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Create\",\"createdAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:14.345+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"stateValue\":\"INSUFFICIENT_DATA\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:14.345+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:19.199000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"first reason\",\"stateReasonData\":{ \"z\": 2, \"a\": [1] }}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:26.013000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:26.013+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"ALARM\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:19.199+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:14.345+0000\"}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:26.741000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from ALARM to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"first reason\",\"stateReasonData\":{ \"z\": 2, \"a\": [1] }},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"\",\"stateReasonData\":{}}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:37.245000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:37.245+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:26.013+0000\",\"actionsEnabled\":true}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:38.794000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:38.794+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:37.245+0000\",\"actionsEnabled\":false}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:40.382000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:40.382+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:38.794+0000\",\"actionsEnabled\":true}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:46.652000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmDescription\":\"atomic-baseline\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:46.652+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:40.382+0000\"}}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "history-invalid-token",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "NextToken": "invalid-token"
+      },
+      "request_started_ms": 1789364533548,
+      "request_finished_ms": 1789364534492,
+      "result": {
+        "code": "InvalidNextToken",
+        "message": "Invalid NextToken : invalid-token",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "delete-mixed-existing-missing",
+      "service": "cloudwatch",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a",
+          "stackd-native-alarm-controls-fixture000-missing"
+        ]
+      },
+      "request_started_ms": 1789364534507,
+      "request_finished_ms": 1789364535813,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-after-delete",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364536696,
+      "request_finished_ms": 1789364538122,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "delete-idempotent",
+      "service": "cloudwatch",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a",
+          "stackd-native-alarm-controls-fixture000-missing"
+        ]
+      },
+      "request_started_ms": 1789364538126,
+      "request_finished_ms": 1789364539233,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tags-deleted",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a"
+      },
+      "request_started_ms": 1789364539306,
+      "request_finished_ms": 1789364540312,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "",
+        "http_status": 404
+      }
+    },
+    {
+      "label": "history-immediate-after-delete",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "MaxRecords": 100,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1789364540316,
+      "request_finished_ms": 1789364541060,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:14.346000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" created",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Create\",\"createdAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:14.345+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"stateValue\":\"INSUFFICIENT_DATA\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:14.345+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:19.199000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"first reason\",\"stateReasonData\":{ \"z\": 2, \"a\": [1] }}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:26.013000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:26.013+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"ALARM\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:19.199+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:14.345+0000\"}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:26.741000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from ALARM to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"first reason\",\"stateReasonData\":{ \"z\": 2, \"a\": [1] }},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"\",\"stateReasonData\":{}}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:37.245000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:37.245+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:26.013+0000\",\"actionsEnabled\":true}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:38.794000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:38.794+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:37.245+0000\",\"actionsEnabled\":false}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:40.382000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:40.382+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:38.794+0000\",\"actionsEnabled\":true}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:46.652000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmDescription\":\"atomic-baseline\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:46.652+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:40.382+0000\"}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:42:15.600000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" deleted",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Delete\",\"deletedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmDescription\":\"atomic-baseline\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:46.652+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]}}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "recreate-same-name",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Tags": [
+          {
+            "Key": "generation",
+            "Value": "two"
+          }
+        ]
+      },
+      "request_started_ms": 1789364541063,
+      "request_finished_ms": 1789364541929,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-recreated",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364541935,
+      "request_finished_ms": 1789364543097,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:42:21.723000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-14T06:42:21.723000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:42:21.723000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "tags-recreated",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a"
+      },
+      "request_started_ms": 1789364543101,
+      "request_finished_ms": 1789364544188,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "generation",
+              "Value": "two"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "history-after-recreate",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "MaxRecords": 100,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1789364556193,
+      "request_finished_ms": 1789364557008,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:14.346000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" created",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Create\",\"createdAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:14.345+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"stateValue\":\"INSUFFICIENT_DATA\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:14.345+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:19.199000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"first reason\",\"stateReasonData\":{ \"z\": 2, \"a\": [1] }}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:26.013000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:26.013+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"ALARM\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:19.199+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:14.345+0000\"}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:26.741000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from ALARM to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"first reason\",\"stateReasonData\":{ \"z\": 2, \"a\": [1] }},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"\",\"stateReasonData\":{}}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:37.245000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:37.245+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:26.013+0000\",\"actionsEnabled\":true}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:38.794000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:38.794+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:37.245+0000\",\"actionsEnabled\":false}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:40.382000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:40.382+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:38.794+0000\",\"actionsEnabled\":true}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:46.652000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" updated",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Update\",\"updatedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmDescription\":\"atomic-baseline\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:46.652+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]},\"originalUpdatedFields\":{\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:40.382+0000\"}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:42:15.600000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" deleted",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Delete\",\"deletedAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmDescription\":\"atomic-baseline\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:40:46.652+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"treatMissingData\":\"ignore\",\"stateValue\":\"OK\",\"stateUpdatedTimestamp\":\"2026-09-14T05:40:26.741+0000\",\"actionsEnabled\":false,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:42:21.724000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-native-alarm-controls-fixture000-a\" created",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Create\",\"createdAlarm\":{\"alarmName\":\"stackd-native-alarm-controls-fixture000-a\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-14T05:42:21.723+0000\",\"namespace\":\"Stackd/NativeAlarmControls\",\"metricName\":\"stackd-native-alarm-controls-fixture000-unpublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":60,\"dimensions\":[],\"threshold\":10.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":3,\"stateValue\":\"INSUFFICIENT_DATA\",\"stateUpdatedTimestamp\":\"2026-09-14T05:42:21.723+0000\",\"actionsEnabled\":true,\"alarmActions\":[],\"insufficientDataActions\":[],\"okactions\":[]}}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "history-never-existent",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-missing",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789364557863,
+      "request_finished_ms": 1789364558597,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "invalid-create-reserved-tag",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Tags": [
+          {
+            "Key": "valid",
+            "Value": "v"
+          },
+          {
+            "Key": "aws:reserved",
+            "Value": "v"
+          }
+        ]
+      },
+      "request_started_ms": 1789364625403,
+      "request_finished_ms": 1789364626451,
+      "result": {
+        "code": "AccessDenied",
+        "message": "The provided tag keys must not start with any case of \"aws:\"",
+        "http_status": 403
+      }
+    },
+    {
+      "label": "describe-after-failed-tag-create",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364629454,
+      "request_finished_ms": 1789364630361,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "invalid-create-51-tags",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Tags": [
+          {
+            "Key": "key0",
+            "Value": "v"
+          },
+          {
+            "Key": "key1",
+            "Value": "v"
+          },
+          {
+            "Key": "key2",
+            "Value": "v"
+          },
+          {
+            "Key": "key3",
+            "Value": "v"
+          },
+          {
+            "Key": "key4",
+            "Value": "v"
+          },
+          {
+            "Key": "key5",
+            "Value": "v"
+          },
+          {
+            "Key": "key6",
+            "Value": "v"
+          },
+          {
+            "Key": "key7",
+            "Value": "v"
+          },
+          {
+            "Key": "key8",
+            "Value": "v"
+          },
+          {
+            "Key": "key9",
+            "Value": "v"
+          },
+          {
+            "Key": "key10",
+            "Value": "v"
+          },
+          {
+            "Key": "key11",
+            "Value": "v"
+          },
+          {
+            "Key": "key12",
+            "Value": "v"
+          },
+          {
+            "Key": "key13",
+            "Value": "v"
+          },
+          {
+            "Key": "key14",
+            "Value": "v"
+          },
+          {
+            "Key": "key15",
+            "Value": "v"
+          },
+          {
+            "Key": "key16",
+            "Value": "v"
+          },
+          {
+            "Key": "key17",
+            "Value": "v"
+          },
+          {
+            "Key": "key18",
+            "Value": "v"
+          },
+          {
+            "Key": "key19",
+            "Value": "v"
+          },
+          {
+            "Key": "key20",
+            "Value": "v"
+          },
+          {
+            "Key": "key21",
+            "Value": "v"
+          },
+          {
+            "Key": "key22",
+            "Value": "v"
+          },
+          {
+            "Key": "key23",
+            "Value": "v"
+          },
+          {
+            "Key": "key24",
+            "Value": "v"
+          },
+          {
+            "Key": "key25",
+            "Value": "v"
+          },
+          {
+            "Key": "key26",
+            "Value": "v"
+          },
+          {
+            "Key": "key27",
+            "Value": "v"
+          },
+          {
+            "Key": "key28",
+            "Value": "v"
+          },
+          {
+            "Key": "key29",
+            "Value": "v"
+          },
+          {
+            "Key": "key30",
+            "Value": "v"
+          },
+          {
+            "Key": "key31",
+            "Value": "v"
+          },
+          {
+            "Key": "key32",
+            "Value": "v"
+          },
+          {
+            "Key": "key33",
+            "Value": "v"
+          },
+          {
+            "Key": "key34",
+            "Value": "v"
+          },
+          {
+            "Key": "key35",
+            "Value": "v"
+          },
+          {
+            "Key": "key36",
+            "Value": "v"
+          },
+          {
+            "Key": "key37",
+            "Value": "v"
+          },
+          {
+            "Key": "key38",
+            "Value": "v"
+          },
+          {
+            "Key": "key39",
+            "Value": "v"
+          },
+          {
+            "Key": "key40",
+            "Value": "v"
+          },
+          {
+            "Key": "key41",
+            "Value": "v"
+          },
+          {
+            "Key": "key42",
+            "Value": "v"
+          },
+          {
+            "Key": "key43",
+            "Value": "v"
+          },
+          {
+            "Key": "key44",
+            "Value": "v"
+          },
+          {
+            "Key": "key45",
+            "Value": "v"
+          },
+          {
+            "Key": "key46",
+            "Value": "v"
+          },
+          {
+            "Key": "key47",
+            "Value": "v"
+          },
+          {
+            "Key": "key48",
+            "Value": "v"
+          },
+          {
+            "Key": "key49",
+            "Value": "v"
+          },
+          {
+            "Key": "key50",
+            "Value": "v"
+          }
+        ]
+      },
+      "request_started_ms": 1789364630366,
+      "request_finished_ms": 1789364631183,
+      "result": {
+        "code": "ValidationError",
+        "message": "The resultant tag set must not have more than 50 user tags.",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "describe-after-51-tags-create",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364631187,
+      "request_finished_ms": 1789364632050,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-create-valid-rich",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmDescription": "retained-rich",
+        "ActionsEnabled": false,
+        "ExtendedStatistic": "p90",
+        "Dimensions": [
+          {
+            "Name": "Z",
+            "Value": "last"
+          },
+          {
+            "Name": "A",
+            "Value": "first"
+          }
+        ],
+        "Unit": "Count",
+        "DatapointsToAlarm": 2,
+        "TreatMissingData": "ignore",
+        "EvaluateLowSampleCountPercentile": "ignore",
+        "Tags": [
+          {
+            "Key": "generation",
+            "Value": "supplement"
+          }
+        ]
+      },
+      "request_started_ms": 1789364632053,
+      "request_finished_ms": 1789364632920,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-describe-rich",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364632926,
+      "request_finished_ms": 1789364633703,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "retained-rich",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:43:52.755000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-14T06:43:52.755000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "ExtendedStatistic": "p90",
+              "Dimensions": [
+                {
+                  "Name": "Z",
+                  "Value": "last"
+                },
+                {
+                  "Name": "A",
+                  "Value": "first"
+                }
+              ],
+              "Period": 60,
+              "Unit": "Count",
+              "EvaluationPeriods": 3,
+              "DatapointsToAlarm": 2,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "EvaluateLowSampleCountPercentile": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:43:52.755000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-set-alarm",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "StateValue": "ALARM",
+        "StateReason": "retained-first",
+        "StateReasonData": "{ \"raw\": 1 }"
+      },
+      "request_started_ms": 1789364633708,
+      "request_finished_ms": 1789364634585,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-describe-first-state",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364634588,
+      "request_finished_ms": 1789364635357,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "retained-rich",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:43:52.755000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "retained-first",
+              "StateReasonData": "{ \"raw\": 1 }",
+              "StateUpdatedTimestamp": "2026-09-14T06:43:54.472000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "ExtendedStatistic": "p90",
+              "Dimensions": [
+                {
+                  "Name": "Z",
+                  "Value": "last"
+                },
+                {
+                  "Name": "A",
+                  "Value": "first"
+                }
+              ],
+              "Period": 60,
+              "Unit": "Count",
+              "EvaluationPeriods": 3,
+              "DatapointsToAlarm": 2,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "EvaluateLowSampleCountPercentile": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:43:54.472000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-same-state-new-reason",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "StateValue": "ALARM",
+        "StateReason": "same-state-second",
+        "StateReasonData": "{\"new\":true}"
+      },
+      "request_started_ms": 1789364635362,
+      "request_finished_ms": 1789364636131,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-describe-same-state-delayed",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364641134,
+      "request_finished_ms": 1789364642098,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "retained-rich",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:43:52.755000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "retained-first",
+              "StateReasonData": "{ \"raw\": 1 }",
+              "StateUpdatedTimestamp": "2026-09-14T06:43:54.472000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "ExtendedStatistic": "p90",
+              "Dimensions": [
+                {
+                  "Name": "Z",
+                  "Value": "last"
+                },
+                {
+                  "Name": "A",
+                  "Value": "first"
+                }
+              ],
+              "Period": 60,
+              "Unit": "Count",
+              "EvaluationPeriods": 3,
+              "DatapointsToAlarm": 2,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "EvaluateLowSampleCountPercentile": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:43:54.472000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-same-state-omit-data",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "StateValue": "ALARM",
+        "StateReason": "same-state-third"
+      },
+      "request_started_ms": 1789364642101,
+      "request_finished_ms": 1789364642819,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-describe-same-state-omit",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364642822,
+      "request_finished_ms": 1789364643546,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmDescription": "retained-rich",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:43:52.755000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "retained-first",
+              "StateReasonData": "{ \"raw\": 1 }",
+              "StateUpdatedTimestamp": "2026-09-14T06:43:54.472000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "ExtendedStatistic": "p90",
+              "Dimensions": [
+                {
+                  "Name": "Z",
+                  "Value": "last"
+                },
+                {
+                  "Name": "A",
+                  "Value": "first"
+                }
+              ],
+              "Period": 60,
+              "Unit": "Count",
+              "EvaluationPeriods": 3,
+              "DatapointsToAlarm": 2,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "EvaluateLowSampleCountPercentile": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T06:43:54.472000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-replace-with-minimal",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "Namespace": "Stackd/NativeAlarmControls",
+        "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Tags": [
+          {
+            "Key": "generation",
+            "Value": "should-be-ignored"
+          },
+          {
+            "Key": "new",
+            "Value": "ignored"
+          }
+        ]
+      },
+      "request_started_ms": 1789364643551,
+      "request_finished_ms": 1789364644339,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-describe-minimal-state-preserved",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364644344,
+      "request_finished_ms": 1789364645110,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:44:04.208000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "retained-first",
+              "StateReasonData": "{ \"raw\": 1 }",
+              "StateUpdatedTimestamp": "2026-09-14T06:43:54.472000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:43:54.472000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-tags-after-replacement",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a"
+      },
+      "request_started_ms": 1789364645121,
+      "request_finished_ms": 1789364646009,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "generation",
+              "Value": "supplement"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-transition-omit-data",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "StateValue": "OK",
+        "StateReason": "new-state-no-data"
+      },
+      "request_started_ms": 1789364646013,
+      "request_finished_ms": 1789364646797,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-describe-transition-omit-data",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364646802,
+      "request_finished_ms": 1789364647522,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:44:04.208000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReason": "new-state-no-data",
+              "StateUpdatedTimestamp": "2026-09-14T06:44:06.680000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:44:06.680000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-transition-array-data",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "StateValue": "ALARM",
+        "StateReason": "array-state",
+        "StateReasonData": "[1,2]"
+      },
+      "request_started_ms": 1789364647527,
+      "request_finished_ms": 1789364648279,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-describe-array-data",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364648283,
+      "request_finished_ms": 1789364649044,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:44:04.208000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "array-state",
+              "StateReasonData": "[1,2]",
+              "StateUpdatedTimestamp": "2026-09-14T06:44:08.162000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:44:08.162000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-transition-null-data",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "StateValue": "OK",
+        "StateReason": "null-state",
+        "StateReasonData": "null"
+      },
+      "request_started_ms": 1789364649048,
+      "request_finished_ms": 1789364649832,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-describe-null-data",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364649835,
+      "request_finished_ms": 1789364650585,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:44:04.208000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReason": "null-state",
+              "StateReasonData": "null",
+              "StateUpdatedTimestamp": "2026-09-14T06:44:09.720000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:44:09.720000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-delete-invalid-mixed",
+      "service": "cloudwatch",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a",
+          "stackd-native-alarm-controls-fixture000-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ]
+      },
+      "request_started_ms": 1789364650590,
+      "request_finished_ms": 1789364651379,
+      "result": {
+        "code": "ValidationError",
+        "message": "1 validation error detected: Value '[stackd-native-alarm-controls-fixture000-a, stackd-native-alarm-controls-fixture000-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]' at 'alarmNames' failed to satisfy constraint: Member must satisfy constraint: [Member must have length less than or equal to 255, Member must have length greater than or equal to 1]",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "supplement-describe-after-invalid-delete",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-alarm-controls-fixture000-a"
+        ]
+      },
+      "request_started_ms": 1789364651385,
+      "request_finished_ms": 1789364652159,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:44:04.208000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReason": "null-state",
+              "StateReasonData": "null",
+              "StateUpdatedTimestamp": "2026-09-14T06:44:09.720000+01:00",
+              "MetricName": "stackd-native-alarm-controls-fixture000-unpublished",
+              "Namespace": "Stackd/NativeAlarmControls",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 60,
+              "EvaluationPeriods": 3,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "StateTransitionedTimestamp": "2026-09-14T06:44:09.720000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-tag-51-atomic",
+      "service": "cloudwatch",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a",
+        "Tags": [
+          {
+            "Key": "key0",
+            "Value": "v"
+          },
+          {
+            "Key": "key1",
+            "Value": "v"
+          },
+          {
+            "Key": "key2",
+            "Value": "v"
+          },
+          {
+            "Key": "key3",
+            "Value": "v"
+          },
+          {
+            "Key": "key4",
+            "Value": "v"
+          },
+          {
+            "Key": "key5",
+            "Value": "v"
+          },
+          {
+            "Key": "key6",
+            "Value": "v"
+          },
+          {
+            "Key": "key7",
+            "Value": "v"
+          },
+          {
+            "Key": "key8",
+            "Value": "v"
+          },
+          {
+            "Key": "key9",
+            "Value": "v"
+          },
+          {
+            "Key": "key10",
+            "Value": "v"
+          },
+          {
+            "Key": "key11",
+            "Value": "v"
+          },
+          {
+            "Key": "key12",
+            "Value": "v"
+          },
+          {
+            "Key": "key13",
+            "Value": "v"
+          },
+          {
+            "Key": "key14",
+            "Value": "v"
+          },
+          {
+            "Key": "key15",
+            "Value": "v"
+          },
+          {
+            "Key": "key16",
+            "Value": "v"
+          },
+          {
+            "Key": "key17",
+            "Value": "v"
+          },
+          {
+            "Key": "key18",
+            "Value": "v"
+          },
+          {
+            "Key": "key19",
+            "Value": "v"
+          },
+          {
+            "Key": "key20",
+            "Value": "v"
+          },
+          {
+            "Key": "key21",
+            "Value": "v"
+          },
+          {
+            "Key": "key22",
+            "Value": "v"
+          },
+          {
+            "Key": "key23",
+            "Value": "v"
+          },
+          {
+            "Key": "key24",
+            "Value": "v"
+          },
+          {
+            "Key": "key25",
+            "Value": "v"
+          },
+          {
+            "Key": "key26",
+            "Value": "v"
+          },
+          {
+            "Key": "key27",
+            "Value": "v"
+          },
+          {
+            "Key": "key28",
+            "Value": "v"
+          },
+          {
+            "Key": "key29",
+            "Value": "v"
+          },
+          {
+            "Key": "key30",
+            "Value": "v"
+          },
+          {
+            "Key": "key31",
+            "Value": "v"
+          },
+          {
+            "Key": "key32",
+            "Value": "v"
+          },
+          {
+            "Key": "key33",
+            "Value": "v"
+          },
+          {
+            "Key": "key34",
+            "Value": "v"
+          },
+          {
+            "Key": "key35",
+            "Value": "v"
+          },
+          {
+            "Key": "key36",
+            "Value": "v"
+          },
+          {
+            "Key": "key37",
+            "Value": "v"
+          },
+          {
+            "Key": "key38",
+            "Value": "v"
+          },
+          {
+            "Key": "key39",
+            "Value": "v"
+          },
+          {
+            "Key": "key40",
+            "Value": "v"
+          },
+          {
+            "Key": "key41",
+            "Value": "v"
+          },
+          {
+            "Key": "key42",
+            "Value": "v"
+          },
+          {
+            "Key": "key43",
+            "Value": "v"
+          },
+          {
+            "Key": "key44",
+            "Value": "v"
+          },
+          {
+            "Key": "key45",
+            "Value": "v"
+          },
+          {
+            "Key": "key46",
+            "Value": "v"
+          },
+          {
+            "Key": "key47",
+            "Value": "v"
+          },
+          {
+            "Key": "key48",
+            "Value": "v"
+          },
+          {
+            "Key": "key49",
+            "Value": "v"
+          },
+          {
+            "Key": "key50",
+            "Value": "v"
+          }
+        ]
+      },
+      "request_started_ms": 1789364652164,
+      "request_finished_ms": 1789364652905,
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "tags are invalid.",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "supplement-tags-after-51-failure",
+      "service": "cloudwatch",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceARN": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-controls-fixture000-a"
+      },
+      "request_started_ms": 1789364652916,
+      "request_finished_ms": 1789364653790,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "generation",
+              "Value": "supplement"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "supplement-history-state-updates",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 100,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1789364661793,
+      "request_finished_ms": 1789364662623,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:19.199000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"first reason\",\"stateReasonData\":{ \"z\": 2, \"a\": [1] }}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:40:26.741000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from ALARM to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"first reason\",\"stateReasonData\":{ \"z\": 2, \"a\": [1] }},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"\",\"stateReasonData\":{}}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:43:54.472000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"retained-first\",\"stateReasonData\":{ \"raw\": 1 }}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:44:06.680000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from ALARM to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"retained-first\",\"stateReasonData\":{ \"raw\": 1 }},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"new-state-no-data\"}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:44:08.162000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from OK to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"new-state-no-data\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"array-state\",\"stateReasonData\":[1,2]}}"
+            },
+            {
+              "AlarmName": "stackd-native-alarm-controls-fixture000-a",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T06:44:09.720000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from ALARM to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"array-state\",\"stateReasonData\":[1,2]},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"null-state\",\"stateReasonData\":null}}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    }
+  ]
+}

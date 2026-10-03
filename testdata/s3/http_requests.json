@@ -1,0 +1,104 @@
+{
+  "provenance": "Derived local HTTP routing regressions, not a live AWS capture. Copy-source headers and multipart query parameters select their own operations independently of x-id annotations. Integrity cases use the real AWS Go v2 SDK signer/presigner against stackd.",
+  "objects": {
+    "ordinary": "original object bytes",
+    "folder": "distinct slashless sibling",
+    "folder/": "original trailing-slash object",
+    "copy-source": "different copy source bytes"
+  },
+  "requests": [
+    {
+      "name": "put_without_x_id", "method": "PUT", "target": "/raw%20space/%2B", "body": "raw signed object bytes", "status": 200,
+      "readback": {"raw space/+": "raw signed object bytes"}
+    },
+    {
+      "name": "get_without_x_id", "method": "GET", "target": "/ordinary", "status": 200,
+      "response_body": "original object bytes", "readback": {"ordinary": "original object bytes"}
+    },
+    {
+      "name": "head_without_x_id", "method": "HEAD", "target": "/ordinary", "status": 200,
+      "response_body": "", "readback": {"ordinary": "original object bytes"}
+    },
+    {
+      "name": "delete_without_x_id", "method": "DELETE", "target": "/ordinary", "status": 204,
+      "response_body": "", "missing": ["ordinary"]
+    },
+    {
+      "name": "list_v1_without_x_id", "method": "GET", "target": "?prefix=ordinary", "status": 200,
+      "listed_keys": ["ordinary"]
+    },
+    {
+      "name": "list_v2_without_x_id", "method": "GET", "target": "?list-type=2&prefix=ordinary", "status": 200,
+      "listed_keys": ["ordinary"]
+    },
+    {
+      "name": "put_preserves_trailing_slash", "method": "PUT", "target": "/folder/", "body": "new trailing-slash bytes", "status": 200,
+      "readback": {"folder/": "new trailing-slash bytes", "folder": "distinct slashless sibling"}
+    },
+    {
+      "name": "get_preserves_trailing_slash", "method": "GET", "target": "/folder/", "status": 200,
+      "response_body": "original trailing-slash object"
+    },
+    {
+      "name": "delete_preserves_slashless_sibling", "method": "DELETE", "target": "/folder/", "status": 204,
+      "missing": ["folder/"], "readback": {"folder": "distinct slashless sibling"}
+    },
+    {
+      "name": "virtual_host_put_without_x_id", "method": "PUT", "target": "/virtual%20space/%2B/", "virtual_host": true,
+      "body": "virtual-host object bytes", "status": 200, "readback": {"virtual space/+/": "virtual-host object bytes"}
+    },
+    {
+      "name": "virtual_host_get_without_x_id", "method": "GET", "target": "/ordinary", "virtual_host": true,
+      "status": 200, "response_body": "original object bytes"
+    },
+    {
+      "name": "x_id_cannot_turn_put_into_copy", "method": "PUT", "target": "/ordinary?x-id=CopyObject", "body": "ordinary put despite annotation",
+      "status": 200, "readback": {"ordinary": "ordinary put despite annotation"}
+    },
+    {
+      "name": "copy_without_x_id", "method": "PUT", "target": "/ordinary", "headers": {"x-amz-copy-source": "/s3-http-regression/copy-source"},
+      "status": 200, "readback": {"ordinary": "different copy source bytes", "copy-source": "different copy source bytes"}
+    },
+    {
+      "name": "copy_header_overrides_put_annotation", "method": "PUT", "target": "/ordinary?x-id=PutObject", "headers": {"x-amz-copy-source": "/s3-http-regression/copy-source"},
+      "status": 200, "readback": {"ordinary": "different copy source bytes", "copy-source": "different copy source bytes"}
+    },
+    {
+      "name": "create_multipart_does_not_replace_object", "method": "POST", "target": "/ordinary?uploads",
+      "status": 200, "readback": {"ordinary": "original object bytes"}
+    },
+    {
+      "name": "missing_upload_part_preserves_object", "method": "PUT", "target": "/ordinary?partNumber=1&uploadId=missing", "body": "must not overwrite ordinary object",
+      "status": 404, "error_code": "NoSuchUpload", "readback": {"ordinary": "original object bytes"}
+    },
+    {
+      "name": "upload_part_overrides_put_annotation", "method": "PUT", "target": "/ordinary?partNumber=1&uploadId=missing&x-id=PutObject", "body": "must not overwrite ordinary object",
+      "status": 404, "error_code": "NoSuchUpload", "readback": {"ordinary": "original object bytes"}
+    },
+    {
+      "name": "part_copy_is_not_an_object_copy", "method": "PUT", "target": "/ordinary?partNumber=1&uploadId=missing", "headers": {"x-amz-copy-source": "/s3-http-regression/copy-source"},
+      "status": 404, "error_code": "NoSuchUpload", "readback": {"ordinary": "original object bytes"}
+    },
+    {
+      "name": "missing_complete_preserves_object", "method": "POST", "target": "/ordinary?uploadId=missing", "body": "<CompleteMultipartUpload><Part><ETag>unused</ETag><PartNumber>1</PartNumber></Part></CompleteMultipartUpload>",
+      "status": 404, "error_code": "NoSuchUpload", "readback": {"ordinary": "original object bytes"}
+    },
+    {
+      "name": "idempotent_abort_preserves_object", "method": "DELETE", "target": "/ordinary?uploadId=missing",
+      "status": 204, "readback": {"ordinary": "original object bytes"}
+    },
+    {
+      "name": "list_parts_is_not_object_get", "method": "GET", "target": "/ordinary?uploadId=missing",
+      "status": 404, "error_code": "NoSuchUpload", "readback": {"ordinary": "original object bytes"}
+    }
+  ],
+  "integrity": [
+    {"name": "presigned_sha256_payload_tamper", "encoding": "presigned-sha256", "status": 400, "error_code": "BadDigest"},
+    {"name": "unsigned_sha256_trailer_payload_tamper", "encoding": "unsigned-trailer", "status": 400, "error_code": "BadDigest"},
+    {"name": "signed_chunk_payload_tamper", "encoding": "signed-chunks", "status": 403, "error_code": "SignatureDoesNotMatch"}
+  ],
+  "presigned_reads": [
+    {"name": "hoisted_expected_owner_is_enforced", "input": {"ExpectedBucketOwner": "222222222222"}, "status": 403, "error_code": "AccessDenied"},
+    {"name": "query_only_checksum_mode_keeps_native_omission", "input": {"ChecksumMode": "ENABLED"}, "status": 200}
+  ]
+}

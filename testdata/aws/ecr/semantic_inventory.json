@@ -1,0 +1,578 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-26T14:39:59.773Z",
+  "scope_rule": "Reviewed operation semantics and bounded native captures, not a complete service operation inventory or a support claim. The generated service inventory records the chosen-service operation target.",
+  "sources": [
+    {
+      "kind": "AWS SDK transport/model",
+      "repository": "/home/r/dev/minor/stackd/clones/aws-sdk-go-v2",
+      "revision": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+    }
+  ],
+  "primary_revision": {
+    "revision": "AWS latest published documentation; API reference publication date recorded below, no immutable commit supplied",
+    "retrieved_date": "2026-09-26",
+    "api_reference_published_date": "2026-09-25",
+    "publication_source": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/Welcome.html"
+  },
+  "native_scope": {
+    "account": "000000000000",
+    "region": "us-east-1",
+    "partition": "aws"
+  },
+  "evidence_contract": {
+    "observations": "Ordered case/operation/parameters plus native code/output or error and HTTP/request ID when raw signed transport is used.",
+    "secrets": "Authorization tokens, passwords, credentials and presigned layer URLs are never retained. Upload IDs and digests are nonsecret.",
+    "cleanup": "Each capture retains owned resource names and observed deletion/not-found outcomes; KMS pending deletion is not immediate physical removal."
+  },
+  "native_capture_summary": "capture_summary.json",
+  "local_completion_evidence": "../../integration/ecr_codebuild_completion.json",
+  "service": "ecr",
+  "groups": {
+    "repositories": {
+      "operations": [
+        "CreateRepository",
+        "DescribeRepositories",
+        "DeleteRepository",
+        "TagResource",
+        "UntagResource",
+        "ListTagsForResource"
+      ],
+      "semantics": [
+        "Repository identity includes account and region; URI must retain both scope dimensions.",
+        "Create fixes encryption; non-force deletion rejects nonempty repositories. Tags are resource tags, not image tags.",
+        "KMS repository creation validates same-region key and creates two grants; deletion retires them. KMS crypto uses aws:ecr:arn plus aws:s3:arn context; no parallel credential store."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_CreateRepository.html",
+        "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeleteRepository.html",
+        "https://docs.aws.amazon.com/AmazonECR/latest/userguide/encryption-at-rest.html"
+      ]
+    },
+    "images": {
+      "operations": [
+        "PutImage",
+        "BatchGetImage",
+        "DescribeImages",
+        "ListImages",
+        "BatchDeleteImage",
+        "PutImageTagMutability"
+      ],
+      "semantics": [
+        "Manifests and referenced blobs are real content-addressed bytes; tag rewrites must respect current repository mutability and exclusions.",
+        "PutImage may reject ImageAlreadyExists, ImageDigestDoesNotMatch, ImageTagAlreadyExists, LayersNotFound and ReferencedImagesNotFound.",
+        "Batch operations have per-image failures; deleting a tag differs from deleting a digest and all tags. Manifest-list references constrain deletion."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutImage.html",
+        "https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-tag-mutability.html",
+        "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_BatchDeleteImage.html"
+      ]
+    },
+    "registry_data_plane": {
+      "operations": [
+        "GetAuthorizationToken",
+        "InitiateLayerUpload",
+        "UploadLayerPart",
+        "CompleteLayerUpload",
+        "BatchCheckLayerAvailability",
+        "GetDownloadUrlForLayer"
+      ],
+      "semantics": [
+        "Token scope is the issuing IAM principal permissions, valid twelve hours; token is not a stored policy snapshot. Every registry HTTP request needs authentication.",
+        "Layer upload validates byte ranges and digest before completion. A download URL delivers actual bytes and must never be recorded as a fixture credential.",
+        "Private OCI/Docker HTTP push/pull is a separate real data plane, not merely API manifest metadata."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/AmazonECR/latest/userguide/registry_auth.html",
+        "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_UploadLayerPart.html",
+        "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_CompleteLayerUpload.html"
+      ]
+    },
+    "repository_policy": {
+      "operations": [
+        "SetRepositoryPolicy",
+        "GetRepositoryPolicy",
+        "DeleteRepositoryPolicy"
+      ],
+      "semantics": [
+        "Current identity and repository policies compose; explicit deny wins. IAM must allow GetAuthorizationToken independently of repository grants.",
+        "Policy changes must affect existing token requests rather than only token issuance."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-policies.html"
+      ]
+    },
+    "lifecycle": {
+      "operations": [
+        "PutLifecyclePolicy",
+        "GetLifecyclePolicy",
+        "DeleteLifecyclePolicy",
+        "StartLifecyclePolicyPreview",
+        "GetLifecyclePolicyPreview"
+      ],
+      "semantics": [
+        "Evaluate all rules then apply priority; each image expires under zero or one rule. Higher-priority matching protects against lower-priority expiry.",
+        "Tag prefix/pattern lists use all-pattern matching against image tags; tagged selectors require patterns/prefixes. Count policies rank images by push time.",
+        "Preview is asynchronous; a retained policy is not proof of expiry execution. Native expiry may occur within twenty-four hours and is not synchronously forced by PutLifecyclePolicy."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html",
+        "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_StartLifecyclePolicyPreview.html"
+      ]
+    },
+    "scanning": {
+      "operations": [
+        "BatchGetRepositoryScanningConfiguration",
+        "DescribeImageScanFindings",
+        "PutImageScanningConfiguration",
+        "StartImageScan",
+        "GetRegistryScanningConfiguration",
+        "PutRegistryScanningConfiguration"
+      ],
+      "semantics": [
+        "Basic scanning consumes real OS/software inventory; unsupported image format/OS must not produce fake clean findings.",
+        "Basic manual scans are at most once per image per twenty-four hours; findings and status are asynchronous and completion emits EventBridge event.",
+        "Registry scanning settings are account/region control and are not modified by owned native probes. Enhanced Inspector-backed scanning is distinct."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning-basic.html",
+        "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetRegistryScanningConfiguration.html"
+      ]
+    },
+    "registry_policy_replication": {
+      "operations": [
+        "DescribeRegistry",
+        "GetRegistryPolicy",
+        "PutRegistryPolicy",
+        "DeleteRegistryPolicy",
+        "PutReplicationConfiguration"
+      ],
+      "semantics": [
+        "Registry resource policy and replication configuration are registry-wide controls, not repository CRUD. Current AWS registry permissions documentation says registry policies are enforced for all ECR actions.",
+        "Replication requires actual eligible image bytes at authorized destinations; configuring rules alone is not successful replication. No standing registry defaults/policies changed by this probe.",
+        "Only images pushed or restored after replication configuration are eligible; preexisting images are not backfilled. Destination repository names stay unchanged and deletes are not propagated.",
+        "Cross-account permission is granted in the destination registry for ReplicateImage and optionally CreateRepository; source repository policies are not required. Removing a permission may let already-authorized in-progress replications complete.",
+        "Destination immutability can cause a replicated image to arrive without the colliding tag. Repository permissions/lifecycle/settings are not replicated by default."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/AmazonECR/latest/userguide/registry-permissions.html",
+        "https://docs.aws.amazon.com/AmazonECR/latest/userguide/replication.html"
+      ]
+    }
+  },
+  "operations": [
+    {
+      "operation": "BatchCheckLayerAvailability",
+      "workload_required": true,
+      "semantic_group": "registry_data_plane",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_BatchCheckLayerAvailability.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchDeleteImage",
+      "workload_required": false,
+      "semantic_group": "images",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_BatchDeleteImage.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetImage",
+      "workload_required": false,
+      "semantic_group": "images",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_BatchGetImage.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetRepositoryScanningConfiguration",
+      "workload_required": false,
+      "semantic_group": "scanning",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_BatchGetRepositoryScanningConfiguration.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "CompleteLayerUpload",
+      "workload_required": true,
+      "semantic_group": "registry_data_plane",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_CompleteLayerUpload.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "CreatePullThroughCacheRule",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_CreatePullThroughCacheRule.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "CreateRepository",
+      "workload_required": false,
+      "semantic_group": "repositories",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_CreateRepository.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "CreateRepositoryCreationTemplate",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_CreateRepositoryCreationTemplate.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteLifecyclePolicy",
+      "workload_required": false,
+      "semantic_group": "lifecycle",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeleteLifecyclePolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeletePullThroughCacheRule",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeletePullThroughCacheRule.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteRegistryPolicy",
+      "workload_required": false,
+      "semantic_group": "registry_policy_replication",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeleteRegistryPolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteRepository",
+      "workload_required": false,
+      "semantic_group": "repositories",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeleteRepository.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteRepositoryCreationTemplate",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeleteRepositoryCreationTemplate.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteRepositoryPolicy",
+      "workload_required": false,
+      "semantic_group": "repository_policy",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeleteRepositoryPolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteSigningConfiguration",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeleteSigningConfiguration.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeregisterPullTimeUpdateExclusion",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeregisterPullTimeUpdateExclusion.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribeImageReplicationStatus",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribeImageReplicationStatus.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribeImageScanFindings",
+      "workload_required": false,
+      "semantic_group": "scanning",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribeImageScanFindings.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribeImageSigningStatus",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribeImageSigningStatus.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribeImages",
+      "workload_required": false,
+      "semantic_group": "images",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribeImages.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribePullThroughCacheRules",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribePullThroughCacheRules.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribeRegistry",
+      "workload_required": false,
+      "semantic_group": "registry_policy_replication",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribeRegistry.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribeRepositories",
+      "workload_required": false,
+      "semantic_group": "repositories",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribeRepositories.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribeRepositoryCreationTemplates",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribeRepositoryCreationTemplates.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetAccountSetting",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetAccountSetting.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetAuthorizationToken",
+      "workload_required": false,
+      "semantic_group": "registry_data_plane",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetAuthorizationToken.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetDownloadUrlForLayer",
+      "workload_required": true,
+      "semantic_group": "registry_data_plane",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetDownloadUrlForLayer.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetLifecyclePolicy",
+      "workload_required": false,
+      "semantic_group": "lifecycle",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetLifecyclePolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetLifecyclePolicyPreview",
+      "workload_required": false,
+      "semantic_group": "lifecycle",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetLifecyclePolicyPreview.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetRegistryPolicy",
+      "workload_required": false,
+      "semantic_group": "registry_policy_replication",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetRegistryPolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetRegistryScanningConfiguration",
+      "workload_required": false,
+      "semantic_group": "scanning",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetRegistryScanningConfiguration.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetRepositoryPolicy",
+      "workload_required": false,
+      "semantic_group": "repository_policy",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetRepositoryPolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetSigningConfiguration",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetSigningConfiguration.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "InitiateLayerUpload",
+      "workload_required": true,
+      "semantic_group": "registry_data_plane",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_InitiateLayerUpload.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListImageReferrers",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_ListImageReferrers.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListImages",
+      "workload_required": false,
+      "semantic_group": "images",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_ListImages.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListPullTimeUpdateExclusions",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_ListPullTimeUpdateExclusions.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListTagsForResource",
+      "workload_required": false,
+      "semantic_group": "repositories",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_ListTagsForResource.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutAccountSetting",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutAccountSetting.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutImage",
+      "workload_required": false,
+      "semantic_group": "images",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutImage.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutImageScanningConfiguration",
+      "workload_required": false,
+      "semantic_group": "scanning",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutImageScanningConfiguration.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutImageTagMutability",
+      "workload_required": false,
+      "semantic_group": "images",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutImageTagMutability.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutLifecyclePolicy",
+      "workload_required": false,
+      "semantic_group": "lifecycle",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutLifecyclePolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutRegistryPolicy",
+      "workload_required": false,
+      "semantic_group": "registry_policy_replication",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutRegistryPolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutRegistryScanningConfiguration",
+      "workload_required": false,
+      "semantic_group": "scanning",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutRegistryScanningConfiguration.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutReplicationConfiguration",
+      "workload_required": false,
+      "semantic_group": "registry_policy_replication",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutReplicationConfiguration.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutSigningConfiguration",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutSigningConfiguration.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "RegisterPullTimeUpdateExclusion",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_RegisterPullTimeUpdateExclusion.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "SetRepositoryPolicy",
+      "workload_required": false,
+      "semantic_group": "repository_policy",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_SetRepositoryPolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StartImageScan",
+      "workload_required": false,
+      "semantic_group": "scanning",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_StartImageScan.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StartLifecyclePolicyPreview",
+      "workload_required": false,
+      "semantic_group": "lifecycle",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_StartLifecyclePolicyPreview.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "TagResource",
+      "workload_required": false,
+      "semantic_group": "repositories",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_TagResource.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UntagResource",
+      "workload_required": false,
+      "semantic_group": "repositories",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_UntagResource.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UpdateImageStorageClass",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_UpdateImageStorageClass.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UpdatePullThroughCacheRule",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_UpdatePullThroughCacheRule.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UpdateRepositoryCreationTemplate",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_UpdateRepositoryCreationTemplate.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UploadLayerPart",
+      "workload_required": true,
+      "semantic_group": "registry_data_plane",
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_UploadLayerPart.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ValidatePullThroughCacheRule",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_ValidatePullThroughCacheRule.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    }
+  ],
+  "excluded_boundary": {
+    "service": "ECR Public",
+    "reason": "Distinct ecr-public API/endpoint and authentication contract. This private ECR semantic evidence is not a Public support claim.",
+    "primary": "https://docs.aws.amazon.com/AmazonECRPublic/latest/APIReference/Welcome.html",
+    "primary_published_date": "2026-09-25"
+  }
+}

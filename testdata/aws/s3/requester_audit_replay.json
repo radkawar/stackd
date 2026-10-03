@@ -1,0 +1,999 @@
+{
+  "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+  "AuditBucket": "requester-audit-logs",
+  "AuditPrefix": "owned/AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Only request-correlated records actually found in the source-owned S3 gzip trail objects are delivery expectations. Primary probe records not found during the bounded wait are not asserted absent or fabricated.",
+    "Record projects complete native management/readOnly/eventCategory, resources, requestParameters and responseElements, including the actual submitted XML root, xmlns presence/absence and payer header. Raw requests are necessary: SDK serialization would rewrite wrong-root and no-namespace XML.",
+    "Native bucket/account/user/session names are rebound; owner IAMUser becomes the existing audit-user and foreign source-owned AWSAccount retains account-only identity. Foreign principal IDs, source delivery keys, native request/host IDs, event IDs and timestamps remain provenance, not local identities.",
+    "Local setup provisions the existing foreign-role prerequisite and real trail policy/selectors; it is not native evidence. The same capture-native call sequence is followed by SQLite reopen before local delivery. No propagation or delivery-time bound is asserted."
+  ],
+  "Setup": [
+    {
+      "Label": "local-prerequisite-createrole",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "iam",
+      "Actor": "other",
+      "Operation": "CreateRole",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "OrganizationAccountAccessRole",
+        "AssumeRolePolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${account}:root\"},\"Action\":\"sts:AssumeRole\"}]}"
+      },
+      "Output": {},
+      "Bind": {
+        "memberRole": "Role.Arn"
+      }
+    },
+    {
+      "Label": "local-prerequisite-putrolepolicy",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "iam",
+      "Actor": "other",
+      "Operation": "PutRolePolicy",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "OrganizationAccountAccessRole",
+        "PolicyName": "NativeOwnershipProbe",
+        "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "cross-assume-existing-member-role",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Operation": "AssumeRole",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleArn": "${memberRole}",
+        "RoleSessionName": "requester-replay"
+      },
+      "Output": {},
+      "Actor": "caller",
+      "Service": "sts",
+      "Session": "foreign"
+    },
+    {
+      "Label": "create boundaries",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 1,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "CreateBucket",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "requester-boundaries"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "grant owned bucket to foreign role",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 2,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "PutBucketPolicy",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "requester-boundaries",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"${memberRole}\"}, \"Action\": \"s3:*\", \"Resource\": [\"arn:aws:s3:::requester-boundaries\", \"arn:aws:s3:::requester-boundaries/*\"]}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-requester-audit-logs",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "requester-audit-logs"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "configure-trail-delivery-policy",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "requester-audit-logs",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AWSCloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::requester-audit-logs\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/requester-audit\"}}}, {\"Sid\": \"AWSCloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::requester-audit-logs/owned/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/requester-audit\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "Output": {}
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create-classic-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EnableLogFileValidation": false,
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "IsOrganizationTrail": false,
+        "Name": "requester-audit",
+        "S3BucketName": "requester-audit-logs",
+        "S3KeyPrefix": "owned"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "scope-owned-object-data-and-write-management",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EventSelectors": [
+          {
+            "DataResources": [
+              {
+                "Type": "AWS::S3::Object",
+                "Values": [
+                  "arn:aws:s3:::requester-boundaries/"
+                ]
+              }
+            ],
+            "ExcludeManagementEventSources": [
+              "kms.amazonaws.com",
+              "rdsdata.amazonaws.com"
+            ],
+            "IncludeManagementEvents": true,
+            "ReadWriteType": "All"
+          }
+        ],
+        "TrailName": "requester-audit"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "requester-audit"
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "BucketOwner foreign /?requestPayment",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 3,
+      "Service": "s3",
+      "Actor": "foreign",
+      "Operation": "GetBucketRequestPayment",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "BucketOwner foreign /?requestPayment",
+        "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+        "Sequence": 3,
+        "Actor": "foreign",
+        "Operation": "GetBucketRequestPayment",
+        "Method": "GET",
+        "Target": "/requester-boundaries/?requestPayment",
+        "Headers": {},
+        "Body": "",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "AROA5LIQA72GUU3ZX4CQS:stackd-requester-bounds",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T14:55:26Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-requester-probe/1]",
+        "requestParameters": {
+          "bucketName": "requester-boundaries",
+          "Host": "requester-boundaries.s3.us-east-1.amazonaws.com",
+          "requestPayment": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789916126366,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789916126389,
+          "x-amz-id-2": "McuGKQfHikOwJwglmhH+k0wdcL0xHaMxRqjHW44L3GKB+5rayKsoONcW4t2TVgFbvogTTmrimgLwr49FWe35hQsVh8pywYse",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 172
+        },
+        "requestID": "DMGFVS0YWVBZEVK1",
+        "eventID": "16614e01-142e-3a56-bb05-8798990eb153",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::requester-boundaries"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "9258af4d-d6a3-410a-aa52-350279317ab5",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "requester-boundaries.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "RecordSource": {
+        "Source": "requester_payment_evidence.json.gz",
+        "DeliveredRecordIndex": 1,
+        "SourceBucket": "stackd-requester-0fc164c26bcd48a8-trail",
+        "SourceKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_RllCA00hOdAtrr24.json.gz"
+      }
+    },
+    {
+      "Label": "wrong root changes Owner to Requester",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 6,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketRequestPayment",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "wrong root changes Owner to Requester",
+        "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+        "Sequence": 6,
+        "Actor": "audit-user",
+        "Operation": "PutBucketRequestPayment",
+        "Method": "PUT",
+        "Target": "/requester-boundaries/?requestPayment",
+        "Headers": {},
+        "Body": "<Other><Payer>Requester</Payer></Other>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:55:27Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-requester-probe/1]",
+        "requestParameters": {
+          "bucketName": "requester-boundaries",
+          "Host": "requester-boundaries.s3.us-east-1.amazonaws.com",
+          "requestPayment": "",
+          "Other": {
+            "Payer": "Requester"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 39,
+          "startTime": 1789916127408,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789916127469,
+          "x-amz-id-2": "CYSDMm9k++rfl11sYwL5dIJpM/C7/e+k8YV6BlQljBwOhzgKw7tdVKyZMwrNpF4ipAdzuCit+qM=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "E89YYA45QSGFPSXH",
+        "eventID": "58bb7fc0-d24e-4a8c-be7b-fb9a450ec9b3",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::requester-boundaries"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "requester-boundaries.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "RecordSource": {
+        "Source": "requester_payment_evidence.json.gz",
+        "DeliveredRecordIndex": 2,
+        "SourceBucket": "stackd-requester-0fc164c26bcd48a8-trail",
+        "SourceKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_RllCA00hOdAtrr24.json.gz"
+      }
+    },
+    {
+      "Label": "Requester foreign /?requestPayment None",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 8,
+      "Service": "s3",
+      "Actor": "foreign",
+      "Operation": "GetBucketRequestPayment",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Raw": {
+        "Label": "Requester foreign /?requestPayment None",
+        "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+        "Sequence": 8,
+        "Actor": "foreign",
+        "Operation": "GetBucketRequestPayment",
+        "Method": "GET",
+        "Target": "/requester-boundaries/?requestPayment",
+        "Headers": {},
+        "Body": "",
+        "Status": 403,
+        "Code": "AccessDenied",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "AROA5LIQA72GUU3ZX4CQS:stackd-requester-bounds",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T14:55:28Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-requester-probe/1]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "Access Denied",
+        "requestParameters": {
+          "bucketName": "requester-boundaries",
+          "Host": "requester-boundaries.s3.us-east-1.amazonaws.com",
+          "requestPayment": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789916128271,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789916128288,
+          "x-amz-id-2": "zBbBfvRREjdlKoBwbIEi/wOyhF+CZDLc5LxVNojcwTTYRji4BO04+JgZzYo3y59ypdlLJFcM0PA=",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 243
+        },
+        "requestID": "QQBSKSVR0QBRQSSS",
+        "eventID": "b87020c9-691f-3e0f-b551-85d8f826056c",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::requester-boundaries"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "46fd00c6-999a-403c-a5e8-c88a6922dfb4",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "requester-boundaries.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "RecordSource": {
+        "Source": "requester_payment_evidence.json.gz",
+        "DeliveredRecordIndex": 4,
+        "SourceBucket": "stackd-requester-0fc164c26bcd48a8-trail",
+        "SourceKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_RllCA00hOdAtrr24.json.gz"
+      }
+    },
+    {
+      "Label": "Requester foreign /?requestPayment requester",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 9,
+      "Service": "s3",
+      "Actor": "foreign",
+      "Operation": "GetBucketRequestPayment",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "Requester foreign /?requestPayment requester",
+        "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+        "Sequence": 9,
+        "Actor": "foreign",
+        "Operation": "GetBucketRequestPayment",
+        "Method": "GET",
+        "Target": "/requester-boundaries/?requestPayment",
+        "Headers": {
+          "x-amz-request-payer": "requester"
+        },
+        "Body": "",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {
+          "x-amz-request-charged": "requester"
+        },
+        "AbsentHeaders": []
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "AROA5LIQA72GUU3ZX4CQS:stackd-requester-bounds",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T14:55:28Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-requester-probe/1]",
+        "requestParameters": {
+          "bucketName": "requester-boundaries",
+          "Host": "requester-boundaries.s3.us-east-1.amazonaws.com",
+          "x-amz-request-payer": "requester",
+          "requestPayment": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789916128620,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789916128639,
+          "x-amz-id-2": "MAH9ThJRti4d6VLwZre4KSqKM4K17O+riWFfGizyWNDk9OahJctHmmbPK7tq7rpD+R020EKCVjAFG9WKJNmTMcAiXCpGMTvV",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 170
+        },
+        "requestID": "QQBWF5E4VDB8BJGN",
+        "eventID": "3f1a9607-7f06-3ffd-ada1-e657c56d50b4",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::requester-boundaries"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "877e920c-887a-44a1-ac02-aca8ccbb6875",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "requester-boundaries.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "RecordSource": {
+        "Source": "requester_payment_evidence.json.gz",
+        "DeliveredRecordIndex": 3,
+        "SourceBucket": "stackd-requester-0fc164c26bcd48a8-trail",
+        "SourceKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_RllCA00hOdAtrr24.json.gz"
+      }
+    },
+    {
+      "Label": "foreign payment PUT requester",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 29,
+      "Service": "s3",
+      "Actor": "foreign",
+      "Operation": "PutBucketRequestPayment",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "foreign payment PUT requester",
+        "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+        "Sequence": 29,
+        "Actor": "foreign",
+        "Operation": "PutBucketRequestPayment",
+        "Method": "PUT",
+        "Target": "/requester-boundaries/?requestPayment",
+        "Headers": {
+          "x-amz-request-payer": "requester"
+        },
+        "Body": "<RequestPaymentConfiguration><Payer>BucketOwner</Payer></RequestPaymentConfiguration>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {
+          "x-amz-request-charged": "requester"
+        },
+        "AbsentHeaders": []
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "AROA5LIQA72GUU3ZX4CQS:stackd-requester-bounds",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T14:55:35Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-requester-probe/1]",
+        "requestParameters": {
+          "bucketName": "requester-boundaries",
+          "Host": "requester-boundaries.s3.us-east-1.amazonaws.com",
+          "x-amz-request-payer": "requester",
+          "requestPayment": "",
+          "RequestPaymentConfiguration": {
+            "Payer": "BucketOwner"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 85,
+          "startTime": 1789916135028,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789916135109,
+          "x-amz-id-2": "nCQPcLs6q5/hxmyA1VEvCQKdCyMU++TqCpwIJru5fNbJhjHZQlR/mY61EFc1px1I2/EjaeloR5I=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "JA7DXDY64RDA54E9",
+        "eventID": "b3d4bb26-2826-39d8-83a1-8945a03f275f",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::requester-boundaries"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "f3077bec-9889-4e41-9d3c-792a5d99ab97",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "requester-boundaries.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "RecordSource": {
+        "Source": "requester_payment_evidence.json.gz",
+        "DeliveredRecordIndex": 10,
+        "SourceBucket": "stackd-requester-0fc164c26bcd48a8-trail",
+        "SourceKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_RllCA00hOdAtrr24.json.gz"
+      }
+    },
+    {
+      "Label": "foreign PUT state requester retained",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 30,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "GetBucketRequestPayment",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "foreign PUT state requester retained",
+        "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+        "Sequence": 30,
+        "Actor": "audit-user",
+        "Operation": "GetBucketRequestPayment",
+        "Method": "GET",
+        "Target": "/requester-boundaries/?requestPayment",
+        "Headers": {},
+        "Body": "",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:55:35Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,b,a cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "requester-boundaries",
+          "Host": "requester-boundaries.s3.amazonaws.com",
+          "requestPayment": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789916135237,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789916135244,
+          "x-amz-id-2": "M+bpgJmHUBr4V7ftwI1KsRcxJjRmtkeZQt+VgEFgvr0Oh30d6NE3VyLYKECkdzWsZp7SXsfq7YY=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 172
+        },
+        "requestID": "JA7DGP03HSPS6A3K",
+        "eventID": "4afef4da-c451-4df1-a5c0-cc4f5e8ea944",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::requester-boundaries"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "requester-boundaries.s3.amazonaws.com"
+        }
+      },
+      "RecordSource": {
+        "Source": "requester_payment_evidence.json.gz",
+        "DeliveredRecordIndex": 9,
+        "SourceBucket": "stackd-requester-0fc164c26bcd48a8-trail",
+        "SourceKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_RllCA00hOdAtrr24.json.gz"
+      }
+    },
+    {
+      "Label": "restore Requester after foreign management requester",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 31,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketRequestPayment",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "restore Requester after foreign management requester",
+        "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+        "Sequence": 31,
+        "Actor": "audit-user",
+        "Operation": "PutBucketRequestPayment",
+        "Method": "PUT",
+        "Target": "/requester-boundaries/?requestPayment",
+        "Headers": {
+          "x-amz-checksum-crc32": "ix/ZzQ==",
+          "x-amz-sdk-checksum-algorithm": "CRC32"
+        },
+        "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Requester</Payer></RequestPaymentConfiguration>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:55:35Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,U,b,a cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "requester-boundaries",
+          "Host": "requester-boundaries.s3.amazonaws.com",
+          "requestPayment": "",
+          "RequestPaymentConfiguration": {
+            "Payer": "Requester",
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 131,
+          "startTime": 1789916135350,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789916135411,
+          "x-amz-id-2": "3oxP44XNCFDsfRAHqrfIZoZ640VAJCyFn5mtmfD38PgM8f+goQ2Ug76EMYa7Eya05FRR/Q+gnVo=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "JA7DZ4R1B8FVZKWS",
+        "eventID": "1292a399-5a7d-4f71-b1a4-10bfa6e19bc0",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::requester-boundaries"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "requester-boundaries.s3.amazonaws.com"
+        }
+      },
+      "RecordSource": {
+        "Source": "requester_payment_evidence.json.gz",
+        "DeliveredRecordIndex": 7,
+        "SourceBucket": "stackd-requester-0fc164c26bcd48a8-trail",
+        "SourceKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_RllCA00hOdAtrr24.json.gz"
+      }
+    },
+    {
+      "Label": "missing checksum changes Requester to Owner",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 37,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketRequestPayment",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "missing checksum changes Requester to Owner",
+        "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+        "Sequence": 37,
+        "Actor": "audit-user",
+        "Operation": "PutBucketRequestPayment",
+        "Method": "PUT",
+        "Target": "/requester-boundaries/?requestPayment",
+        "Headers": {},
+        "Body": "<RequestPaymentConfiguration><Payer>BucketOwner</Payer></RequestPaymentConfiguration>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:55:37Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-requester-probe/1]",
+        "requestParameters": {
+          "bucketName": "requester-boundaries",
+          "Host": "requester-boundaries.s3.us-east-1.amazonaws.com",
+          "requestPayment": "",
+          "RequestPaymentConfiguration": {
+            "Payer": "BucketOwner"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 85,
+          "startTime": 1789916137617,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789916137707,
+          "x-amz-id-2": "DEeOhSfPQAQl/BfYy49Vt7oWjieFnxafb6l7dZvquckGTC49j0yQCqLQfvkghVc/KQnSv1BVEVr6whW+IdoR4cDg199ZoVWw",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "VENNK1FT9H14EX0P",
+        "eventID": "c373111c-d343-4d63-a504-b4100f4472a8",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::requester-boundaries"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "requester-boundaries.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "RecordSource": {
+        "Source": "requester_payment_evidence.json.gz",
+        "DeliveredRecordIndex": 5,
+        "SourceBucket": "stackd-requester-0fc164c26bcd48a8-trail",
+        "SourceKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_RllCA00hOdAtrr24.json.gz"
+      }
+    },
+    {
+      "Label": "missing checksum changed state retained",
+      "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+      "Sequence": 38,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "GetBucketRequestPayment",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "missing checksum changed state retained",
+        "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+        "Sequence": 38,
+        "Actor": "audit-user",
+        "Operation": "GetBucketRequestPayment",
+        "Method": "GET",
+        "Target": "/requester-boundaries/?requestPayment",
+        "Headers": {},
+        "Body": "",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:55:37Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,b,a cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "requester-boundaries",
+          "Host": "requester-boundaries.s3.amazonaws.com",
+          "requestPayment": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789916137843,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789916137849,
+          "x-amz-id-2": "1+oMyRs7Osv+zkjfdvrAWmJTClDpLkF4kKntIZxsX0yKiE8MxjggZIDRw+c5NCufIxQPZ7tPsnU=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 172
+        },
+        "requestID": "VENZXCG1G1H5XE38",
+        "eventID": "b1460288-9333-4832-9ca1-ad99b4519b01",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::requester-boundaries"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "requester-boundaries.s3.amazonaws.com"
+        }
+      },
+      "RecordSource": {
+        "Source": "requester_payment_evidence.json.gz",
+        "DeliveredRecordIndex": 11,
+        "SourceBucket": "stackd-requester-0fc164c26bcd48a8-trail",
+        "SourceKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_RllCA00hOdAtrr24.json.gz"
+      }
+    }
+  ],
+  "Verify": [
+    {
+      "Label": "local-prerequisite-getbucketrequestpayment",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "GetBucketRequestPayment",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "requester-boundaries"
+      },
+      "Output": {
+        "Payer": "BucketOwner"
+      }
+    }
+  ]
+}

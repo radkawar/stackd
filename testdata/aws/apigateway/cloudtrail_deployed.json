@@ -1,0 +1,2137 @@
+{
+  "source": "testdata/aws/apigateway/deployed_lambda_authorization.json",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "captured_at": "2026-09-24T21:02:31.029947+00:00",
+  "event_source": "apigateway.amazonaws.com",
+  "bounds": {
+    "pages": 8,
+    "events_per_page": 50
+  },
+  "correlation": "Exact captured SDK response request ID only; no temporal ownership inference.",
+  "redaction": "Hashes only access key identifiers and client IP addresses; all native audit fields otherwise retained.",
+  "documentation": "https://docs.aws.amazon.com/apigateway/latest/developerguide/cloudtrail.html",
+  "probe_source": "#!/usr/bin/env python3\n\"\"\"Capture exact-request-ID Gateway management events; creates no AWS resources.\"\"\"\nimport argparse\nimport datetime\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport time\n\nfrom aws_cli import observe\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"--input\", type=Path, default=Path(\"testdata/aws/apigateway/deployed_lambda_authorization.json\"))\n    parser.add_argument(\"--output\", type=Path, default=Path(\"testdata/aws/apigateway/cloudtrail_deployed.json\"))\n    args = parser.parse_args()\n    if args.output.exists():\n        raise RuntimeError(\"Refusing to overwrite native evidence\")\n    source = json.loads(args.input.read_text())\n    rows = [row for row in source[\"observations\"] if row[\"service\"] in (\"apigateway\", \"apigatewayv2\")]\n    by_request = {row[\"result\"][\"request_id\"]: row for row in rows}\n    instant = datetime.datetime.fromisoformat\n    start = min(instant(row[\"started_at\"]) for row in rows).replace(microsecond=0)\n    end = max(instant(row[\"finished_at\"]) for row in rows).replace(microsecond=0) + datetime.timedelta(seconds=1)\n    env = dict(os.environ, AWS_REGION=source[\"region\"], AWS_DEFAULT_REGION=source[\"region\"], AWS_MAX_ATTEMPTS=\"1\")\n    identity = observe(\"sts\", \"get-caller-identity\", env=env)\n    if identity.get(\"output\", {}).get(\"Account\") != source[\"account\"]:\n        raise RuntimeError(\"Account does not match owned capture\")\n    evidence = {\"source\": str(args.input), \"account\": source[\"account\"], \"region\": source[\"region\"],\n        \"captured_at\": datetime.datetime.now(datetime.timezone.utc).isoformat(),\n        \"event_source\": \"apigateway.amazonaws.com\", \"bounds\": {\"pages\": 8, \"events_per_page\": 50},\n        \"correlation\": \"Exact captured SDK response request ID only; no temporal ownership inference.\",\n        \"redaction\": \"Hashes only access key identifiers and client IP addresses; all native audit fields otherwise retained.\",\n        \"documentation\": \"https://docs.aws.amazon.com/apigateway/latest/developerguide/cloudtrail.html\",\n        \"probe_source\": Path(__file__).read_text(), \"events\": [], \"lookup_pages\": [],\n        \"cleanup\": \"Read-only event-history lookup; no resources created or changed.\"}\n\n    def redact(value):\n        if isinstance(value, dict):\n            return {key: (\"<probe-redacted-sha256:\" + hashlib.sha256(json.dumps(item, sort_keys=True).encode()).hexdigest() + \">\"\n                          if key.lower() in (\"accesskeyid\", \"sourceipaddress\") and item is not None else redact(item))\n                    for key, item in value.items()}\n        if isinstance(value, list):\n            return [redact(item) for item in value]\n        return value\n\n    token = None\n    seen = set()\n    for page in range(8):\n        request = {\"LookupAttributes\": [{\"AttributeKey\": \"EventSource\", \"AttributeValue\": \"apigateway.amazonaws.com\"}],\n                   \"StartTime\": start.isoformat(), \"EndTime\": end.isoformat(), \"MaxResults\": 50}\n        if token:\n            request[\"NextToken\"] = token\n        result = observe(\"cloudtrail\", \"lookup-events\", request, env=env, paginate=False)\n        if result[\"code\"] != \"Success\":\n            raise RuntimeError(\"CloudTrail lookup failed: \" + json.dumps(result))\n        events = result[\"output\"].get(\"Events\", [])\n        token = result[\"output\"].get(\"NextToken\")\n        matched = 0\n        for item in events:\n            event = json.loads(item[\"CloudTrailEvent\"])\n            row = by_request.get(event.get(\"requestID\"))\n            if row is None or item[\"EventId\"] in seen:\n                continue\n            seen.add(item[\"EventId\"])\n            matched += 1\n            evidence[\"events\"].append({\"label\": row[\"label\"], \"service\": row[\"service\"], \"operation\": row[\"operation\"], \"event\": redact(event)})\n        evidence[\"lookup_pages\"].append({\"page\": page+1, \"returned\": len(events), \"matched\": matched, \"has_next\": bool(token)})\n        args.output.parent.mkdir(parents=True, exist_ok=True)\n        args.output.write_text(json.dumps(evidence, indent=2)+\"\\n\")\n        if not token:\n            break\n        time.sleep(0.6)\n    found = {row[\"event\"][\"requestID\"] for row in evidence[\"events\"]}\n    evidence[\"missing_observations\"] = [row[\"label\"] for request_id, row in by_request.items() if request_id not in found]\n    evidence[\"page_cap_reached\"] = bool(token)\n    args.output.write_text(json.dumps(evidence, indent=2)+\"\\n\")\n    print(json.dumps({\"correlated\": len(evidence[\"events\"]), \"missing\": evidence[\"missing_observations\"], \"page_cap_reached\": bool(token)}))\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "events": [
+    {
+      "label": "absence-rest_api",
+      "service": "apigateway",
+      "operation": "GetRestApi",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:40Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "GetRestApi",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "errorCode": "NotFoundException",
+        "errorMessage": "Invalid API identifier specified 000000000000:b6ul3f1up9",
+        "requestParameters": {
+          "restApiId": "b6ul3f1up9",
+          "template": false
+        },
+        "responseElements": null,
+        "requestID": "4e885391-de66-43cc-ac40-23826f60c9d9",
+        "eventID": "1730e5cb-031f-462d-81bd-689af71e4b20",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "cleanup-http_api",
+      "service": "apigatewayv2",
+      "operation": "DeleteApi",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:40Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "DeleteApi",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "apiId": "jzohih2ke9"
+        },
+        "responseElements": null,
+        "requestID": "e29ce2e7-e830-44cb-bec4-0015e70e2088",
+        "eventID": "60f62507-194d-4139-a334-21e22cba5e1c",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "cleanup-rest_api",
+      "service": "apigateway",
+      "operation": "DeleteRestApi",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:40Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "DeleteRestApi",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "restApiId": "b6ul3f1up9",
+          "template": false
+        },
+        "responseElements": null,
+        "requestID": "7adb8bab-cda2-49dc-b21c-78dc61c05da6",
+        "eventID": "636a4407-f015-44b9-b2d6-faa510cb7201",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "absence-http_api",
+      "service": "apigatewayv2",
+      "operation": "GetApi",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:40Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "GetApi",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "errorCode": "NotFoundException",
+        "requestParameters": {
+          "apiId": "jzohih2ke9"
+        },
+        "responseElements": null,
+        "requestID": "76de3eda-4a87-4ab6-a9a9-54f46f4b439a",
+        "eventID": "6dbb4441-a33f-4acc-84ed-56210da5e1cb",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "account-after",
+      "service": "apigateway",
+      "operation": "GetAccount",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:38Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "GetAccount",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "template": false
+        },
+        "responseElements": null,
+        "requestID": "e0f10605-ee1b-4e7b-b935-29f84a6ae21b",
+        "eventID": "a7e3754d-64e1-4173-a7e8-ba4f04a284a0",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-deploy",
+      "service": "apigateway",
+      "operation": "CreateDeployment",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:28Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateDeployment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "restApiId": "b6ul3f1up9",
+          "createDeploymentInput": {
+            "stageName": "dev"
+          },
+          "template": false
+        },
+        "responseElements": {
+          "id": "wfxmim",
+          "createdDate": "2026-09-24T20:16:28Z",
+          "deploymentUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "deploymentId": "wfxmim",
+            "template": false
+          },
+          "deploymentStages": {
+            "deploymentId": "wfxmim",
+            "restApiId": "b6ul3f1up9",
+            "template": false,
+            "templateSkipList": [
+              "position"
+            ]
+          },
+          "deploymentDelete": {
+            "deploymentId": "wfxmim",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "self": {
+            "deploymentId": "wfxmim",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          }
+        },
+        "requestID": "00878302-e7b5-470b-9469-fb68fe40884c",
+        "eventID": "b83cadbd-522f-490d-b975-7583d3e9602d",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-method-scope",
+      "service": "apigateway",
+      "operation": "PutMethod",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:27Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "PutMethod",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "restApiId": "b6ul3f1up9",
+          "putMethodInput": {
+            "apiKeyRequired": false,
+            "authorizerId": "0un3ss",
+            "authorizationType": "COGNITO_USER_POOLS",
+            "authorizationScopes": [
+              "aws.cognito.signin.user.admin"
+            ]
+          },
+          "httpMethod": "GET",
+          "resourceId": "bjiyo1",
+          "template": false
+        },
+        "responseElements": {
+          "httpMethod": "GET",
+          "apiKeyRequired": false,
+          "authorizerId": "0un3ss",
+          "methodDelete": {
+            "resourceId": "bjiyo1",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "methodresponsePut": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "bjiyo1",
+            "template": true
+          },
+          "methodUpdate": {
+            "httpMethod": "GET",
+            "resourceId": "bjiyo1",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "authorizationType": "COGNITO_USER_POOLS",
+          "integrationPut": {
+            "resourceId": "bjiyo1",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "authorizationScopes": [
+            "aws.cognito.signin.user.admin"
+          ],
+          "self": {
+            "resourceId": "bjiyo1",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false,
+            "name": "GET",
+            "title": "GET"
+          }
+        },
+        "requestID": "40f419a8-0a55-4294-aa05-c73d3f181054",
+        "eventID": "46713ba6-cc62-4b95-8b08-819224b08258",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-integration-jwt",
+      "service": "apigateway",
+      "operation": "PutIntegration",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:27Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "PutIntegration",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "resourceId": "5nli85",
+          "httpMethod": "GET",
+          "putIntegrationInput": {
+            "httpMethod": "POST",
+            "type": "AWS_PROXY",
+            "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40/invocations"
+          },
+          "restApiId": "b6ul3f1up9",
+          "template": false
+        },
+        "responseElements": {
+          "type": "AWS_PROXY",
+          "timeoutInMillis": 29000,
+          "httpMethod": "POST",
+          "integrationDelete": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "5nli85",
+            "template": false
+          },
+          "cacheKeyParameters": [],
+          "integrationresponsePut": {
+            "httpMethod": "GET",
+            "resourceId": "5nli85",
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "passthroughBehavior": "WHEN_NO_MATCH",
+          "responseTransferMode": "BUFFERED",
+          "cacheNamespace": "5nli85",
+          "integrationUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5nli85",
+            "httpMethod": "GET",
+            "template": false
+          },
+          "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40/invocations",
+          "self": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "5nli85",
+            "template": false
+          }
+        },
+        "requestID": "56014cee-f28a-4559-abc1-4092d1c2f53f",
+        "eventID": "65f60c39-528a-4556-9a81-7953b8fc79b5",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-resource-scope",
+      "service": "apigateway",
+      "operation": "CreateResource",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:27Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateResource",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "parentId": "5moyy1zxyh",
+          "restApiId": "b6ul3f1up9",
+          "createResourceInput": {
+            "pathPart": "scope"
+          },
+          "template": false
+        },
+        "responseElements": {
+          "pathPart": "scope",
+          "path": "/scope",
+          "resourceUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "bjiyo1",
+            "template": false
+          },
+          "parentId": "5moyy1zxyh",
+          "resourceDelete": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "bjiyo1",
+            "template": false
+          },
+          "id": "bjiyo1",
+          "resourceCreateChild": {
+            "parentId": "bjiyo1",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "methodPut": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "bjiyo1",
+            "template": true
+          },
+          "methodByHttpMethod": {
+            "resourceId": "bjiyo1",
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "self": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "bjiyo1",
+            "template": false
+          }
+        },
+        "requestID": "647760e9-4d35-44df-ae14-99ecec4c08da",
+        "eventID": "87657d42-a053-4642-a0b2-dc3c7a1abd0a",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-integration-scope",
+      "service": "apigateway",
+      "operation": "PutIntegration",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:27Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "PutIntegration",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "resourceId": "bjiyo1",
+          "httpMethod": "GET",
+          "putIntegrationInput": {
+            "httpMethod": "POST",
+            "type": "AWS_PROXY",
+            "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40/invocations"
+          },
+          "restApiId": "b6ul3f1up9",
+          "template": false
+        },
+        "responseElements": {
+          "type": "AWS_PROXY",
+          "timeoutInMillis": 29000,
+          "httpMethod": "POST",
+          "integrationDelete": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "bjiyo1",
+            "template": false
+          },
+          "cacheKeyParameters": [],
+          "integrationresponsePut": {
+            "httpMethod": "GET",
+            "resourceId": "bjiyo1",
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "passthroughBehavior": "WHEN_NO_MATCH",
+          "responseTransferMode": "BUFFERED",
+          "cacheNamespace": "bjiyo1",
+          "integrationUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "bjiyo1",
+            "httpMethod": "GET",
+            "template": false
+          },
+          "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40/invocations",
+          "self": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "bjiyo1",
+            "template": false
+          }
+        },
+        "requestID": "2e21ebab-32d7-4c78-8417-5058d0850b4a",
+        "eventID": "a25ab979-919d-4470-bc73-b28b9dee426d",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-method-jwt",
+      "service": "apigateway",
+      "operation": "PutMethod",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:26Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "PutMethod",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "restApiId": "b6ul3f1up9",
+          "putMethodInput": {
+            "apiKeyRequired": false,
+            "authorizerId": "0un3ss",
+            "authorizationType": "COGNITO_USER_POOLS"
+          },
+          "httpMethod": "GET",
+          "resourceId": "5nli85",
+          "template": false
+        },
+        "responseElements": {
+          "httpMethod": "GET",
+          "apiKeyRequired": false,
+          "authorizerId": "0un3ss",
+          "methodDelete": {
+            "resourceId": "5nli85",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "methodresponsePut": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "5nli85",
+            "template": true
+          },
+          "methodUpdate": {
+            "httpMethod": "GET",
+            "resourceId": "5nli85",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "authorizationType": "COGNITO_USER_POOLS",
+          "integrationPut": {
+            "resourceId": "5nli85",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "self": {
+            "resourceId": "5nli85",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false,
+            "name": "GET",
+            "title": "GET"
+          }
+        },
+        "requestID": "c32d9728-dc75-408a-bf05-d626cf4cb176",
+        "eventID": "18b0f632-f0fe-41be-9100-e8116b10e08b",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-integration-echo",
+      "service": "apigateway",
+      "operation": "PutIntegration",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:26Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "PutIntegration",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "resourceId": "3bst21",
+          "httpMethod": "GET",
+          "putIntegrationInput": {
+            "httpMethod": "POST",
+            "type": "AWS_PROXY",
+            "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40/invocations"
+          },
+          "restApiId": "b6ul3f1up9",
+          "template": false
+        },
+        "responseElements": {
+          "type": "AWS_PROXY",
+          "timeoutInMillis": 29000,
+          "httpMethod": "POST",
+          "integrationDelete": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "3bst21",
+            "template": false
+          },
+          "cacheKeyParameters": [],
+          "integrationresponsePut": {
+            "httpMethod": "GET",
+            "resourceId": "3bst21",
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "passthroughBehavior": "WHEN_NO_MATCH",
+          "responseTransferMode": "BUFFERED",
+          "cacheNamespace": "3bst21",
+          "integrationUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "3bst21",
+            "httpMethod": "GET",
+            "template": false
+          },
+          "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40/invocations",
+          "self": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "3bst21",
+            "template": false
+          }
+        },
+        "requestID": "62ca68cf-4d62-4ce5-a81c-d0383a7fa457",
+        "eventID": "77140c88-bbbb-448d-8d1f-f618527163db",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-method-iam",
+      "service": "apigateway",
+      "operation": "PutMethod",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:26Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "PutMethod",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "restApiId": "b6ul3f1up9",
+          "putMethodInput": {
+            "apiKeyRequired": false,
+            "authorizationType": "AWS_IAM"
+          },
+          "httpMethod": "GET",
+          "resourceId": "5wl2bg",
+          "template": false
+        },
+        "responseElements": {
+          "httpMethod": "GET",
+          "apiKeyRequired": false,
+          "methodDelete": {
+            "resourceId": "5wl2bg",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "methodresponsePut": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "5wl2bg",
+            "template": true
+          },
+          "methodUpdate": {
+            "httpMethod": "GET",
+            "resourceId": "5wl2bg",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "authorizationType": "AWS_IAM",
+          "integrationPut": {
+            "resourceId": "5wl2bg",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "self": {
+            "resourceId": "5wl2bg",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false,
+            "name": "GET",
+            "title": "GET"
+          }
+        },
+        "requestID": "f1ed4db6-4621-4149-9ded-0cc2b69679ba",
+        "eventID": "890f3ea4-d257-4f19-9ca1-95332e33470b",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-resource-jwt",
+      "service": "apigateway",
+      "operation": "CreateResource",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:26Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateResource",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "parentId": "5moyy1zxyh",
+          "restApiId": "b6ul3f1up9",
+          "createResourceInput": {
+            "pathPart": "jwt"
+          },
+          "template": false
+        },
+        "responseElements": {
+          "pathPart": "jwt",
+          "path": "/jwt",
+          "resourceUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5nli85",
+            "template": false
+          },
+          "parentId": "5moyy1zxyh",
+          "resourceDelete": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5nli85",
+            "template": false
+          },
+          "id": "5nli85",
+          "resourceCreateChild": {
+            "parentId": "5nli85",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "methodPut": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5nli85",
+            "template": true
+          },
+          "methodByHttpMethod": {
+            "resourceId": "5nli85",
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "self": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5nli85",
+            "template": false
+          }
+        },
+        "requestID": "aaa1c412-68ec-40df-8a44-c8af4cb3ccb9",
+        "eventID": "9040c788-9cb5-45f9-9da8-c204085bb6a5",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-resource-iam",
+      "service": "apigateway",
+      "operation": "CreateResource",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:26Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateResource",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "parentId": "5moyy1zxyh",
+          "restApiId": "b6ul3f1up9",
+          "createResourceInput": {
+            "pathPart": "iam"
+          },
+          "template": false
+        },
+        "responseElements": {
+          "pathPart": "iam",
+          "path": "/iam",
+          "resourceUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5wl2bg",
+            "template": false
+          },
+          "parentId": "5moyy1zxyh",
+          "resourceDelete": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5wl2bg",
+            "template": false
+          },
+          "id": "5wl2bg",
+          "resourceCreateChild": {
+            "parentId": "5wl2bg",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "methodPut": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5wl2bg",
+            "template": true
+          },
+          "methodByHttpMethod": {
+            "resourceId": "5wl2bg",
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "self": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5wl2bg",
+            "template": false
+          }
+        },
+        "requestID": "27ed78f3-af07-4c30-9892-2745eaac6a5e",
+        "eventID": "ac72f016-8505-4909-b1ad-7f01df637522",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-integration-iam",
+      "service": "apigateway",
+      "operation": "PutIntegration",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:26Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "PutIntegration",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "resourceId": "5wl2bg",
+          "httpMethod": "GET",
+          "putIntegrationInput": {
+            "httpMethod": "POST",
+            "type": "AWS_PROXY",
+            "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40/invocations"
+          },
+          "restApiId": "b6ul3f1up9",
+          "template": false
+        },
+        "responseElements": {
+          "type": "AWS_PROXY",
+          "timeoutInMillis": 29000,
+          "httpMethod": "POST",
+          "integrationDelete": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "5wl2bg",
+            "template": false
+          },
+          "cacheKeyParameters": [],
+          "integrationresponsePut": {
+            "httpMethod": "GET",
+            "resourceId": "5wl2bg",
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "passthroughBehavior": "WHEN_NO_MATCH",
+          "responseTransferMode": "BUFFERED",
+          "cacheNamespace": "5wl2bg",
+          "integrationUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "5wl2bg",
+            "httpMethod": "GET",
+            "template": false
+          },
+          "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40/invocations",
+          "self": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "5wl2bg",
+            "template": false
+          }
+        },
+        "requestID": "bee1c8b3-261a-475e-af08-030b125de66e",
+        "eventID": "d0d29cd4-878c-4600-91da-722441746f4d",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "http-deploy",
+      "service": "apigatewayv2",
+      "operation": "CreateDeployment",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:25Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateDeployment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "apiId": "jzohih2ke9"
+        },
+        "responseElements": {
+          "deploymentStatus": "DEPLOYED",
+          "createdDate": "2026-09-24T20:16:24Z",
+          "autoDeployed": false,
+          "deploymentId": "v77189"
+        },
+        "requestID": "64ec8519-8cb1-4d32-aea6-29df414f565b",
+        "eventID": "27318a84-8a9e-4115-a075-b0519e0b4c23",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "rest-authorizer",
+      "service": "apigateway",
+      "operation": "CreateAuthorizer",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:25Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateAuthorizer",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "restApiId": "b6ul3f1up9",
+          "createAuthorizerInput": {
+            "providerARNs": [
+              "arn:aws:cognito-idp:us-east-1:000000000000:userpool/us-east-1_xjk09kDDU"
+            ],
+            "identitySource": "method.request.header.Authorization",
+            "type": "COGNITO_USER_POOLS",
+            "name": "cognito"
+          },
+          "template": false
+        },
+        "responseElements": {
+          "providerARNs": [
+            "arn:aws:cognito-idp:us-east-1:000000000000:userpool/us-east-1_xjk09kDDU"
+          ],
+          "identitySource": "method.request.header.Authorization",
+          "authType": "cognito_user_pools",
+          "authorizerUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "authorizerId": "0un3ss",
+            "template": false
+          },
+          "name": "cognito",
+          "authorizerDelete": {
+            "authorizerId": "0un3ss",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "type": "COGNITO_USER_POOLS",
+          "id": "0un3ss",
+          "self": {
+            "authorizerId": "0un3ss",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          }
+        },
+        "requestID": "caf03faa-f243-4cd1-bc81-bf94b723a7bc",
+        "eventID": "3fb73545-f8c7-46fc-9ac6-f8e2fcfc1eb4",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-resource-echo",
+      "service": "apigateway",
+      "operation": "CreateResource",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:25Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateResource",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "parentId": "5moyy1zxyh",
+          "restApiId": "b6ul3f1up9",
+          "createResourceInput": {
+            "pathPart": "echo"
+          },
+          "template": false
+        },
+        "responseElements": {
+          "pathPart": "echo",
+          "path": "/echo",
+          "resourceUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "3bst21",
+            "template": false
+          },
+          "parentId": "5moyy1zxyh",
+          "resourceDelete": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "3bst21",
+            "template": false
+          },
+          "id": "3bst21",
+          "resourceCreateChild": {
+            "parentId": "3bst21",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "methodPut": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "3bst21",
+            "template": true
+          },
+          "methodByHttpMethod": {
+            "resourceId": "3bst21",
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "self": {
+            "restApiId": "b6ul3f1up9",
+            "resourceId": "3bst21",
+            "template": false
+          }
+        },
+        "requestID": "0d9b019e-73c8-4edd-b7b1-a96fe6573434",
+        "eventID": "60cc70aa-b37c-4fa9-9556-404ec094c758",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "rest-resources",
+      "service": "apigateway",
+      "operation": "GetResources",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:25Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "GetResources",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "restApiId": "b6ul3f1up9",
+          "template": false
+        },
+        "responseElements": null,
+        "requestID": "e90d7dfe-6194-4d8d-ac9a-f24ef5cd6108",
+        "eventID": "7bb4374f-cee4-49ed-929f-6289dfe21dc7",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "http-select-deployment",
+      "service": "apigatewayv2",
+      "operation": "UpdateStage",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:25Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "UpdateStage",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "stageName": "%24default",
+          "deploymentId": "v77189",
+          "apiId": "jzohih2ke9"
+        },
+        "responseElements": {
+          "lastUpdatedDate": "2026-09-24T20:16:25Z",
+          "stageName": "$default",
+          "createdDate": "2026-09-24T20:16:24Z",
+          "routeSettings": {},
+          "autoDeploy": false,
+          "deploymentId": "v77189",
+          "defaultRouteSettings": {
+            "detailedMetricsEnabled": false
+          },
+          "stageVariables": "***",
+          "tags": {}
+        },
+        "requestID": "4e5e723d-88d2-494b-90b5-0ef3565ac0b7",
+        "eventID": "a05723c3-ca43-4a22-940a-1b20bafb3bb5",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "rest-method-echo",
+      "service": "apigateway",
+      "operation": "PutMethod",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:25Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "PutMethod",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "restApiId": "b6ul3f1up9",
+          "putMethodInput": {
+            "apiKeyRequired": false,
+            "authorizationType": "NONE"
+          },
+          "httpMethod": "GET",
+          "resourceId": "3bst21",
+          "template": false
+        },
+        "responseElements": {
+          "httpMethod": "GET",
+          "apiKeyRequired": false,
+          "methodDelete": {
+            "resourceId": "3bst21",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "methodresponsePut": {
+            "restApiId": "b6ul3f1up9",
+            "httpMethod": "GET",
+            "resourceId": "3bst21",
+            "template": true
+          },
+          "methodUpdate": {
+            "httpMethod": "GET",
+            "resourceId": "3bst21",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "authorizationType": "NONE",
+          "integrationPut": {
+            "resourceId": "3bst21",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "self": {
+            "resourceId": "3bst21",
+            "httpMethod": "GET",
+            "restApiId": "b6ul3f1up9",
+            "template": false,
+            "name": "GET",
+            "title": "GET"
+          }
+        },
+        "requestID": "5911a999-a2d3-401e-a710-ac402eb1700d",
+        "eventID": "b33eb914-5764-47c9-b479-aa9a764650d8",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "http-stage",
+      "service": "apigatewayv2",
+      "operation": "CreateStage",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:24Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateStage",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "stageName": "$default",
+          "autoDeploy": false,
+          "apiId": "jzohih2ke9"
+        },
+        "responseElements": {
+          "lastUpdatedDate": "2026-09-24T20:16:24Z",
+          "stageName": "$default",
+          "createdDate": "2026-09-24T20:16:24Z",
+          "routeSettings": {},
+          "autoDeploy": false,
+          "defaultRouteSettings": {
+            "detailedMetricsEnabled": false
+          },
+          "stageVariables": "***",
+          "tags": {}
+        },
+        "requestID": "3f77efd4-8b90-4d20-871e-c7572e121bbf",
+        "eventID": "744677de-4f4b-4c20-b066-78b7e2c73043",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "http-invalid-literal-management-route",
+      "service": "apigatewayv2",
+      "operation": "CreateRoute",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:24Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateRoute",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "errorCode": "BadRequestException",
+        "requestParameters": {
+          "routeKey": "GET /@connections/{id}",
+          "authorizationType": "NONE",
+          "apiId": "jzohih2ke9",
+          "target": "integrations/6a4e4mc"
+        },
+        "responseElements": {
+          "message": "One or more path parts appear to be invalid. Parts are validated against this regular expression: ^(\\{[\\w.:-]+\\+?\\}|[a-zA-Z0-9.:_-]+)$"
+        },
+        "requestID": "8d67e5d1-8791-476e-809f-5d48bbfdf14b",
+        "eventID": "9e312005-78af-4b5b-b8d2-60cf6ff8e224",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "http-route-GET /scope",
+      "service": "apigatewayv2",
+      "operation": "CreateRoute",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:23Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateRoute",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "authorizerId": "qadvop",
+          "routeKey": "GET /scope",
+          "authorizationScopes": [
+            "aws.cognito.signin.user.admin"
+          ],
+          "authorizationType": "JWT",
+          "apiId": "jzohih2ke9",
+          "target": "integrations/6a4e4mc"
+        },
+        "responseElements": {
+          "authorizerId": "qadvop",
+          "routeId": "i1wf7g5",
+          "apiKeyRequired": false,
+          "routeKey": "GET /scope",
+          "authorizationScopes": [
+            "aws.cognito.signin.user.admin"
+          ],
+          "authorizationType": "JWT",
+          "target": "integrations/6a4e4mc"
+        },
+        "requestID": "6042a69a-f70c-4876-989e-f6b3bd2d8fe5",
+        "eventID": "082e255e-3ac1-4bc1-8017-bad4a4f52571",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "http-route-GET /iam",
+      "service": "apigatewayv2",
+      "operation": "CreateRoute",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:23Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateRoute",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "routeKey": "GET /iam",
+          "authorizationType": "AWS_IAM",
+          "apiId": "jzohih2ke9",
+          "target": "integrations/6a4e4mc"
+        },
+        "responseElements": {
+          "authorizationType": "AWS_IAM",
+          "routeId": "bprlj8n",
+          "apiKeyRequired": false,
+          "routeKey": "GET /iam",
+          "target": "integrations/6a4e4mc"
+        },
+        "requestID": "64973458-5298-40d7-add2-d3e8b482b34c",
+        "eventID": "396627ed-25cf-4270-b6b8-911f19c3db92",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "http-route-GET /jwt",
+      "service": "apigatewayv2",
+      "operation": "CreateRoute",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:23Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateRoute",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "authorizerId": "qadvop",
+          "routeKey": "GET /jwt",
+          "authorizationType": "JWT",
+          "apiId": "jzohih2ke9",
+          "target": "integrations/6a4e4mc"
+        },
+        "responseElements": {
+          "authorizerId": "qadvop",
+          "routeId": "og0a9wb",
+          "apiKeyRequired": false,
+          "routeKey": "GET /jwt",
+          "authorizationType": "JWT",
+          "target": "integrations/6a4e4mc"
+        },
+        "requestID": "0b589ba5-8bca-46ce-b16b-be5f607d2f93",
+        "eventID": "7d3be211-e8dc-462b-a54c-78cfbc63c578",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "http-authorizer",
+      "service": "apigatewayv2",
+      "operation": "CreateAuthorizer",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:23Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateAuthorizer",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "identitySource": [
+            "$request.header.Authorization"
+          ],
+          "name": "jwt",
+          "jwtConfiguration": {
+            "issuer": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xjk09kDDU",
+            "audience": [
+              "4guvrd4qmov855q24ckv99n6fn"
+            ]
+          },
+          "authorizerType": "JWT",
+          "apiId": "jzohih2ke9"
+        },
+        "responseElements": {
+          "name": "jwt",
+          "identitySource": [
+            "$request.header.Authorization"
+          ],
+          "jwtConfiguration": {
+            "issuer": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xjk09kDDU",
+            "audience": [
+              "4guvrd4qmov855q24ckv99n6fn"
+            ]
+          },
+          "authorizerId": "qadvop",
+          "authorizerType": "JWT"
+        },
+        "requestID": "d4c4f2dc-aa10-41ad-8e4e-f309c3f1b631",
+        "eventID": "a9856635-7e99-4513-bc11-a19dc2a23d79",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "http-route-ANY /echo",
+      "service": "apigatewayv2",
+      "operation": "CreateRoute",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:23Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateRoute",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "routeKey": "ANY /echo",
+          "authorizationType": "NONE",
+          "apiId": "jzohih2ke9",
+          "target": "integrations/6a4e4mc"
+        },
+        "responseElements": {
+          "authorizationType": "NONE",
+          "routeId": "tbrh5fo",
+          "apiKeyRequired": false,
+          "routeKey": "ANY /echo",
+          "target": "integrations/6a4e4mc"
+        },
+        "requestID": "efe7bb00-aa4c-4788-8383-1d184e2fa446",
+        "eventID": "ec7486db-3633-4f64-a5ca-89c467bcfa1c",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "http-integration",
+      "service": "apigatewayv2",
+      "operation": "CreateIntegration",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:22Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateIntegration",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "integrationType": "AWS_PROXY",
+          "payloadFormatVersion": "2.0",
+          "integrationUri": "arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40",
+          "apiId": "jzohih2ke9"
+        },
+        "responseElements": {
+          "integrationMethod": "POST",
+          "integrationType": "AWS_PROXY",
+          "integrationId": "6a4e4mc",
+          "payloadFormatVersion": "2.0",
+          "integrationUri": "arn:aws:lambda:us-east-1:000000000000:function:stackd-apigw-2b39ec9e40",
+          "connectionType": "INTERNET",
+          "timeoutInMillis": 30000
+        },
+        "requestID": "18c89e91-ef77-4fef-92dd-b2391d879452",
+        "eventID": "b839c263-2b0e-467b-83fb-85948e6b0d7b",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "create-http",
+      "service": "apigatewayv2",
+      "operation": "CreateApi",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:08Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateApi",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "name": "stackd-apigw-2b39ec9e40",
+          "protocolType": "HTTP"
+        },
+        "responseElements": {
+          "disableExecuteApiEndpoint": false,
+          "apiEndpoint": "https://jzohih2ke9.execute-api.us-east-1.amazonaws.com",
+          "createdDate": "2026-09-24T20:16:08Z",
+          "apiKeySelectionExpression": "$request.header.x-api-key",
+          "routeSelectionExpression": "$request.method $request.path",
+          "name": "stackd-apigw-2b39ec9e40",
+          "protocolType": "HTTP",
+          "apiId": "jzohih2ke9",
+          "ipAddressType": "ipv4"
+        },
+        "requestID": "375362d9-440c-407f-9b4e-dfb6b36d021d",
+        "eventID": "c69766e4-99c9-4612-a1ab-c3f1f4ba17aa",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256"
+        }
+      }
+    },
+    {
+      "label": "create-rest",
+      "service": "apigateway",
+      "operation": "CreateRestApi",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:07Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "CreateRestApi",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "createRestApiInput": {
+            "endpointConfiguration": {
+              "types": [
+                "REGIONAL"
+              ]
+            },
+            "name": "stackd-apigw-2b39ec9e40",
+            "disableExecuteApiEndpoint": false
+          },
+          "template": false
+        },
+        "responseElements": {
+          "apiStatus": "AVAILABLE",
+          "restapiUpdate": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "restapiStages": {
+            "restApiId": "b6ul3f1up9",
+            "template": true,
+            "templateSkipList": [
+              "position"
+            ]
+          },
+          "documentationversionByVersion": {
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "deploymentById": {
+            "restApiId": "b6ul3f1up9",
+            "template": true,
+            "templateSkipList": [
+              "position"
+            ]
+          },
+          "stageCreate": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "documentationpartById": {
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "restapiAuthorizers": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "stageByName": {
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "deploymentCreate": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "authorizerCreate": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "restapiDelete": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "modelCreate": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "rootResourceId": "5moyy1zxyh",
+          "restapiResources": {
+            "restApiId": "b6ul3f1up9",
+            "template": true,
+            "templateSkipList": [
+              "position"
+            ]
+          },
+          "endpointConfiguration": {
+            "ipAddressType": "ipv4",
+            "types": [
+              "REGIONAL"
+            ]
+          },
+          "requestvalidatorCreate": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "securityPolicy": "TLS_1_0",
+          "restapiDocumentationVersions": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "resourceCreate": {
+            "parentId": "5moyy1zxyh",
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "documentationpartCreate": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "documentationpartImport": {
+            "restApiId": "b6ul3f1up9",
+            "failOnWarnings": false,
+            "template": true
+          },
+          "gatewayresponsePut": {
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "restapiRequestValidators": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "documentationversionCreate": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "name": "stackd-apigw-2b39ec9e40",
+          "modelByName": {
+            "flatten": false,
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "gatewayresponseByType": {
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "requestvalidatorById": {
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "id": "b6ul3f1up9",
+          "restapiDeployments": {
+            "restApiId": "b6ul3f1up9",
+            "template": true,
+            "templateSkipList": [
+              "position"
+            ]
+          },
+          "createdDate": "2026-09-24T20:16:07Z",
+          "disableExecuteApiEndpoint": false,
+          "restapiModels": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "restapiDocumentationParts": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "restapiGatewayResponses": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          },
+          "apiKeySource": "HEADER",
+          "authorizerById": {
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "resourceById": {
+            "restApiId": "b6ul3f1up9",
+            "template": true
+          },
+          "self": {
+            "restApiId": "b6ul3f1up9",
+            "template": false
+          }
+        },
+        "requestID": "4079dc99-f004-45b8-922b-b795a2fc79da",
+        "eventID": "3db63bf8-8211-4444-b7c0-8ae47e9363e3",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "label": "account-before",
+      "service": "apigateway",
+      "operation": "GetAccount",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "<probe-redacted-sha256:d30ea88caf8979e33da9ca665471761ae54cc4e150eb68fb0912096b2fea8dfe>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-24T20:16:06Z",
+        "eventSource": "apigateway.amazonaws.com",
+        "eventName": "GetAccount",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "<probe-redacted-sha256:f04385d1d6eb74eb2dce56b3da3c1f78bf6bde4ef7a01cc05e6a34f4821279b4>",
+        "userAgent": "Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy Botocore/1.43.98",
+        "requestParameters": {
+          "template": false
+        },
+        "responseElements": null,
+        "requestID": "f20f6f4f-096b-4fbe-9c0a-56aaae6cc338",
+        "eventID": "72e81203-c6f2-4923-91e3-3e263efe4851",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "apigateway.us-east-1.amazonaws.com"
+        }
+      }
+    }
+  ],
+  "lookup_pages": [
+    {
+      "page": 1,
+      "returned": 33,
+      "matched": 33,
+      "has_next": false
+    }
+  ],
+  "cleanup": "Read-only event-history lookup; no resources created or changed.",
+  "missing_observations": [],
+  "page_cap_reached": false
+}

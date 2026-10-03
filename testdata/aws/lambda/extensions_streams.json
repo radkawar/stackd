@@ -1,0 +1,1747 @@
+{
+  "source": "Native Lambda stdout/stderr partial-line interleaving through a real external telemetry collector",
+  "scenario": {
+    "source": "Native Lambda stdout/stderr partial-line interleaving through a real external telemetry collector",
+    "handler": "handler_streams.py",
+    "extension": "extension_buffer.py",
+    "output": "subscriptions_streams.json",
+    "timeout": 8,
+    "variables": {
+      "PROBE_SUBSCRIPTIONS": "[{\"label\":\"telemetry-streams\",\"path\":\"/2022-07-01/telemetry\",\"body\":{\"schemaVersion\":\"2025-01-29\",\"types\":[\"platform\",\"function\",\"extension\"],\"buffering\":{\"maxBytes\":262144,\"maxItems\":1000,\"timeoutMs\":25},\"destination\":{\"protocol\":\"HTTP\",\"URI\":\"http://sandbox.localdomain:4243/streams\"}}}]"
+    },
+    "invocations": [
+      {
+        "label": "stdout-partial",
+        "payload": {
+          "marker": "STDOUT_PARTIAL",
+          "writes": [
+            [
+              1,
+              "STDOUT_PREFIX "
+            ],
+            [
+              2,
+              "STDERR_LINE\n"
+            ],
+            [
+              1,
+              "STDOUT_SUFFIX\n"
+            ]
+          ]
+        },
+        "log_type": "Tail",
+        "drain_seconds": 5
+      },
+      {
+        "label": "stderr-partial",
+        "payload": {
+          "marker": "STDERR_PARTIAL",
+          "writes": [
+            [
+              2,
+              "STDERR_PREFIX "
+            ],
+            [
+              1,
+              "STDOUT_LINE\n"
+            ],
+            [
+              2,
+              "STDERR_SUFFIX\n"
+            ]
+          ]
+        },
+        "log_type": "Tail",
+        "drain_seconds": 5
+      },
+      {
+        "label": "streams-flush",
+        "payload": {
+          "marker": "STREAMS_FLUSH"
+        },
+        "log_type": "Tail",
+        "drain_seconds": 5
+      }
+    ],
+    "unresolved": [
+      "This capture observes plain-text log line boundaries, not JSON logging, invalid UTF-8 conversion, or a global event order."
+    ]
+  },
+  "captured_at": "2026-09-15T07:07:32.128442+00:00",
+  "region": "us-east-1",
+  "prefix": "stackd-ext-a67cc7f44ae7",
+  "observations": [
+    {
+      "label": "actor",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": null,
+      "started_unix_ns": 1789456052128452210,
+      "finished_unix_ns": 1789456052843553316,
+      "duration_ms": 715.1015512645245,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "create-collector",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-ext-a67cc7f44ae7",
+        "Attributes": {
+          "MessageRetentionPeriod": "300"
+        }
+      },
+      "started_unix_ns": 1789456052843757113,
+      "finished_unix_ns": 1789456053657527192,
+      "duration_ms": 813.770679756999,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7"
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "collector-arn",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "started_unix_ns": 1789456053657733938,
+      "finished_unix_ns": 1789456054359724493,
+      "duration_ms": 701.991013251245,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-ext-a67cc7f44ae7"
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "create-role",
+      "service": "iam",
+      "operation": "create-role",
+      "input": {
+        "RoleName": "stackd-ext-a67cc7f44ae7",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"lambda.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "started_unix_ns": 1789456054359978891,
+      "finished_unix_ns": 1789456055099147573,
+      "duration_ms": 739.1691626980901,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-ext-a67cc7f44ae7",
+            "RoleId": "AROAQAAAAAAAAA4JHD54V",
+            "Arn": "arn:aws:iam::000000000000:role/stackd-ext-a67cc7f44ae7",
+            "CreateDate": "2026-09-15T07:07:34+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "lambda.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "collector-permission",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-ext-a67cc7f44ae7",
+        "PolicyName": "collector",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-ext-a67cc7f44ae7\"}]}"
+      },
+      "started_unix_ns": 1789456055099409172,
+      "finished_unix_ns": 1789456055830778712,
+      "duration_ms": 731.3701268285513,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "publish-layer",
+      "service": "lambda",
+      "operation": "publish-layer-version",
+      "input": {
+        "LayerName": "stackd-ext-a67cc7f44ae7",
+        "Content": {
+          "ZipFile": "UEsDBBQAAAAAAAAAL10YLMvTQAAAAEAAAAATAAAAZXh0ZW5zaW9ucy9wcm9iZS5zaCMhL2Jpbi9zaApleGVjIC92YXIvbGFuZy9iaW4vcHl0aG9uMy4xMiAvb3B0L3Byb2JlX2V4dGVuc2lvbi5weQpQSwMEFAAAAAAAAAAvXZHdaGgHEAAABxAAABIAAABwcm9iZV9leHRlbnNpb24ucHlpbXBvcnQgYmFzZTY0LCBnemlwLCBodHRwLmNsaWVudCwgaHR0cC5zZXJ2ZXIsIGpzb24sIG9zLCB0aHJlYWRpbmcsIHRpbWUsIHV1aWQKaW1wb3J0IGJvdG8zCgpBUEkgPSBvcy5lbnZpcm9uWydBV1NfTEFNQkRBX1JVTlRJTUVfQVBJJ10KUVVFVUUgPSBvcy5lbnZpcm9uWydQUk9CRV9RVUVVRSddClNRUyA9IGJvdG8zLmNsaWVudCgnc3FzJykKQk9PVCA9IHV1aWQudXVpZDQoKS5oZXgKTE9DSyA9IHRocmVhZGluZy5Mb2NrKCkKUkVDT1JEUyA9IFtdClJFR0lTVFJBVElPTlMgPSBbXQpSRUFEWSA9IEZhbHNlCgpkZWYgZW1pdChraW5kLCAqKmZpZWxkcyk6CiAgICB3aXRoIExPQ0s6CiAgICAgICAgUkVDT1JEUy5hcHBlbmQoZGljdChraW5kPWtpbmQsIGJvb3Q9Qk9PVCwgdW5peF9ucz10aW1lLnRpbWVfbnMoKSwgKipmaWVsZHMpKQoKZGVmIGZsdXNoKCk6CiAgICB3aXRoIExPQ0s6CiAgICAgICAgcmVjb3JkcyA9IFJFQ09SRFNbOl0KICAgICAgICBSRUNPUkRTLmNsZWFyKCkKICAgIGNodW5rID0gW10KICAgIGZvciByZWNvcmQgaW4gcmVjb3JkczoKICAgICAgICBpZiBjaHVuayBhbmQgbGVuKGpzb24uZHVtcHMoY2h1bmspKSArIGxlbihqc29uLmR1bXBzKHJlY29yZCkpID4gMTUwMDAwOgogICAgICAgICAgICBTUVMuc2VuZF9tZXNzYWdlKFF1ZXVlVXJsPVFVRVVFLCBNZXNzYWdlQm9keT1qc29uLmR1bXBzKHsncmVjb3Jkcyc6Y2h1bmt9KSkKICAgICAgICAgICAgY2h1bmsgPSBbXQogICAgICAgIGNodW5rLmFwcGVuZChyZWNvcmQpCiAgICBpZiBjaHVuazoKICAgICAgICBTUVMuc2VuZF9tZXNzYWdlKFF1ZXVlVXJsPVFVRVVFLCBNZXNzYWdlQm9keT1qc29uLmR1bXBzKHsncmVjb3Jkcyc6Y2h1bmt9KSkKCmRlZiBmbHVzaGVyKCk6CiAgICB3aGlsZSBUcnVlOgogICAgICAgIHRpbWUuc2xlZXAoLjEpCiAgICAgICAgdHJ5OgogICAgICAgICAgICBmbHVzaCgpCiAgICAgICAgZXhjZXB0IEV4Y2VwdGlvbiBhcyBlcnJvcjoKICAgICAgICAgICAgcHJpbnQoJ0NPTExFQ1RPUl9FUlJPUiAnICsgc3RyKGVycm9yKSwgZmx1c2g9VHJ1ZSkKCmRlZiByZXF1ZXN0KGxhYmVsLCBtZXRob2QsIHBhdGgsIGJvZHk9Tm9uZSwgaGVhZGVycz1Ob25lKToKICAgIGNvbm5lY3Rpb24gPSBodHRwLmNsaWVudC5IVFRQQ29ubmVjdGlvbihBUEksIHRpbWVvdXQ9OTAwIGlmIHBhdGguZW5kc3dpdGgoJy9uZXh0JykgZWxzZSAxMCkKICAgIGNvbm5lY3Rpb24ucmVxdWVzdChtZXRob2QsIHBhdGgsIE5vbmUgaWYgYm9keSBpcyBOb25lIGVsc2UganNvbi5kdW1wcyhib2R5KSwgaGVhZGVycyBvciB7fSkKICAgIHJlc3BvbnNlID0gY29ubmVjdGlvbi5nZXRyZXNwb25zZSgpCiAgICBvYnNlcnZlZCA9IGRpY3Qoc3RhdHVzPXJlc3BvbnNlLnN0YXR1cywgaGVhZGVycz1kaWN0KHJlc3BvbnNlLmdldGhlYWRlcnMoKSksIGJvZHk9cmVzcG9uc2UucmVhZCgpLmRlY29kZSgpKQogICAgY29ubmVjdGlvbi5jbG9zZSgpCiAgICBlbWl0KCdhcGknLCBsYWJlbD1sYWJlbCwgbWV0aG9kPW1ldGhvZCwgcGF0aD1wYXRoLCBpbnB1dD1kaWN0KGJvZHk9Ym9keSwgaGVhZGVycz1oZWFkZXJzIG9yIHt9KSwgcmVzdWx0PW9ic2VydmVkKQogICAgcmV0dXJuIG9ic2VydmVkCgpjbGFzcyBMaXN0ZW5lcihodHRwLnNlcnZlci5CYXNlSFRUUFJlcXVlc3RIYW5kbGVyKToKICAgIGRlZiByZWNlaXZlKHNlbGYpOgogICAgICAgIHJhdyA9IHNlbGYucmZpbGUucmVhZChpbnQoc2VsZi5oZWFkZXJzLmdldCgnQ29udGVudC1MZW5ndGgnLCcwJykpKQogICAgICAgIGlmIHNlbGYucGF0aCA9PSAnL3JlYWR5JzoKICAgICAgICAgICAgc2VsZi5zZW5kX3Jlc3BvbnNlKDIwMCBpZiBSRUFEWSBlbHNlIDUwMykKICAgICAgICAgICAgc2VsZi5lbmRfaGVhZGVycygpCiAgICAgICAgICAgIHNlbGYud2ZpbGUud3JpdGUoanNvbi5kdW1wcyh7J3JlYWR5JzpSRUFEWSwnYm9vdCc6Qk9PVH0pLmVuY29kZSgpKQogICAgICAgICAgICByZXR1cm4KICAgICAgICBpZiBzZWxmLnBhdGggPT0gJy9jb250cm9sJzoKICAgICAgICAgICAgZW1pdCgnY29udHJvbCcsIGlucHV0PWpzb24ubG9hZHMocmF3KSkKICAgICAgICBlbHNlOgogICAgICAgICAgICBldmVudHMgPSBqc29uLmxvYWRzKHJhdykKICAgICAgICAgICAgZW1pdCgnZGVsaXZlcnknLCB0cmFuc3BvcnQ9J0hUVFAnLCBtZXRob2Q9c2VsZi5jb21tYW5kLCBwYXRoPXNlbGYucGF0aCwgaGVhZGVycz1kaWN0KHNlbGYuaGVhZGVycyksCiAgICAgICAgICAgICAgICAgZXZlbnRfY291bnQ9bGVuKGV2ZW50cyksIGZpcnN0PWV2ZW50c1swXSBpZiBldmVudHMgZWxzZSBOb25lLCBsYXN0PWV2ZW50c1stMV0gaWYgZXZlbnRzIGVsc2UgTm9uZSwKICAgICAgICAgICAgICAgICByYXdfZ3ppcF9iYXNlNjQ9YmFzZTY0LmI2NGVuY29kZShnemlwLmNvbXByZXNzKHJhdykpLmRlY29kZSgpKQogICAgICAgIHNlbGYuc2VuZF9yZXNwb25zZSgyMDApCiAgICAgICAgc2VsZi5lbmRfaGVhZGVycygpCiAgICAgICAgc2VsZi53ZmlsZS53cml0ZShiJ3t9JykKICAgIGRvX0dFVCA9IHJlY2VpdmUKICAgIGRvX1BPU1QgPSByZWNlaXZlCiAgICBkZWYgbG9nX21lc3NhZ2Uoc2VsZiwqYXJncyk6CiAgICAgICAgcGFzcwoKc2VydmVyID0gaHR0cC5zZXJ2ZXIuVGhyZWFkaW5nSFRUUFNlcnZlcigoJzAuMC4wLjAnLDQyNDMpLExpc3RlbmVyKQp0aHJlYWRpbmcuVGhyZWFkKHRhcmdldD1zZXJ2ZXIuc2VydmVfZm9yZXZlcixkYWVtb249VHJ1ZSkuc3RhcnQoKQp0aHJlYWRpbmcuVGhyZWFkKHRhcmdldD1mbHVzaGVyLGRhZW1vbj1UcnVlKS5zdGFydCgpCmZvciByb3cgaW4ganNvbi5sb2Fkcyhvcy5lbnZpcm9uWydQUk9CRV9TVUJTQ1JJUFRJT05TJ10pOgogICAgbGFiZWwgPSByb3dbJ2xhYmVsJ10KICAgIG5hbWUgPSAncHJvYmUuc2gnIGlmIG5vdCBSRUdJU1RSQVRJT05TIGVsc2UgbGFiZWwKICAgIHJlZ2lzdHJhdGlvbiA9IHJlcXVlc3QobGFiZWwsICdQT1NUJywgJy8yMDIwLTAxLTAxL2V4dGVuc2lvbi9yZWdpc3RlcicsCiAgICAgICAgICAgICAgICAgICAgICAgICAgIHsnZXZlbnRzJzpbJ0lOVk9LRScsJ1NIVVRET1dOJ10gaWYgbm90IFJFR0lTVFJBVElPTlMgZWxzZSBbJ0lOVk9LRSddfSwgeydMYW1iZGEtRXh0ZW5zaW9uLU5hbWUnOm5hbWV9KQogICAgaWYgcmVnaXN0cmF0aW9uWydzdGF0dXMnXSAhPSAyMDA6CiAgICAgICAgcmFpc2UgUnVudGltZUVycm9yKCdSZWdpc3RyYXRpb24gZmFpbGVkOiAnICsganNvbi5kdW1wcyhyZWdpc3RyYXRpb24pKQogICAgaWRlbnRpZmllciA9IG5leHQodmFsdWUgZm9yIGtleSx2YWx1ZSBpbiByZWdpc3RyYXRpb25bJ2hlYWRlcnMnXS5pdGVtcygpIGlmIGtleS5sb3dlcigpID09ICdsYW1iZGEtZXh0ZW5zaW9uLWlkZW50aWZpZXInKQogICAgUkVHSVNUUkFUSU9OUy5hcHBlbmQoKGxhYmVsLGlkZW50aWZpZXIpKQogICAgcmVxdWVzdCgnc3Vic2NyaWJlLScrbGFiZWwsJ1BVVCcscm93WydwYXRoJ10scm93Wydib2R5J10seydMYW1iZGEtRXh0ZW5zaW9uLUlkZW50aWZpZXInOmlkZW50aWZpZXJ9KQpSRUFEWSA9IFRydWUKZW1pdCgncmVhZHknLCByZWdpc3RyYXRpb25zPVJFR0lTVFJBVElPTlMpCmZsdXNoKCkKCmRlZiBwYXJ0aWNpcGF0ZShsYWJlbCwgaWRlbnRpZmllcik6CiAgICB3aGlsZSBUcnVlOgogICAgICAgIHJlc3BvbnNlID0gcmVxdWVzdCgnbmV4dC0nK2xhYmVsLCdHRVQnLCcvMjAyMC0wMS0wMS9leHRlbnNpb24vZXZlbnQvbmV4dCcsaGVhZGVycz17J0xhbWJkYS1FeHRlbnNpb24tSWRlbnRpZmllcic6aWRlbnRpZmllcn0pCiAgICAgICAgaWYgcmVzcG9uc2VbJ3N0YXR1cyddICE9IDIwMDoKICAgICAgICAgICAgcmV0dXJuCiAgICAgICAgaWYganNvbi5sb2FkcyhyZXNwb25zZVsnYm9keSddKVsnZXZlbnRUeXBlJ10gPT0gJ1NIVVRET1dOJzoKICAgICAgICAgICAgZmx1c2goKQogICAgICAgICAgICByZXR1cm4KCmZvciBsYWJlbCxpZGVudGlmaWVyIGluIFJFR0lTVFJBVElPTlNbMTpdOgogICAgdGhyZWFkaW5nLlRocmVhZCh0YXJnZXQ9cGFydGljaXBhdGUsYXJncz0obGFiZWwsaWRlbnRpZmllciksZGFlbW9uPVRydWUpLnN0YXJ0KCkKcGFydGljaXBhdGUoKlJFR0lTVFJBVElPTlNbMF0pClBLAQIUAxQAAAAAAAAAL10YLMvTQAAAAEAAAAATAAAAAAAAAAAAAADtgQAAAABleHRlbnNpb25zL3Byb2JlLnNoUEsBAhQDFAAAAAAAAAAvXZHdaGgHEAAABxAAABIAAAAAAAAAAAAAAKSBcQAAAHByb2JlX2V4dGVuc2lvbi5weVBLBQYAAAAAAgACAIEAAACoEAAAAAA="
+        }
+      },
+      "started_unix_ns": 1789456055831159142,
+      "finished_unix_ns": 1789456061068415692,
+      "duration_ms": 5237.256981432438,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Content": {
+            "Location": "https://prod-iad-c1-djusa-layers.s3.us-east-1.amazonaws.com/snapshots/000000000000/stackd-ext-a67cc7f44ae7-e98cede0-fb06-4665-91a8-403c9f88212a?versionId=M0UoWGYBNc4ixHX47Kh9SslNSANhul7d&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEC8aCXVzLWVhc3QtMSJIMEYCIQCJN24UX2UiCWL1bC%2BMWeaumcm%2F5GwL5ByFNBJJ6TO43QIhAPkFwV0Hu%2B4XuVIWRJnKCq7vetC5LKWcqcrWKlHU8pS3KsMFCPj%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEQBBoMNDc5MjMzMDI1Mzc5IgyY4K6%2F%2FfRshjuHnhsqlwVKFXktg7oOeusNlJz7%2FOKuSv84WqH71upPBfl5wFZldeKVXo%2BlNOR6%2FNvfj61zo0bDloN3dN11k%2F9rSeSrqFVKGM8tmNhD66pxK3ZkhJZf5jND3KEU1sUBN%2BIsg%2Fbol3hdmZxeguYSp2sqFyQnfOmLZl%2BOimbaZStegLuNw5vq4g1%2F6MdfmtUo1uCDcVuaUs4EZw1u%2BiGVjHgwMBdPqtFD0H3dTdxoeviTlNAP9a%2FisG%2Fo3OOQfEV7Y7KOKnGh%2Bmi9J8rd4WT4pgRJ%2BWS1AcB6HMBFXeJ1urscv9ab9UxJ0MfUkbEMZWNWMUZbJbB4oKBrD%2F2BrAHK3eaaUuQttojCz3xuOTD7W6WLshLbRltTUyDnyN9joJ3I%2FSEjlp9SObWl%2BmhYO22jq%2BhFQhFlkTX4mt9piAS66nRPYO%2B%2BaFkkPIgjEosFlnv%2BuQ3CkbMHFaA9YssAx3pBcLB%2BOS2mZLR25HOaaXk4d%2B3nC1G5qzLchaiWy3MFu7A5EZrHsmQQYb0KdM1kSdgYOefIjyhiEmYtsfHTwlmo1HeAmKngNnATtSc8ICEfVUPIMig%2BXGfYtcdqIkJfVdLVMugRnR8sO1StXPVA%2BZ%2BfJ%2BvCjkJ%2BbJsna2cEqdaKHIWP%2B4xYNwo4IYEX2LC7x140VjUH191%2BSSBJ4Bj4smiPjrh9WOzXMg93hVLF3V9rl0SdnBt1a1eCV51DfBi4PflX1iedV399scLIHOq9DT8DTYdcLGZYR5Zl%2B7IGDY9Znf1CiSubX3%2BQ2UDtD9vkZJPyHUM0o%2BnKEyEWm%2F7KAgTc9PINVMQUc2Q4ao1F6P7bJu%2BiBa7e4R74ZswwXVgvC%2Bees4xk5k6mvsh9cH10o2YSPJlpAAZfLm1Z%2BqfMLrePGN0w89Gj1QY6sAFJH1HVH5L2NPYkDz1sl%2BaXSQZcU3SuI2Wls6p1DIKrVSwG5e1C766k8TPk2PC%2FY9s%2B402gS0W7Fh2Bof7vWrAynFRJQ%2F4xEb0gFABQKtMeFbAkygVg6NFfoF008aIo92pMZ1Fy9Q0yw60GYe8baISlHNzyd1B6pgl9GBOaC7zkzVPwUYVBIGfhzTClXs622cnw1vFLTH8RpfkI23%2B5WMO49qT6l1jac5lngLV0qEWImg%3D%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20260915T070736Z&X-Amz-SignedHeaders=host&X-Amz-Expires=599&X-Amz-Credential=ASIAW7FEDUVR4YI5VA35%2F20260915%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=149f10d4bcf8764e65e5bb131b32a3c9cf2a7655f89127bcc82f4ff3bab34baf",
+            "CodeSha256": "baEBcgQOmPFReS2nWOoJyu1KFPlOLen6JS0ABHVE7q0=",
+            "CodeSize": 4415
+          },
+          "LayerArn": "arn:aws:lambda:us-east-1:000000000000:layer:stackd-ext-a67cc7f44ae7",
+          "LayerVersionArn": "arn:aws:lambda:us-east-1:000000000000:layer:stackd-ext-a67cc7f44ae7:1",
+          "Description": "",
+          "CreatedDate": "2026-09-15T07:07:40.922+0000",
+          "Version": 1
+        },
+        "http_status": 201
+      }
+    },
+    {
+      "label": "create-function",
+      "service": "lambda",
+      "operation": "create-function",
+      "input": {
+        "FunctionName": "stackd-ext-a67cc7f44ae7",
+        "Runtime": "python3.12",
+        "Handler": "lambda_function.handler",
+        "Role": "arn:aws:iam::000000000000:role/stackd-ext-a67cc7f44ae7",
+        "Timeout": 8,
+        "MemorySize": 512,
+        "Code": {
+          "ZipFile": "UEsDBBQAAAAAAAAAL11ts3QKNAUAADQFAAASAAAAbGFtYmRhX2Z1bmN0aW9uLnB5aW1wb3J0IGh0dHAuY2xpZW50LCBqc29uLCBvcywgdGltZSwgdXVpZApCT09UID0gdXVpZC51dWlkNCgpLmhleApSRUFEWSA9IE5vbmUKaWYgb3MuZW52aXJvbi5nZXQoJ1BST0JFX1NVQlNDUklQVElPTlMnKToKICAgIGZvciBhdHRlbXB0IGluIHJhbmdlKDE2MCk6CiAgICAgICAgdHJ5OgogICAgICAgICAgICBjb25uZWN0aW9uID0gaHR0cC5jbGllbnQuSFRUUENvbm5lY3Rpb24oJzEyNy4wLjAuMScsNDI0Myx0aW1lb3V0PTIpCiAgICAgICAgICAgIGNvbm5lY3Rpb24ucmVxdWVzdCgnR0VUJywnL3JlYWR5JykKICAgICAgICAgICAgcmVzcG9uc2UgPSBjb25uZWN0aW9uLmdldHJlc3BvbnNlKCkKICAgICAgICAgICAgUkVBRFkgPSBqc29uLmxvYWRzKHJlc3BvbnNlLnJlYWQoKSkKICAgICAgICAgICAgY29ubmVjdGlvbi5jbG9zZSgpCiAgICAgICAgICAgIGlmIHJlc3BvbnNlLnN0YXR1cyA9PSAyMDA6CiAgICAgICAgICAgICAgICBicmVhawogICAgICAgIGV4Y2VwdCAoT1NFcnJvcixWYWx1ZUVycm9yKToKICAgICAgICAgICAgcGFzcwogICAgICAgIHRpbWUuc2xlZXAoLjA1KQogICAgZWxzZToKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoJ0V4dGVuc2lvbiBJbml0IGJhcnJpZXIgZXhwaXJlZCcpCgpkZWYgaGFuZGxlcihldmVudCwgY29udGV4dCk6CiAgICBwcmludCgnRlVOQ1RJT05fTUFSS0VSICcrZXZlbnRbJ21hcmtlciddLGZsdXNoPVRydWUpCiAgICBpZiBSRUFEWToKICAgICAgICBjb25uZWN0aW9uID0gaHR0cC5jbGllbnQuSFRUUENvbm5lY3Rpb24oJzEyNy4wLjAuMScsNDI0Myx0aW1lb3V0PTQpCiAgICAgICAgY29ubmVjdGlvbi5yZXF1ZXN0KCdQT1NUJywnL2NvbnRyb2wnLGpzb24uZHVtcHMoeydtYXJrZXInOmV2ZW50WydtYXJrZXInXX0pKQogICAgICAgIHJlc3BvbnNlID0gY29ubmVjdGlvbi5nZXRyZXNwb25zZSgpCiAgICAgICAgcmVzcG9uc2UucmVhZCgpCiAgICAgICAgY29ubmVjdGlvbi5jbG9zZSgpCiAgICBmb3IgZGVzY3JpcHRvciwgdGV4dCBpbiBldmVudC5nZXQoJ3dyaXRlcycsIFtdKToKICAgICAgICBvcy53cml0ZShkZXNjcmlwdG9yLCB0ZXh0LmVuY29kZSgpKQogICAgICAgIHRpbWUuc2xlZXAoLjA1KQogICAgdGltZS5zbGVlcChldmVudC5nZXQoJ3NsZWVwJywxKSkKICAgIGlmIGV2ZW50LmdldCgnZmFpbCcpOgogICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoJ05hdGl2ZSBwbGF0Zm9ybSBzY2hlbWEgY29udHJvbCcpCiAgICByZXR1cm4geydtYXJrZXInOmV2ZW50WydtYXJrZXInXSwnYm9vdCc6Qk9PVCwnZXh0ZW5zaW9uJzpSRUFEWSwncmVxdWVzdF9pZCc6Y29udGV4dC5hd3NfcmVxdWVzdF9pZH0KUEsBAhQDFAAAAAAAAAAvXW2zdAo0BQAANAUAABIAAAAAAAAAAAAAAKSBAAAAAGxhbWJkYV9mdW5jdGlvbi5weVBLBQYAAAAAAQABAEAAAABkBQAAAAA="
+        },
+        "Layers": [
+          "arn:aws:lambda:us-east-1:000000000000:layer:stackd-ext-a67cc7f44ae7:1"
+        ],
+        "Environment": {
+          "Variables": {
+            "PROBE_QUEUE": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+            "PROBE_SUBSCRIPTIONS": "[{\"label\":\"telemetry-streams\",\"path\":\"/2022-07-01/telemetry\",\"body\":{\"schemaVersion\":\"2025-01-29\",\"types\":[\"platform\",\"function\",\"extension\"],\"buffering\":{\"maxBytes\":262144,\"maxItems\":1000,\"timeoutMs\":25},\"destination\":{\"protocol\":\"HTTP\",\"URI\":\"http://sandbox.localdomain:4243/streams\"}}}]"
+          }
+        }
+      },
+      "started_unix_ns": 1789456076068844228,
+      "finished_unix_ns": 1789456077247374064,
+      "duration_ms": 1178.530428558588,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FunctionName": "stackd-ext-a67cc7f44ae7",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7",
+          "Runtime": "python3.12",
+          "Role": "arn:aws:iam::000000000000:role/stackd-ext-a67cc7f44ae7",
+          "Handler": "lambda_function.handler",
+          "CodeSize": 1466,
+          "Description": "",
+          "Timeout": 8,
+          "MemorySize": 512,
+          "LastModified": "2026-09-15T07:07:56.857+0000",
+          "CodeSha256": "oHZBYssMvH75RkDeaSDmNMwmqivyhPeQJnOdlQU8Unk=",
+          "Version": "$LATEST",
+          "Environment": {
+            "Variables": {
+              "PROBE_QUEUE": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+              "PROBE_SUBSCRIPTIONS": "[{\"label\":\"telemetry-streams\",\"path\":\"/2022-07-01/telemetry\",\"body\":{\"schemaVersion\":\"2025-01-29\",\"types\":[\"platform\",\"function\",\"extension\"],\"buffering\":{\"maxBytes\":262144,\"maxItems\":1000,\"timeoutMs\":25},\"destination\":{\"protocol\":\"HTTP\",\"URI\":\"http://sandbox.localdomain:4243/streams\"}}}]"
+            }
+          },
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "cfd3b780-2467-4d40-8ece-0ba616ed0290",
+          "Layers": [
+            {
+              "Arn": "arn:aws:lambda:us-east-1:000000000000:layer:stackd-ext-a67cc7f44ae7:1",
+              "CodeSize": 4415
+            }
+          ],
+          "State": "Pending",
+          "StateReason": "The function is being created.",
+          "StateReasonCode": "Creating",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-ext-a67cc7f44ae7"
+          }
+        },
+        "http_status": 201
+      }
+    },
+    {
+      "label": "active",
+      "service": "lambda",
+      "operation": "wait",
+      "input": null,
+      "started_unix_ns": 1789456077247799349,
+      "finished_unix_ns": 1789456079202338788,
+      "duration_ms": 1954.5398894697428,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "reserve-one",
+      "service": "lambda",
+      "operation": "put-function-concurrency",
+      "input": {
+        "FunctionName": "stackd-ext-a67cc7f44ae7",
+        "ReservedConcurrentExecutions": 1
+      },
+      "started_unix_ns": 1789456079202706721,
+      "finished_unix_ns": 1789456079938533178,
+      "duration_ms": 735.8270259574056,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ReservedConcurrentExecutions": 1
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stdout-partial",
+      "service": "lambda",
+      "operation": "invoke",
+      "input": {
+        "FunctionName": "stackd-ext-a67cc7f44ae7",
+        "Payload": "eyJtYXJrZXIiOiAiU1RET1VUX1BBUlRJQUwiLCAid3JpdGVzIjogW1sxLCAiU1RET1VUX1BSRUZJWCAiXSwgWzIsICJTVERFUlJfTElORVxuIl0sIFsxLCAiU1RET1VUX1NVRkZJWFxuIl1dfQ==",
+        "LogType": "Tail"
+      },
+      "started_unix_ns": 1789456079938909361,
+      "finished_unix_ns": 1789456082437754533,
+      "duration_ms": 2498.8460317254066,
+      "result": {
+        "code": "Success",
+        "output": {
+          "StatusCode": 200,
+          "LogResult": "VEVMRU1FVFJZCU5hbWU6IHByb2JlLnNoCVN0YXRlOiBTdWJzY3JpYmVkCVR5cGVzOiBbUGxhdGZvcm0sIEZ1bmN0aW9uLCBFeHRlbnNpb25dCkVYVEVOU0lPTglOYW1lOiBwcm9iZS5zaAlTdGF0ZTogUmVhZHkJRXZlbnRzOiBbSU5WT0tFLCBTSFVURE9XTl0KU1RBUlQgUmVxdWVzdElkOiA2NTU0NGRhZS0wNDVkLTQxNzMtYjI2MC05ZjMxMmM1OWE1YjIgVmVyc2lvbjogJExBVEVTVApGVU5DVElPTl9NQVJLRVIgU1RET1VUX1BBUlRJQUwKU1RERVJSX0xJTkUKU1RET1VUX1BSRUZJWCBTVERPVVRfU1VGRklYCkVORCBSZXF1ZXN0SWQ6IDY1NTQ0ZGFlLTA0NWQtNDE3My1iMjYwLTlmMzEyYzU5YTViMgpSRVBPUlQgUmVxdWVzdElkOiA2NTU0NGRhZS0wNDVkLTQxNzMtYjI2MC05ZjMxMmM1OWE1YjIJRHVyYXRpb246IDExNTQuMzcgbXMJQmlsbGVkIER1cmF0aW9uOiAxNzA1IG1zCU1lbW9yeSBTaXplOiA1MTIgTUIJTWF4IE1lbW9yeSBVc2VkOiAxMDIgTUIJSW5pdCBEdXJhdGlvbjogNTUwLjQ2IG1zCQo=",
+          "ExecutedVersion": "$LATEST"
+        },
+        "http_status": 200
+      },
+      "function_payload": {
+        "marker": "STDOUT_PARTIAL",
+        "boot": "da265b55f8464681ad219fd49b9cd6bd",
+        "extension": {
+          "ready": true,
+          "boot": "d73c9c1d9926427499577d121b126ec1"
+        },
+        "request_id": "65544dae-045d-4173-b260-9f312c59a5b2"
+      }
+    },
+    {
+      "label": "stdout-partial-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456082447366510,
+      "finished_unix_ns": 1789456083187062566,
+      "duration_ms": 739.6965781226754,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "459adfe8-4c1f-433c-b94e-053785b5f0f7",
+              "ReceiptHandle": "<redacted>",
+              "MD5OfBody": "e0667a107d15faf0902ab829e4be7e24",
+              "Body": "{\"records\": [{\"kind\": \"api\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081043458201, \"label\": \"telemetry-streams\", \"method\": \"POST\", \"path\": \"/2020-01-01/extension/register\", \"input\": {\"body\": {\"events\": [\"INVOKE\", \"SHUTDOWN\"]}, \"headers\": {\"Lambda-Extension-Name\": \"probe.sh\"}}, \"result\": {\"status\": 200, \"headers\": {\"Content-Type\": \"application/json\", \"Lambda-Extension-Identifier\": \"5f6eccdb-c446-4d8e-837d-cdc564625b10\", \"Date\": \"Tue, 15 Sep 2026 07:08:01 GMT\", \"Content-Length\": \"107\"}, \"body\": \"{\\\"functionName\\\":\\\"stackd-ext-a67cc7f44ae7\\\",\\\"functionVersion\\\":\\\"$LATEST\\\",\\\"handler\\\":\\\"lambda_function.handler\\\"}\\n\"}}, {\"kind\": \"api\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081058273616, \"label\": \"subscribe-telemetry-streams\", \"method\": \"PUT\", \"path\": \"/2022-07-01/telemetry\", \"input\": {\"body\": {\"schemaVersion\": \"2025-01-29\", \"types\": [\"platform\", \"function\", \"extension\"], \"buffering\": {\"maxBytes\": 262144, \"maxItems\": 1000, \"timeoutMs\": 25}, \"destination\": {\"protocol\": \"HTTP\", \"URI\": \"http://sandbox.localdomain:4243/streams\"}}, \"headers\": {\"Lambda-Extension-Identifier\": \"5f6eccdb-c446-4d8e-837d-cdc564625b10\"}}, \"result\": {\"status\": 200, \"headers\": {\"Content-Length\": \"4\", \"Content-Type\": \"application/json\", \"Date\": \"Tue, 15 Sep 2026 07:08:01 GMT\"}, \"body\": \"\\\"OK\\\"\"}}, {\"kind\": \"ready\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081058287084, \"registrations\": [[\"telemetry-streams\", \"5f6eccdb-c446-4d8e-837d-cdc564625b10\"]]}]}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stdout-partial-deliveries-ack",
+      "service": "sqs",
+      "operation": "delete-message-batch",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "Entries": [
+          {
+            "Id": "0",
+            "ReceiptHandle": "<redacted>"
+          }
+        ]
+      },
+      "started_unix_ns": 1789456083187500193,
+      "finished_unix_ns": 1789456083941983790,
+      "duration_ms": 754.4839717447758,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Successful": [
+            {
+              "Id": "0"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stdout-partial-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456083951689631,
+      "finished_unix_ns": 1789456084644542590,
+      "duration_ms": 692.8541082888842,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "4c0549f9-1b19-42d1-aca0-e07d874fc453",
+              "ReceiptHandle": "<redacted>",
+              "MD5OfBody": "b3fb4cabf3472436c2a2c52d01cb4350",
+              "Body": "{\"records\": [{\"kind\": \"api\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081174672319, \"label\": \"next-telemetry-streams\", \"method\": \"GET\", \"path\": \"/2020-01-01/extension/event/next\", \"input\": {\"body\": null, \"headers\": {\"Lambda-Extension-Identifier\": \"5f6eccdb-c446-4d8e-837d-cdc564625b10\"}}, \"result\": {\"status\": 200, \"headers\": {\"Content-Type\": \"application/json\", \"Lambda-Extension-Event-Identifier\": \"b9c1e43c-1141-4b93-aa5a-010f710ee0e7\", \"Date\": \"Tue, 15 Sep 2026 07:08:01 GMT\", \"Content-Length\": \"337\"}, \"body\": \"{\\\"eventType\\\":\\\"INVOKE\\\",\\\"deadlineMs\\\":1789456089173,\\\"requestId\\\":\\\"65544dae-045d-4173-b260-9f312c59a5b2\\\",\\\"invokedFunctionArn\\\":\\\"arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7\\\",\\\"tracing\\\":{\\\"type\\\":\\\"X-Amzn-Trace-Id\\\",\\\"value\\\":\\\"Root=1-6aa8eed0-0a21286d6d2ece1b50c2e4aa;Parent=77ee645e4bfcf6f0;Sampled=0;Lineage=1:2fce981a:0\\\"}}\"}}, {\"kind\": \"control\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081175093959, \"input\": {\"marker\": \"STDOUT_PARTIAL\"}}, {\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081196684310, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"Ab114jNta2MnMl+IYQy8TSUu4j2teQ5pYGqQWmnm7wk\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"792\"}, \"event_count\": 5, \"first\": {\"time\": \"2026-09-15T07:08:01.169Z\", \"type\": \"platform.initRuntimeDone\", \"record\": {\"initializationType\": \"on-demand\", \"phase\": \"init\", \"status\": \"success\"}}, \"last\": {\"time\": \"2026-09-15T07:08:01.174Z\", \"type\": \"function\", \"record\": \"FUNCTION_MARKER STDOUT_PARTIAL\\n\"}, \"raw_gzip_base64\": \"H4sIAAAAAAACA61SW0vDMBT+KxJ8XEZae3F5KzpxqJt0nYIX5Cw5w+Ka1iT1yv67p1NhiiCIeftOznc5Obl8Zb6skEkWijDhYsCDuBCpFLtSBP0gGVywHvPPTdfRLMEvalv1S1P6vDUdcb82SB0WVW01k6+suythWb6AL2tTvDNrwzVWYDS1NrfgulrXSNB58K0j7Fql0Dm2WvX+kgmfPBpHll/SGFjrNLaeY9/dfvh1pRxBPxPGBzSe/C/ZaHw2ORpSaXo4K/Yn52N2/ccs6/fBprb+f5+mxyr0tlSuU9OtXeucEIpj0Y+SYPVr3nTnp7xk9C2qxfsWnR8RYEkcR5EG5CKKNY9Ig8/DRPDBYicIVTyAeB4SedEa1eXJrCESWCPh0cklVHMNsnUcwXkeSLFx5CdHUgJ1pzktkUOSKpUuoggwJdkHtOutSrZ9nBXDafH7B0mjjSE/LTbGYwez8V4xmoxvTrL8aJhvTWnds+LmNMuLUXZ8Zdjq+g1o2DhdGAMAAA==\"}, {\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081252554050, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"K4w+8iuNO6+IsLV8yxQ1YbFQwsp9EG56wCOLwkEP56k\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"80\"}, \"event_count\": 1, \"first\": {\"time\": \"2026-09-15T07:08:01.225Z\", \"type\": \"function\", \"record\": \"STDERR_LINE\\n\"}, \"last\": {\"time\": \"2026-09-15T07:08:01.225Z\", \"type\": \"function\", \"record\": \"STDERR_LINE\\n\"}, \"raw_gzip_base64\": \"H4sIANHuqGoC/4uuVirJzE1VslIyMjAy0zWw1DU0DTEwtzKwsDIw1DMyMo1S0lEqqSwAqUgrzUsuyczPA4oUpSbnF6UAxYJDXFyDguJ9PP1cY/KUamMBmon2jlAAAAA=\"}, {\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081302861354, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"KaduwlW2wNyni48jr8qhVzmqnzjZtbTEsi9/YZeuQds\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"96\"}, \"event_count\": 1, \"first\": {\"time\": \"2026-09-15T07:08:01.275Z\", \"type\": \"function\", \"record\": \"STDOUT_PREFIX STDOUT_SUFFIX\\n\"}, \"last\": {\"time\": \"2026-09-15T07:08:01.275Z\", \"type\": \"function\", \"record\": \"STDOUT_PREFIX STDOUT_SUFFIX\\n\"}, \"raw_gzip_base64\": \"H4sIANHuqGoC/4uuVirJzE1VslIyMjAy0zWw1DU0DTEwtzKwsDIw1DMyN41S0lEqqSwAqUgrzUsuyczPA4oUpSbnF6UAxYJDXPxDQ+IDglzdPCMUoLzgUDcgLyZPqTYWAEjx6axgAAAA\"}]}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stdout-partial-deliveries-ack",
+      "service": "sqs",
+      "operation": "delete-message-batch",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "Entries": [
+          {
+            "Id": "0",
+            "ReceiptHandle": "<redacted>"
+          }
+        ]
+      },
+      "started_unix_ns": 1789456084645119673,
+      "finished_unix_ns": 1789456085329059188,
+      "duration_ms": 683.939958922565,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Successful": [
+            {
+              "Id": "0"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stdout-partial-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456085338687679,
+      "finished_unix_ns": 1789456086052474453,
+      "duration_ms": 713.7872520834208,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "0add4cb3-e2e2-40cf-8ebf-689f22b43601",
+              "ReceiptHandle": "<redacted>",
+              "MD5OfBody": "ec0fb3fadecb4b187bde4a16e69c1d3e",
+              "Body": "{\"records\": [{\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081063457681, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"XWt7cOr8Nluart61FvSDH5IcA6/C5+udLjSrYUpIfXw\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"458\"}, \"event_count\": 1, \"first\": {\"time\": \"2026-09-15T07:08:00.619Z\", \"type\": \"platform.initStart\", \"record\": {\"initializationType\": \"on-demand\", \"phase\": \"init\", \"runtimeVersion\": \"python:3.12.mainlinev2.v34\", \"runtimeVersionArn\": \"arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780\", \"functionName\": \"stackd-ext-a67cc7f44ae7\", \"functionVersion\": \"$LATEST\", \"instanceId\": \"2026/09/15/[$LATEST]45ef7948eb9040c3811bbbb8cc0cf51c\", \"instanceMaxMemory\": 536870912}}, \"last\": {\"time\": \"2026-09-15T07:08:00.619Z\", \"type\": \"platform.initStart\", \"record\": {\"initializationType\": \"on-demand\", \"phase\": \"init\", \"runtimeVersion\": \"python:3.12.mainlinev2.v34\", \"runtimeVersionArn\": \"arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780\", \"functionName\": \"stackd-ext-a67cc7f44ae7\", \"functionVersion\": \"$LATEST\", \"instanceId\": \"2026/09/15/[$LATEST]45ef7948eb9040c3811bbbb8cc0cf51c\", \"instanceMaxMemory\": 536870912}}, \"raw_gzip_base64\": \"H4sIANHuqGoC/2WQS0/DMBCE/0vEkaTexIkftx44IFEujThQ9bDxQ7VInMpxS0vV/04MlajEHme/mdHu5pJFN5hMZiUpm5yIHOqWMEm4JKRoQLxnj1k87xOx7zHaMQyF8y6uI4Y474JRY9CZvGRJddi7L4xu9O2vZ/S5NgN6PaP7HU5JS2ByHnyqfjNhmvmUf4670cuqgLIY0PneeXMsi2NF/9HLkAwYvMTPSfY4dBrlYcoNTjEHKW+0RE2NVaaxnRUUbMVVJ7BuoGMUNC81I9pYAEBWWhCCVUxgwxFYrWeNk7nYHrxKB73iz5umiOpD5+YUc2yYUsxSiobdgX8HPbws26d1O++cn31emWd9+/SCiAXUi80N2dLaWCYoN50glKiKA3TzcKWIsjWou4wVnlZmGMM5k3XVcEYElNfr9huGxA9RygEAAA==\"}, {\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456081088549549, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"Wsr1x0E92oLF6IgtbcZ+uLPWRJtWmnH5B3d2EW96WM4\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"171\"}, \"event_count\": 1, \"first\": {\"time\": \"2026-09-15T07:08:01.056Z\", \"type\": \"platform.telemetrySubscription\", \"record\": {\"name\": \"probe.sh\", \"state\": \"Subscribed\", \"types\": [\"platform\", \"function\", \"extension\"]}}, \"last\": {\"time\": \"2026-09-15T07:08:01.056Z\", \"type\": \"platform.telemetrySubscription\", \"record\": {\"name\": \"probe.sh\", \"state\": \"Subscribed\", \"types\": [\"platform\", \"function\", \"extension\"]}}, \"raw_gzip_base64\": \"H4sIANHuqGoC/z2MywqDMBRE/+Wua4iCts1vtKuKiyReacA8SK5QEf+9SQndDTNnzngAGYsgoOPd0PB70/ZPfhX8JnjLeD+84AK0h0KEVdLio2WEK1qkuD82lXQ0gYx3mYuofZxBHODkzxmiV8jSO2+JJJWqXhTOVZxAjH917pbN6erDD6FLJU/nOX0BOHyywKsAAAA=\"}]}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stdout-partial-deliveries-ack",
+      "service": "sqs",
+      "operation": "delete-message-batch",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "Entries": [
+          {
+            "Id": "0",
+            "ReceiptHandle": "<redacted>"
+          }
+        ]
+      },
+      "started_unix_ns": 1789456086053107269,
+      "finished_unix_ns": 1789456086756514964,
+      "duration_ms": 703.4082598984241,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Successful": [
+            {
+              "Id": "0"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stdout-partial-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456086766067115,
+      "finished_unix_ns": 1789456088426571556,
+      "duration_ms": 1660.505331121385,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stderr-partial",
+      "service": "lambda",
+      "operation": "invoke",
+      "input": {
+        "FunctionName": "stackd-ext-a67cc7f44ae7",
+        "Payload": "eyJtYXJrZXIiOiAiU1RERVJSX1BBUlRJQUwiLCAid3JpdGVzIjogW1syLCAiU1RERVJSX1BSRUZJWCAiXSwgWzEsICJTVERPVVRfTElORVxuIl0sIFsyLCAiU1RERVJSX1NVRkZJWFxuIl1dfQ==",
+        "LogType": "Tail"
+      },
+      "started_unix_ns": 1789456088436751920,
+      "finished_unix_ns": 1789456090300947963,
+      "duration_ms": 1864.1965426504612,
+      "result": {
+        "code": "Success",
+        "output": {
+          "StatusCode": 200,
+          "LogResult": "U1RBUlQgUmVxdWVzdElkOiA4NjkyYjgzOC04NzYzLTQzOTctOWRlMS01ZjY3NmQ4MmQwNzEgVmVyc2lvbjogJExBVEVTVApGVU5DVElPTl9NQVJLRVIgU1RERVJSX1BBUlRJQUwKU1RET1VUX0xJTkUKU1RERVJSX1BSRUZJWCBTVERFUlJfU1VGRklYCkVORCBSZXF1ZXN0SWQ6IDg2OTJiODM4LTg3NjMtNDM5Ny05ZGUxLTVmNjc2ZDgyZDA3MQpSRVBPUlQgUmVxdWVzdElkOiA4NjkyYjgzOC04NzYzLTQzOTctOWRlMS01ZjY3NmQ4MmQwNzEJRHVyYXRpb246IDExNTMuODEgbXMJQmlsbGVkIER1cmF0aW9uOiAxMTU0IG1zCU1lbW9yeSBTaXplOiA1MTIgTUIJTWF4IE1lbW9yeSBVc2VkOiAxMDIgTUIJCg==",
+          "ExecutedVersion": "$LATEST"
+        },
+        "http_status": 200
+      },
+      "function_payload": {
+        "marker": "STDERR_PARTIAL",
+        "boot": "da265b55f8464681ad219fd49b9cd6bd",
+        "extension": {
+          "ready": true,
+          "boot": "d73c9c1d9926427499577d121b126ec1"
+        },
+        "request_id": "8692b838-8763-4397-9de1-5f676d82d071"
+      }
+    },
+    {
+      "label": "stderr-partial-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456090310793228,
+      "finished_unix_ns": 1789456091046545124,
+      "duration_ms": 735.7523301616311,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "6ed2bdd5-c071-49b9-a180-ae4a48ebdb4f",
+              "ReceiptHandle": "<redacted>",
+              "MD5OfBody": "358aa79cfded31d126eefa0cf2b3193d",
+              "Body": "{\"records\": [{\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456089169308581, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"iTyUJGd+RaRp57PVPLnyFDOgUyaXeiZd2b80iiUjd14\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"96\"}, \"event_count\": 1, \"first\": {\"time\": \"2026-09-15T07:08:09.142Z\", \"type\": \"function\", \"record\": \"STDERR_PREFIX STDERR_SUFFIX\\n\"}, \"last\": {\"time\": \"2026-09-15T07:08:09.142Z\", \"type\": \"function\", \"record\": \"STDERR_PREFIX STDERR_SUFFIX\\n\"}, \"raw_gzip_base64\": \"H4sIANnuqGoC/4uuVirJzE1VslIyMjAy0zWw1DU0DTEwtzKwsDKw1DM0MYpS0lEqqSwAqUgrzUsuyczPA4oUpSbnF6UAxYJDXFyDguIDglzdPCMUoLzgUDcgLyZPqTYWAIwnX9pgAAAA\"}]}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stderr-partial-deliveries-ack",
+      "service": "sqs",
+      "operation": "delete-message-batch",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "Entries": [
+          {
+            "Id": "0",
+            "ReceiptHandle": "<redacted>"
+          }
+        ]
+      },
+      "started_unix_ns": 1789456091047262081,
+      "finished_unix_ns": 1789456091741309768,
+      "duration_ms": 694.0482323989272,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Successful": [
+            {
+              "Id": "0"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stderr-partial-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456091752632630,
+      "finished_unix_ns": 1789456092469373971,
+      "duration_ms": 716.7417695745826,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "a87a2226-e7e7-4b14-8983-9f87761327d1",
+              "ReceiptHandle": "<redacted>",
+              "MD5OfBody": "ce1cd1474b8fe11dcb6aada673f77b38",
+              "Body": "{\"records\": [{\"kind\": \"api\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456089040606253, \"label\": \"next-telemetry-streams\", \"method\": \"GET\", \"path\": \"/2020-01-01/extension/event/next\", \"input\": {\"body\": null, \"headers\": {\"Lambda-Extension-Identifier\": \"5f6eccdb-c446-4d8e-837d-cdc564625b10\"}}, \"result\": {\"status\": 200, \"headers\": {\"Content-Type\": \"application/json\", \"Lambda-Extension-Event-Identifier\": \"e4cf6a0c-5383-4e9e-a788-5fb82dddbc84\", \"Date\": \"Tue, 15 Sep 2026 07:08:09 GMT\", \"Content-Length\": \"337\"}, \"body\": \"{\\\"eventType\\\":\\\"INVOKE\\\",\\\"deadlineMs\\\":1789456097040,\\\"requestId\\\":\\\"8692b838-8763-4397-9de1-5f676d82d071\\\",\\\"invokedFunctionArn\\\":\\\"arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7\\\",\\\"tracing\\\":{\\\"type\\\":\\\"X-Amzn-Trace-Id\\\",\\\"value\\\":\\\"Root=1-6aa8eed9-7bbf1ab4624685b6217e2723;Parent=2769952b89c61c52;Sampled=0;Lineage=1:2fce981a:0\\\"}}\"}}, {\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456089041105791, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"IlMwOI4Jf1aiNs1w5m4R6cj+0tjFyxoQpC07GQoE/bI\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"818\"}, \"event_count\": 2, \"first\": {\"time\": \"2026-09-15T07:08:02.327Z\", \"type\": \"platform.runtimeDone\", \"record\": {\"requestId\": \"65544dae-045d-4173-b260-9f312c59a5b2\", \"status\": \"success\", \"spans\": [{\"name\": \"responseLatency\", \"start\": \"2026-09-15T07:08:01.173Z\", \"durationMs\": 1153.083}, {\"name\": \"responseDuration\", \"start\": \"2026-09-15T07:08:02.326Z\", \"durationMs\": 0.175}, {\"name\": \"runtimeOverhead\", \"start\": \"2026-09-15T07:08:02.327Z\", \"durationMs\": 0.447}], \"metrics\": {\"durationMs\": 1153.896, \"producedBytes\": 200}}}, \"last\": {\"time\": \"2026-09-15T07:08:02.329Z\", \"type\": \"platform.report\", \"record\": {\"requestId\": \"65544dae-045d-4173-b260-9f312c59a5b2\", \"metrics\": {\"durationMs\": 1154.367, \"billedDurationMs\": 1705, \"memorySizeMB\": 512, \"maxMemoryUsedMB\": 102, \"initDurationMs\": 550.462}, \"spans\": [{\"name\": \"extensionOverhead\", \"start\": \"2026-09-15T07:08:02.327Z\", \"durationMs\": 0.003}], \"status\": \"success\"}}, \"raw_gzip_base64\": \"H4sIANnuqGoC/6VSsW6DMBD9F8+AbIMhMEYslRp1aLs0yuDgi4oUbGqbKjTi33tOOkQlTYds9rt7z8/3bn0kvu2AVIRTnse0jJl4oUVFFxXlScqLNxIRP/aho99LvzO2S+ygA6k2GrBqoTFWkeqIp48BnH/AC8mFyDIlIaaZUHHGijTe8pzG5S5lvBGlFFuOZOelHxz2u6FpwLkA9VIjsj4SLU/OLLjeaAeP0oNuxjPL+queWYIvBc9qsNK3Rq9QijGRJnSRTtFMs/5puykaBpH/FqX4krhUPA/l6RPsO0j1r2AxF8yyYtpEpANv28aFic5+sSjziPTWqKEBtRw9YIFTOk3Byc0ky6tJQm/Q450h/m04S9K8iMi23e9B1Ze1gopA7Iwdn9svWC1JJRhHSB5WJ/TVgQooo4i2uvWXdCFwWjmfrmwLHHBLHPbdkwSlaUhitp3TtPkG0ycwjDIDAAA=\"}, {\"kind\": \"control\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456089041792295, \"input\": {\"marker\": \"STDERR_PARTIAL\"}}, {\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456089068124198, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"v0fShBo+/qTyNw/ZypLgf2I1Uuc9LSteLCSfnzZ0k7o\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"328\"}, \"event_count\": 2, \"first\": {\"time\": \"2026-09-15T07:08:09.040Z\", \"type\": \"platform.start\", \"record\": {\"requestId\": \"8692b838-8763-4397-9de1-5f676d82d071\", \"functionArn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7\", \"version\": \"$LATEST\"}}, \"last\": {\"time\": \"2026-09-15T07:08:09.041Z\", \"type\": \"function\", \"record\": \"FUNCTION_MARKER STDERR_PARTIAL\\n\"}, \"raw_gzip_base64\": \"H4sIAAAAAAACA4WPy2rDMBBFf6WILqMgP6LXTrQumKZpcdRNmxAUSYbQWE4luQ+C/73KIuBdZzUz3HtnzvsZxENnAQc5yjFEDGYLiQhHlCM2RyV6AzMQf08XxemoYtv7bh6i8jHtvdW9N4CfU/c52BDrNACKWb6nBYWU4AKWBSOQGZvBRYsJNjQ3iGTJ3A5Ox0PvhHfJpLzj6jvwo+r2RvEhQKtChBlHk+JXD08f6A8D7U+EChOtSVuWypIU+2V9SIoUebsUslpLMI6zfyCzCeT1xAQPPLyu7mT9vNo9ieaxam7W8r5qmt2LaGQtlhsHxu0ffedFnUgBAAA=\"}, {\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456089119199457, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"K4vyaMf1otiw7pP1pJgnB32pkoCn+RJAAUi5LKV44mo\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"80\"}, \"event_count\": 1, \"first\": {\"time\": \"2026-09-15T07:08:09.092Z\", \"type\": \"function\", \"record\": \"STDOUT_LINE\\n\"}, \"last\": {\"time\": \"2026-09-15T07:08:09.092Z\", \"type\": \"function\", \"record\": \"STDOUT_LINE\\n\"}, \"raw_gzip_base64\": \"H4sIANnuqGoC/4uuVirJzE1VslIyMjAy0zWw1DU0DTEwtzKwsDKw1DOwNIpS0lEqqSwAqUgrzUsuyczPA4oUpSbnF6UAxYJDXPxDQ+J9PP1cY/KUamMBR4l5WFAAAAA=\"}]}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stderr-partial-deliveries-ack",
+      "service": "sqs",
+      "operation": "delete-message-batch",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "Entries": [
+          {
+            "Id": "0",
+            "ReceiptHandle": "<redacted>"
+          }
+        ]
+      },
+      "started_unix_ns": 1789456092470233715,
+      "finished_unix_ns": 1789456093142142809,
+      "duration_ms": 671.9096386805177,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Successful": [
+            {
+              "Id": "0"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stderr-partial-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456093152051282,
+      "finished_unix_ns": 1789456094823662638,
+      "duration_ms": 1671.6117784380913,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "stderr-partial-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456094833668755,
+      "finished_unix_ns": 1789456096534138677,
+      "duration_ms": 1700.4705173894763,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "streams-flush",
+      "service": "lambda",
+      "operation": "invoke",
+      "input": {
+        "FunctionName": "stackd-ext-a67cc7f44ae7",
+        "Payload": "eyJtYXJrZXIiOiAiU1RSRUFNU19GTFVTSCJ9",
+        "LogType": "Tail"
+      },
+      "started_unix_ns": 1789456096536750005,
+      "finished_unix_ns": 1789456098204512909,
+      "duration_ms": 1667.763507924974,
+      "result": {
+        "code": "Success",
+        "output": {
+          "StatusCode": 200,
+          "LogResult": "U1RBUlQgUmVxdWVzdElkOiA1M2VmYTQyMC03Y2U5LTQ2YjItODI2Zi05YmIxNWZmYjQwYjQgVmVyc2lvbjogJExBVEVTVApGVU5DVElPTl9NQVJLRVIgU1RSRUFNU19GTFVTSApFTkQgUmVxdWVzdElkOiA1M2VmYTQyMC03Y2U5LTQ2YjItODI2Zi05YmIxNWZmYjQwYjQKUkVQT1JUIFJlcXVlc3RJZDogNTNlZmE0MjAtN2NlOS00NmIyLTgyNmYtOWJiMTVmZmI0MGI0CUR1cmF0aW9uOiAxMDAzLjEyIG1zCUJpbGxlZCBEdXJhdGlvbjogMTAwNCBtcwlNZW1vcnkgU2l6ZTogNTEyIE1CCU1heCBNZW1vcnkgVXNlZDogMTAyIE1CCQo=",
+          "ExecutedVersion": "$LATEST"
+        },
+        "http_status": 200
+      },
+      "function_payload": {
+        "marker": "STREAMS_FLUSH",
+        "boot": "da265b55f8464681ad219fd49b9cd6bd",
+        "extension": {
+          "ready": true,
+          "boot": "d73c9c1d9926427499577d121b126ec1"
+        },
+        "request_id": "53efa420-7ce9-46b2-826f-9bb15ffb40b4"
+      }
+    },
+    {
+      "label": "streams-flush-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456098206668465,
+      "finished_unix_ns": 1789456098975214435,
+      "duration_ms": 768.5465896502137,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "7939e4be-c851-419e-9062-d0646623232b",
+              "ReceiptHandle": "<redacted>",
+              "MD5OfBody": "09dc05d3e44169a19df522613b6f4e2b",
+              "Body": "{\"records\": [{\"kind\": \"api\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456097099008592, \"label\": \"next-telemetry-streams\", \"method\": \"GET\", \"path\": \"/2020-01-01/extension/event/next\", \"input\": {\"body\": null, \"headers\": {\"Lambda-Extension-Identifier\": \"5f6eccdb-c446-4d8e-837d-cdc564625b10\"}}, \"result\": {\"status\": 200, \"headers\": {\"Content-Type\": \"application/json\", \"Lambda-Extension-Event-Identifier\": \"e292d88f-418a-4889-a23a-37b1c2ba853f\", \"Date\": \"Tue, 15 Sep 2026 07:08:17 GMT\", \"Content-Length\": \"337\"}, \"body\": \"{\\\"eventType\\\":\\\"INVOKE\\\",\\\"deadlineMs\\\":1789456105098,\\\"requestId\\\":\\\"53efa420-7ce9-46b2-826f-9bb15ffb40b4\\\",\\\"invokedFunctionArn\\\":\\\"arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7\\\",\\\"tracing\\\":{\\\"type\\\":\\\"X-Amzn-Trace-Id\\\",\\\"value\\\":\\\"Root=1-6aa8eee1-72dab0054e9594c94e05c70e;Parent=1a499d22bb2ad667;Sampled=0;Lineage=1:2fce981a:0\\\"}}\"}}, {\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456097099630957, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"eaCk6rhp0ZfdFJ/emdQ9IN77vvqSaD/gLY/vuYf3TII\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"793\"}, \"event_count\": 2, \"first\": {\"time\": \"2026-09-15T07:08:10.193Z\", \"type\": \"platform.runtimeDone\", \"record\": {\"requestId\": \"8692b838-8763-4397-9de1-5f676d82d071\", \"status\": \"success\", \"spans\": [{\"name\": \"responseLatency\", \"start\": \"2026-09-15T07:08:09.040Z\", \"durationMs\": 1152.829}, {\"name\": \"responseDuration\", \"start\": \"2026-09-15T07:08:10.193Z\", \"durationMs\": 0.067}, {\"name\": \"runtimeOverhead\", \"start\": \"2026-09-15T07:08:10.193Z\", \"durationMs\": 0.538}], \"metrics\": {\"durationMs\": 1153.557, \"producedBytes\": 200}}}, \"last\": {\"time\": \"2026-09-15T07:08:10.195Z\", \"type\": \"platform.report\", \"record\": {\"requestId\": \"8692b838-8763-4397-9de1-5f676d82d071\", \"metrics\": {\"durationMs\": 1153.809, \"billedDurationMs\": 1154, \"memorySizeMB\": 512, \"maxMemoryUsedMB\": 102}, \"spans\": [{\"name\": \"extensionOverhead\", \"start\": \"2026-09-15T07:08:10.193Z\", \"durationMs\": 0.003}], \"status\": \"success\"}}, \"raw_gzip_base64\": \"H4sIAOHuqGoC/6VSsU7DMBD9F89JdHbqxM5YdUGiYgAWqg5ufBWRmjjYDmqo8u/YLRIFqg50s9/de3r37lYH4psWSUUYsCIFmVL+BGUFoqKQUZm/kIT4sY8d/U75rbFtZocukhamw1C1WBurSXUIr7cBnb8LHyIKyTYiF6koizyd5bJMpUaa8m1RFlowDSUNZOeVH1zod0Ndo3MR6lUXkNWBdOrozKLrTefwXnns6vHEsv6SZ5AZzCB61oNVvjHdMkhRylkmmJySP5qLr7Zrot9BnItCBkV5rngK5eEd7Ssq/R9BnotpnZAWvW1qFxP9NUWecV4mpLdGDzXq+egxFBjANEUnVzfJL24SexM83rjEa4YFyIRsmt0O9eJnbRaJrbHjY/OByzmpOGUBUvvlEX12qCNKgU0XjgL34RhcULslcIA8Bv7nCKdp/Qk7g1PYGQMAAA==\"}, {\"kind\": \"control\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456097100149233, \"input\": {\"marker\": \"STREAMS_FLUSH\"}}, {\"kind\": \"delivery\", \"boot\": \"d73c9c1d9926427499577d121b126ec1\", \"unix_ns\": 1789456097124790354, \"transport\": \"HTTP\", \"method\": \"POST\", \"path\": \"/streams\", \"headers\": {\"content-type\": \"application/json\", \"sequence-id\": \"7i+CiQRmuzUE5N2QDTw1AGBl0yaoKQ0DkoXMXeZMi+4\", \"host\": \"169.254.100.6:4243\", \"connection\": \"keep-alive\", \"user-agent\": \"awslambda-worker/1.0\", \"content-length\": \"327\"}, \"event_count\": 2, \"first\": {\"time\": \"2026-09-15T07:08:17.098Z\", \"type\": \"platform.start\", \"record\": {\"requestId\": \"53efa420-7ce9-46b2-826f-9bb15ffb40b4\", \"functionArn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7\", \"version\": \"$LATEST\"}}, \"last\": {\"time\": \"2026-09-15T07:08:17.099Z\", \"type\": \"function\", \"record\": \"FUNCTION_MARKER STREAMS_FLUSH\\n\"}, \"raw_gzip_base64\": \"H4sIAAAAAAACA4WPy2rDMBBFf6WILqMgq7JlaWeKQ0OTFGxl0wdBkiUIjeVUkvsg+N+rLgLedVYzw7135rxcQDz2BnCAES4gYjDLBaIclTyjS8TKZ7AA8ef8pzifZLSD75chSh/T3hs9+A7wS+o+RhPiOg0gvzNWEowg1YZBUigMS1xYyJTKcmsVQYoksx2djsfBVd4lk/SOy6/AT7JXneRjgEaGCDOOZsWvHp4+0O8dNN8RyoJqTS0h0tAU+2l8SIoUebupRN0KME2LfyDZDPJ6YoYHVvvdvVg/7Q7bqnmsm5tWNHW1bQ+rzb59eHVgevsFEB3oM0cBAAA=\"}]}"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "streams-flush-deliveries-ack",
+      "service": "sqs",
+      "operation": "delete-message-batch",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "Entries": [
+          {
+            "Id": "0",
+            "ReceiptHandle": "<redacted>"
+          }
+        ]
+      },
+      "started_unix_ns": 1789456098976121388,
+      "finished_unix_ns": 1789456099636663721,
+      "duration_ms": 660.5428252369165,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Successful": [
+            {
+              "Id": "0"
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "streams-flush-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456099638913616,
+      "finished_unix_ns": 1789456101291895069,
+      "duration_ms": 1652.9818708077073,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "streams-flush-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456101294118947,
+      "finished_unix_ns": 1789456102968924692,
+      "duration_ms": 1674.806136637926,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "streams-flush-deliveries",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 1,
+        "VisibilityTimeout": 30
+      },
+      "started_unix_ns": 1789456102972080535,
+      "finished_unix_ns": 1789456104637406302,
+      "duration_ms": 1665.3263038024306,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    }
+  ],
+  "deliveries": [
+    {
+      "message_id": "459adfe8-4c1f-433c-b94e-053785b5f0f7",
+      "received_unix_ns": 1789456083187480922,
+      "body": {
+        "records": [
+          {
+            "kind": "api",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081043458201,
+            "label": "telemetry-streams",
+            "method": "POST",
+            "path": "/2020-01-01/extension/register",
+            "input": {
+              "body": {
+                "events": [
+                  "INVOKE",
+                  "SHUTDOWN"
+                ]
+              },
+              "headers": {
+                "Lambda-Extension-Name": "probe.sh"
+              }
+            },
+            "result": {
+              "status": 200,
+              "headers": {
+                "Content-Type": "application/json",
+                "Lambda-Extension-Identifier": "5f6eccdb-c446-4d8e-837d-cdc564625b10",
+                "Date": "Tue, 15 Sep 2026 07:08:01 GMT",
+                "Content-Length": "107"
+              },
+              "body": "{\"functionName\":\"stackd-ext-a67cc7f44ae7\",\"functionVersion\":\"$LATEST\",\"handler\":\"lambda_function.handler\"}\n"
+            }
+          },
+          {
+            "kind": "api",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081058273616,
+            "label": "subscribe-telemetry-streams",
+            "method": "PUT",
+            "path": "/2022-07-01/telemetry",
+            "input": {
+              "body": {
+                "schemaVersion": "2025-01-29",
+                "types": [
+                  "platform",
+                  "function",
+                  "extension"
+                ],
+                "buffering": {
+                  "maxBytes": 262144,
+                  "maxItems": 1000,
+                  "timeoutMs": 25
+                },
+                "destination": {
+                  "protocol": "HTTP",
+                  "URI": "http://sandbox.localdomain:4243/streams"
+                }
+              },
+              "headers": {
+                "Lambda-Extension-Identifier": "5f6eccdb-c446-4d8e-837d-cdc564625b10"
+              }
+            },
+            "result": {
+              "status": 200,
+              "headers": {
+                "Content-Length": "4",
+                "Content-Type": "application/json",
+                "Date": "Tue, 15 Sep 2026 07:08:01 GMT"
+              },
+              "body": "\"OK\""
+            }
+          },
+          {
+            "kind": "ready",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081058287084,
+            "registrations": [
+              [
+                "telemetry-streams",
+                "5f6eccdb-c446-4d8e-837d-cdc564625b10"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "message_id": "4c0549f9-1b19-42d1-aca0-e07d874fc453",
+      "received_unix_ns": 1789456084645096458,
+      "body": {
+        "records": [
+          {
+            "kind": "api",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081174672319,
+            "label": "next-telemetry-streams",
+            "method": "GET",
+            "path": "/2020-01-01/extension/event/next",
+            "input": {
+              "body": null,
+              "headers": {
+                "Lambda-Extension-Identifier": "5f6eccdb-c446-4d8e-837d-cdc564625b10"
+              }
+            },
+            "result": {
+              "status": 200,
+              "headers": {
+                "Content-Type": "application/json",
+                "Lambda-Extension-Event-Identifier": "b9c1e43c-1141-4b93-aa5a-010f710ee0e7",
+                "Date": "Tue, 15 Sep 2026 07:08:01 GMT",
+                "Content-Length": "337"
+              },
+              "body": "{\"eventType\":\"INVOKE\",\"deadlineMs\":1789456089173,\"requestId\":\"65544dae-045d-4173-b260-9f312c59a5b2\",\"invokedFunctionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7\",\"tracing\":{\"type\":\"X-Amzn-Trace-Id\",\"value\":\"Root=1-6aa8eed0-0a21286d6d2ece1b50c2e4aa;Parent=77ee645e4bfcf6f0;Sampled=0;Lineage=1:2fce981a:0\"}}"
+            }
+          },
+          {
+            "kind": "control",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081175093959,
+            "input": {
+              "marker": "STDOUT_PARTIAL"
+            }
+          },
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081196684310,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "Ab114jNta2MnMl+IYQy8TSUu4j2teQ5pYGqQWmnm7wk",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "792"
+            },
+            "event_count": 5,
+            "first": {
+              "time": "2026-09-15T07:08:01.169Z",
+              "type": "platform.initRuntimeDone",
+              "record": {
+                "initializationType": "on-demand",
+                "phase": "init",
+                "status": "success"
+              }
+            },
+            "last": {
+              "time": "2026-09-15T07:08:01.174Z",
+              "type": "function",
+              "record": "FUNCTION_MARKER STDOUT_PARTIAL\n"
+            },
+            "raw_gzip_base64": "H4sIAAAAAAACA61SW0vDMBT+KxJ8XEZae3F5KzpxqJt0nYIX5Cw5w+Ka1iT1yv67p1NhiiCIeftOznc5Obl8Zb6skEkWijDhYsCDuBCpFLtSBP0gGVywHvPPTdfRLMEvalv1S1P6vDUdcb82SB0WVW01k6+suythWb6AL2tTvDNrwzVWYDS1NrfgulrXSNB58K0j7Fql0Dm2WvX+kgmfPBpHll/SGFjrNLaeY9/dfvh1pRxBPxPGBzSe/C/ZaHw2ORpSaXo4K/Yn52N2/ccs6/fBprb+f5+mxyr0tlSuU9OtXeucEIpj0Y+SYPVr3nTnp7xk9C2qxfsWnR8RYEkcR5EG5CKKNY9Ig8/DRPDBYicIVTyAeB4SedEa1eXJrCESWCPh0cklVHMNsnUcwXkeSLFx5CdHUgJ1pzktkUOSKpUuoggwJdkHtOutSrZ9nBXDafH7B0mjjSE/LTbGYwez8V4xmoxvTrL8aJhvTWnds+LmNMuLUXZ8Zdjq+g1o2DhdGAMAAA=="
+          },
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081252554050,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "K4w+8iuNO6+IsLV8yxQ1YbFQwsp9EG56wCOLwkEP56k",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "80"
+            },
+            "event_count": 1,
+            "first": {
+              "time": "2026-09-15T07:08:01.225Z",
+              "type": "function",
+              "record": "STDERR_LINE\n"
+            },
+            "last": {
+              "time": "2026-09-15T07:08:01.225Z",
+              "type": "function",
+              "record": "STDERR_LINE\n"
+            },
+            "raw_gzip_base64": "H4sIANHuqGoC/4uuVirJzE1VslIyMjAy0zWw1DU0DTEwtzKwsDIw1DMyMo1S0lEqqSwAqUgrzUsuyczPA4oUpSbnF6UAxYJDXFyDguJ9PP1cY/KUamMBmon2jlAAAAA="
+          },
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081302861354,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "KaduwlW2wNyni48jr8qhVzmqnzjZtbTEsi9/YZeuQds",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "96"
+            },
+            "event_count": 1,
+            "first": {
+              "time": "2026-09-15T07:08:01.275Z",
+              "type": "function",
+              "record": "STDOUT_PREFIX STDOUT_SUFFIX\n"
+            },
+            "last": {
+              "time": "2026-09-15T07:08:01.275Z",
+              "type": "function",
+              "record": "STDOUT_PREFIX STDOUT_SUFFIX\n"
+            },
+            "raw_gzip_base64": "H4sIANHuqGoC/4uuVirJzE1VslIyMjAy0zWw1DU0DTEwtzKwsDIw1DMyN41S0lEqqSwAqUgrzUsuyczPA4oUpSbnF6UAxYJDXPxDQ+IDglzdPCMUoLzgUDcgLyZPqTYWAEjx6axgAAAA"
+          }
+        ]
+      }
+    },
+    {
+      "message_id": "0add4cb3-e2e2-40cf-8ebf-689f22b43601",
+      "received_unix_ns": 1789456086053088321,
+      "body": {
+        "records": [
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081063457681,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "XWt7cOr8Nluart61FvSDH5IcA6/C5+udLjSrYUpIfXw",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "458"
+            },
+            "event_count": 1,
+            "first": {
+              "time": "2026-09-15T07:08:00.619Z",
+              "type": "platform.initStart",
+              "record": {
+                "initializationType": "on-demand",
+                "phase": "init",
+                "runtimeVersion": "python:3.12.mainlinev2.v34",
+                "runtimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780",
+                "functionName": "stackd-ext-a67cc7f44ae7",
+                "functionVersion": "$LATEST",
+                "instanceId": "2026/09/15/[$LATEST]45ef7948eb9040c3811bbbb8cc0cf51c",
+                "instanceMaxMemory": 536870912
+              }
+            },
+            "last": {
+              "time": "2026-09-15T07:08:00.619Z",
+              "type": "platform.initStart",
+              "record": {
+                "initializationType": "on-demand",
+                "phase": "init",
+                "runtimeVersion": "python:3.12.mainlinev2.v34",
+                "runtimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780",
+                "functionName": "stackd-ext-a67cc7f44ae7",
+                "functionVersion": "$LATEST",
+                "instanceId": "2026/09/15/[$LATEST]45ef7948eb9040c3811bbbb8cc0cf51c",
+                "instanceMaxMemory": 536870912
+              }
+            },
+            "raw_gzip_base64": "H4sIANHuqGoC/2WQS0/DMBCE/0vEkaTexIkftx44IFEujThQ9bDxQ7VInMpxS0vV/04MlajEHme/mdHu5pJFN5hMZiUpm5yIHOqWMEm4JKRoQLxnj1k87xOx7zHaMQyF8y6uI4Y474JRY9CZvGRJddi7L4xu9O2vZ/S5NgN6PaP7HU5JS2ByHnyqfjNhmvmUf4670cuqgLIY0PneeXMsi2NF/9HLkAwYvMTPSfY4dBrlYcoNTjEHKW+0RE2NVaaxnRUUbMVVJ7BuoGMUNC81I9pYAEBWWhCCVUxgwxFYrWeNk7nYHrxKB73iz5umiOpD5+YUc2yYUsxSiobdgX8HPbws26d1O++cn31emWd9+/SCiAXUi80N2dLaWCYoN50glKiKA3TzcKWIsjWou4wVnlZmGMM5k3XVcEYElNfr9huGxA9RygEAAA=="
+          },
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456081088549549,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "Wsr1x0E92oLF6IgtbcZ+uLPWRJtWmnH5B3d2EW96WM4",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "171"
+            },
+            "event_count": 1,
+            "first": {
+              "time": "2026-09-15T07:08:01.056Z",
+              "type": "platform.telemetrySubscription",
+              "record": {
+                "name": "probe.sh",
+                "state": "Subscribed",
+                "types": [
+                  "platform",
+                  "function",
+                  "extension"
+                ]
+              }
+            },
+            "last": {
+              "time": "2026-09-15T07:08:01.056Z",
+              "type": "platform.telemetrySubscription",
+              "record": {
+                "name": "probe.sh",
+                "state": "Subscribed",
+                "types": [
+                  "platform",
+                  "function",
+                  "extension"
+                ]
+              }
+            },
+            "raw_gzip_base64": "H4sIANHuqGoC/z2MywqDMBRE/+Wua4iCts1vtKuKiyReacA8SK5QEf+9SQndDTNnzngAGYsgoOPd0PB70/ZPfhX8JnjLeD+84AK0h0KEVdLio2WEK1qkuD82lXQ0gYx3mYuofZxBHODkzxmiV8jSO2+JJJWqXhTOVZxAjH917pbN6erDD6FLJU/nOX0BOHyywKsAAAA="
+          }
+        ]
+      }
+    },
+    {
+      "message_id": "6ed2bdd5-c071-49b9-a180-ae4a48ebdb4f",
+      "received_unix_ns": 1789456091047248577,
+      "body": {
+        "records": [
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456089169308581,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "iTyUJGd+RaRp57PVPLnyFDOgUyaXeiZd2b80iiUjd14",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "96"
+            },
+            "event_count": 1,
+            "first": {
+              "time": "2026-09-15T07:08:09.142Z",
+              "type": "function",
+              "record": "STDERR_PREFIX STDERR_SUFFIX\n"
+            },
+            "last": {
+              "time": "2026-09-15T07:08:09.142Z",
+              "type": "function",
+              "record": "STDERR_PREFIX STDERR_SUFFIX\n"
+            },
+            "raw_gzip_base64": "H4sIANnuqGoC/4uuVirJzE1VslIyMjAy0zWw1DU0DTEwtzKwsDKw1DM0MYpS0lEqqSwAqUgrzUsuyczPA4oUpSbnF6UAxYJDXFyDguIDglzdPCMUoLzgUDcgLyZPqTYWAIwnX9pgAAAA"
+          }
+        ]
+      }
+    },
+    {
+      "message_id": "a87a2226-e7e7-4b14-8983-9f87761327d1",
+      "received_unix_ns": 1789456092470200651,
+      "body": {
+        "records": [
+          {
+            "kind": "api",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456089040606253,
+            "label": "next-telemetry-streams",
+            "method": "GET",
+            "path": "/2020-01-01/extension/event/next",
+            "input": {
+              "body": null,
+              "headers": {
+                "Lambda-Extension-Identifier": "5f6eccdb-c446-4d8e-837d-cdc564625b10"
+              }
+            },
+            "result": {
+              "status": 200,
+              "headers": {
+                "Content-Type": "application/json",
+                "Lambda-Extension-Event-Identifier": "e4cf6a0c-5383-4e9e-a788-5fb82dddbc84",
+                "Date": "Tue, 15 Sep 2026 07:08:09 GMT",
+                "Content-Length": "337"
+              },
+              "body": "{\"eventType\":\"INVOKE\",\"deadlineMs\":1789456097040,\"requestId\":\"8692b838-8763-4397-9de1-5f676d82d071\",\"invokedFunctionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7\",\"tracing\":{\"type\":\"X-Amzn-Trace-Id\",\"value\":\"Root=1-6aa8eed9-7bbf1ab4624685b6217e2723;Parent=2769952b89c61c52;Sampled=0;Lineage=1:2fce981a:0\"}}"
+            }
+          },
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456089041105791,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "IlMwOI4Jf1aiNs1w5m4R6cj+0tjFyxoQpC07GQoE/bI",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "818"
+            },
+            "event_count": 2,
+            "first": {
+              "time": "2026-09-15T07:08:02.327Z",
+              "type": "platform.runtimeDone",
+              "record": {
+                "requestId": "65544dae-045d-4173-b260-9f312c59a5b2",
+                "status": "success",
+                "spans": [
+                  {
+                    "name": "responseLatency",
+                    "start": "2026-09-15T07:08:01.173Z",
+                    "durationMs": 1153.083
+                  },
+                  {
+                    "name": "responseDuration",
+                    "start": "2026-09-15T07:08:02.326Z",
+                    "durationMs": 0.175
+                  },
+                  {
+                    "name": "runtimeOverhead",
+                    "start": "2026-09-15T07:08:02.327Z",
+                    "durationMs": 0.447
+                  }
+                ],
+                "metrics": {
+                  "durationMs": 1153.896,
+                  "producedBytes": 200
+                }
+              }
+            },
+            "last": {
+              "time": "2026-09-15T07:08:02.329Z",
+              "type": "platform.report",
+              "record": {
+                "requestId": "65544dae-045d-4173-b260-9f312c59a5b2",
+                "metrics": {
+                  "durationMs": 1154.367,
+                  "billedDurationMs": 1705,
+                  "memorySizeMB": 512,
+                  "maxMemoryUsedMB": 102,
+                  "initDurationMs": 550.462
+                },
+                "spans": [
+                  {
+                    "name": "extensionOverhead",
+                    "start": "2026-09-15T07:08:02.327Z",
+                    "durationMs": 0.003
+                  }
+                ],
+                "status": "success"
+              }
+            },
+            "raw_gzip_base64": "H4sIANnuqGoC/6VSsW6DMBD9F8+AbIMhMEYslRp1aLs0yuDgi4oUbGqbKjTi33tOOkQlTYds9rt7z8/3bn0kvu2AVIRTnse0jJl4oUVFFxXlScqLNxIRP/aho99LvzO2S+ygA6k2GrBqoTFWkeqIp48BnH/AC8mFyDIlIaaZUHHGijTe8pzG5S5lvBGlFFuOZOelHxz2u6FpwLkA9VIjsj4SLU/OLLjeaAeP0oNuxjPL+queWYIvBc9qsNK3Rq9QijGRJnSRTtFMs/5puykaBpH/FqX4krhUPA/l6RPsO0j1r2AxF8yyYtpEpANv28aFic5+sSjziPTWqKEBtRw9YIFTOk3Byc0ky6tJQm/Q450h/m04S9K8iMi23e9B1Ze1gopA7Iwdn9svWC1JJRhHSB5WJ/TVgQooo4i2uvWXdCFwWjmfrmwLHHBLHPbdkwSlaUhitp3TtPkG0ycwjDIDAAA="
+          },
+          {
+            "kind": "control",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456089041792295,
+            "input": {
+              "marker": "STDERR_PARTIAL"
+            }
+          },
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456089068124198,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "v0fShBo+/qTyNw/ZypLgf2I1Uuc9LSteLCSfnzZ0k7o",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "328"
+            },
+            "event_count": 2,
+            "first": {
+              "time": "2026-09-15T07:08:09.040Z",
+              "type": "platform.start",
+              "record": {
+                "requestId": "8692b838-8763-4397-9de1-5f676d82d071",
+                "functionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7",
+                "version": "$LATEST"
+              }
+            },
+            "last": {
+              "time": "2026-09-15T07:08:09.041Z",
+              "type": "function",
+              "record": "FUNCTION_MARKER STDERR_PARTIAL\n"
+            },
+            "raw_gzip_base64": "H4sIAAAAAAACA4WPy2rDMBBFf6WILqMgP6LXTrQumKZpcdRNmxAUSYbQWE4luQ+C/73KIuBdZzUz3HtnzvsZxENnAQc5yjFEDGYLiQhHlCM2RyV6AzMQf08XxemoYtv7bh6i8jHtvdW9N4CfU/c52BDrNACKWb6nBYWU4AKWBSOQGZvBRYsJNjQ3iGTJ3A5Ox0PvhHfJpLzj6jvwo+r2RvEhQKtChBlHk+JXD08f6A8D7U+EChOtSVuWypIU+2V9SIoUebsUslpLMI6zfyCzCeT1xAQPPLyu7mT9vNo9ieaxam7W8r5qmt2LaGQtlhsHxu0ffedFnUgBAAA="
+          },
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456089119199457,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "K4vyaMf1otiw7pP1pJgnB32pkoCn+RJAAUi5LKV44mo",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "80"
+            },
+            "event_count": 1,
+            "first": {
+              "time": "2026-09-15T07:08:09.092Z",
+              "type": "function",
+              "record": "STDOUT_LINE\n"
+            },
+            "last": {
+              "time": "2026-09-15T07:08:09.092Z",
+              "type": "function",
+              "record": "STDOUT_LINE\n"
+            },
+            "raw_gzip_base64": "H4sIANnuqGoC/4uuVirJzE1VslIyMjAy0zWw1DU0DTEwtzKwsDKw1DOwNIpS0lEqqSwAqUgrzUsuyczPA4oUpSbnF6UAxYJDXPxDQ+J9PP1cY/KUamMBR4l5WFAAAAA="
+          }
+        ]
+      }
+    },
+    {
+      "message_id": "7939e4be-c851-419e-9062-d0646623232b",
+      "received_unix_ns": 1789456098976093082,
+      "body": {
+        "records": [
+          {
+            "kind": "api",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456097099008592,
+            "label": "next-telemetry-streams",
+            "method": "GET",
+            "path": "/2020-01-01/extension/event/next",
+            "input": {
+              "body": null,
+              "headers": {
+                "Lambda-Extension-Identifier": "5f6eccdb-c446-4d8e-837d-cdc564625b10"
+              }
+            },
+            "result": {
+              "status": 200,
+              "headers": {
+                "Content-Type": "application/json",
+                "Lambda-Extension-Event-Identifier": "e292d88f-418a-4889-a23a-37b1c2ba853f",
+                "Date": "Tue, 15 Sep 2026 07:08:17 GMT",
+                "Content-Length": "337"
+              },
+              "body": "{\"eventType\":\"INVOKE\",\"deadlineMs\":1789456105098,\"requestId\":\"53efa420-7ce9-46b2-826f-9bb15ffb40b4\",\"invokedFunctionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7\",\"tracing\":{\"type\":\"X-Amzn-Trace-Id\",\"value\":\"Root=1-6aa8eee1-72dab0054e9594c94e05c70e;Parent=1a499d22bb2ad667;Sampled=0;Lineage=1:2fce981a:0\"}}"
+            }
+          },
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456097099630957,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "eaCk6rhp0ZfdFJ/emdQ9IN77vvqSaD/gLY/vuYf3TII",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "793"
+            },
+            "event_count": 2,
+            "first": {
+              "time": "2026-09-15T07:08:10.193Z",
+              "type": "platform.runtimeDone",
+              "record": {
+                "requestId": "8692b838-8763-4397-9de1-5f676d82d071",
+                "status": "success",
+                "spans": [
+                  {
+                    "name": "responseLatency",
+                    "start": "2026-09-15T07:08:09.040Z",
+                    "durationMs": 1152.829
+                  },
+                  {
+                    "name": "responseDuration",
+                    "start": "2026-09-15T07:08:10.193Z",
+                    "durationMs": 0.067
+                  },
+                  {
+                    "name": "runtimeOverhead",
+                    "start": "2026-09-15T07:08:10.193Z",
+                    "durationMs": 0.538
+                  }
+                ],
+                "metrics": {
+                  "durationMs": 1153.557,
+                  "producedBytes": 200
+                }
+              }
+            },
+            "last": {
+              "time": "2026-09-15T07:08:10.195Z",
+              "type": "platform.report",
+              "record": {
+                "requestId": "8692b838-8763-4397-9de1-5f676d82d071",
+                "metrics": {
+                  "durationMs": 1153.809,
+                  "billedDurationMs": 1154,
+                  "memorySizeMB": 512,
+                  "maxMemoryUsedMB": 102
+                },
+                "spans": [
+                  {
+                    "name": "extensionOverhead",
+                    "start": "2026-09-15T07:08:10.193Z",
+                    "durationMs": 0.003
+                  }
+                ],
+                "status": "success"
+              }
+            },
+            "raw_gzip_base64": "H4sIAOHuqGoC/6VSsU7DMBD9F89JdHbqxM5YdUGiYgAWqg5ufBWRmjjYDmqo8u/YLRIFqg50s9/de3r37lYH4psWSUUYsCIFmVL+BGUFoqKQUZm/kIT4sY8d/U75rbFtZocukhamw1C1WBurSXUIr7cBnb8LHyIKyTYiF6koizyd5bJMpUaa8m1RFlowDSUNZOeVH1zod0Ndo3MR6lUXkNWBdOrozKLrTefwXnns6vHEsv6SZ5AZzCB61oNVvjHdMkhRylkmmJySP5qLr7Zrot9BnItCBkV5rngK5eEd7Ssq/R9BnotpnZAWvW1qFxP9NUWecV4mpLdGDzXq+egxFBjANEUnVzfJL24SexM83rjEa4YFyIRsmt0O9eJnbRaJrbHjY/OByzmpOGUBUvvlEX12qCNKgU0XjgL34RhcULslcIA8Bv7nCKdp/Qk7g1PYGQMAAA=="
+          },
+          {
+            "kind": "control",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456097100149233,
+            "input": {
+              "marker": "STREAMS_FLUSH"
+            }
+          },
+          {
+            "kind": "delivery",
+            "boot": "d73c9c1d9926427499577d121b126ec1",
+            "unix_ns": 1789456097124790354,
+            "transport": "HTTP",
+            "method": "POST",
+            "path": "/streams",
+            "headers": {
+              "content-type": "application/json",
+              "sequence-id": "7i+CiQRmuzUE5N2QDTw1AGBl0yaoKQ0DkoXMXeZMi+4",
+              "host": "169.254.100.6:4243",
+              "connection": "keep-alive",
+              "user-agent": "awslambda-worker/1.0",
+              "content-length": "327"
+            },
+            "event_count": 2,
+            "first": {
+              "time": "2026-09-15T07:08:17.098Z",
+              "type": "platform.start",
+              "record": {
+                "requestId": "53efa420-7ce9-46b2-826f-9bb15ffb40b4",
+                "functionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7",
+                "version": "$LATEST"
+              }
+            },
+            "last": {
+              "time": "2026-09-15T07:08:17.099Z",
+              "type": "function",
+              "record": "FUNCTION_MARKER STREAMS_FLUSH\n"
+            },
+            "raw_gzip_base64": "H4sIAAAAAAACA4WPy2rDMBBFf6WILqMgq7JlaWeKQ0OTFGxl0wdBkiUIjeVUkvsg+N+rLgLedVYzw7135rxcQDz2BnCAES4gYjDLBaIclTyjS8TKZ7AA8ef8pzifZLSD75chSh/T3hs9+A7wS+o+RhPiOg0gvzNWEowg1YZBUigMS1xYyJTKcmsVQYoksx2djsfBVd4lk/SOy6/AT7JXneRjgEaGCDOOZsWvHp4+0O8dNN8RyoJqTS0h0tAU+2l8SIoUebupRN0KME2LfyDZDPJ6YoYHVvvdvVg/7Q7bqnmsm5tWNHW1bQ+rzb59eHVgevsFEB3oM0cBAAA="
+          }
+        ]
+      }
+    }
+  ],
+  "artifacts": {
+    "handler": "import http.client, json, os, time, uuid\nBOOT = uuid.uuid4().hex\nREADY = None\nif os.environ.get('PROBE_SUBSCRIPTIONS'):\n    for attempt in range(160):\n        try:\n            connection = http.client.HTTPConnection('127.0.0.1',4243,timeout=2)\n            connection.request('GET','/ready')\n            response = connection.getresponse()\n            READY = json.loads(response.read())\n            connection.close()\n            if response.status == 200:\n                break\n        except (OSError,ValueError):\n            pass\n        time.sleep(.05)\n    else:\n        raise RuntimeError('Extension Init barrier expired')\n\ndef handler(event, context):\n    print('FUNCTION_MARKER '+event['marker'],flush=True)\n    if READY:\n        connection = http.client.HTTPConnection('127.0.0.1',4243,timeout=4)\n        connection.request('POST','/control',json.dumps({'marker':event['marker']}))\n        response = connection.getresponse()\n        response.read()\n        connection.close()\n    for descriptor, text in event.get('writes', []):\n        os.write(descriptor, text.encode())\n        time.sleep(.05)\n    time.sleep(event.get('sleep',1))\n    if event.get('fail'):\n        raise ValueError('Native platform schema control')\n    return {'marker':event['marker'],'boot':BOOT,'extension':READY,'request_id':context.aws_request_id}\n",
+    "extension": "import base64, gzip, http.client, http.server, json, os, threading, time, uuid\nimport boto3\n\nAPI = os.environ['AWS_LAMBDA_RUNTIME_API']\nQUEUE = os.environ['PROBE_QUEUE']\nSQS = boto3.client('sqs')\nBOOT = uuid.uuid4().hex\nLOCK = threading.Lock()\nRECORDS = []\nREGISTRATIONS = []\nREADY = False\n\ndef emit(kind, **fields):\n    with LOCK:\n        RECORDS.append(dict(kind=kind, boot=BOOT, unix_ns=time.time_ns(), **fields))\n\ndef flush():\n    with LOCK:\n        records = RECORDS[:]\n        RECORDS.clear()\n    chunk = []\n    for record in records:\n        if chunk and len(json.dumps(chunk)) + len(json.dumps(record)) > 150000:\n            SQS.send_message(QueueUrl=QUEUE, MessageBody=json.dumps({'records':chunk}))\n            chunk = []\n        chunk.append(record)\n    if chunk:\n        SQS.send_message(QueueUrl=QUEUE, MessageBody=json.dumps({'records':chunk}))\n\ndef flusher():\n    while True:\n        time.sleep(.1)\n        try:\n            flush()\n        except Exception as error:\n            print('COLLECTOR_ERROR ' + str(error), flush=True)\n\ndef request(label, method, path, body=None, headers=None):\n    connection = http.client.HTTPConnection(API, timeout=900 if path.endswith('/next') else 10)\n    connection.request(method, path, None if body is None else json.dumps(body), headers or {})\n    response = connection.getresponse()\n    observed = dict(status=response.status, headers=dict(response.getheaders()), body=response.read().decode())\n    connection.close()\n    emit('api', label=label, method=method, path=path, input=dict(body=body, headers=headers or {}), result=observed)\n    return observed\n\nclass Listener(http.server.BaseHTTPRequestHandler):\n    def receive(self):\n        raw = self.rfile.read(int(self.headers.get('Content-Length','0')))\n        if self.path == '/ready':\n            self.send_response(200 if READY else 503)\n            self.end_headers()\n            self.wfile.write(json.dumps({'ready':READY,'boot':BOOT}).encode())\n            return\n        if self.path == '/control':\n            emit('control', input=json.loads(raw))\n        else:\n            events = json.loads(raw)\n            emit('delivery', transport='HTTP', method=self.command, path=self.path, headers=dict(self.headers),\n                 event_count=len(events), first=events[0] if events else None, last=events[-1] if events else None,\n                 raw_gzip_base64=base64.b64encode(gzip.compress(raw)).decode())\n        self.send_response(200)\n        self.end_headers()\n        self.wfile.write(b'{}')\n    do_GET = receive\n    do_POST = receive\n    def log_message(self,*args):\n        pass\n\nserver = http.server.ThreadingHTTPServer(('0.0.0.0',4243),Listener)\nthreading.Thread(target=server.serve_forever,daemon=True).start()\nthreading.Thread(target=flusher,daemon=True).start()\nfor row in json.loads(os.environ['PROBE_SUBSCRIPTIONS']):\n    label = row['label']\n    name = 'probe.sh' if not REGISTRATIONS else label\n    registration = request(label, 'POST', '/2020-01-01/extension/register',\n                           {'events':['INVOKE','SHUTDOWN'] if not REGISTRATIONS else ['INVOKE']}, {'Lambda-Extension-Name':name})\n    if registration['status'] != 200:\n        raise RuntimeError('Registration failed: ' + json.dumps(registration))\n    identifier = next(value for key,value in registration['headers'].items() if key.lower() == 'lambda-extension-identifier')\n    REGISTRATIONS.append((label,identifier))\n    request('subscribe-'+label,'PUT',row['path'],row['body'],{'Lambda-Extension-Identifier':identifier})\nREADY = True\nemit('ready', registrations=REGISTRATIONS)\nflush()\n\ndef participate(label, identifier):\n    while True:\n        response = request('next-'+label,'GET','/2020-01-01/extension/event/next',headers={'Lambda-Extension-Identifier':identifier})\n        if response['status'] != 200:\n            return\n        if json.loads(response['body'])['eventType'] == 'SHUTDOWN':\n            flush()\n            return\n\nfor label,identifier in REGISTRATIONS[1:]:\n    threading.Thread(target=participate,args=(label,identifier),daemon=True).start()\nparticipate(*REGISTRATIONS[0])\n",
+    "bootstrap": "#!/bin/sh\nexec /var/lang/bin/python3.12 /opt/probe_extension.py\n"
+  },
+  "references": [
+    "https://docs.aws.amazon.com/lambda/latest/dg/runtimes-extensions-api.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/telemetry-api-reference.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/samples/extensions-api.zip"
+  ],
+  "unresolved": [
+    "This capture observes plain-text log line boundaries, not JSON logging, invalid UTF-8 conversion, or a global event order."
+  ],
+  "bounds": "One function, one layer, one execution role, one SQS collector; no existing resources changed. No Logs permissions. Observations, not guaranteed timing/order.",
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "delete-function",
+        "service": "lambda",
+        "operation": "delete-function",
+        "input": {
+          "FunctionName": "stackd-ext-a67cc7f44ae7"
+        },
+        "started_unix_ns": 1789456104639721028,
+        "finished_unix_ns": 1789456105526797021,
+        "duration_ms": 887.0765911415219,
+        "result": {
+          "code": "Success",
+          "output": {
+            "StatusCode": 204
+          },
+          "http_status": 204
+        }
+      },
+      {
+        "label": "function-absence",
+        "service": "lambda",
+        "operation": "get-function-configuration",
+        "input": {
+          "FunctionName": "stackd-ext-a67cc7f44ae7"
+        },
+        "started_unix_ns": 1789456105527791595,
+        "finished_unix_ns": 1789456106326120874,
+        "duration_ms": 798.3297603204846,
+        "result": {
+          "code": "ResourceNotFoundException",
+          "message": "Function not found: arn:aws:lambda:us-east-1:000000000000:function:stackd-ext-a67cc7f44ae7",
+          "http_status": 404
+        }
+      },
+      {
+        "label": "owned-layer-versions",
+        "service": "lambda",
+        "operation": "list-layer-versions",
+        "input": {
+          "LayerName": "stackd-ext-a67cc7f44ae7"
+        },
+        "started_unix_ns": 1789456106327336459,
+        "finished_unix_ns": 1789456107012762803,
+        "duration_ms": 685.4269597679377,
+        "result": {
+          "code": "Success",
+          "output": {
+            "LayerVersions": [
+              {
+                "LayerVersionArn": "arn:aws:lambda:us-east-1:000000000000:layer:stackd-ext-a67cc7f44ae7:1",
+                "Version": 1,
+                "CreatedDate": "2026-09-15T07:07:40.922+0000"
+              }
+            ]
+          },
+          "http_status": 200
+        }
+      },
+      {
+        "label": "delete-layer",
+        "service": "lambda",
+        "operation": "delete-layer-version",
+        "input": {
+          "LayerName": "stackd-ext-a67cc7f44ae7",
+          "VersionNumber": 1
+        },
+        "started_unix_ns": 1789456107013795610,
+        "finished_unix_ns": 1789456107713636438,
+        "duration_ms": 699.8413512483239,
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 204
+        }
+      },
+      {
+        "label": "layer-absence",
+        "service": "lambda",
+        "operation": "list-layer-versions",
+        "input": {
+          "LayerName": "stackd-ext-a67cc7f44ae7"
+        },
+        "started_unix_ns": 1789456107714713933,
+        "finished_unix_ns": 1789456108397775192,
+        "duration_ms": 683.0619527027011,
+        "result": {
+          "code": "Success",
+          "output": {
+            "LayerVersions": []
+          },
+          "http_status": 200
+        }
+      },
+      {
+        "label": "delete-policy",
+        "service": "iam",
+        "operation": "delete-role-policy",
+        "input": {
+          "RoleName": "stackd-ext-a67cc7f44ae7",
+          "PolicyName": "collector"
+        },
+        "started_unix_ns": 1789456108398916999,
+        "finished_unix_ns": 1789456109110932435,
+        "duration_ms": 712.016036733985,
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        }
+      },
+      {
+        "label": "delete-role",
+        "service": "iam",
+        "operation": "delete-role",
+        "input": {
+          "RoleName": "stackd-ext-a67cc7f44ae7"
+        },
+        "started_unix_ns": 1789456109111987394,
+        "finished_unix_ns": 1789456109889516405,
+        "duration_ms": 777.5300806388259,
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        }
+      },
+      {
+        "label": "role-absence",
+        "service": "iam",
+        "operation": "get-role",
+        "input": {
+          "RoleName": "stackd-ext-a67cc7f44ae7"
+        },
+        "started_unix_ns": 1789456109891223258,
+        "finished_unix_ns": 1789456110561376460,
+        "duration_ms": 670.1536346226931,
+        "result": {
+          "code": "NoSuchEntity",
+          "message": "The role with name stackd-ext-a67cc7f44ae7 cannot be found.",
+          "http_status": 404
+        }
+      },
+      {
+        "label": "delete-queue",
+        "service": "sqs",
+        "operation": "delete-queue",
+        "input": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7"
+        },
+        "started_unix_ns": 1789456110562525878,
+        "finished_unix_ns": 1789456111339486214,
+        "duration_ms": 776.9609745591879,
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        }
+      },
+      {
+        "label": "queue-absence",
+        "service": "sqs",
+        "operation": "get-queue-attributes",
+        "input": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ext-a67cc7f44ae7",
+          "AttributeNames": [
+            "QueueArn"
+          ]
+        },
+        "started_unix_ns": 1789456111340575434,
+        "finished_unix_ns": 1789456112003087234,
+        "duration_ms": 662.5125417485833,
+        "result": {
+          "code": "AWS.SimpleQueueService.NonExistentQueue",
+          "message": "The specified queue does not exist.",
+          "http_status": 400
+        }
+      }
+    ],
+    "function_absent": true,
+    "layer_absent": true,
+    "role_absent": true,
+    "queue_absent": true
+  },
+  "actor": {
+    "account": "000000000000",
+    "arn": "arn:aws:iam::000000000000:user/Delegated"
+  },
+  "completed": true,
+  "duration_seconds": 59.87569522764534
+}

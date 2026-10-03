@@ -1,0 +1,3540 @@
+{
+  "Source": "multipart_events_evidence.json.gz",
+  "Bucket": "stackd-mpe-20260920073831-18708a",
+  "AuditBucket": "stackd-mpe-20260920073831-18708a-audit",
+  "AuditPrefix": "AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Data records project native delivered gzip logs; Management records project native LookupEvents and are delivered locally using a read-only Management selector. Trail selectors cannot filter Management events by eventName.",
+    "Transfer sizes retain native values in Record; assertions independently bind implementation-dependent XML response byte lengths to actual wire, never replacing objectSize.",
+    "Final Complete failures may use HTTP200 Error XML; preserve error code and bind audit transport status to actual HTTP status only for this documented final-response variant."
+  ],
+  "Setup": [
+    {
+      "Label": "create_bucket-1",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 1,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-mpe-20260920073831-18708a"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create_bucket-3",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 3,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-mpe-20260920073831-18708a-audit"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "put_bucket_policy-5",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 5,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "stackd-mpe-20260920073831-18708a-audit",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"Acl\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-mpe-20260920073831-18708a-audit\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/stackd-mpe-20260920073831-18708a\"}}}, {\"Sid\": \"Write\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-mpe-20260920073831-18708a-audit/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/stackd-mpe-20260920073831-18708a\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create_trail-6",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 6,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-mpe-20260920073831-18708a",
+        "S3BucketName": "stackd-mpe-20260920073831-18708a-audit",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "EnableLogFileValidation": false
+      },
+      "Output": {}
+    },
+    {
+      "Label": "put_event_selectors-7",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 7,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "TrailName": "stackd-mpe-20260920073831-18708a",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "OwnedBucketOnly",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::S3::Object"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:s3:::stackd-mpe-20260920073831-18708a/"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "ReadOnlyManagement",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Management"
+                ]
+              },
+              {
+                "Field": "readOnly",
+                "Equals": [
+                  "true"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start_logging-8",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 8,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-mpe-20260920073831-18708a"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "put_rule-9",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 9,
+      "Service": "eventbridge",
+      "Operation": "PutRule",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-mpe-20260920073831-18708a",
+        "EventPattern": "{\"source\": [\"aws.s3\"], \"detail\": {\"bucket\": {\"name\": [\"stackd-mpe-20260920073831-18708a\"]}}}",
+        "State": "ENABLED"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create_queue-10",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 10,
+      "Service": "sqs",
+      "Operation": "CreateQueue",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueName": "stackd-mpe-20260920073831-18708a-classic",
+        "Attributes": {
+          "MessageRetentionPeriod": "3600"
+        }
+      },
+      "Output": {},
+      "Bind": {
+        "queue_classic": "QueueUrl"
+      }
+    },
+    {
+      "Label": "set_queue_attributes-12",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 12,
+      "Service": "sqs",
+      "Operation": "SetQueueAttributes",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueUrl": "${queue_classic}",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-mpe-20260920073831-18708a-classic\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:s3:::stackd-mpe-20260920073831-18708a\"}, \"StringEquals\": {\"aws:SourceAccount\": \"123456789012\"}}}]}"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create_queue-13",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 13,
+      "Service": "sqs",
+      "Operation": "CreateQueue",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueName": "stackd-mpe-20260920073831-18708a-eventbridge",
+        "Attributes": {
+          "MessageRetentionPeriod": "3600"
+        }
+      },
+      "Output": {},
+      "Bind": {
+        "queue_eventbridge": "QueueUrl"
+      }
+    },
+    {
+      "Label": "set_queue_attributes-15",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 15,
+      "Service": "sqs",
+      "Operation": "SetQueueAttributes",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueUrl": "${queue_eventbridge}",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-mpe-20260920073831-18708a-eventbridge\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/stackd-mpe-20260920073831-18708a\"}, \"StringEquals\": {\"aws:SourceAccount\": \"123456789012\"}}}]}"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "put_targets-16",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 16,
+      "Service": "eventbridge",
+      "Operation": "PutTargets",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Rule": "stackd-mpe-20260920073831-18708a",
+        "Targets": [
+          {
+            "Id": "OwnedQueue",
+            "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-mpe-20260920073831-18708a-eventbridge"
+          }
+        ]
+      },
+      "Output": {}
+    },
+    {
+      "Label": "put_bucket_notification_configuration-17",
+      "Source": "multipart_events_evidence.json.gz",
+      "Sequence": 17,
+      "Service": "s3",
+      "Operation": "PutBucketNotificationConfiguration",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-mpe-20260920073831-18708a",
+        "NotificationConfiguration": {
+          "QueueConfigurations": [
+            {
+              "Id": "owned-classic",
+              "QueueArn": "arn:aws:sqs:us-east-1:123456789012:stackd-mpe-20260920073831-18708a-classic",
+              "Events": [
+                "s3:ObjectCreated:*",
+                "s3:ObjectRemoved:*",
+                "s3:ObjectTagging:*"
+              ]
+            }
+          ],
+          "EventBridgeConfiguration": {}
+        }
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Sequence": 79,
+      "Label": "copy-source",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/source.txt",
+      "Headers": {},
+      "Body": "part-copy-source-0123456789\n",
+      "Status": 200,
+      "Code": "",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "messages[9]",
+          "SourceSequence": 79,
+          "Payload": {
+            "eventVersion": "2.6",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2026-09-20T07:44:33.306Z",
+            "eventName": "ObjectCreated:Put",
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-request-id": "${request79}",
+              "x-amz-id-2": "jEkcuncjcFoaOQpkdIGEJYeNmHwGiv0AEELTYlqq7qam2LOpYXtuelGNScP9R5glNxwkaAiCRrsNuIC78ddB7FUWHKnDNgiT"
+            },
+            "s3": {
+              "s3SchemaVersion": "1.0",
+              "configurationId": "owned-classic",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                },
+                "arn": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "source.txt",
+                "size": 28,
+                "eTag": "9e669160e725df19b5359b8a3fbda32e",
+                "sequencer": "006AAF8EE146BB4920"
+              }
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "messages[21]",
+          "SourceSequence": 79,
+          "Payload": {
+            "version": "0",
+            "id": "22c1e06b-74c3-0457-6ded-17dc3dba179d",
+            "detail-type": "Object Created",
+            "source": "aws.s3",
+            "account": "123456789012",
+            "time": "2026-09-20T07:44:33Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+            ],
+            "detail": {
+              "version": "0",
+              "event-version": "1.2",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "source.txt",
+                "size": 28,
+                "etag": "9e669160e725df19b5359b8a3fbda32e",
+                "sequencer": "006AAF8EE146BB4920"
+              },
+              "request-id": "${request79}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "reason": "PutObject"
+            }
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 80,
+      "Label": "CreateMultipartUpload",
+      "Operation": "CreateMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?uploads=",
+      "Headers": {
+        "x-amz-tagging": "purpose=native-multipart&private-tag=tag-value-events",
+        "x-amz-meta-private-note": "metadata-value-events",
+        "content-type": "application/x-stackd-multipart"
+      },
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Bind": {"upload80": "UploadId"},
+      "Notifications": []
+    },
+    {
+      "Sequence": 81,
+      "Label": "part-one-original",
+      "Operation": "UploadPart",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?partNumber=1&uploadId=${upload80}",
+      "Headers": {},
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Payload": [
+        {
+          "Base64": "QQ==",
+          "Repeat": 5242880
+        }
+      ],
+      "ETag": "\"b8fc857a25e7958868c2f003d5e0952d\"",
+      "Notifications": []
+    },
+    {
+      "Sequence": 82,
+      "Label": "part-one-replacement",
+      "Operation": "UploadPart",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?partNumber=1&uploadId=${upload80}",
+      "Headers": {},
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Payload": [
+        {
+          "Base64": "Qg==",
+          "Repeat": 5242880
+        }
+      ],
+      "ETag": "\"ba8c3fac0e224c9b79a8e74bebd54654\"",
+      "Notifications": []
+    },
+    {
+      "Sequence": 83,
+      "Label": "part-two-copy",
+      "Operation": "UploadPartCopy",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?partNumber=2&uploadId=${upload80}",
+      "Headers": {
+        "x-amz-copy-source": "/stackd-mpe-20260920073831-18708a/source.txt"
+      },
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 84,
+      "Label": "ListParts",
+      "Operation": "ListParts",
+      "Method": "GET",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?uploadId=${upload80}",
+      "Headers": {},
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Reopen": true,
+      "Notifications": []
+    },
+    {
+      "Sequence": 85,
+      "Label": "ListMultipartUploads",
+      "Operation": "ListMultipartUploads",
+      "Method": "GET",
+      "Target": "/stackd-mpe-20260920073831-18708a/?uploads=",
+      "Headers": {},
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 86,
+      "Label": "complete-invalid-part",
+      "Operation": "CompleteMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?uploadId=${upload80}",
+      "Headers": {
+        "content-type": "application/xml"
+      },
+      "Body": "<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>\"00000000000000000000000000000000\"</ETag></Part><Part><PartNumber>2</PartNumber><ETag>\"9e669160e725df19b5359b8a3fbda32e\"</ETag></Part></CompleteMultipartUpload>",
+      "Status": 400,
+      "Code": "InvalidPart",
+      "Notifications": []
+    },
+    {
+      "Sequence": 87,
+      "Label": "visibility-before-complete",
+      "Operation": "HeadObject",
+      "Method": "HEAD",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin",
+      "Headers": {},
+      "Body": "",
+      "Status": 404,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 88,
+      "Label": "complete-success",
+      "Operation": "CompleteMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?uploadId=${upload80}",
+      "Headers": {
+        "content-type": "application/xml"
+      },
+      "Body": "<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>\"ba8c3fac0e224c9b79a8e74bebd54654\"</ETag></Part><Part><PartNumber>2</PartNumber><ETag>\"9e669160e725df19b5359b8a3fbda32e\"</ETag></Part></CompleteMultipartUpload>",
+      "Status": 200,
+      "Code": "",
+      "ETag": "\"6cb92e0907f0c91edaec8daa44ee827d-2\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "messages[11]",
+          "SourceSequence": 88,
+          "Payload": {
+            "eventVersion": "2.6",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2026-09-20T07:44:41.782Z",
+            "eventName": "ObjectCreated:CompleteMultipartUpload",
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-request-id": "${request88}",
+              "x-amz-id-2": "UggaLAgPOdA7MNzKCAqZOZQiIkodPZoGeXGujhyLqNgi+QbZcYy6FE0zNl8u34tOQ2z9ZqxHTMWZEU7c3jCGzKosWiSEVSv+"
+            },
+            "s3": {
+              "s3SchemaVersion": "1.0",
+              "configurationId": "owned-classic",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                },
+                "arn": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "multipart/tagged.bin",
+                "size": 5242908,
+                "eTag": "6cb92e0907f0c91edaec8daa44ee827d-2",
+                "sequencer": "006AAF8EE19C9D722A"
+              }
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "messages[20]",
+          "SourceSequence": 88,
+          "Payload": {
+            "version": "0",
+            "id": "cf3aa109-cdeb-e0a0-7ad3-3570153d82ef",
+            "detail-type": "Object Created",
+            "source": "aws.s3",
+            "account": "123456789012",
+            "time": "2026-09-20T07:44:41Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+            ],
+            "detail": {
+              "version": "0",
+              "event-version": "1.2",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "multipart/tagged.bin",
+                "size": 5242908,
+                "etag": "6cb92e0907f0c91edaec8daa44ee827d-2",
+                "sequencer": "006AAF8EE19C9D722A"
+              },
+              "request-id": "${request88}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "reason": "CompleteMultipartUpload"
+            }
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 89,
+      "Label": "complete-repeat",
+      "Operation": "CompleteMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?uploadId=${upload80}",
+      "Headers": {
+        "content-type": "application/xml"
+      },
+      "Body": "<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>\"ba8c3fac0e224c9b79a8e74bebd54654\"</ETag></Part><Part><PartNumber>2</PartNumber><ETag>\"9e669160e725df19b5359b8a3fbda32e\"</ETag></Part></CompleteMultipartUpload>",
+      "Status": 200,
+      "Code": "",
+      "Reopen": true,
+      "ETag": "\"6cb92e0907f0c91edaec8daa44ee827d-2\"",
+      "Notifications": []
+    },
+    {
+      "Sequence": 90,
+      "Label": "completion-metadata",
+      "Operation": "HeadObject",
+      "Method": "HEAD",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin",
+      "Headers": {},
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 91,
+      "Label": "completion-tags",
+      "Operation": "GetObjectTagging",
+      "Method": "GET",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?tagging=",
+      "Headers": {},
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 92,
+      "Label": "replacement-and-copy-range",
+      "Operation": "GetObject",
+      "Method": "GET",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin",
+      "Headers": {
+        "range": "bytes=5242878-5242910"
+      },
+      "Body": "",
+      "Status": 206,
+      "Code": "",
+      "ResponseDigest": {
+        "Length": 30,
+        "SHA256": "8a6f14f3d8869f56e69e5b5da581e1ba1daa0510797ee3d31459b2551ad75cce"
+      },
+      "Notifications": []
+    },
+    {
+      "Sequence": 93,
+      "Label": "list-completed-upload",
+      "Operation": "ListParts",
+      "Method": "GET",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?uploadId=${upload80}",
+      "Headers": {},
+      "Body": "",
+      "Status": 404,
+      "Code": "NoSuchUpload",
+      "Notifications": []
+    },
+    {
+      "Sequence": 94,
+      "Label": "upload-after-complete",
+      "Operation": "UploadPart",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/tagged.bin?partNumber=3&uploadId=${upload80}",
+      "Headers": {},
+      "Body": "late",
+      "Status": 404,
+      "Code": "NoSuchUpload",
+      "Notifications": []
+    },
+    {
+      "Sequence": 95,
+      "Label": "CreateMultipartUpload",
+      "Operation": "CreateMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/aborted.bin?uploads=",
+      "Headers": {},
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Bind": {"upload95": "UploadId"},
+      "Notifications": []
+    },
+    {
+      "Sequence": 96,
+      "Label": "UploadPart",
+      "Operation": "UploadPart",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/aborted.bin?partNumber=1&uploadId=${upload95}",
+      "Headers": {},
+      "Body": "abort-data",
+      "Status": 200,
+      "Code": "",
+      "ETag": "\"7a7407c742cce572d88aa6004fb1e706\"",
+      "Notifications": []
+    },
+    {
+      "Sequence": 97,
+      "Label": "abort-success",
+      "Operation": "AbortMultipartUpload",
+      "Method": "DELETE",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/aborted.bin?uploadId=${upload95}",
+      "Headers": {},
+      "Body": "",
+      "Status": 204,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 98,
+      "Label": "abort-repeat",
+      "Operation": "AbortMultipartUpload",
+      "Method": "DELETE",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/aborted.bin?uploadId=${upload95}",
+      "Headers": {},
+      "Body": "",
+      "Status": 204,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 99,
+      "Label": "list-aborted-upload",
+      "Operation": "ListParts",
+      "Method": "GET",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/aborted.bin?uploadId=${upload95}",
+      "Headers": {},
+      "Body": "",
+      "Status": 404,
+      "Code": "NoSuchUpload",
+      "Notifications": []
+    },
+    {
+      "Sequence": 100,
+      "Label": "copy-aborted-upload",
+      "Operation": "UploadPartCopy",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/aborted.bin?partNumber=1&uploadId=${upload95}",
+      "Headers": {
+        "x-amz-copy-source": "/stackd-mpe-20260920073831-18708a/source.txt"
+      },
+      "Body": "",
+      "Status": 404,
+      "Code": "NoSuchUpload",
+      "Notifications": []
+    },
+    {
+      "Sequence": 101,
+      "Label": "complete-aborted-upload",
+      "Operation": "CompleteMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/aborted.bin?uploadId=${upload95}",
+      "Headers": {
+        "content-type": "application/xml"
+      },
+      "Body": "<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>\"00000000000000000000000000000000\"</ETag></Part></CompleteMultipartUpload>",
+      "Status": 404,
+      "Code": "NoSuchUpload",
+      "Notifications": []
+    },
+    {
+      "Sequence": 102,
+      "Label": "aborted-object-invisible",
+      "Operation": "HeadObject",
+      "Method": "HEAD",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/aborted.bin",
+      "Headers": {},
+      "Body": "",
+      "Status": 404,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 103,
+      "Label": "PutObject",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin",
+      "Headers": {},
+      "Body": "old-visible-object",
+      "Status": 200,
+      "Code": "",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "messages[6]",
+          "SourceSequence": 103,
+          "Payload": {
+            "eventVersion": "2.6",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2026-09-20T07:44:47.297Z",
+            "eventName": "ObjectCreated:Put",
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-request-id": "${request103}",
+              "x-amz-id-2": "Oink+4RZSduNqD9HZ67AE9MqNbGBkWs7gkMDCC+ta6KWIPSGimMwZZ+ELvKUYbDo2zOCDt/lrDwQYy0XMluH9i7LAQlyswLs"
+            },
+            "s3": {
+              "s3SchemaVersion": "1.0",
+              "configurationId": "owned-classic",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                },
+                "arn": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "multipart/delete-after-initiation.bin",
+                "size": 18,
+                "eTag": "0e13083992093125c070cbe336fc507b",
+                "sequencer": "006AAF8EEF47C83E37"
+              }
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "messages[14]",
+          "SourceSequence": 103,
+          "Payload": {
+            "version": "0",
+            "id": "599a833f-c0d4-ba61-948e-ef5d32c5e579",
+            "detail-type": "Object Created",
+            "source": "aws.s3",
+            "account": "123456789012",
+            "time": "2026-09-20T07:44:47Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+            ],
+            "detail": {
+              "version": "0",
+              "event-version": "1.2",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "multipart/delete-after-initiation.bin",
+                "size": 18,
+                "etag": "0e13083992093125c070cbe336fc507b",
+                "sequencer": "006AAF8EEF47C83E37"
+              },
+              "request-id": "${request103}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "reason": "PutObject"
+            }
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 104,
+      "Label": "CreateMultipartUpload",
+      "Operation": "CreateMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin?uploads=",
+      "Headers": {
+        "x-amz-meta-private-note": "delete-control-metadata",
+        "x-amz-tagging": "purpose=delete-control"
+      },
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Bind": {"upload104": "UploadId"},
+      "Notifications": []
+    },
+    {
+      "Sequence": 105,
+      "Label": "UploadPart",
+      "Operation": "UploadPart",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin?partNumber=1&uploadId=${upload104}",
+      "Headers": {},
+      "Body": "completed-after-delete",
+      "Status": 200,
+      "Code": "",
+      "ETag": "\"646be27b82a2d95d69a564e3b6a033b4\"",
+      "Notifications": []
+    },
+    {
+      "Sequence": 106,
+      "Label": "delete-after-initiation",
+      "Operation": "DeleteObject",
+      "Method": "DELETE",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin",
+      "Headers": {},
+      "Body": "",
+      "Status": 204,
+      "Code": "",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "messages[10]",
+          "SourceSequence": 106,
+          "Payload": {
+            "eventVersion": "2.6",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2026-09-20T07:44:48.351Z",
+            "eventName": "ObjectRemoved:Delete",
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-request-id": "${request106}",
+              "x-amz-id-2": "NKd1s7gsQnz/S7IMKzP4XOVJzFxpjBRHiC/PsQj4nI5RewdHLOEGAhzEzw8xruBfAe0bkIqaPVFVii/Z/xS/UsurvwyJCggG"
+            },
+            "s3": {
+              "s3SchemaVersion": "1.0",
+              "configurationId": "owned-classic",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                },
+                "arn": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "multipart/delete-after-initiation.bin",
+                "sequencer": "006AAF8EF0555FD8ED"
+              }
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "messages[15]",
+          "SourceSequence": 106,
+          "Payload": {
+            "version": "0",
+            "id": "942cb4ee-064f-b1eb-8eca-cf8235f754f3",
+            "detail-type": "Object Deleted",
+            "source": "aws.s3",
+            "account": "123456789012",
+            "time": "2026-09-20T07:44:48Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+            ],
+            "detail": {
+              "version": "0",
+              "event-version": "1.2",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "multipart/delete-after-initiation.bin",
+                "sequencer": "006AAF8EF0555FD8ED"
+              },
+              "request-id": "${request106}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "reason": "DeleteObject",
+              "deletion-type": "Permanently Deleted"
+            }
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 107,
+      "Label": "visibility-after-delete",
+      "Operation": "HeadObject",
+      "Method": "HEAD",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin",
+      "Headers": {},
+      "Body": "",
+      "Status": 404,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 108,
+      "Label": "complete-after-delete",
+      "Operation": "CompleteMultipartUpload",
+      "Method": "POST",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin?uploadId=${upload104}",
+      "Headers": {
+        "content-type": "application/xml"
+      },
+      "Body": "<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>\"646be27b82a2d95d69a564e3b6a033b4\"</ETag></Part></CompleteMultipartUpload>",
+      "Status": 200,
+      "Code": "",
+      "Reopen": true,
+      "ETag": "\"414f9e9e79c8fa7e07e152ac6da115ce-1\"",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "messages[8]",
+          "SourceSequence": 108,
+          "Payload": {
+            "eventVersion": "2.6",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2026-09-20T07:44:49.064Z",
+            "eventName": "ObjectCreated:CompleteMultipartUpload",
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-request-id": "${request108}",
+              "x-amz-id-2": "NVxf9UbAD6zljlvHEtQoxh19JjlOanOLG/sHnHhvmtw5S2wMjOxVVP4MJnRI0tZeLmk0Oa4byldpgcMDYfodKrnmRazo5Zbt"
+            },
+            "s3": {
+              "s3SchemaVersion": "1.0",
+              "configurationId": "owned-classic",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                },
+                "arn": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "multipart/delete-after-initiation.bin",
+                "size": 22,
+                "eTag": "414f9e9e79c8fa7e07e152ac6da115ce-1",
+                "sequencer": "006AAF8EEF9B790E76"
+              }
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "messages[18]",
+          "SourceSequence": 108,
+          "Payload": {
+            "version": "0",
+            "id": "557fae5a-c270-00ba-aadf-79fbf38aac49",
+            "detail-type": "Object Created",
+            "source": "aws.s3",
+            "account": "123456789012",
+            "time": "2026-09-20T07:44:49Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+            ],
+            "detail": {
+              "version": "0",
+              "event-version": "1.2",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "multipart/delete-after-initiation.bin",
+                "size": 22,
+                "etag": "414f9e9e79c8fa7e07e152ac6da115ce-1",
+                "sequencer": "006AAF8EEF9B790E76"
+              },
+              "request-id": "${request108}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "reason": "CompleteMultipartUpload"
+            }
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 109,
+      "Label": "visibility-after-delete-complete",
+      "Operation": "HeadObject",
+      "Method": "HEAD",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin",
+      "Headers": {},
+      "Body": "",
+      "Status": 404,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 110,
+      "Label": "get-after-delete-complete",
+      "Operation": "GetObject",
+      "Method": "GET",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin",
+      "Headers": {},
+      "Body": "",
+      "Status": 404,
+      "Code": "NoSuchKey",
+      "Notifications": []
+    },
+    {
+      "Sequence": 111,
+      "Label": "tags-after-delete-complete",
+      "Operation": "GetObjectTagging",
+      "Method": "GET",
+      "Target": "/stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin?tagging=",
+      "Headers": {},
+      "Body": "",
+      "Status": 404,
+      "Code": "NoSuchKey",
+      "Notifications": []
+    },
+    {
+      "Sequence": 112,
+      "Label": "PutObject",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/tagging-control.txt",
+      "Headers": {},
+      "Body": "tagging-control",
+      "Status": 200,
+      "Code": "",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "messages[7]",
+          "SourceSequence": 112,
+          "Payload": {
+            "eventVersion": "2.6",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2026-09-20T07:44:50.532Z",
+            "eventName": "ObjectCreated:Put",
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-request-id": "${request112}",
+              "x-amz-id-2": "yEblcmJSBWH7uL1pz204XmS8JdVUFHWbt1ArHkOK8sdAEpHmFVzY66rWMq2vtEApCdcttqZWL2dTQ4SAaDX4rRORfN5vYwq9"
+            },
+            "s3": {
+              "s3SchemaVersion": "1.0",
+              "configurationId": "owned-classic",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                },
+                "arn": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "tagging-control.txt",
+                "size": 15,
+                "eTag": "bc9b71e1e372534ef5fdbc5eb334c828",
+                "sequencer": "006AAF8EF27F5DC696"
+              }
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "messages[16]",
+          "SourceSequence": 112,
+          "Payload": {
+            "version": "0",
+            "id": "59920e6a-acb2-8d72-dfad-7f9a61365382",
+            "detail-type": "Object Created",
+            "source": "aws.s3",
+            "account": "123456789012",
+            "time": "2026-09-20T07:44:50Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+            ],
+            "detail": {
+              "version": "0",
+              "event-version": "1.2",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "tagging-control.txt",
+                "size": 15,
+                "etag": "bc9b71e1e372534ef5fdbc5eb334c828",
+                "sequencer": "006AAF8EF27F5DC696"
+              },
+              "request-id": "${request112}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "reason": "PutObject"
+            }
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 113,
+      "Label": "explicit-tagging-positive-control",
+      "Operation": "PutObjectTagging",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/tagging-control.txt?tagging=",
+      "Headers": {
+        "content-type": "application/xml"
+      },
+      "Body": "<Tagging><TagSet><Tag><Key>explicit</Key><Value>true</Value></Tag></TagSet></Tagging>",
+      "Status": 200,
+      "Code": "",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "messages[12]",
+          "SourceSequence": 113,
+          "Payload": {
+            "eventVersion": "2.6",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2026-09-20T07:44:50.889Z",
+            "eventName": "ObjectTagging:Put",
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-request-id": "${request113}",
+              "x-amz-id-2": "Hl0rv4wPemstpJBG7P7KJnOcgM6uAE+moJOYveECjnY4wn+xX5C6wUGS441jGgNGPu+KoKDHAdODxRujIZpHhzOQK3EHWrz6"
+            },
+            "s3": {
+              "s3SchemaVersion": "1.0",
+              "configurationId": "owned-classic",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                },
+                "arn": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "tagging-control.txt",
+                "eTag": "bc9b71e1e372534ef5fdbc5eb334c828"
+              }
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "messages[19]",
+          "SourceSequence": 113,
+          "Payload": {
+            "version": "0",
+            "id": "b90052dd-26e8-9a78-f59e-93e9ada12b26",
+            "detail-type": "Object Tags Added",
+            "source": "aws.s3",
+            "account": "123456789012",
+            "time": "2026-09-20T07:44:50Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+            ],
+            "detail": {
+              "version": "0",
+              "event-version": "1.2",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "tagging-control.txt",
+                "etag": "bc9b71e1e372534ef5fdbc5eb334c828"
+              },
+              "request-id": "${request113}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50"
+            }
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip"
+          }
+        }
+      ]
+    },
+    {
+      "Sequence": 114,
+      "Label": "uploads-after-sequence",
+      "Operation": "ListMultipartUploads",
+      "Method": "GET",
+      "Target": "/stackd-mpe-20260920073831-18708a/?uploads=",
+      "Headers": {},
+      "Body": "",
+      "Status": 200,
+      "Code": "",
+      "Notifications": []
+    },
+    {
+      "Sequence": 115,
+      "Label": "final-positive-control",
+      "Operation": "PutObject",
+      "Method": "PUT",
+      "Target": "/stackd-mpe-20260920073831-18708a/adoption/final-control",
+      "Headers": {},
+      "Body": "final-control\n",
+      "Status": 200,
+      "Code": "",
+      "Notifications": [
+        {
+          "Queue": "${queue_classic}",
+          "Kind": "classic",
+          "Source": "messages[13]",
+          "SourceSequence": 115,
+          "Payload": {
+            "eventVersion": "2.6",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2026-09-20T07:44:51.572Z",
+            "eventName": "ObjectCreated:Put",
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-request-id": "${request115}",
+              "x-amz-id-2": "c8cq3l5QuWzROc9auE80t92s7o7960svjEvtjpS9WQigPd9EP/EGsKNjkJD0uY2JCetjlgi0hsmHWOKuBdDNzIP/2fkK/XlG"
+            },
+            "s3": {
+              "s3SchemaVersion": "1.0",
+              "configurationId": "owned-classic",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                },
+                "arn": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "adoption/final-control",
+                "size": 14,
+                "eTag": "84132fb5870ba55b8652607b40f5be72",
+                "sequencer": "006AAF8EF389284CF9"
+              }
+            }
+          },
+          "Dynamic": {
+            "eventTime": "time",
+            "userIdentity.principalId": "opaque",
+            "requestParameters.sourceIPAddress": "ip",
+            "responseElements.x-amz-id-2": "opaque",
+            "s3.bucket.ownerIdentity.principalId": "opaque",
+            "s3.object.sequencer": "sequencer"
+          }
+        },
+        {
+          "Queue": "${queue_eventbridge}",
+          "Kind": "eventbridge",
+          "Source": "messages[17]",
+          "SourceSequence": 115,
+          "Payload": {
+            "version": "0",
+            "id": "e794fe0f-f1b6-c1fd-789e-7fd0f9afb573",
+            "detail-type": "Object Created",
+            "source": "aws.s3",
+            "account": "123456789012",
+            "time": "2026-09-20T07:44:51Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+            ],
+            "detail": {
+              "version": "0",
+              "event-version": "1.2",
+              "bucket": {
+                "name": "stackd-mpe-20260920073831-18708a"
+              },
+              "object": {
+                "key": "adoption/final-control",
+                "size": 14,
+                "etag": "84132fb5870ba55b8652607b40f5be72",
+                "sequencer": "006AAF8EF389284CF9"
+              },
+              "request-id": "${request115}",
+              "requester": "123456789012",
+              "source-ip-address": "92.234.107.50",
+              "reason": "PutObject"
+            }
+          },
+          "Dynamic": {
+            "id": "opaque",
+            "time": "time",
+            "detail.source-ip-address": "ip",
+            "detail.object.sequencer": "sequencer"
+          }
+        }
+      ]
+    }
+  ],
+  "Records": [
+    {
+      "Sequence": 79,
+      "Source": "cloudtrail_logs[2].records[0]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:33Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "source.txt"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 28,
+          "bytesTransferredIn": 28,
+          "SSEApplied": "Default_SSE_S3",
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/source.txt"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 80,
+      "Source": "cloudtrail_logs[3].records[0]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:33Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CreateMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/tagged.bin",
+          "uploads": ""
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "SSEApplied": "Default_SSE_S3",
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 379
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 81,
+      "Source": "cloudtrail_logs[2].records[1]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:36Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "UploadPart",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "partNumber": "1",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload80}",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 5242880,
+          "bytesTransferredIn": 5242880,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 82,
+      "Source": "cloudtrail_logs[2].records[4]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:39Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "UploadPart",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "partNumber": "1",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload80}",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 5242880,
+          "bytesTransferredIn": 5242880,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 83,
+      "Source": "cloudtrail_logs[4].records[0]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:40Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "UploadPartCopy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "partNumber": "2",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload80}",
+          "x-amz-copy-source": "/stackd-mpe-20260920073831-18708a/source.txt",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 28,
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 220
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/source.txt"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 84,
+      "Source": "cloudtrail_logs[2].records[3]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:40Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "ListParts",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload80}",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 1058
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 86,
+      "Source": "cloudtrail_logs[2].records[2]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:41Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CompleteMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "InvalidPart",
+        "errorMessage": "One or more of the specified parts could not be found.  The part may not have been uploaded, or the specified entity tag may not match the part's entity tag.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload80}",
+          "key": "multipart/tagged.bin",
+          "CompleteMultipartUpload": {
+            "Part": [
+              {
+                "PartNumber": 1,
+                "ETag": "\"00000000000000000000000000000000\""
+              },
+              {
+                "PartNumber": 2,
+                "ETag": "\"9e669160e725df19b5359b8a3fbda32e\""
+              }
+            ]
+          }
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": -1,
+          "bytesTransferredIn": 223,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 605
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 87,
+      "Source": "cloudtrail_logs[1].records[1]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:41Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "HeadObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchKey",
+        "errorMessage": "The specified key does not exist.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 311
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 88,
+      "Source": "cloudtrail_logs[2].records[6]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:41Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CompleteMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload80}",
+          "key": "multipart/tagged.bin",
+          "CompleteMultipartUpload": {
+            "Part": [
+              {
+                "PartNumber": 1,
+                "ETag": "\"ba8c3fac0e224c9b79a8e74bebd54654\""
+              },
+              {
+                "PartNumber": 2,
+                "ETag": "\"9e669160e725df19b5359b8a3fbda32e\""
+              }
+            ]
+          }
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 5242908,
+          "bytesTransferredIn": 223,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 482
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 89,
+      "Source": "cloudtrail_logs[4].records[2]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:42Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CompleteMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload80}",
+          "key": "multipart/tagged.bin",
+          "CompleteMultipartUpload": {
+            "Part": [
+              {
+                "PartNumber": 1,
+                "ETag": "\"ba8c3fac0e224c9b79a8e74bebd54654\""
+              },
+              {
+                "PartNumber": 2,
+                "ETag": "\"9e669160e725df19b5359b8a3fbda32e\""
+              }
+            ]
+          }
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": -1,
+          "bytesTransferredIn": 223,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 391
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 90,
+      "Source": "cloudtrail_logs[2].records[7]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:42Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "HeadObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 5242908,
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 91,
+      "Source": "cloudtrail_logs[2].records[8]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:42Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObjectTagging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "tagging": "",
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 247
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 92,
+      "Source": "cloudtrail_logs[2].records[5]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:43Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 5242908,
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 206,
+          "bytesTransferredOut": 30
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 93,
+      "Source": "cloudtrail_logs[2].records[9]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:43Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "ListParts",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchUpload",
+        "errorMessage": "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload80}",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 515
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 94,
+      "Source": "cloudtrail_logs[2].records[11]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:44Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "UploadPart",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchUpload",
+        "errorMessage": "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "partNumber": "3",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload80}",
+          "key": "multipart/tagged.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 4,
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 515
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/tagged.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 95,
+      "Source": "cloudtrail_logs[1].records[4]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:44Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CreateMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/aborted.bin",
+          "uploads": ""
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "SSEApplied": "Default_SSE_S3",
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 380
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/aborted.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 96,
+      "Source": "cloudtrail_logs[2].records[10]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:44Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "UploadPart",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "partNumber": "1",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload95}",
+          "key": "multipart/aborted.bin"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 10,
+          "bytesTransferredIn": 10,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/aborted.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 97,
+      "Source": "cloudtrail_logs[2].records[14]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:45Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "AbortMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload95}",
+          "key": "multipart/aborted.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/aborted.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 98,
+      "Source": "cloudtrail_logs[1].records[3]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:45Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "AbortMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload95}",
+          "key": "multipart/aborted.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/aborted.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 99,
+      "Source": "cloudtrail_logs[6].records[0]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:45Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "ListParts",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchUpload",
+        "errorMessage": "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload95}",
+          "key": "multipart/aborted.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 495
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/aborted.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 100,
+      "Source": "cloudtrail_logs[2].records[15]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:46Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "UploadPartCopy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchUpload",
+        "errorMessage": "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "partNumber": "1",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload95}",
+          "x-amz-copy-source": "/stackd-mpe-20260920073831-18708a/source.txt",
+          "key": "multipart/aborted.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 28,
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 476
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/aborted.bin"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/source.txt"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 101,
+      "Source": "cloudtrail_logs[2].records[12]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:46Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CompleteMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchUpload",
+        "errorMessage": "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload95}",
+          "key": "multipart/aborted.bin",
+          "CompleteMultipartUpload": {
+            "Part": {
+              "PartNumber": 1,
+              "ETag": "\"00000000000000000000000000000000\""
+            }
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": -1,
+          "bytesTransferredIn": 137,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 514
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/aborted.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 102,
+      "Source": "cloudtrail_logs[2].records[13]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:46Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "HeadObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchKey",
+        "errorMessage": "The specified key does not exist.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/aborted.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 292
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/aborted.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 103,
+      "Source": "cloudtrail_logs[1].records[6]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:47Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/delete-after-initiation.bin"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 18,
+          "bytesTransferredIn": 18,
+          "SSEApplied": "Default_SSE_S3",
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 104,
+      "Source": "cloudtrail_logs[1].records[2]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:47Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CreateMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/delete-after-initiation.bin",
+          "uploads": ""
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "SSEApplied": "Default_SSE_S3",
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 396
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 105,
+      "Source": "cloudtrail_logs[1].records[7]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:48Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "UploadPart",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "partNumber": "1",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload104}",
+          "key": "multipart/delete-after-initiation.bin"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 22,
+          "bytesTransferredIn": 22,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 106,
+      "Source": "cloudtrail_logs[5].records[0]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:48Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/delete-after-initiation.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 18,
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 107,
+      "ErrorBodyFrom": 110,
+      "Source": "cloudtrail_logs[2].records[18]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:48Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "HeadObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchKey",
+        "errorMessage": "The specified key does not exist.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/delete-after-initiation.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 308
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 108,
+      "Source": "cloudtrail_logs[2].records[22]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:49Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CompleteMultipartUpload",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploadId": "${upload104}",
+          "key": "multipart/delete-after-initiation.bin",
+          "CompleteMultipartUpload": {
+            "Part": {
+              "PartNumber": 1,
+              "ETag": "\"646be27b82a2d95d69a564e3b6a033b4\""
+            }
+          }
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 22,
+          "bytesTransferredIn": 137,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 516
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 109,
+      "ErrorBodyFrom": 110,
+      "Source": "cloudtrail_logs[2].records[19]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:49Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "HeadObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchKey",
+        "errorMessage": "The specified key does not exist.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/delete-after-initiation.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 308
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 110,
+      "Source": "cloudtrail_logs[2].records[20]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:49Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchKey",
+        "errorMessage": "The specified key does not exist.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/delete-after-initiation.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 308
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 111,
+      "Source": "cloudtrail_logs[2].records[17]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:50Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObjectTagging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "NoSuchKey",
+        "errorMessage": "The specified key does not exist.",
+        "requestParameters": {
+          "tagging": "",
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "multipart/delete-after-initiation.bin"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 361
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/multipart/delete-after-initiation.bin"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 112,
+      "Source": "cloudtrail_logs[4].records[3]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:50Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "tagging-control.txt"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 15,
+          "bytesTransferredIn": 15,
+          "SSEApplied": "Default_SSE_S3",
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/tagging-control.txt"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 113,
+      "Source": "cloudtrail_logs[2].records[16]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:50Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObjectTagging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "tagging": "",
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "tagging-control.txt"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 85,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/tagging-control.txt"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 115,
+      "Source": "cloudtrail_logs[2].records[21]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:51Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "key": "adoption/final-control"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 14,
+          "bytesTransferredIn": 14,
+          "SSEApplied": "Default_SSE_S3",
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/adoption/final-control"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 83,
+      "Internal": true,
+      "Source": "cloudtrail_logs[4].records[1]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated",
+          "invokedBy": "AWS Internal"
+        },
+        "eventTime": "2026-09-20T07:44:40Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "AWS Internal",
+        "userAgent": "AWS Internal",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "key": "source.txt"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 28,
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/source.txt"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 100,
+      "Internal": true,
+      "Source": "cloudtrail_logs[1].records[5]",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated",
+          "invokedBy": "AWS Internal"
+        },
+        "eventTime": "2026-09-20T07:44:46Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "AWS Internal",
+        "userAgent": "AWS Internal",
+        "errorCode": "NoSuchUpload",
+        "errorMessage": "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed.",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "key": "source.txt"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "objectSize": 28,
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a/source.txt"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data"
+      }
+    },
+    {
+      "Sequence": 114,
+      "Source": "management_lookup[0].CloudTrailEvent",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:51Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "ListMultipartUploads",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploads": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 382
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 85,
+      "Source": "management_lookup[1].CloudTrailEvent",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T07:44:40Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "ListMultipartUploads",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-mpe-20260920073831-18708a",
+          "Host": "stackd-mpe-20260920073831-18708a.s3.us-east-1.amazonaws.com",
+          "uploads": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "AuthenticationMethod": "AuthHeader",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 1007
+        },
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-mpe-20260920073831-18708a"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management"
+      }
+    }
+  ],
+  "NoPrivateValues": [
+    "tag-value-events",
+    "metadata-value-events"
+  ]
+}

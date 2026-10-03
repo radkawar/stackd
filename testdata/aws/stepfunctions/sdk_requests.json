@@ -1,0 +1,787 @@
+{
+  "account": "000000000000",
+  "region": "us-west-2",
+  "prefix": "stackd-sfn-sdk-081600398095",
+  "captured_at": "2026-09-24T02:36:33.233151+00:00",
+  "source": {
+    "path": "/home/r/dev/minor/stackd/scripts/aws/_stepfunctions_sdk_requests_probe.py",
+    "revision": "b79ebb8",
+    "text": "#!/usr/bin/env python3\n\"\"\"Owned, bounded Step Functions SDK request capture; removed after integration.\"\"\"\nimport base64\nfrom datetime import datetime, timezone\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport time\nimport uuid\n\nimport aws_cli\n\nACCOUNT = \"000000000000\"\nREGION = \"us-west-2\"\nPREFIX = \"stackd-sfn-sdk-\" + uuid.uuid4().hex[:12]\nDEST = Path(\"testdata/aws/stepfunctions/sdk_requests.json\")\nENV = {key: value for key, value in os.environ.items() if not key.startswith(\"AWS_ENDPOINT_URL\")}\nENV.update(AWS_REGION=REGION, AWS_DEFAULT_REGION=REGION, AWS_PAGER=\"\")\nrecord = {\n    \"account\": ACCOUNT, \"region\": REGION, \"prefix\": PREFIX,\n    \"captured_at\": datetime.now(timezone.utc).isoformat(),\n    \"source\": {\"path\": str(Path(__file__)), \"revision\": \"b79ebb8\", \"text\": Path(__file__).read_text()},\n    \"official_urls\": [\n        \"https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html\",\n        \"https://docs.aws.amazon.com/step-functions/latest/apireference/API_TestState.html\",\n        \"https://docs.aws.amazon.com/step-functions/latest/dg/supported-services-awssdk.html\",\n    ],\n    \"observations\": [],\n}\n\n\ndef observe(label, service, operation, parameters):\n    started = int(time.time() * 1000)\n    result = aws_cli.observe(service, operation, parameters, ENV, paginate=False)\n    record[\"observations\"].append({\n        \"label\": label, \"service\": service, \"operation\": operation,\n        \"input\": parameters, \"request_started_ms\": started,\n        \"request_finished_ms\": int(time.time() * 1000), \"result\": result,\n    })\n    return result\n\n\ndef required(label, service, operation, parameters):\n    result = observe(label, service, operation, parameters)\n    if result[\"code\"] != \"Success\":\n        raise RuntimeError(f\"{label}: {result['code']}\")\n    return result[\"output\"]\n\n\ndef test(label, operation, parameters):\n    request = {\n        \"definition\": json.dumps({\"Type\": \"Task\", \"Resource\": \"arn:aws:states:::aws-sdk:s3:\" + operation,\n                                  \"Parameters\": parameters, \"End\": True}, separators=(\",\", \":\")),\n        \"roleArn\": role_arn, \"input\": \"{}\", \"inspectionLevel\": \"INFO\",\n    }\n    for attempt in range(8):\n        result = observe(label if attempt == 0 else f\"{label}-role-retry-{attempt}\",\n                         \"stepfunctions\", \"test-state\", request)\n        output = result.get(\"output\", {})\n        if not (output.get(\"error\") == \"States.TaskFailed\" and\n                output.get(\"cause\", \"\").startswith(\"The principal states.amazonaws.com is not authorized to assume\")):\n            return output\n        time.sleep(2)\n    raise RuntimeError(\"owned execution role did not become usable for \" + label)\n\n\nrole_created = bucket_created = policy_created = False\nkeys = []\ntry:\n    actor = required(\"caller\", \"sts\", \"get-caller-identity\", {})\n    if actor[\"Account\"] != ACCOUNT:\n        raise RuntimeError(\"native account does not match authorized capture scope\")\n    role = required(\"create-role\", \"iam\", \"create-role\", {\n        \"RoleName\": PREFIX,\n        \"AssumeRolePolicyDocument\": json.dumps({\"Version\": \"2012-10-17\", \"Statement\": [\n            {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"states.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}\n        ]}),\n    })\n    role_created = True\n    role_arn = role[\"Role\"][\"Arn\"]\n    required(\"role-policy\", \"iam\", \"put-role-policy\", {\n        \"RoleName\": PREFIX, \"PolicyName\": \"owned-bucket\",\n        \"PolicyDocument\": json.dumps({\"Version\": \"2012-10-17\", \"Statement\": [\n            {\"Effect\": \"Allow\", \"Action\": \"s3:ListBucket\", \"Resource\": \"arn:aws:s3:::\" + PREFIX},\n            {\"Effect\": \"Allow\", \"Action\": [\"s3:PutObject\", \"s3:GetObject\"], \"Resource\": \"arn:aws:s3:::\" + PREFIX + \"/*\"},\n        ]}),\n    })\n    policy_created = True\n    required(\"create-bucket\", \"s3api\", \"create-bucket\", {\n        \"Bucket\": PREFIX, \"CreateBucketConfiguration\": {\"LocationConstraint\": REGION},\n    })\n    bucket_created = True\n    for attempt in range(8):\n        ready = test(f\"role-readiness-{attempt}\", \"listObjectsV2\", {\"Bucket\": PREFIX})\n        if ready.get(\"status\") == \"SUCCEEDED\":\n            break\n        time.sleep(2)\n    else:\n        raise RuntimeError(\"owned execution role did not become usable\")\n    body = {\"message\": \"sdk-checksum-control\"}\n    checksum = base64.b64encode(hashlib.sha256(json.dumps(body, separators=(\",\", \":\")).encode()).digest()).decode()\n    for label, checksum_parameters in [\n        (\"default-checksum\", {}),\n        (\"explicit-sha256\", {\"ChecksumSHA256\": checksum}),\n        (\"algorithm-sha256\", {\"ChecksumAlgorithm\": \"SHA256\"}),\n        (\"conflicting-algorithm\", {\"ChecksumAlgorithm\": \"CRC32\", \"ChecksumSHA256\": checksum}),\n        (\"invalid-sha256\", {\"ChecksumSHA256\": base64.b64encode(bytes(32)).decode()}),\n    ]:\n        keys.append(label)\n        outcome = test(label, \"putObject\", {\"Bucket\": PREFIX, \"Key\": label, \"Body\": body, **checksum_parameters})\n        if outcome.get(\"status\") == \"SUCCEEDED\":\n            test(label + \"-retained\", \"headObject\", {\"Bucket\": PREFIX, \"Key\": label, \"ChecksumMode\": \"ENABLED\"})\n    for label, flag in [(\"boolean-true\", True), (\"string-true\", \"true\"), (\"string-false\", \"false\"),\n                        (\"string-invalid\", \"not-a-boolean\"), (\"numeric-boolean\", 1),\n                        (\"numeric-zero\", 0), (\"numeric-negative\", -1),\n                        (\"string-upper-trim\", \" TRUE \"), (\"string-empty\", \"\"), (\"string-null\", \"null\")]:\n        test(label, \"listObjectsV2\", {\"Bucket\": PREFIX, \"FetchOwner\": flag})\nfinally:\n    if bucket_created:\n        for key in keys:\n            observe(\"cleanup-object-\" + key, \"s3api\", \"delete-object\", {\"Bucket\": PREFIX, \"Key\": key})\n        observe(\"cleanup-bucket\", \"s3api\", \"delete-bucket\", {\"Bucket\": PREFIX})\n        observe(\"cleanup-bucket-absent\", \"s3api\", \"head-bucket\", {\"Bucket\": PREFIX})\n    if policy_created:\n        observe(\"cleanup-policy\", \"iam\", \"delete-role-policy\", {\"RoleName\": PREFIX, \"PolicyName\": \"owned-bucket\"})\n    if role_created:\n        observe(\"cleanup-role\", \"iam\", \"delete-role\", {\"RoleName\": PREFIX})\n        observe(\"cleanup-role-absent\", \"iam\", \"get-role\", {\"RoleName\": PREFIX})\n    DEST.write_text(json.dumps(record, indent=2) + \"\\n\")\n    print(json.dumps({\"prefix\": PREFIX, \"results\": [\n        {\"label\": row[\"label\"], \"code\": row[\"result\"][\"code\"],\n         \"status\": row[\"result\"].get(\"output\", {}).get(\"status\"),\n         \"error\": row[\"result\"].get(\"output\", {}).get(\"error\")}\n        for row in record[\"observations\"]\n    ]}, indent=2))\n"
+  },
+  "official_urls": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html",
+    "https://docs.aws.amazon.com/step-functions/latest/apireference/API_TestState.html",
+    "https://docs.aws.amazon.com/step-functions/latest/dg/supported-services-awssdk.html"
+  ],
+  "observations": [
+    {
+      "label": "caller",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790217393233,
+      "request_finished_ms": 1790217394131,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      }
+    },
+    {
+      "label": "create-role",
+      "service": "iam",
+      "operation": "create-role",
+      "input": {
+        "RoleName": "stackd-sfn-sdk-081600398095",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"states.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "request_started_ms": 1790217394131,
+      "request_finished_ms": 1790217394848,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-sfn-sdk-081600398095",
+            "RoleId": "AROAQAAAAAAAGG2ELLFLQ",
+            "Arn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+            "CreateDate": "2026-09-24T02:36:34+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "states.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "role-policy",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-sfn-sdk-081600398095",
+        "PolicyName": "owned-bucket",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:ListBucket\", \"Resource\": \"arn:aws:s3:::stackd-sfn-sdk-081600398095\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:PutObject\", \"s3:GetObject\"], \"Resource\": \"arn:aws:s3:::stackd-sfn-sdk-081600398095/*\"}]}"
+      },
+      "request_started_ms": 1790217394848,
+      "request_finished_ms": 1790217395570,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-sfn-sdk-081600398095",
+        "CreateBucketConfiguration": {
+          "LocationConstraint": "us-west-2"
+        }
+      },
+      "request_started_ms": 1790217395570,
+      "request_finished_ms": 1790217396936,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "http://stackd-sfn-sdk-081600398095.s3.amazonaws.com/",
+          "BucketArn": "arn:aws:s3:::stackd-sfn-sdk-081600398095"
+        }
+      }
+    },
+    {
+      "label": "role-readiness-0",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217396936,
+      "request_finished_ms": 1790217397835,
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "States.TaskFailed",
+          "cause": "The principal states.amazonaws.com is not authorized to assume the provided role. (role: arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095)",
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "role-readiness-0-role-retry-1",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217399835,
+      "request_finished_ms": 1790217400737,
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "States.TaskFailed",
+          "cause": "The principal states.amazonaws.com is not authorized to assume the provided role. (role: arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095)",
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "role-readiness-0-role-retry-2",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217402738,
+      "request_finished_ms": 1790217403653,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"IsTruncated\":false,\"KeyCount\":0,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "default-checksum",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:putObject\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"Key\":\"default-checksum\",\"Body\":{\"message\":\"sdk-checksum-control\"}},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217403653,
+      "request_finished_ms": 1790217404598,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"ChecksumCRC32\":\"VRQQRw==\",\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"ServerSideEncryption\":\"AES256\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "default-checksum-retained",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:headObject\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"Key\":\"default-checksum\",\"ChecksumMode\":\"ENABLED\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217404598,
+      "request_finished_ms": 1790217405557,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"AcceptRanges\":\"bytes\",\"ChecksumCRC32\":\"VRQQRw==\",\"ChecksumType\":\"FULL_OBJECT\",\"ContentLength\":34,\"ContentType\":\"text/plain; charset=UTF-8\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Metadata\":{},\"ServerSideEncryption\":\"AES256\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "explicit-sha256",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:putObject\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"Key\":\"explicit-sha256\",\"Body\":{\"message\":\"sdk-checksum-control\"},\"ChecksumSHA256\":\"2c26sGu4twJBy9sx5FAp4mxkRWS6KfQRrBvsioTBwqA=\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217405557,
+      "request_finished_ms": 1790217406535,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"ChecksumSHA256\":\"2c26sGu4twJBy9sx5FAp4mxkRWS6KfQRrBvsioTBwqA=\",\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"ServerSideEncryption\":\"AES256\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "explicit-sha256-retained",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:headObject\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"Key\":\"explicit-sha256\",\"ChecksumMode\":\"ENABLED\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217406535,
+      "request_finished_ms": 1790217407412,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"AcceptRanges\":\"bytes\",\"ChecksumSHA256\":\"2c26sGu4twJBy9sx5FAp4mxkRWS6KfQRrBvsioTBwqA=\",\"ChecksumType\":\"FULL_OBJECT\",\"ContentLength\":34,\"ContentType\":\"text/plain; charset=UTF-8\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Metadata\":{},\"ServerSideEncryption\":\"AES256\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "algorithm-sha256",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:putObject\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"Key\":\"algorithm-sha256\",\"Body\":{\"message\":\"sdk-checksum-control\"},\"ChecksumAlgorithm\":\"SHA256\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217407412,
+      "request_finished_ms": 1790217408369,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"ChecksumSHA256\":\"2c26sGu4twJBy9sx5FAp4mxkRWS6KfQRrBvsioTBwqA=\",\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"ServerSideEncryption\":\"AES256\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "algorithm-sha256-retained",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:headObject\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"Key\":\"algorithm-sha256\",\"ChecksumMode\":\"ENABLED\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217408369,
+      "request_finished_ms": 1790217409309,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"AcceptRanges\":\"bytes\",\"ChecksumSHA256\":\"2c26sGu4twJBy9sx5FAp4mxkRWS6KfQRrBvsioTBwqA=\",\"ChecksumType\":\"FULL_OBJECT\",\"ContentLength\":34,\"ContentType\":\"text/plain; charset=UTF-8\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Metadata\":{},\"ServerSideEncryption\":\"AES256\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "conflicting-algorithm",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:putObject\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"Key\":\"conflicting-algorithm\",\"Body\":{\"message\":\"sdk-checksum-control\"},\"ChecksumAlgorithm\":\"CRC32\",\"ChecksumSHA256\":\"2c26sGu4twJBy9sx5FAp4mxkRWS6KfQRrBvsioTBwqA=\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217409309,
+      "request_finished_ms": 1790217410162,
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "States.TaskFailed",
+          "cause": "The principal states.amazonaws.com is not authorized to assume the provided role. (role: arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095)",
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "conflicting-algorithm-role-retry-1",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:putObject\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"Key\":\"conflicting-algorithm\",\"Body\":{\"message\":\"sdk-checksum-control\"},\"ChecksumAlgorithm\":\"CRC32\",\"ChecksumSHA256\":\"2c26sGu4twJBy9sx5FAp4mxkRWS6KfQRrBvsioTBwqA=\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217412162,
+      "request_finished_ms": 1790217413041,
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "S3.InvalidRequestException",
+          "cause": "Expecting a single x-amz-checksum- header (Service: S3, Status Code: 400, Request ID: HK1T519AA48NNZAJ, Extended Request ID: POPb1XuPZgO+OXMvepLLPkejOVcgiPEIs178up6LrMFw0qBfxtFGIBRMH+YMECHaqf3yoSvaPKg=) (SDK Attempt Count: 1)",
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "invalid-sha256",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:putObject\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"Key\":\"invalid-sha256\",\"Body\":{\"message\":\"sdk-checksum-control\"},\"ChecksumSHA256\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217413041,
+      "request_finished_ms": 1790217413996,
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "S3.S3Exception",
+          "cause": "The SHA256 you specified did not match the calculated checksum. (Service: S3, Status Code: 400, Request ID: GFEPW3V3HHTADWA2, Extended Request ID: si7d+W9DJumtNwI07Kj9050khlKm1fWiE1bboOjPRUOCQjj/eWkXZx53lEpeeoCFljcx3x9CMpI=) (SDK Attempt Count: 1)",
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "boolean-true",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":true},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217413996,
+      "request_finished_ms": 1790217414983,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Contents\":[{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"algorithm-sha256\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"CRC32\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"default-checksum\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"explicit-sha256\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"}],\"IsTruncated\":false,\"KeyCount\":3,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "string-true",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":\"true\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217414983,
+      "request_finished_ms": 1790217415907,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Contents\":[{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"algorithm-sha256\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"CRC32\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"default-checksum\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"explicit-sha256\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"}],\"IsTruncated\":false,\"KeyCount\":3,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "string-false",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":\"false\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217415907,
+      "request_finished_ms": 1790217416780,
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "States.TaskFailed",
+          "cause": "The principal states.amazonaws.com is not authorized to assume the provided role. (role: arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095)",
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "string-false-role-retry-1",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":\"false\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217418780,
+      "request_finished_ms": 1790217419685,
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "States.TaskFailed",
+          "cause": "The principal states.amazonaws.com is not authorized to assume the provided role. (role: arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095)",
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "string-false-role-retry-2",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":\"false\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217421685,
+      "request_finished_ms": 1790217422625,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Contents\":[{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"algorithm-sha256\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"CRC32\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"default-checksum\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"explicit-sha256\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"}],\"IsTruncated\":false,\"KeyCount\":3,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "string-invalid",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":\"not-a-boolean\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217422625,
+      "request_finished_ms": 1790217423513,
+      "result": {
+        "code": "InvalidDefinition",
+        "error": {
+          "Message": "Invalid State Machine Definition: 'SCHEMA_VALIDATION_FAILED: Cannot deserialize value of type `java.lang.Boolean` from String \"not-a-boolean\": only \"true\" or \"false\" recognized at /States/StateName/Parameters'",
+          "Code": "InvalidDefinition",
+          "message": "Invalid State Machine Definition: 'SCHEMA_VALIDATION_FAILED: Cannot deserialize value of type `java.lang.Boolean` from String \"not-a-boolean\": only \"true\" or \"false\" recognized at /States/StateName/Parameters'"
+        }
+      }
+    },
+    {
+      "label": "numeric-boolean",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":1},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217423513,
+      "request_finished_ms": 1790217424463,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Contents\":[{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"algorithm-sha256\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"CRC32\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"default-checksum\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"explicit-sha256\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"}],\"IsTruncated\":false,\"KeyCount\":3,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "numeric-zero",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":0},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217424463,
+      "request_finished_ms": 1790217425349,
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "States.TaskFailed",
+          "cause": "The principal states.amazonaws.com is not authorized to assume the provided role. (role: arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095)",
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "numeric-zero-role-retry-1",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":0},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217427349,
+      "request_finished_ms": 1790217428298,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Contents\":[{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"algorithm-sha256\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"CRC32\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"default-checksum\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"explicit-sha256\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"}],\"IsTruncated\":false,\"KeyCount\":3,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "numeric-negative",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":-1},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217428298,
+      "request_finished_ms": 1790217429177,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Contents\":[{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"algorithm-sha256\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"CRC32\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"default-checksum\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"explicit-sha256\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"}],\"IsTruncated\":false,\"KeyCount\":3,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "string-upper-trim",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":\" TRUE \"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217429177,
+      "request_finished_ms": 1790217430080,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Contents\":[{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"algorithm-sha256\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"CRC32\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"default-checksum\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"explicit-sha256\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Owner\":{\"Id\":\"9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd\"},\"Size\":34,\"StorageClass\":\"STANDARD\"}],\"IsTruncated\":false,\"KeyCount\":3,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "string-empty",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":\"\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217430080,
+      "request_finished_ms": 1790217430957,
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "States.TaskFailed",
+          "cause": "The principal states.amazonaws.com is not authorized to assume the provided role. (role: arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095)",
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "string-empty-role-retry-1",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":\"\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217432958,
+      "request_finished_ms": 1790217433908,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Contents\":[{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"algorithm-sha256\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"CRC32\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"default-checksum\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"explicit-sha256\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"}],\"IsTruncated\":false,\"KeyCount\":3,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "string-null",
+      "service": "stepfunctions",
+      "operation": "test-state",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::aws-sdk:s3:listObjectsV2\",\"Parameters\":{\"Bucket\":\"stackd-sfn-sdk-081600398095\",\"FetchOwner\":\"null\"},\"End\":true}",
+        "roleArn": "arn:aws:iam::000000000000:role/stackd-sfn-sdk-081600398095",
+        "input": "{}",
+        "inspectionLevel": "INFO"
+      },
+      "request_started_ms": 1790217433908,
+      "request_finished_ms": 1790217434825,
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Contents\":[{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"algorithm-sha256\",\"LastModified\":\"2026-09-24T02:36:49Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"CRC32\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"default-checksum\",\"LastModified\":\"2026-09-24T02:36:45Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"},{\"ChecksumAlgorithm\":[\"SHA256\"],\"ChecksumType\":\"FULL_OBJECT\",\"ETag\":\"\\\"3791866338839fe2a2751bf09f2981d7\\\"\",\"Key\":\"explicit-sha256\",\"LastModified\":\"2026-09-24T02:36:47Z\",\"Size\":34,\"StorageClass\":\"STANDARD\"}],\"IsTruncated\":false,\"KeyCount\":3,\"MaxKeys\":1000,\"Name\":\"stackd-sfn-sdk-081600398095\",\"Prefix\":\"\"}",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "cleanup-object-default-checksum",
+      "service": "s3api",
+      "operation": "delete-object",
+      "input": {
+        "Bucket": "stackd-sfn-sdk-081600398095",
+        "Key": "default-checksum"
+      },
+      "request_started_ms": 1790217434825,
+      "request_finished_ms": 1790217435806,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cleanup-object-explicit-sha256",
+      "service": "s3api",
+      "operation": "delete-object",
+      "input": {
+        "Bucket": "stackd-sfn-sdk-081600398095",
+        "Key": "explicit-sha256"
+      },
+      "request_started_ms": 1790217435806,
+      "request_finished_ms": 1790217436686,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cleanup-object-algorithm-sha256",
+      "service": "s3api",
+      "operation": "delete-object",
+      "input": {
+        "Bucket": "stackd-sfn-sdk-081600398095",
+        "Key": "algorithm-sha256"
+      },
+      "request_started_ms": 1790217436686,
+      "request_finished_ms": 1790217437584,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cleanup-object-conflicting-algorithm",
+      "service": "s3api",
+      "operation": "delete-object",
+      "input": {
+        "Bucket": "stackd-sfn-sdk-081600398095",
+        "Key": "conflicting-algorithm"
+      },
+      "request_started_ms": 1790217437584,
+      "request_finished_ms": 1790217438484,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cleanup-object-invalid-sha256",
+      "service": "s3api",
+      "operation": "delete-object",
+      "input": {
+        "Bucket": "stackd-sfn-sdk-081600398095",
+        "Key": "invalid-sha256"
+      },
+      "request_started_ms": 1790217438484,
+      "request_finished_ms": 1790217439380,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cleanup-bucket",
+      "service": "s3api",
+      "operation": "delete-bucket",
+      "input": {
+        "Bucket": "stackd-sfn-sdk-081600398095"
+      },
+      "request_started_ms": 1790217439380,
+      "request_finished_ms": 1790217440538,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cleanup-bucket-absent",
+      "service": "s3api",
+      "operation": "head-bucket",
+      "input": {
+        "Bucket": "stackd-sfn-sdk-081600398095"
+      },
+      "request_started_ms": 1790217440538,
+      "request_finished_ms": 1790217441451,
+      "result": {
+        "code": "404",
+        "error": {
+          "Code": "404",
+          "Message": "Not Found"
+        }
+      }
+    },
+    {
+      "label": "cleanup-policy",
+      "service": "iam",
+      "operation": "delete-role-policy",
+      "input": {
+        "RoleName": "stackd-sfn-sdk-081600398095",
+        "PolicyName": "owned-bucket"
+      },
+      "request_started_ms": 1790217441451,
+      "request_finished_ms": 1790217442162,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cleanup-role",
+      "service": "iam",
+      "operation": "delete-role",
+      "input": {
+        "RoleName": "stackd-sfn-sdk-081600398095"
+      },
+      "request_started_ms": 1790217442162,
+      "request_finished_ms": 1790217442904,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cleanup-role-absent",
+      "service": "iam",
+      "operation": "get-role",
+      "input": {
+        "RoleName": "stackd-sfn-sdk-081600398095"
+      },
+      "request_started_ms": 1790217442904,
+      "request_finished_ms": 1790217443678,
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Code": "NoSuchEntity",
+          "Message": "The role with name stackd-sfn-sdk-081600398095 cannot be found."
+        }
+      }
+    }
+  ]
+}

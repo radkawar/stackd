@@ -1,0 +1,522 @@
+{
+  "schema_version": 1,
+  "source": "Real AWS IAM and STS APIs, commercial partition",
+  "probe": "scripts/aws/iam_mfa_propagation_probe.py",
+  "aws_cli_version": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+  "started_at": "2026-09-11T20:48:26.210078+00:00",
+  "finished_at": "2026-09-11T20:50:49.687671+00:00",
+  "documentation": [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateVirtualMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_EnableMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeactivateMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ResyncMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListVirtualMFADevices.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetMFADevice.html"
+  ],
+  "model_source": "clones/aws-sdk-go-v2/codegen/sdk-codegen/aws-models/{iam,sts}.json",
+  "eligibility": {},
+  "setup": [
+    {
+      "service": "iam",
+      "operation": "CreateUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-future",
+        "Path": "/org-access/"
+      },
+      "output": {
+        "User": {
+          "Path": "/org-access/",
+          "UserName": "stackd-mfa-fixture-future",
+          "UserId": "<user-id:future>",
+          "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-mfa-fixture-future",
+          "CreateDate": "2026-09-11T20:48:28+00:00"
+        }
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "CreateAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-future"
+      },
+      "output": {
+        "AccessKey": {
+          "UserName": "stackd-mfa-fixture-future",
+          "AccessKeyId": "<access-key:future>",
+          "Status": "Active",
+          "CreateDate": "2026-09-11T20:48:28+00:00"
+        }
+      }
+    }
+  ],
+  "observations": [
+    {
+      "case": "create_future",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-future"
+      },
+      "observed_at": "2026-09-11T20:48:37.382063+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-future"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "enable_future",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-future",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-future"
+      },
+      "observed_at": "2026-09-11T20:48:38.156633+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "create_current",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-current"
+      },
+      "observed_at": "2026-09-11T20:48:48.208690+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-current"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query",
+      "state_changes_before": [
+        {
+          "service": "iam",
+          "operation": "CreateUser",
+          "input": {
+            "UserName": "stackd-mfa-fixture-current",
+            "Path": "/org-access/"
+          },
+          "output": {
+            "User": {
+              "Path": "/org-access/",
+              "UserName": "stackd-mfa-fixture-current",
+              "UserId": "<user-id:current>",
+              "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-mfa-fixture-current",
+              "CreateDate": "2026-09-11T20:48:38+00:00"
+            }
+          }
+        },
+        {
+          "service": "iam",
+          "operation": "CreateAccessKey",
+          "input": {
+            "UserName": "stackd-mfa-fixture-current"
+          },
+          "output": {
+            "AccessKey": {
+              "UserName": "stackd-mfa-fixture-current",
+              "AccessKeyId": "<access-key:current>",
+              "Status": "Active",
+              "CreateDate": "2026-09-11T20:48:39+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "enable_current",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-current",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-current"
+      },
+      "observed_at": "2026-09-11T20:48:49.004274+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "create_past",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-past"
+      },
+      "observed_at": "2026-09-11T20:49:00.398122+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-past"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query",
+      "state_changes_before": [
+        {
+          "service": "iam",
+          "operation": "CreateUser",
+          "input": {
+            "UserName": "stackd-mfa-fixture-past",
+            "Path": "/org-access/"
+          },
+          "output": {
+            "User": {
+              "Path": "/org-access/",
+              "UserName": "stackd-mfa-fixture-past",
+              "UserId": "<user-id:past>",
+              "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-mfa-fixture-past",
+              "CreateDate": "2026-09-11T20:48:49+00:00"
+            }
+          }
+        },
+        {
+          "service": "iam",
+          "operation": "CreateAccessKey",
+          "input": {
+            "UserName": "stackd-mfa-fixture-past"
+          },
+          "output": {
+            "AccessKey": {
+              "UserName": "stackd-mfa-fixture-past",
+              "AccessKeyId": "<access-key:past>",
+              "Status": "Active",
+              "CreateDate": "2026-09-11T20:48:50+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "enable_past",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-past",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-past"
+      },
+      "observed_at": "2026-09-11T20:49:01.194350+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "future_0",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-future",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:31.936867+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638663,
+      "code_step_offset": 2
+    },
+    {
+      "case": "future_1",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-future",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:32.714648+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638662,
+      "code_step_offset": 1
+    },
+    {
+      "case": "future_2",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-future",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:33.416625+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638661,
+      "code_step_offset": 0
+    },
+    {
+      "case": "current_0",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-current",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:34.108060+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638661,
+      "code_step_offset": 0
+    },
+    {
+      "case": "current_1",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-current",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:34.787419+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638660,
+      "code_step_offset": -1
+    },
+    {
+      "case": "current_2",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-current",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:35.478718+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638662,
+      "code_step_offset": 1
+    },
+    {
+      "case": "past_0",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-past",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:36.167147+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638659,
+      "code_step_offset": -2
+    },
+    {
+      "case": "past_1",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-past",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:36.864948+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638661,
+      "code_step_offset": 0
+    },
+    {
+      "case": "past_2",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-past",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:37.542660+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638660,
+      "code_step_offset": -1
+    },
+    {
+      "case": "past_3",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-past",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:50:38.228154+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638662,
+      "code_step_offset": 1
+    }
+  ],
+  "cleanup": [
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-past",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-past"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-past"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-past",
+        "AccessKeyId": "<access-key:past>"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-past"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-current",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-current"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-current"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-current",
+        "AccessKeyId": "<access-key:current>"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-current"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-future",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-future"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-future"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-future",
+        "AccessKeyId": "<access-key:future>"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-future"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-future"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-current"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-past"
+      },
+      "code": "NoSuchEntity"
+    }
+  ],
+  "capture_complete": true,
+  "cleanup_verified": true,
+  "sanitization": "Owned names/IDs/account normalized; original caller identity redacted; no bearer tokens, credential secrets or debug logs retained.",
+  "limitations": [
+    "Only uniquely owned users, keys and virtual devices are changed. Root MFA and existing devices are unchanged.",
+    "Seeds, QR payloads, authentication codes and issued credentials remain in memory. List results retain only owned devices.",
+    "Hardware and FIDO registration are not covered. Time windows are observations, not undocumented latency guarantees."
+  ]
+}

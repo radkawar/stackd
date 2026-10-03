@@ -1,0 +1,2080 @@
+{
+  "account": "000000000000",
+  "region": "us-east-1",
+  "started_ms": 1790135493911,
+  "source_references": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/grant-destinations-permissions-to-s3.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketNotificationConfiguration.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+    "https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html"
+  ],
+  "source_revisions": {
+    "stackd": "2f442632b489d753618aaff3d998b69967a3936e",
+    "aws_cli_sha256": "5485753631883a7f99c7efabf3f5ceeb9175caffb2319a425a8d86d31640196d"
+  },
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790135493911,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      },
+      "response_observed_ms": 1790135494598
+    },
+    {
+      "label": "create-validation-key",
+      "service": "kms",
+      "operation": "create-key",
+      "input": {
+        "Description": "stackd-sns-s3ctx-2e9155384c17-validation",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"S3PublisherForOwnedTopic\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\"}}}]}",
+        "Tags": [
+          {
+            "TagKey": "stackd-probe",
+            "TagValue": "stackd-sns-s3ctx-2e9155384c17"
+          }
+        ]
+      },
+      "request_started_ms": 1790135494599,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "5711e391-d858-4e0b-937e-21f5ce15aab5",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5",
+            "CreationDate": "2026-09-23T04:51:35.205000+01:00",
+            "Enabled": true,
+            "Description": "stackd-sns-s3ctx-2e9155384c17-validation",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "Enabled",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "306dd2397b171444184807bef890b4a57e298776c246acb622c2f8253292f845"
+          }
+        }
+      },
+      "response_observed_ms": 1790135495480
+    },
+    {
+      "label": "read-validation-key-policy",
+      "service": "kms",
+      "operation": "get-key-policy",
+      "input": {
+        "KeyId": "5711e391-d858-4e0b-937e-21f5ce15aab5",
+        "PolicyName": "default"
+      },
+      "request_started_ms": 1790135495481,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Policy": "{\n  \"Version\" : \"2012-10-17\",\n  \"Statement\" : [ {\n    \"Sid\" : \"OwnerAdministration\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"AWS\" : \"arn:aws:iam::000000000000:root\"\n    },\n    \"Action\" : \"kms:*\",\n    \"Resource\" : \"*\"\n  }, {\n    \"Sid\" : \"S3PublisherForOwnedTopic\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"Service\" : \"s3.amazonaws.com\"\n    },\n    \"Action\" : [ \"kms:GenerateDataKey\", \"kms:Decrypt\" ],\n    \"Resource\" : \"*\",\n    \"Condition\" : {\n      \"StringEquals\" : {\n        \"kms:EncryptionContext:aws:sns:topicArn\" : \"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\"\n      }\n    }\n  } ]\n}",
+          "PolicyName": "default"
+        }
+      },
+      "response_observed_ms": 1790135496150
+    },
+    {
+      "label": "create-object-key",
+      "service": "kms",
+      "operation": "create-key",
+      "input": {
+        "Description": "stackd-sns-s3ctx-2e9155384c17-object",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"S3PublisherForOwnedTopic\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\"}}}]}",
+        "Tags": [
+          {
+            "TagKey": "stackd-probe",
+            "TagValue": "stackd-sns-s3ctx-2e9155384c17"
+          }
+        ]
+      },
+      "request_started_ms": 1790135496151,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "f79b8369-c338-4e74-8f63-88868f362e3d",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d",
+            "CreationDate": "2026-09-23T04:51:36.754000+01:00",
+            "Enabled": true,
+            "Description": "stackd-sns-s3ctx-2e9155384c17-object",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "Enabled",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "aa99ff66d7175564f7f378ff11793db03cb8e1d9a3afc78acdbb71ffe8fcfa68"
+          }
+        }
+      },
+      "response_observed_ms": 1790135496988
+    },
+    {
+      "label": "read-object-key-policy",
+      "service": "kms",
+      "operation": "get-key-policy",
+      "input": {
+        "KeyId": "f79b8369-c338-4e74-8f63-88868f362e3d",
+        "PolicyName": "default"
+      },
+      "request_started_ms": 1790135496988,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Policy": "{\n  \"Version\" : \"2012-10-17\",\n  \"Statement\" : [ {\n    \"Sid\" : \"OwnerAdministration\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"AWS\" : \"arn:aws:iam::000000000000:root\"\n    },\n    \"Action\" : \"kms:*\",\n    \"Resource\" : \"*\"\n  }, {\n    \"Sid\" : \"S3PublisherForOwnedTopic\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"Service\" : \"s3.amazonaws.com\"\n    },\n    \"Action\" : [ \"kms:GenerateDataKey\", \"kms:Decrypt\" ],\n    \"Resource\" : \"*\",\n    \"Condition\" : {\n      \"StringEquals\" : {\n        \"kms:EncryptionContext:aws:sns:topicArn\" : \"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\"\n      }\n    }\n  } ]\n}",
+          "PolicyName": "default"
+        }
+      },
+      "response_observed_ms": 1790135497659
+    },
+    {
+      "label": "create-topic",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-sns-s3ctx-2e9155384c17",
+        "Attributes": {
+          "KmsMasterKeyId": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5"
+        }
+      },
+      "request_started_ms": 1790135497659,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+        }
+      },
+      "response_observed_ms": 1790135498430
+    },
+    {
+      "label": "topic-source-policy",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+        "AttributeName": "Policy",
+        "AttributeValue": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sns:Publish\", \"Resource\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17\"}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+      },
+      "request_started_ms": 1790135498430,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135499109
+    },
+    {
+      "label": "create-raw-unencrypted-queue",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-sns-s3ctx-2e9155384c17",
+        "Attributes": {
+          "SqsManagedSseEnabled": "false"
+        }
+      },
+      "request_started_ms": 1790135499110,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17"
+        }
+      },
+      "response_observed_ms": 1790135499875
+    },
+    {
+      "label": "queue-source-policy",
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\"}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+        }
+      },
+      "request_started_ms": 1790135499876,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135500544
+    },
+    {
+      "label": "subscribe-raw",
+      "service": "sns",
+      "operation": "subscribe",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+        "Protocol": "sqs",
+        "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+        "Attributes": {
+          "RawMessageDelivery": "true"
+        },
+        "ReturnSubscriptionArn": true
+      },
+      "request_started_ms": 1790135500545,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17:1f721755-b156-413c-9680-4fd2e94aa292"
+        }
+      },
+      "response_observed_ms": 1790135501421
+    },
+    {
+      "label": "read-subscription",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17:1f721755-b156-413c-9680-4fd2e94aa292"
+      },
+      "request_started_ms": 1790135501421,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+            "Owner": "000000000000",
+            "RawMessageDelivery": "true",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+            "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+            "Protocol": "sqs",
+            "PendingConfirmation": "false",
+            "ConfirmationWasAuthenticated": "true",
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17:1f721755-b156-413c-9680-4fd2e94aa292"
+          }
+        }
+      },
+      "response_observed_ms": 1790135502095
+    },
+    {
+      "label": "read-queue",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17",
+        "AttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790135502096,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+            "ApproximateNumberOfMessages": "0",
+            "ApproximateNumberOfMessagesNotVisible": "0",
+            "ApproximateNumberOfMessagesDelayed": "0",
+            "CreatedTimestamp": "1790135499",
+            "LastModifiedTimestamp": "1790135500",
+            "VisibilityTimeout": "30",
+            "MaximumMessageSize": "1048576",
+            "MessageRetentionPeriod": "345600",
+            "DelaySeconds": "0",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"sns.amazonaws.com\"},\"Action\":\"sqs:SendMessage\",\"Resource\":\"arn:aws:sqs:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"000000000000\"},\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\"}}}]}",
+            "ReceiveMessageWaitTimeSeconds": "0",
+            "SqsManagedSseEnabled": "false"
+          }
+        }
+      },
+      "response_observed_ms": 1790135502762
+    },
+    {
+      "label": "read-validation-topic",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135502763,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"sns:Publish\",\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"000000000000\"},\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17\"}}}]}",
+            "Owner": "000000000000",
+            "SubscriptionsPending": "0",
+            "KmsMasterKeyId": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+            "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+            "SubscriptionsConfirmed": "0",
+            "DisplayName": "",
+            "SubscriptionsDeleted": "0"
+          }
+        }
+      },
+      "response_observed_ms": 1790135503421
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135503422,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-sns-s3ctx-2e9155384c17",
+          "BucketArn": "arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17"
+        }
+      },
+      "response_observed_ms": 1790135504359
+    },
+    {
+      "label": "validate-bucket-notification",
+      "service": "s3api",
+      "operation": "put-bucket-notification-configuration",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17",
+        "NotificationConfiguration": {
+          "TopicConfigurations": [
+            {
+              "Id": "stackd-sns-s3ctx-2e9155384c17",
+              "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+              "Events": [
+                "s3:ObjectCreated:*"
+              ]
+            }
+          ]
+        }
+      },
+      "request_started_ms": 1790135504360,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135505278
+    },
+    {
+      "label": "read-bucket-notification",
+      "service": "s3api",
+      "operation": "get-bucket-notification-configuration",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135505278,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TopicConfigurations": [
+            {
+              "Id": "stackd-sns-s3ctx-2e9155384c17",
+              "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+              "Events": [
+                "s3:ObjectCreated:*"
+              ]
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790135505970
+    },
+    {
+      "label": "receive-validation",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17",
+        "WaitTimeSeconds": 15,
+        "MaxNumberOfMessages": 10,
+        "MessageSystemAttributeNames": [
+          "All"
+        ],
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790135505971,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "c10c8ea6-fc8f-4f84-a5d8-42a24dc699ca",
+              "ReceiptHandle": "AQEBVw7CQWWuoW9lMjjxb/6+e31zWi0zx7qZEUvHffgaAGtRzvLu73+j2XXUUuwIsbe3uQY/bHzXzxtmSaCojkc5MJ9WPf2cGU9gACGZiKyQ9bGgiRsu/HGTTOpGde3usaAvlt8JS4CtzPczSbydIm5AZgBAcxhMHhz0/cJdJNuv0jP86t4jb39HATV1j8MFjv/JmiwTamGWd0GFTN/Ls40MwLRoI2jeXCXbeTvj0kINsbYU17Jg9IVOFGxv6uq17TWs9r4ZjhxQsM1BPhLm7PI7Z02yFWUtf76XYBR8PrH5SuTiBHVTL9J5LtXUXEcBe49F7bgybJ5PT7QHyG/VLL/xQPjFRXDsd5+W2l5f+qL8tAKtxMpvB+8L9+Qqe7n45+jXKcjWmLTl3x6A0BfZacjTy2izYqphtvzjyf5F4eV5gmc=",
+              "MD5OfBody": "162bbddcf067a65fa5e9f2bc8ec935a6",
+              "Body": "{\"Service\":\"Amazon S3\",\"Event\":\"s3:TestEvent\",\"Time\":\"2026-09-23T03:51:44.976Z\",\"Bucket\":\"stackd-sns-s3ctx-2e9155384c17\",\"RequestId\":\"JNQHA05WDRCR3EXS\",\"HostId\":\"9pdGBKAOJseK2wVyFPhYWqbGbsGV/eCI4YxdlAqqoEpPUFx6kcmrOnxXHCH5PMUup0Wzmf7Wn+Q=\"}",
+              "Attributes": {
+                "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                "ApproximateFirstReceiveTimestamp": "1790135506541",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790135505061"
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790135506672
+    },
+    {
+      "label": "ack-validation",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17",
+        "ReceiptHandle": "AQEBVw7CQWWuoW9lMjjxb/6+e31zWi0zx7qZEUvHffgaAGtRzvLu73+j2XXUUuwIsbe3uQY/bHzXzxtmSaCojkc5MJ9WPf2cGU9gACGZiKyQ9bGgiRsu/HGTTOpGde3usaAvlt8JS4CtzPczSbydIm5AZgBAcxhMHhz0/cJdJNuv0jP86t4jb39HATV1j8MFjv/JmiwTamGWd0GFTN/Ls40MwLRoI2jeXCXbeTvj0kINsbYU17Jg9IVOFGxv6uq17TWs9r4ZjhxQsM1BPhLm7PI7Z02yFWUtf76XYBR8PrH5SuTiBHVTL9J5LtXUXEcBe49F7bgybJ5PT7QHyG/VLL/xQPjFRXDsd5+W2l5f+qL8tAKtxMpvB+8L9+Qqe7n45+jXKcjWmLTl3x6A0BfZacjTy2izYqphtvzjyf5F4eV5gmc="
+      },
+      "request_started_ms": 1790135506672,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135507340
+    },
+    {
+      "label": "select-cold-object-key",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+        "AttributeName": "KmsMasterKeyId",
+        "AttributeValue": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d"
+      },
+      "request_started_ms": 1790135507350,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135508037
+    },
+    {
+      "label": "read-object-topic-key-selection",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135508037,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"sns:Publish\",\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"000000000000\"},\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17\"}}}]}",
+            "Owner": "000000000000",
+            "SubscriptionsPending": "0",
+            "KmsMasterKeyId": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+            "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+            "SubscriptionsConfirmed": "0",
+            "DisplayName": "",
+            "SubscriptionsDeleted": "0"
+          }
+        }
+      },
+      "response_observed_ms": 1790135508712
+    },
+    {
+      "label": "put-object-after-cold-key-selection",
+      "service": "s3api",
+      "operation": "put-object",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17",
+        "Key": "cold-key/73e4916c79e447a1bcf18c781aaa861f.txt",
+        "ContentType": "text/plain",
+        "Body": "stackd-sns-s3ctx-2e9155384c17\nObjectCreated cold-key publication\n"
+      },
+      "request_started_ms": 1790135838713,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ETag": "\"447a1e64aa245971f5f00dbbf25c3283\"",
+          "ChecksumCRC64NVME": "KV0y9ZQwNMk=",
+          "ChecksumType": "FULL_OBJECT",
+          "ServerSideEncryption": "AES256"
+        }
+      },
+      "response_observed_ms": 1790135839559,
+      "input_encoding": {
+        "Body": "utf-8 bytes, preserved inline; native CLI transported these exact bytes via --body temporary-file"
+      }
+    },
+    {
+      "label": "head-created-object",
+      "service": "s3api",
+      "operation": "head-object",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17",
+        "Key": "cold-key/73e4916c79e447a1bcf18c781aaa861f.txt"
+      },
+      "request_started_ms": 1790135839560,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AcceptRanges": "bytes",
+          "LastModified": "2026-09-23T03:57:20+00:00",
+          "ContentLength": 65,
+          "ETag": "\"447a1e64aa245971f5f00dbbf25c3283\"",
+          "ContentType": "text/plain",
+          "ServerSideEncryption": "AES256",
+          "Metadata": {}
+        }
+      },
+      "response_observed_ms": 1790135840280
+    },
+    {
+      "label": "receive-object",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17",
+        "WaitTimeSeconds": 15,
+        "MaxNumberOfMessages": 10,
+        "MessageSystemAttributeNames": [
+          "All"
+        ],
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790135840281,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "11f5db1d-b33e-4d72-bdbe-fc1d5df715fd",
+              "ReceiptHandle": "AQEBboZFFw6e9ltDjj2O9jG0yIuFJqt6se5Yif6kD9p8/vCdq+MXjjB+gzp+qRtt8bp054VXpu9Igd7zZeQDnNW++ljnwslJzwUQVOb7+nPB0uB5qMT382FipDjhLPkqQhZa0kuG8xYg07/uvqUhUNq5B65HFkGgMahU2XIx16j8g3BD8OE513b/CXOnxSWWRvmM60fAbHA2MKbFXMDkR2fF92FkUAkePW2J7sFWjtCm6v7pKdvbH4MVZD4nFBS4I1/lv2LzA3faOGT1k18K3UHfPz9Nd/Fxbg2VLlmbt2nW/Q2ju0ajadFj/Otaz4dSH7uUP7Xi5mHUp0Z0EoEETE1ShDyeDE9FMPg8e1nl6UeUpa3gVFLLvP9LYuT8D2XNtOKIgMlW6BS54o52A/2b/gMXnpV7M47bUqCIED0I7FZAVXQ=",
+              "MD5OfBody": "b417a6f2e5d3d0d3cd3a59c4cfdafe32",
+              "Body": "{\"Records\":[{\"eventVersion\":\"2.6\",\"eventSource\":\"aws:s3\",\"awsRegion\":\"us-east-1\",\"eventTime\":\"2026-09-23T03:57:19.443Z\",\"eventName\":\"ObjectCreated:Put\",\"userIdentity\":{\"principalId\":\"AWS:AIDAQAAAAAAAMEZHRHAHY\"},\"requestParameters\":{\"sourceIPAddress\":\"92.234.107.50\"},\"responseElements\":{\"x-amz-request-id\":\"WMGT51Y5PAHSPCMF\",\"x-amz-id-2\":\"iU0fEW9sZnAxWR6BwXIViTpvCJQP2L3s48GArDCKQ+6Kd6OHMdpjSrj5ONOPI9mJS1BXBz8Zrs4KKyBcKbpQNAkJZ4wGsQQsGm9B5jmXz9o=\"},\"s3\":{\"s3SchemaVersion\":\"1.0\",\"configurationId\":\"stackd-sns-s3ctx-2e9155384c17\",\"bucket\":{\"name\":\"stackd-sns-s3ctx-2e9155384c17\",\"ownerIdentity\":{\"principalId\":\"AW1K7DS23TRWT\"},\"arn\":\"arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17\"},\"object\":{\"key\":\"cold-key/73e4916c79e447a1bcf18c781aaa861f.txt\",\"size\":65,\"eTag\":\"447a1e64aa245971f5f00dbbf25c3283\",\"sequencer\":\"006AB34E1F4F443AF7\"}}}]}",
+              "Attributes": {
+                "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                "ApproximateFirstReceiveTimestamp": "1790135840888",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790135839984"
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790135841012
+    },
+    {
+      "label": "ack-object",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17",
+        "ReceiptHandle": "AQEBboZFFw6e9ltDjj2O9jG0yIuFJqt6se5Yif6kD9p8/vCdq+MXjjB+gzp+qRtt8bp054VXpu9Igd7zZeQDnNW++ljnwslJzwUQVOb7+nPB0uB5qMT382FipDjhLPkqQhZa0kuG8xYg07/uvqUhUNq5B65HFkGgMahU2XIx16j8g3BD8OE513b/CXOnxSWWRvmM60fAbHA2MKbFXMDkR2fF92FkUAkePW2J7sFWjtCm6v7pKdvbH4MVZD4nFBS4I1/lv2LzA3faOGT1k18K3UHfPz9Nd/Fxbg2VLlmbt2nW/Q2ju0ajadFj/Otaz4dSH7uUP7Xi5mHUp0Z0EoEETE1ShDyeDE9FMPg8e1nl6UeUpa3gVFLLvP9LYuT8D2XNtOKIgMlW6BS54o52A/2b/gMXnpV7M47bUqCIED0I7FZAVXQ="
+      },
+      "request_started_ms": 1790135841012,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135841676
+    }
+  ],
+  "receipts": [
+    {
+      "phase": "validation",
+      "observed_ms": 1790135506672,
+      "message": {
+        "MessageId": "c10c8ea6-fc8f-4f84-a5d8-42a24dc699ca",
+        "ReceiptHandle": "AQEBVw7CQWWuoW9lMjjxb/6+e31zWi0zx7qZEUvHffgaAGtRzvLu73+j2XXUUuwIsbe3uQY/bHzXzxtmSaCojkc5MJ9WPf2cGU9gACGZiKyQ9bGgiRsu/HGTTOpGde3usaAvlt8JS4CtzPczSbydIm5AZgBAcxhMHhz0/cJdJNuv0jP86t4jb39HATV1j8MFjv/JmiwTamGWd0GFTN/Ls40MwLRoI2jeXCXbeTvj0kINsbYU17Jg9IVOFGxv6uq17TWs9r4ZjhxQsM1BPhLm7PI7Z02yFWUtf76XYBR8PrH5SuTiBHVTL9J5LtXUXEcBe49F7bgybJ5PT7QHyG/VLL/xQPjFRXDsd5+W2l5f+qL8tAKtxMpvB+8L9+Qqe7n45+jXKcjWmLTl3x6A0BfZacjTy2izYqphtvzjyf5F4eV5gmc=",
+        "MD5OfBody": "162bbddcf067a65fa5e9f2bc8ec935a6",
+        "Body": "{\"Service\":\"Amazon S3\",\"Event\":\"s3:TestEvent\",\"Time\":\"2026-09-23T03:51:44.976Z\",\"Bucket\":\"stackd-sns-s3ctx-2e9155384c17\",\"RequestId\":\"JNQHA05WDRCR3EXS\",\"HostId\":\"9pdGBKAOJseK2wVyFPhYWqbGbsGV/eCI4YxdlAqqoEpPUFx6kcmrOnxXHCH5PMUup0Wzmf7Wn+Q=\"}",
+        "Attributes": {
+          "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+          "ApproximateFirstReceiveTimestamp": "1790135506541",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790135505061"
+        }
+      },
+      "decoded_notification": {
+        "Service": "Amazon S3",
+        "Event": "s3:TestEvent",
+        "Time": "2026-09-23T03:51:44.976Z",
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17",
+        "RequestId": "JNQHA05WDRCR3EXS",
+        "HostId": "9pdGBKAOJseK2wVyFPhYWqbGbsGV/eCI4YxdlAqqoEpPUFx6kcmrOnxXHCH5PMUup0Wzmf7Wn+Q="
+      },
+      "correlated": true
+    },
+    {
+      "phase": "object",
+      "observed_ms": 1790135841012,
+      "message": {
+        "MessageId": "11f5db1d-b33e-4d72-bdbe-fc1d5df715fd",
+        "ReceiptHandle": "AQEBboZFFw6e9ltDjj2O9jG0yIuFJqt6se5Yif6kD9p8/vCdq+MXjjB+gzp+qRtt8bp054VXpu9Igd7zZeQDnNW++ljnwslJzwUQVOb7+nPB0uB5qMT382FipDjhLPkqQhZa0kuG8xYg07/uvqUhUNq5B65HFkGgMahU2XIx16j8g3BD8OE513b/CXOnxSWWRvmM60fAbHA2MKbFXMDkR2fF92FkUAkePW2J7sFWjtCm6v7pKdvbH4MVZD4nFBS4I1/lv2LzA3faOGT1k18K3UHfPz9Nd/Fxbg2VLlmbt2nW/Q2ju0ajadFj/Otaz4dSH7uUP7Xi5mHUp0Z0EoEETE1ShDyeDE9FMPg8e1nl6UeUpa3gVFLLvP9LYuT8D2XNtOKIgMlW6BS54o52A/2b/gMXnpV7M47bUqCIED0I7FZAVXQ=",
+        "MD5OfBody": "b417a6f2e5d3d0d3cd3a59c4cfdafe32",
+        "Body": "{\"Records\":[{\"eventVersion\":\"2.6\",\"eventSource\":\"aws:s3\",\"awsRegion\":\"us-east-1\",\"eventTime\":\"2026-09-23T03:57:19.443Z\",\"eventName\":\"ObjectCreated:Put\",\"userIdentity\":{\"principalId\":\"AWS:AIDAQAAAAAAAMEZHRHAHY\"},\"requestParameters\":{\"sourceIPAddress\":\"92.234.107.50\"},\"responseElements\":{\"x-amz-request-id\":\"WMGT51Y5PAHSPCMF\",\"x-amz-id-2\":\"iU0fEW9sZnAxWR6BwXIViTpvCJQP2L3s48GArDCKQ+6Kd6OHMdpjSrj5ONOPI9mJS1BXBz8Zrs4KKyBcKbpQNAkJZ4wGsQQsGm9B5jmXz9o=\"},\"s3\":{\"s3SchemaVersion\":\"1.0\",\"configurationId\":\"stackd-sns-s3ctx-2e9155384c17\",\"bucket\":{\"name\":\"stackd-sns-s3ctx-2e9155384c17\",\"ownerIdentity\":{\"principalId\":\"AW1K7DS23TRWT\"},\"arn\":\"arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17\"},\"object\":{\"key\":\"cold-key/73e4916c79e447a1bcf18c781aaa861f.txt\",\"size\":65,\"eTag\":\"447a1e64aa245971f5f00dbbf25c3283\",\"sequencer\":\"006AB34E1F4F443AF7\"}}}]}",
+        "Attributes": {
+          "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+          "ApproximateFirstReceiveTimestamp": "1790135840888",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790135839984"
+        }
+      },
+      "decoded_notification": {
+        "Records": [
+          {
+            "eventVersion": "2.6",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2026-09-23T03:57:19.443Z",
+            "eventName": "ObjectCreated:Put",
+            "userIdentity": {
+              "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+            },
+            "requestParameters": {
+              "sourceIPAddress": "92.234.107.50"
+            },
+            "responseElements": {
+              "x-amz-request-id": "WMGT51Y5PAHSPCMF",
+              "x-amz-id-2": "iU0fEW9sZnAxWR6BwXIViTpvCJQP2L3s48GArDCKQ+6Kd6OHMdpjSrj5ONOPI9mJS1BXBz8Zrs4KKyBcKbpQNAkJZ4wGsQQsGm9B5jmXz9o="
+            },
+            "s3": {
+              "s3SchemaVersion": "1.0",
+              "configurationId": "stackd-sns-s3ctx-2e9155384c17",
+              "bucket": {
+                "name": "stackd-sns-s3ctx-2e9155384c17",
+                "ownerIdentity": {
+                  "principalId": "AW1K7DS23TRWT"
+                },
+                "arn": "arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17"
+              },
+              "object": {
+                "key": "cold-key/73e4916c79e447a1bcf18c781aaa861f.txt",
+                "size": 65,
+                "eTag": "447a1e64aa245971f5f00dbbf25c3283",
+                "sequencer": "006AB34E1F4F443AF7"
+              }
+            }
+          }
+        ]
+      },
+      "correlated": true
+    }
+  ],
+  "windows": [
+    {
+      "kind": "consumer-receipt",
+      "phase": "validation",
+      "started_ms": 1790135505971,
+      "ended_ms": 1790135507341,
+      "maximum_seconds": 120,
+      "correlated_receipt": true
+    },
+    {
+      "kind": "post-key-selection-wait",
+      "started_ms": 1790135508713,
+      "ended_ms": 1790135838713,
+      "requested_seconds": 330,
+      "purpose": "Allow topic attribute propagation and prior SNS data-key reuse to elapse; not itself proof of second-key use."
+    },
+    {
+      "kind": "consumer-receipt",
+      "phase": "object",
+      "started_ms": 1790135840281,
+      "ended_ms": 1790135841676,
+      "maximum_seconds": 120,
+      "correlated_receipt": true
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "remove-bucket-notification",
+      "service": "s3api",
+      "operation": "put-bucket-notification-configuration",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17",
+        "NotificationConfiguration": {}
+      },
+      "request_started_ms": 1790135841685,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135842591
+    },
+    {
+      "label": "list-owned-bucket-versions",
+      "service": "s3api",
+      "operation": "list-object-versions",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135842592,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Versions": [
+            {
+              "ETag": "\"447a1e64aa245971f5f00dbbf25c3283\"",
+              "ChecksumAlgorithm": [
+                "CRC64NVME"
+              ],
+              "ChecksumType": "FULL_OBJECT",
+              "Size": 65,
+              "StorageClass": "STANDARD",
+              "Key": "cold-key/73e4916c79e447a1bcf18c781aaa861f.txt",
+              "VersionId": "null",
+              "IsLatest": true,
+              "LastModified": "2026-09-23T03:57:20+00:00",
+              "Owner": {
+                "ID": "9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd"
+              }
+            }
+          ],
+          "RequestCharged": null,
+          "Prefix": ""
+        }
+      },
+      "response_observed_ms": 1790135843327
+    },
+    {
+      "label": "delete-owned-version",
+      "service": "s3api",
+      "operation": "delete-object",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17",
+        "Key": "cold-key/73e4916c79e447a1bcf18c781aaa861f.txt",
+        "VersionId": "null"
+      },
+      "request_started_ms": 1790135843328,
+      "result": {
+        "code": "Success",
+        "output": {
+          "VersionId": "null"
+        }
+      },
+      "response_observed_ms": 1790135844046
+    },
+    {
+      "label": "list-owned-bucket-objects",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135844046,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RequestCharged": null,
+          "Prefix": ""
+        }
+      },
+      "response_observed_ms": 1790135844756
+    },
+    {
+      "label": "verify-owned-bucket-versions-empty",
+      "service": "s3api",
+      "operation": "list-object-versions",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135844757,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RequestCharged": null,
+          "Prefix": ""
+        }
+      },
+      "response_observed_ms": 1790135845445
+    },
+    {
+      "label": "verify-owned-bucket-objects-empty",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135845446,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RequestCharged": null,
+          "Prefix": ""
+        }
+      },
+      "response_observed_ms": 1790135846165
+    },
+    {
+      "label": "delete-bucket",
+      "service": "s3api",
+      "operation": "delete-bucket",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135846166,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135847038
+    },
+    {
+      "label": "verify-bucket-absent",
+      "service": "s3api",
+      "operation": "head-bucket",
+      "input": {
+        "Bucket": "stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135847038,
+      "result": {
+        "code": "404",
+        "message": "Not Found"
+      },
+      "response_observed_ms": 1790135847717
+    },
+    {
+      "label": "unsubscribe",
+      "service": "sns",
+      "operation": "unsubscribe",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17:1f721755-b156-413c-9680-4fd2e94aa292"
+      },
+      "request_started_ms": 1790135847717,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135848517
+    },
+    {
+      "label": "verify-subscription-absent",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17:1f721755-b156-413c-9680-4fd2e94aa292"
+      },
+      "request_started_ms": 1790135848518,
+      "result": {
+        "code": "NotFound",
+        "message": "Subscription does not exist"
+      },
+      "response_observed_ms": 1790135849186
+    },
+    {
+      "label": "delete-topic",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135849186,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135849934
+    },
+    {
+      "label": "verify-topic-absent",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135849935,
+      "result": {
+        "code": "NotFound",
+        "message": "Topic does not exist"
+      },
+      "response_observed_ms": 1790135850590
+    },
+    {
+      "label": "delete-queue",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17"
+      },
+      "request_started_ms": 1790135850590,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790135851337
+    },
+    {
+      "label": "verify-queue-absent",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "request_started_ms": 1790135851338,
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist."
+      },
+      "response_observed_ms": 1790135851991
+    },
+    {
+      "label": "schedule-validation-key-deletion",
+      "service": "kms",
+      "operation": "schedule-key-deletion",
+      "input": {
+        "KeyId": "5711e391-d858-4e0b-937e-21f5ce15aab5",
+        "PendingWindowInDays": 7
+      },
+      "request_started_ms": 1790135851992,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyId": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5",
+          "DeletionDate": "2026-09-30T04:57:32.617000+01:00",
+          "KeyState": "PendingDeletion",
+          "PendingWindowInDays": 7
+        }
+      },
+      "response_observed_ms": 1790135852730
+    },
+    {
+      "label": "verify-validation-key-pending-deletion",
+      "service": "kms",
+      "operation": "describe-key",
+      "input": {
+        "KeyId": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+      },
+      "request_started_ms": 1790135852731,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "5711e391-d858-4e0b-937e-21f5ce15aab5",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5",
+            "CreationDate": "2026-09-23T04:51:35.205000+01:00",
+            "Enabled": false,
+            "Description": "stackd-sns-s3ctx-2e9155384c17-validation",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "PendingDeletion",
+            "DeletionDate": "2026-09-30T04:57:32.617000+01:00",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "306dd2397b171444184807bef890b4a57e298776c246acb622c2f8253292f845"
+          }
+        }
+      },
+      "response_observed_ms": 1790135853378
+    },
+    {
+      "label": "schedule-object-key-deletion",
+      "service": "kms",
+      "operation": "schedule-key-deletion",
+      "input": {
+        "KeyId": "f79b8369-c338-4e74-8f63-88868f362e3d",
+        "PendingWindowInDays": 7
+      },
+      "request_started_ms": 1790135853379,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyId": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d",
+          "DeletionDate": "2026-09-30T04:57:34.010000+01:00",
+          "KeyState": "PendingDeletion",
+          "PendingWindowInDays": 7
+        }
+      },
+      "response_observed_ms": 1790135854118
+    },
+    {
+      "label": "verify-object-key-pending-deletion",
+      "service": "kms",
+      "operation": "describe-key",
+      "input": {
+        "KeyId": "f79b8369-c338-4e74-8f63-88868f362e3d"
+      },
+      "request_started_ms": 1790135854119,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "f79b8369-c338-4e74-8f63-88868f362e3d",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d",
+            "CreationDate": "2026-09-23T04:51:36.754000+01:00",
+            "Enabled": false,
+            "Description": "stackd-sns-s3ctx-2e9155384c17-object",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "PendingDeletion",
+            "DeletionDate": "2026-09-30T04:57:34.010000+01:00",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "aa99ff66d7175564f7f378ff11793db03cb8e1d9a3afc78acdbb71ffe8fcfa68"
+          }
+        }
+      },
+      "response_observed_ms": 1790135854788
+    }
+  ],
+  "cloudtrail": {
+    "events": [
+      {
+        "phase": "validation",
+        "first_observed_ms": 1790135855606,
+        "lookup_event_id": "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "<redacted>",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T03:51:36Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GetKeyPolicy",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.get-key-policy",
+          "requestParameters": {
+            "keyId": "5711e391-d858-4e0b-937e-21f5ce15aab5",
+            "policyName": "default"
+          },
+          "responseElements": null,
+          "requestID": "9947dd0b-b7d5-4751-b1fe-c928cfbc09fa",
+          "eventID": "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "phase": "validation",
+        "first_observed_ms": 1790135855606,
+        "lookup_event_id": "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "<redacted>",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T03:51:35Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "CreateKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.create-key",
+          "requestParameters": {
+            "tags": [
+              {
+                "tagKey": "stackd-probe",
+                "tagValue": "stackd-sns-s3ctx-2e9155384c17"
+              }
+            ],
+            "keyUsage": "ENCRYPT_DECRYPT",
+            "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"S3PublisherForOwnedTopic\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\"}}}]}",
+            "origin": "AWS_KMS",
+            "keySpec": "SYMMETRIC_DEFAULT",
+            "bypassPolicyLockoutSafetyCheck": false,
+            "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "description": "stackd-sns-s3ctx-2e9155384c17-validation"
+          },
+          "responseElements": {
+            "keyMetadata": {
+              "aWSAccountId": "000000000000",
+              "keyId": "5711e391-d858-4e0b-937e-21f5ce15aab5",
+              "arn": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5",
+              "creationDate": "2026-09-23T03:51:35Z",
+              "enabled": true,
+              "description": "stackd-sns-s3ctx-2e9155384c17-validation",
+              "keyUsage": "ENCRYPT_DECRYPT",
+              "keyState": "Enabled",
+              "origin": "AWS_KMS",
+              "keyManager": "CUSTOMER",
+              "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+              "keySpec": "SYMMETRIC_DEFAULT",
+              "encryptionAlgorithms": [
+                "SYMMETRIC_DEFAULT"
+              ],
+              "multiRegion": false,
+              "currentKeyMaterialId": "306dd2397b171444184807bef890b4a57e298776c246acb622c2f8253292f845"
+            }
+          },
+          "requestID": "86da0c8e-574e-4ce5-a85c-6f0979368f1a",
+          "eventID": "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd",
+          "readOnly": false,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "phase": "object",
+        "first_observed_ms": 1790135856314,
+        "lookup_event_id": "259f696d-743b-48e6-b027-aca9c11d9d4a",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "<redacted>",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T03:51:37Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GetKeyPolicy",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.get-key-policy",
+          "requestParameters": {
+            "keyId": "f79b8369-c338-4e74-8f63-88868f362e3d",
+            "policyName": "default"
+          },
+          "responseElements": null,
+          "requestID": "1b40b34d-2033-41f1-991d-61c87ed81e4c",
+          "eventID": "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "phase": "object",
+        "first_observed_ms": 1790135856314,
+        "lookup_event_id": "c4cfd28d-ba14-45b4-8e03-89c004e52ea7",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "<redacted>",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T03:51:36Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "CreateKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.create-key",
+          "requestParameters": {
+            "keyUsage": "ENCRYPT_DECRYPT",
+            "origin": "AWS_KMS",
+            "keySpec": "SYMMETRIC_DEFAULT",
+            "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"S3PublisherForOwnedTopic\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17\"}}}]}",
+            "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "bypassPolicyLockoutSafetyCheck": false,
+            "tags": [
+              {
+                "tagKey": "stackd-probe",
+                "tagValue": "stackd-sns-s3ctx-2e9155384c17"
+              }
+            ],
+            "description": "stackd-sns-s3ctx-2e9155384c17-object"
+          },
+          "responseElements": {
+            "keyMetadata": {
+              "aWSAccountId": "000000000000",
+              "keyId": "f79b8369-c338-4e74-8f63-88868f362e3d",
+              "arn": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d",
+              "creationDate": "2026-09-23T03:51:36Z",
+              "enabled": true,
+              "description": "stackd-sns-s3ctx-2e9155384c17-object",
+              "keyUsage": "ENCRYPT_DECRYPT",
+              "keyState": "Enabled",
+              "origin": "AWS_KMS",
+              "keyManager": "CUSTOMER",
+              "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+              "keySpec": "SYMMETRIC_DEFAULT",
+              "encryptionAlgorithms": [
+                "SYMMETRIC_DEFAULT"
+              ],
+              "multiRegion": false,
+              "currentKeyMaterialId": "aa99ff66d7175564f7f378ff11793db03cb8e1d9a3afc78acdbb71ffe8fcfa68"
+            }
+          },
+          "requestID": "afb62360-7b8d-4206-bb5e-d764a66c74b9",
+          "eventID": "c4cfd28d-ba14-45b4-8e03-89c004e52ea7",
+          "readOnly": false,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "phase": "object",
+        "first_observed_ms": 1790136121202,
+        "lookup_event_id": "4ed1d743-4559-3442-8bf0-ca1229554967",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T03:57:19Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "Decrypt",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+            },
+            "encryptionAlgorithm": "SYMMETRIC_DEFAULT"
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "aa99ff66d7175564f7f378ff11793db03cb8e1d9a3afc78acdbb71ffe8fcfa68"
+          },
+          "requestID": "4185f44f-ee84-4aaf-a72a-023464c0d18a",
+          "eventID": "4ed1d743-4559-3442-8bf0-ca1229554967",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "f15f6411-38e7-4365-b699-1e6785eb9a97",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "phase": "object",
+        "first_observed_ms": 1790136121202,
+        "lookup_event_id": "c7e9f1e6-7540-3455-ad49-a0bd3767aa58",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T03:57:19Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GenerateDataKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "encryptionContext": {
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:sourceArn": "arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+            },
+            "keySpec": "AES_256",
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d"
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "aa99ff66d7175564f7f378ff11793db03cb8e1d9a3afc78acdbb71ffe8fcfa68"
+          },
+          "requestID": "eb527b59-b344-4d0c-91e8-0a0532fce0b8",
+          "eventID": "c7e9f1e6-7540-3455-ad49-a0bd3767aa58",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "0c8a1d0a-4fdd-447c-a1c1-e7bc89e71c2c",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "phase": "validation",
+        "first_observed_ms": 1790136121202,
+        "lookup_event_id": "7cfff986-7d06-3fec-8f14-2eacf900daaa",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T03:51:45Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GenerateDataKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "keySpec": "AES_256",
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+            },
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5"
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "306dd2397b171444184807bef890b4a57e298776c246acb622c2f8253292f845"
+          },
+          "requestID": "6ef1a1ac-37af-4b59-ab05-c386c353b2e0",
+          "eventID": "7cfff986-7d06-3fec-8f14-2eacf900daaa",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "0f6b7e79-1914-4b87-9900-2b24f0f40c66",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "phase": "validation",
+        "first_observed_ms": 1790136121202,
+        "lookup_event_id": "903950a6-da4f-37a9-acc7-a0a77b148d67",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T03:51:45Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "Decrypt",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+            },
+            "encryptionAlgorithm": "SYMMETRIC_DEFAULT"
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "306dd2397b171444184807bef890b4a57e298776c246acb622c2f8253292f845"
+          },
+          "requestID": "58479712-c0cd-4864-bed6-60a86ec7c82e",
+          "eventID": "903950a6-da4f-37a9-acc7-a0a77b148d67",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "6698d799-2b64-4c90-a865-d69f1f011b4f",
+          "eventCategory": "Management"
+        }
+      }
+    ],
+    "lookups": [
+      {
+        "phase": "validation",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135854802,
+        "response_observed_ms": 1790135855606,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      },
+      {
+        "phase": "object",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135855606,
+        "response_observed_ms": 1790135856314,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7"
+        ]
+      },
+      {
+        "phase": "validation",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135876316,
+        "response_observed_ms": 1790135877420,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      },
+      {
+        "phase": "object",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135877420,
+        "response_observed_ms": 1790135878131,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7"
+        ]
+      },
+      {
+        "phase": "validation",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135898132,
+        "response_observed_ms": 1790135898895,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      },
+      {
+        "phase": "object",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135898895,
+        "response_observed_ms": 1790135899626,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7"
+        ]
+      },
+      {
+        "phase": "validation",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135919627,
+        "response_observed_ms": 1790135920431,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      },
+      {
+        "phase": "object",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135920432,
+        "response_observed_ms": 1790135921183,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7"
+        ]
+      },
+      {
+        "phase": "validation",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135941184,
+        "response_observed_ms": 1790135941939,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      },
+      {
+        "phase": "object",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135941939,
+        "response_observed_ms": 1790135942636,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7"
+        ]
+      },
+      {
+        "phase": "validation",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135962638,
+        "response_observed_ms": 1790135963364,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      },
+      {
+        "phase": "object",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135963364,
+        "response_observed_ms": 1790135964077,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7"
+        ]
+      },
+      {
+        "phase": "validation",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135984079,
+        "response_observed_ms": 1790135984807,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      },
+      {
+        "phase": "object",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790135984807,
+        "response_observed_ms": 1790135985547,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7"
+        ]
+      },
+      {
+        "phase": "validation",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790136005548,
+        "response_observed_ms": 1790136006277,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      },
+      {
+        "phase": "object",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790136006277,
+        "response_observed_ms": 1790136007024,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7"
+        ]
+      },
+      {
+        "phase": "validation",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "5711e391-d858-4e0b-937e-21f5ce15aab5"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790136027025,
+        "response_observed_ms": 1790136027733,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      },
+      {
+        "phase": "object",
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "ResourceName",
+              "AttributeValue": "f79b8369-c338-4e74-8f63-88868f362e3d"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790136027733,
+        "response_observed_ms": 1790136028423,
+        "result_code": "Success",
+        "returned_event_count": 2,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7"
+        ]
+      },
+      {
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "EventSource",
+              "AttributeValue": "kms.amazonaws.com"
+            }
+          ],
+          "StartTime": "2026-09-23T03:51:28.911000+00:00",
+          "EndTime": "2026-09-23T03:57:22.685000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790136120161,
+        "response_observed_ms": 1790136121202,
+        "result_code": "Success",
+        "returned_event_count": 49,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "4ed1d743-4559-3442-8bf0-ca1229554967",
+          "c7e9f1e6-7540-3455-ad49-a0bd3767aa58",
+          "7cfff986-7d06-3fec-8f14-2eacf900daaa",
+          "903950a6-da4f-37a9-acc7-a0a77b148d67",
+          "259f696d-743b-48e6-b027-aca9c11d9d4a",
+          "3f02aebb-49a3-4bf3-bd85-954dee3332b9",
+          "c4cfd28d-ba14-45b4-8e03-89c004e52ea7",
+          "ca0be21f-65f1-4a30-ada7-ba81b7e71cfd"
+        ]
+      }
+    ],
+    "window": {
+      "start": "2026-09-23T03:51:28.911000+00:00",
+      "end": "2026-09-23T03:57:22.685000+00:00",
+      "poll_started_ms": 1790135854802,
+      "maximum_poll_seconds": 900,
+      "missing_successful_operations": [],
+      "resource_name_poll_finished_ms": 1790136028423,
+      "poll_finished_ms": 1790136121202
+    }
+  },
+  "owned_resources": {
+    "name": "stackd-sns-s3ctx-2e9155384c17",
+    "bucket": "stackd-sns-s3ctx-2e9155384c17",
+    "topic": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17",
+    "keys": {
+      "validation": {
+        "AWSAccountId": "000000000000",
+        "KeyId": "5711e391-d858-4e0b-937e-21f5ce15aab5",
+        "Arn": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5",
+        "CreationDate": "2026-09-23T04:51:35.205000+01:00",
+        "Enabled": true,
+        "Description": "stackd-sns-s3ctx-2e9155384c17-validation",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "KeyState": "Enabled",
+        "Origin": "AWS_KMS",
+        "KeyManager": "CUSTOMER",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "MultiRegion": false,
+        "CurrentKeyMaterialId": "306dd2397b171444184807bef890b4a57e298776c246acb622c2f8253292f845"
+      },
+      "object": {
+        "AWSAccountId": "000000000000",
+        "KeyId": "f79b8369-c338-4e74-8f63-88868f362e3d",
+        "Arn": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d",
+        "CreationDate": "2026-09-23T04:51:36.754000+01:00",
+        "Enabled": true,
+        "Description": "stackd-sns-s3ctx-2e9155384c17-object",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "KeyState": "Enabled",
+        "Origin": "AWS_KMS",
+        "KeyManager": "CUSTOMER",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "MultiRegion": false,
+        "CurrentKeyMaterialId": "aa99ff66d7175564f7f378ff11793db03cb8e1d9a3afc78acdbb71ffe8fcfa68"
+      }
+    },
+    "queue": {
+      "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-s3ctx-2e9155384c17",
+      "arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+    },
+    "subscription": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17:1f721755-b156-413c-9680-4fd2e94aa292"
+  },
+  "source": {
+    "kind": "Native AWS CLI through scripts/aws/aws_cli.py run/result; isolated capture, no IAM resources or trails",
+    "capture_script": "import base64\nimport datetime as dt\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport sys\nimport time\nimport uuid\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import run, result\n\nROOT = Path('/home/r/dev/minor/stackd')\nOUT = ROOT / 'testdata/aws/sns/encryption_s3_source.json'\nACCOUNT = '000000000000'\nREGION = 'us-east-1'\nNAME = 'stackd-sns-s3ctx-' + uuid.uuid4().hex[:12]\nTOPIC = f'arn:aws:sns:{REGION}:{ACCOUNT}:{NAME}'\nBUCKET = NAME\nBUCKET_ARN = 'arn:aws:s3:::' + BUCKET\nQUEUE_ARN = f'arn:aws:sqs:{REGION}:{ACCOUNT}:{NAME}'\nENV = dict(os.environ, AWS_REGION=REGION, AWS_DEFAULT_REGION=REGION, AWS_MAX_ATTEMPTS='1', AWS_RETRY_MODE='standard', AWS_PAGER='', AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true', PYTHONDONTWRITEBYTECODE='1')\nfor k in list(ENV):\n    if k.startswith('AWS_ENDPOINT_URL'):\n        del ENV[k]\nnow = lambda: int(time.time() * 1000)\niso = lambda ms: dt.datetime.fromtimestamp(ms / 1000, dt.timezone.utc).isoformat()\nCAP = {'account': ACCOUNT, 'region': REGION, 'started_ms': now(), 'source_references': ['https://docs.aws.amazon.com/AmazonS3/latest/userguide/grant-destinations-permissions-to-s3.html', 'https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketNotificationConfiguration.html', 'https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html', 'https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html'], 'source_revisions': {'stackd': '2f442632b489d753618aaff3d998b69967a3936e', 'aws_cli_sha256': hashlib.sha256((ROOT / 'scripts/aws/aws_cli.py').read_bytes()).hexdigest()}, 'observations': [], 'receipts': [], 'windows': [], 'cleanup': [], 'cloudtrail': {'events': [], 'lookups': []}, 'owned_resources': {'name': NAME, 'bucket': BUCKET, 'topic': TOPIC, 'keys': {}}, 'source': {'kind': 'Native AWS CLI through scripts/aws/aws_cli.py run/result; isolated capture, no IAM resources or trails', 'capture_script': Path(__file__).read_text()}, 'limitations': ['One owned bucket, encrypted standard SNS topic, raw unencrypted SQS subscriber in one account/region.', 'Positive source-bound authorization capture, not a negative authorization matrix. No conclusions from missing consumer receipts.', 'KMS events correlate by owned key, topic/source encryption context and bounded operation window; KMS does not include object key, ETag or S3 notification request ID. Only one object is uploaded after the second-key cutover.', 'Second CMK is never selected during notification validation. An explicit 330-second post-selection wait precedes the single object upload; actual use requires source-key KMS events, not attribute readback.']}\nKEYS = {}\nQUEUE = SUB = None\nbucket_owned = topic_owned = False\nBODY_PATH = Path('/tmp/' + NAME + '.body')\n\ndef scrub(v):\n    if isinstance(v, dict):\n        return {k: '<redacted>' if k.lower() in ('secretaccesskey', 'sessiontoken', 'accesskeyid') else scrub(x) for k, x in v.items()}\n    if isinstance(v, list):\n        return [scrub(x) for x in v]\n    return v\n\ndef save():\n    OUT.write_text(json.dumps(scrub(CAP), indent=2) + '\\n')\n\ndef request(label, service, operation, parameters, cleanup=False, strict=True, options=(), recorded_input=None):\n    entry = {'label': label, 'service': service, 'operation': operation, 'input': parameters if recorded_input is None else recorded_input, 'request_started_ms': now()}\n    try:\n        process = run(service, operation, parameters, ENV, options=['--cli-connect-timeout', '10', '--cli-read-timeout', '30', *options], timeout=45)\n        entry['result'] = result(process)\n    except Exception as exc:\n        entry['result'] = {'code': type(exc).__name__, 'message': str(exc)}\n    entry['response_observed_ms'] = now()\n    CAP['cleanup' if cleanup else 'observations'].append(entry)\n    save()\n    print(label, entry['result']['code'], flush=True)\n    if strict and entry['result']['code'] != 'Success':\n        raise RuntimeError(label + ': ' + str(entry['result']))\n    return entry['result'].get('output', {})\n\ndef policy(service, action, resource, source):\n    return json.dumps({'Version': '2012-10-17', 'Statement': [{'Effect': 'Allow', 'Principal': {'Service': service}, 'Action': action, 'Resource': resource, 'Condition': {'ArnEquals': {'aws:SourceArn': source}, 'StringEquals': {'aws:SourceAccount': ACCOUNT}}}]})\n\ndef receive(phase, predicate):\n    start = now()\n    deadline = time.monotonic() + 120\n    matched = False\n    while time.monotonic() < deadline:\n        output = request('receive-' + phase, 'sqs', 'receive-message', {'QueueUrl': QUEUE, 'WaitTimeSeconds': 15, 'MaxNumberOfMessages': 10, 'MessageSystemAttributeNames': ['All'], 'MessageAttributeNames': ['All']})\n        for message in output.get('Messages', []):\n            decoded = json.loads(message['Body'])\n            correlated = predicate(decoded)\n            CAP['receipts'].append({'phase': phase, 'observed_ms': now(), 'message': message, 'decoded_notification': decoded, 'correlated': correlated})\n            matched = matched or correlated\n            request('ack-' + phase, 'sqs', 'delete-message', {'QueueUrl': QUEUE, 'ReceiptHandle': message['ReceiptHandle']})\n        if matched:\n            break\n    CAP['windows'].append({'kind': 'consumer-receipt', 'phase': phase, 'started_ms': start, 'ended_ms': now(), 'maximum_seconds': 120, 'correlated_receipt': matched})\n    save()\n    return matched\n\ntry:\n    identity = request('identity', 'sts', 'get-caller-identity', {})\n    if identity['Account'] != ACCOUNT:\n        raise RuntimeError('Native account mismatch')\n    for phase in ('validation', 'object'):\n        key_policy = {'Version': '2012-10-17', 'Statement': [{'Sid': 'OwnerAdministration', 'Effect': 'Allow', 'Principal': {'AWS': f'arn:aws:iam::{ACCOUNT}:root'}, 'Action': 'kms:*', 'Resource': '*'}, {'Sid': 'S3PublisherForOwnedTopic', 'Effect': 'Allow', 'Principal': {'Service': 's3.amazonaws.com'}, 'Action': ['kms:GenerateDataKey', 'kms:Decrypt'], 'Resource': '*', 'Condition': {'StringEquals': {'kms:EncryptionContext:aws:sns:topicArn': TOPIC}}}]}\n        metadata = request('create-' + phase + '-key', 'kms', 'create-key', {'Description': NAME + '-' + phase, 'Policy': json.dumps(key_policy), 'Tags': [{'TagKey': 'stackd-probe', 'TagValue': NAME}]})['KeyMetadata']\n        KEYS[phase] = metadata\n        CAP['owned_resources']['keys'][phase] = metadata\n        request('read-' + phase + '-key-policy', 'kms', 'get-key-policy', {'KeyId': metadata['KeyId'], 'PolicyName': 'default'})\n    request('create-topic', 'sns', 'create-topic', {'Name': NAME, 'Attributes': {'KmsMasterKeyId': KEYS['validation']['Arn']}})\n    topic_owned = True\n    request('topic-source-policy', 'sns', 'set-topic-attributes', {'TopicArn': TOPIC, 'AttributeName': 'Policy', 'AttributeValue': policy('s3.amazonaws.com', 'sns:Publish', TOPIC, BUCKET_ARN)})\n    QUEUE = request('create-raw-unencrypted-queue', 'sqs', 'create-queue', {'QueueName': NAME, 'Attributes': {'SqsManagedSseEnabled': 'false'}})['QueueUrl']\n    CAP['owned_resources']['queue'] = {'url': QUEUE, 'arn': QUEUE_ARN}\n    request('queue-source-policy', 'sqs', 'set-queue-attributes', {'QueueUrl': QUEUE, 'Attributes': {'Policy': policy('sns.amazonaws.com', 'sqs:SendMessage', QUEUE_ARN, TOPIC)}})\n    SUB = request('subscribe-raw', 'sns', 'subscribe', {'TopicArn': TOPIC, 'Protocol': 'sqs', 'Endpoint': QUEUE_ARN, 'Attributes': {'RawMessageDelivery': 'true'}, 'ReturnSubscriptionArn': True})['SubscriptionArn']\n    CAP['owned_resources']['subscription'] = SUB\n    request('read-subscription', 'sns', 'get-subscription-attributes', {'SubscriptionArn': SUB})\n    request('read-queue', 'sqs', 'get-queue-attributes', {'QueueUrl': QUEUE, 'AttributeNames': ['All']})\n    request('read-validation-topic', 'sns', 'get-topic-attributes', {'TopicArn': TOPIC})\n    request('create-bucket', 's3api', 'create-bucket', {'Bucket': BUCKET})\n    bucket_owned = True\n    CAP['validation_started_ms'] = now()\n    request('validate-bucket-notification', 's3api', 'put-bucket-notification-configuration', {'Bucket': BUCKET, 'NotificationConfiguration': {'TopicConfigurations': [{'Id': NAME, 'TopicArn': TOPIC, 'Events': ['s3:ObjectCreated:*']}]}})\n    request('read-bucket-notification', 's3api', 'get-bucket-notification-configuration', {'Bucket': BUCKET})\n    receive('validation', lambda event: event.get('Event') == 's3:TestEvent' and event.get('Bucket') == BUCKET)\n    CAP['validation_ended_ms'] = now()\n    request('select-cold-object-key', 'sns', 'set-topic-attributes', {'TopicArn': TOPIC, 'AttributeName': 'KmsMasterKeyId', 'AttributeValue': KEYS['object']['Arn']})\n    request('read-object-topic-key-selection', 'sns', 'get-topic-attributes', {'TopicArn': TOPIC})\n    wait_start = now()\n    time.sleep(330)\n    CAP['windows'].append({'kind': 'post-key-selection-wait', 'started_ms': wait_start, 'ended_ms': now(), 'requested_seconds': 330, 'purpose': 'Allow topic attribute propagation and prior SNS data-key reuse to elapse; not itself proof of second-key use.'})\n    body = (NAME + '\\nObjectCreated cold-key publication\\n').encode('utf-8')\n    object_key = 'cold-key/' + uuid.uuid4().hex + '.txt'\n    BODY_PATH.write_bytes(body)\n    CAP['object'] = {'bucket': BUCKET, 'key': object_key, 'body_utf8': body.decode(), 'body_base64': base64.b64encode(body).decode(), 'body_sha256': hashlib.sha256(body).hexdigest(), 'body_md5': hashlib.md5(body).hexdigest(), 'size': len(body)}\n    params = {'Bucket': BUCKET, 'Key': object_key, 'ContentType': 'text/plain'}\n    CAP['object_started_ms'] = now()\n    put_output = request('put-object-after-cold-key-selection', 's3api', 'put-object', params, options=['--body', str(BODY_PATH)], recorded_input={**params, 'Body': body.decode()})\n    CAP['observations'][-1]['input_encoding'] = {'Body': 'utf-8 bytes, preserved inline; native CLI transported these exact bytes via --body temporary-file'}\n    CAP['object']['put_output'] = put_output\n    request('head-created-object', 's3api', 'head-object', {'Bucket': BUCKET, 'Key': object_key})\n    def matches_object(event):\n        return any(record.get('eventName') == 'ObjectCreated:Put' and record.get('s3', {}).get('bucket', {}).get('name') == BUCKET and record.get('s3', {}).get('object', {}).get('key') == object_key and record['s3']['object'].get('eTag') == put_output['ETag'].strip('\"') for record in event.get('Records', []))\n    receive('object', matches_object)\n    CAP['object_ended_ms'] = now()\nexcept Exception as exc:\n    CAP['capture_error'] = str(exc)\n    print('CAPTURE ERROR', str(exc), flush=True)\nfinally:\n    CAP['publication_window_ended_ms'] = now()\n    if bucket_owned:\n        request('remove-bucket-notification', 's3api', 'put-bucket-notification-configuration', {'Bucket': BUCKET, 'NotificationConfiguration': {}}, cleanup=True, strict=False)\n        versions = request('list-owned-bucket-versions', 's3api', 'list-object-versions', {'Bucket': BUCKET}, cleanup=True, strict=False)\n        for version in versions.get('Versions', []) + versions.get('DeleteMarkers', []):\n            request('delete-owned-version', 's3api', 'delete-object', {'Bucket': BUCKET, 'Key': version['Key'], 'VersionId': version['VersionId']}, cleanup=True, strict=False)\n        objects = request('list-owned-bucket-objects', 's3api', 'list-objects-v2', {'Bucket': BUCKET}, cleanup=True, strict=False)\n        for obj in objects.get('Contents', []):\n            request('delete-owned-object', 's3api', 'delete-object', {'Bucket': BUCKET, 'Key': obj['Key']}, cleanup=True, strict=False)\n        request('verify-owned-bucket-versions-empty', 's3api', 'list-object-versions', {'Bucket': BUCKET}, cleanup=True, strict=False)\n        request('verify-owned-bucket-objects-empty', 's3api', 'list-objects-v2', {'Bucket': BUCKET}, cleanup=True, strict=False)\n        request('delete-bucket', 's3api', 'delete-bucket', {'Bucket': BUCKET}, cleanup=True, strict=False)\n        request('verify-bucket-absent', 's3api', 'head-bucket', {'Bucket': BUCKET}, cleanup=True, strict=False)\n    if SUB:\n        request('unsubscribe', 'sns', 'unsubscribe', {'SubscriptionArn': SUB}, cleanup=True, strict=False)\n        request('verify-subscription-absent', 'sns', 'get-subscription-attributes', {'SubscriptionArn': SUB}, cleanup=True, strict=False)\n    if topic_owned:\n        request('delete-topic', 'sns', 'delete-topic', {'TopicArn': TOPIC}, cleanup=True, strict=False)\n        request('verify-topic-absent', 'sns', 'get-topic-attributes', {'TopicArn': TOPIC}, cleanup=True, strict=False)\n    if QUEUE:\n        request('delete-queue', 'sqs', 'delete-queue', {'QueueUrl': QUEUE}, cleanup=True, strict=False)\n        request('verify-queue-absent', 'sqs', 'get-queue-attributes', {'QueueUrl': QUEUE, 'AttributeNames': ['QueueArn']}, cleanup=True, strict=False)\n    for phase, key in KEYS.items():\n        request('schedule-' + phase + '-key-deletion', 'kms', 'schedule-key-deletion', {'KeyId': key['KeyId'], 'PendingWindowInDays': 7}, cleanup=True, strict=False)\n        request('verify-' + phase + '-key-pending-deletion', 'kms', 'describe-key', {'KeyId': key['KeyId']}, cleanup=True, strict=False)\n    BODY_PATH.unlink(missing_ok=True)\n    save()\n\n# LookupEvents does not require a trail; scope lookups to the two owned keys.\npoll_start = now()\nend_ms = CAP['publication_window_ended_ms'] + 1000\nCAP['cloudtrail']['window'] = {'start': iso(CAP['started_ms'] - 5000), 'end': iso(end_ms), 'poll_started_ms': poll_start, 'maximum_poll_seconds': 900}\ndeadline = time.monotonic() + 900\nseen = set()\nmissing = []\nwhile time.monotonic() < deadline:\n    for phase, key in KEYS.items():\n        token = None\n        while True:\n            parameters = {'LookupAttributes': [{'AttributeKey': 'ResourceName', 'AttributeValue': key['KeyId']}], 'StartTime': iso(CAP['started_ms'] - 5000), 'EndTime': iso(end_ms), 'MaxResults': 50}\n            if token:\n                parameters['NextToken'] = token\n            started = now()\n            response = result(run('cloudtrail', 'lookup-events', parameters, ENV, options=['--no-paginate', '--cli-connect-timeout', '10', '--cli-read-timeout', '30'], timeout=45))\n            ended = now()\n            output = response.get('output', {})\n            matched_ids = []\n            for lookup_event in output.get('Events', []):\n                event = json.loads(lookup_event['CloudTrailEvent'])\n                if event.get('eventSource') != 'kms.amazonaws.com' or not any(resource.get('ARN') == key['Arn'] for resource in event.get('resources', [])):\n                    continue\n                matched_ids.append(event['eventID'])\n                if event['eventID'] not in seen:\n                    seen.add(event['eventID'])\n                    CAP['cloudtrail']['events'].append({'phase': phase, 'first_observed_ms': ended, 'lookup_event_id': lookup_event['EventId'], 'event': event})\n            token = output.get('NextToken')\n            CAP['cloudtrail']['lookups'].append({'phase': phase, 'input': parameters, 'request_started_ms': started, 'response_observed_ms': ended, 'result_code': response['code'], 'returned_event_count': len(output.get('Events', [])), 'next_token': token, 'matched_owned_event_ids': matched_ids})\n            if not token:\n                break\n    missing = []\n    for phase in KEYS:\n        for operation in ('GenerateDataKey', 'Decrypt'):\n            if not any(item['phase'] == phase and item['event'].get('eventName') == operation and not item['event'].get('errorCode') and item['event'].get('requestParameters', {}).get('encryptionContext', {}).get('aws:sns:topicArn') == TOPIC for item in CAP['cloudtrail']['events']):\n                missing.append(phase + ':' + operation)\n    CAP['cloudtrail']['window']['missing_successful_operations'] = missing\n    save()\n    print('audit missing:', missing, flush=True)\n    if not missing:\n        break\n    time.sleep(20)\nCAP['cloudtrail']['window']['poll_finished_ms'] = now()\nCAP['completed_ms'] = now()\nsave()\nprint('FINISHED', OUT, 'missing=', missing, flush=True)\n",
+    "audit_completion_script": "import base64\nimport datetime as dt\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport sys\nimport time\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import run, result\n\npath = Path('/home/r/dev/minor/stackd/testdata/aws/sns/encryption_s3_source.json')\ncap = json.loads(path.read_text())\nenv = dict(os.environ, AWS_REGION=cap['region'], AWS_DEFAULT_REGION=cap['region'], AWS_MAX_ATTEMPTS='1', AWS_PAGER='', AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\nfor key in list(env):\n    if key.startswith('AWS_ENDPOINT_URL'):\n        del env[key]\nnow = lambda: int(time.time() * 1000)\ncap['source']['audit_completion_script'] = Path(__file__).read_text()\ncap['source']['capture_execution_note'] = 'Initial capture completed publication and finally cleanup. Its ResourceName=key-ID audit loop was cancelled after a separate EventSource lookup located both successful KMS pairs; this completion script records the alternate lookup and verifies fixture correlations. Key-ID lookups returned administration events but did not return these crypto events in the observed polling interval.'\ncap['cloudtrail']['window']['resource_name_poll_finished_ms'] = cap['cloudtrail']['lookups'][-1]['response_observed_ms']\nparameters = {'LookupAttributes': [{'AttributeKey': 'EventSource', 'AttributeValue': 'kms.amazonaws.com'}], 'StartTime': cap['cloudtrail']['window']['start'], 'EndTime': cap['cloudtrail']['window']['end'], 'MaxResults': 50}\nowned = {value['Arn']: phase for phase, value in cap['owned_resources']['keys'].items()}\nseen = {item['event']['eventID'] for item in cap['cloudtrail']['events']}\nwhile True:\n    started = now()\n    response = result(run('cloudtrail', 'lookup-events', parameters, env, options=['--no-paginate', '--cli-connect-timeout', '10', '--cli-read-timeout', '30'], timeout=45))\n    ended = now()\n    assert response['code'] == 'Success', response\n    output = response['output']\n    matched_ids = []\n    for item in output.get('Events', []):\n        event = json.loads(item['CloudTrailEvent'])\n        phase = next((owned[r['ARN']] for r in event.get('resources', []) if r.get('ARN') in owned), None)\n        if phase is None:\n            continue\n        matched_ids.append(event['eventID'])\n        if event['eventID'] not in seen:\n            seen.add(event['eventID'])\n            cap['cloudtrail']['events'].append({'phase': phase, 'first_observed_ms': ended, 'lookup_event_id': item['EventId'], 'event': event})\n    cap['cloudtrail']['lookups'].append({'input': dict(parameters), 'request_started_ms': started, 'response_observed_ms': ended, 'result_code': response['code'], 'returned_event_count': len(output.get('Events', [])), 'next_token': output.get('NextToken'), 'matched_owned_event_ids': matched_ids})\n    if not output.get('NextToken'):\n        break\n    parameters['NextToken'] = output['NextToken']\ncap['cloudtrail']['window']['poll_finished_ms'] = now()\ncap['cloudtrail']['window']['missing_successful_operations'] = []\nexpected_context = {'aws:sns:sourceAccount': cap['account'], 'aws:sns:sourceArn': 'arn:aws:s3:::' + cap['owned_resources']['bucket'], 'aws:sns:topicArn': cap['owned_resources']['topic']}\ncap['correlations'] = []\nfor phase in ('validation', 'object'):\n    receipt = next(r for r in cap['receipts'] if r['phase'] == phase and r['correlated'])\n    pairs = []\n    for operation in ('GenerateDataKey', 'Decrypt'):\n        events = [entry['event'] for entry in cap['cloudtrail']['events'] if entry['phase'] == phase and entry['event']['eventName'] == operation and not entry['event'].get('errorCode')]\n        assert events, (phase, operation)\n        for event in events:\n            assert event['requestParameters']['encryptionContext'] == expected_context\n            assert event['userIdentity'] == {'type': 'AWSService', 'invokedBy': 'sns.amazonaws.com'}\n            assert event['sourceIPAddress'] == event['userAgent'] == 'sns.amazonaws.com'\n            event_ms = int(dt.datetime.fromisoformat(event['eventTime'].replace('Z', '+00:00')).timestamp() * 1000)\n            assert cap[phase + '_started_ms'] // 1000 * 1000 <= event_ms <= cap[phase + '_ended_ms']\n            pairs.append(event['eventID'])\n    cap['correlations'].append({'phase': phase, 'key_arn': cap['owned_resources']['keys'][phase]['Arn'], 'receipt_message_id': receipt['message']['MessageId'], 'kms_event_ids': pairs, 'window_started_ms': cap[phase + '_started_ms'], 'window_ended_ms': cap[phase + '_ended_ms'], 'kms_encryption_context': expected_context, 'audit_actor': 'sns.amazonaws.com', 'authorized_producer': 's3.amazonaws.com'})\nbody = cap['object']['body_utf8'].encode('utf-8')\nassert body == base64.b64decode(cap['object']['body_base64'])\nassert hashlib.md5(body).hexdigest() == cap['object']['body_md5'] == cap['object']['put_output']['ETag'].strip('\"')\nassert hashlib.sha256(body).hexdigest() == cap['object']['body_sha256']\nassert len(body) == cap['object']['size']\nput = next(o for o in cap['observations'] if o['operation'] == 'put-object')\nassert put['input']['Body'].encode('utf-8') == body\nobject_receipt = next(r for r in cap['receipts'] if r['phase'] == 'object' and r['correlated'])\nrecord = object_receipt['decoded_notification']['Records'][0]\nassert record['s3']['object']['key'] == cap['object']['key']\nassert record['s3']['object']['eTag'] == cap['object']['body_md5']\nassert record['s3']['object']['size'] == len(body)\ncap['correlations'][-1]['object_key'] = cap['object']['key']\ncap['correlations'][-1]['etag'] = record['s3']['object']['eTag']\ncap['correlations'][-1]['s3_notification_request_id'] = record['responseElements']['x-amz-request-id']\nchecks = {o['label']: o['result'] for o in cap['cleanup']}\nassert checks['verify-bucket-absent']['code'] == '404'\nassert checks['verify-topic-absent']['code'] == 'NotFound'\nassert checks['verify-subscription-absent']['code'] == 'NotFound'\nassert checks['verify-queue-absent']['code'] == 'AWS.SimpleQueueService.NonExistentQueue'\nassert not checks['verify-owned-bucket-versions-empty']['output'].get('Versions')\nassert not checks['verify-owned-bucket-versions-empty']['output'].get('DeleteMarkers')\nassert not checks['verify-owned-bucket-objects-empty']['output'].get('Contents')\ncap['cleanup_summary'] = {'bucket_topic_subscription_queue_absent': True, 'bucket_contents_and_versions_empty_before_deletion': True, 'keys': {}}\nfor phase in ('validation', 'object'):\n    scheduled = checks['schedule-' + phase + '-key-deletion']['output']\n    actual = checks['verify-' + phase + '-key-pending-deletion']['output']['KeyMetadata']\n    assert actual['KeyState'] == 'PendingDeletion'\n    assert actual['DeletionDate'] == scheduled['DeletionDate']\n    assert scheduled['PendingWindowInDays'] == 7\n    cap['cleanup_summary']['keys'][phase] = {'key_id': actual['KeyId'], 'state': actual['KeyState'], 'deletion_date': actual['DeletionDate']}\ncap['verification'] = {'native_consumer_validation': True, 'native_consumer_object_created': True, 'separate_successful_kms_pair_per_key': True, 'second_key_used_only_for_real_object_publication': True, 'object_bytes_etag_size_and_receipt_correlated': True, 'verified_at_ms': now(), 'scope': 'Capture-data assertions and actual native operations only; no project validation.'}\ncap['completed_ms'] = now()\ndef scrub(value):\n    if isinstance(value, dict):\n        return {key: '<redacted>' if key.lower() in ('accesskeyid', 'secretaccesskey', 'sessiontoken') else scrub(item) for key, item in value.items()}\n    if isinstance(value, list):\n        return [scrub(item) for item in value]\n    return value\npath.write_text(json.dumps(scrub(cap), indent=2) + '\\n')\nprint(json.dumps({'fixture': str(path), 'correlations': cap['correlations'], 'cleanup': cap['cleanup_summary']}, indent=2))\n",
+    "capture_execution_note": "Initial capture completed publication and finally cleanup. Its ResourceName=key-ID audit loop was cancelled after a separate EventSource lookup located both successful KMS pairs; this completion script records the alternate lookup and verifies fixture correlations. Key-ID lookups returned administration events but did not return these crypto events in the observed polling interval."
+  },
+  "limitations": [
+    "One owned bucket, encrypted standard SNS topic, raw unencrypted SQS subscriber in one account/region.",
+    "Positive source-bound authorization capture, not a negative authorization matrix. No conclusions from missing consumer receipts.",
+    "KMS events correlate by owned key, topic/source encryption context and bounded operation window; KMS does not include object key, ETag or S3 notification request ID. Only one object is uploaded after the second-key cutover.",
+    "Second CMK is never selected during notification validation. An explicit 330-second post-selection wait precedes the single object upload; actual use requires source-key KMS events, not attribute readback."
+  ],
+  "validation_started_ms": 1790135504360,
+  "validation_ended_ms": 1790135507350,
+  "object": {
+    "bucket": "stackd-sns-s3ctx-2e9155384c17",
+    "key": "cold-key/73e4916c79e447a1bcf18c781aaa861f.txt",
+    "body_utf8": "stackd-sns-s3ctx-2e9155384c17\nObjectCreated cold-key publication\n",
+    "body_base64": "c3RhY2tkLXNucy1zM2N0eC0yZTkxNTUzODRjMTcKT2JqZWN0Q3JlYXRlZCBjb2xkLWtleSBwdWJsaWNhdGlvbgo=",
+    "body_sha256": "aa3cb7d0c9e593e1afe00384216e3bd95d2882704783b913584ccfcd87e77d91",
+    "body_md5": "447a1e64aa245971f5f00dbbf25c3283",
+    "size": 65,
+    "put_output": {
+      "ETag": "\"447a1e64aa245971f5f00dbbf25c3283\"",
+      "ChecksumCRC64NVME": "KV0y9ZQwNMk=",
+      "ChecksumType": "FULL_OBJECT",
+      "ServerSideEncryption": "AES256"
+    }
+  },
+  "object_started_ms": 1790135838713,
+  "object_ended_ms": 1790135841685,
+  "publication_window_ended_ms": 1790135841685,
+  "correlations": [
+    {
+      "phase": "validation",
+      "key_arn": "arn:aws:kms:us-east-1:000000000000:key/5711e391-d858-4e0b-937e-21f5ce15aab5",
+      "receipt_message_id": "c10c8ea6-fc8f-4f84-a5d8-42a24dc699ca",
+      "kms_event_ids": [
+        "7cfff986-7d06-3fec-8f14-2eacf900daaa",
+        "903950a6-da4f-37a9-acc7-a0a77b148d67"
+      ],
+      "window_started_ms": 1790135504360,
+      "window_ended_ms": 1790135507350,
+      "kms_encryption_context": {
+        "aws:sns:sourceAccount": "000000000000",
+        "aws:sns:sourceArn": "arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17",
+        "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+      },
+      "audit_actor": "sns.amazonaws.com",
+      "authorized_producer": "s3.amazonaws.com"
+    },
+    {
+      "phase": "object",
+      "key_arn": "arn:aws:kms:us-east-1:000000000000:key/f79b8369-c338-4e74-8f63-88868f362e3d",
+      "receipt_message_id": "11f5db1d-b33e-4d72-bdbe-fc1d5df715fd",
+      "kms_event_ids": [
+        "c7e9f1e6-7540-3455-ad49-a0bd3767aa58",
+        "4ed1d743-4559-3442-8bf0-ca1229554967"
+      ],
+      "window_started_ms": 1790135838713,
+      "window_ended_ms": 1790135841685,
+      "kms_encryption_context": {
+        "aws:sns:sourceAccount": "000000000000",
+        "aws:sns:sourceArn": "arn:aws:s3:::stackd-sns-s3ctx-2e9155384c17",
+        "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-s3ctx-2e9155384c17"
+      },
+      "audit_actor": "sns.amazonaws.com",
+      "authorized_producer": "s3.amazonaws.com",
+      "object_key": "cold-key/73e4916c79e447a1bcf18c781aaa861f.txt",
+      "etag": "447a1e64aa245971f5f00dbbf25c3283",
+      "s3_notification_request_id": "WMGT51Y5PAHSPCMF"
+    }
+  ],
+  "cleanup_summary": {
+    "bucket_topic_subscription_queue_absent": true,
+    "bucket_contents_and_versions_empty_before_deletion": true,
+    "keys": {
+      "validation": {
+        "key_id": "5711e391-d858-4e0b-937e-21f5ce15aab5",
+        "state": "PendingDeletion",
+        "deletion_date": "2026-09-30T04:57:32.617000+01:00"
+      },
+      "object": {
+        "key_id": "f79b8369-c338-4e74-8f63-88868f362e3d",
+        "state": "PendingDeletion",
+        "deletion_date": "2026-09-30T04:57:34.010000+01:00"
+      }
+    }
+  },
+  "verification": {
+    "native_consumer_validation": true,
+    "native_consumer_object_created": true,
+    "separate_successful_kms_pair_per_key": true,
+    "second_key_used_only_for_real_object_publication": true,
+    "object_bytes_etag_size_and_receipt_correlated": true,
+    "verified_at_ms": 1790136121202,
+    "scope": "Capture-data assertions and actual native operations only; no project validation."
+  },
+  "completed_ms": 1790136121202
+}

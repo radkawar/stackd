@@ -1,0 +1,809 @@
+{
+  "account": "000000000000",
+  "region": "us-east-1",
+  "prefix": "stackd-ebs-volume-controls-203770d8178b",
+  "captured_at": "2026-09-25T16:57:32.876443+00:00",
+  "identity": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated"
+  },
+  "documentation": [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateVolume.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteVolume.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumeAttribute.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyVolumeAttribute.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumeStatus.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyVolume.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumesModifications.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_EnableVolumeIO.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modify-volume.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/monitoring-volume-modifications.html",
+    "https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html",
+    "https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonec2.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/supported-iam-actions-tagging.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-cloud-watch-events.html"
+  ],
+  "sdk": {
+    "boto3": "1.43.98"
+  },
+  "scope": "Owned small empty EBS volumes and one bounded IAM role; no snapshot/instance/default mutations",
+  "owned": {
+    "snapshots": [],
+    "volumes": {
+      "vol-08ffcced0a45d47ad": {
+        "label": "events-source",
+        "caller": "owner"
+      }
+    },
+    "events": {
+      "queue": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ebs-volume-controls-203770d8178b",
+      "rule": "stackd-ebs-volume-controls-203770d8178b"
+    }
+  },
+  "calls": [
+    {
+      "label": "events-create-queue",
+      "service": "sqs",
+      "operation": "CreateQueue",
+      "input": {
+        "QueueName": "stackd-ebs-volume-controls-203770d8178b"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:32.882736+00:00",
+      "code": "Success",
+      "output": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ebs-volume-controls-203770d8178b"
+      },
+      "http_status": 200,
+      "request_id": "01d076d4-5b27-5010-be74-15e4f11ab3b2",
+      "finished_at": "2026-09-25T16:57:33.420861+00:00"
+    },
+    {
+      "label": "events-queue-policy",
+      "service": "sqs",
+      "operation": "SetQueueAttributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ebs-volume-controls-203770d8178b",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-ebs-volume-controls-203770d8178b\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:000000000000:rule/stackd-ebs-volume-controls-203770d8178b\"}}}]}"
+        }
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:33.434141+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "request_id": "59affb19-1cb3-5968-b3de-9829b68ebaca",
+      "finished_at": "2026-09-25T16:57:33.555046+00:00"
+    },
+    {
+      "label": "events-create-rule",
+      "service": "events",
+      "operation": "PutRule",
+      "input": {
+        "Name": "stackd-ebs-volume-controls-203770d8178b",
+        "State": "ENABLED",
+        "EventPattern": "{\"source\": [\"aws.ec2\"], \"detail-type\": [\"EBS Volume Notification\"], \"detail\": {\"event\": [\"modifyVolume\"]}}"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:33.564596+00:00",
+      "code": "Success",
+      "output": {
+        "RuleArn": "arn:aws:events:us-east-1:000000000000:rule/stackd-ebs-volume-controls-203770d8178b"
+      },
+      "http_status": 200,
+      "request_id": "e4ba99bf-42a7-4f98-a48f-bf2970e0ef0f",
+      "finished_at": "2026-09-25T16:57:34.135205+00:00"
+    },
+    {
+      "label": "events-create-target",
+      "service": "events",
+      "operation": "PutTargets",
+      "input": {
+        "Rule": "stackd-ebs-volume-controls-203770d8178b",
+        "Targets": [
+          {
+            "Id": "owned-modification",
+            "Arn": "arn:aws:sqs:us-east-1:000000000000:stackd-ebs-volume-controls-203770d8178b"
+          }
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:34.144634+00:00",
+      "code": "Success",
+      "output": {
+        "FailedEntryCount": 0,
+        "FailedEntries": []
+      },
+      "http_status": 200,
+      "request_id": "3e6b09ca-318a-43e2-a160-24306e4644c8",
+      "finished_at": "2026-09-25T16:57:34.286210+00:00"
+    },
+    {
+      "label": "events-zones",
+      "service": "ec2",
+      "operation": "DescribeAvailabilityZones",
+      "input": {
+        "Filters": [
+          {
+            "Name": "zone-type",
+            "Values": [
+              "availability-zone"
+            ]
+          }
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:44.287926+00:00",
+      "code": "Success",
+      "output": {
+        "AvailabilityZones": [
+          {
+            "OptInStatus": "opt-in-not-required",
+            "Messages": [],
+            "RegionName": "us-east-1",
+            "ZoneName": "us-east-1a",
+            "ZoneId": "use1-az6",
+            "GroupName": "us-east-1-zg-1",
+            "NetworkBorderGroup": "us-east-1",
+            "ZoneType": "availability-zone",
+            "GroupLongName": "US East (N. Virginia) 1",
+            "Geography": [
+              {
+                "Name": "United States of America"
+              }
+            ],
+            "SubGeography": [
+              {
+                "Name": "Virginia"
+              }
+            ],
+            "State": "available"
+          },
+          {
+            "OptInStatus": "opt-in-not-required",
+            "Messages": [],
+            "RegionName": "us-east-1",
+            "ZoneName": "us-east-1b",
+            "ZoneId": "use1-az1",
+            "GroupName": "us-east-1-zg-1",
+            "NetworkBorderGroup": "us-east-1",
+            "ZoneType": "availability-zone",
+            "GroupLongName": "US East (N. Virginia) 1",
+            "Geography": [
+              {
+                "Name": "United States of America"
+              }
+            ],
+            "SubGeography": [
+              {
+                "Name": "Virginia"
+              }
+            ],
+            "State": "available"
+          },
+          {
+            "OptInStatus": "opt-in-not-required",
+            "Messages": [],
+            "RegionName": "us-east-1",
+            "ZoneName": "us-east-1c",
+            "ZoneId": "use1-az2",
+            "GroupName": "us-east-1-zg-1",
+            "NetworkBorderGroup": "us-east-1",
+            "ZoneType": "availability-zone",
+            "GroupLongName": "US East (N. Virginia) 1",
+            "Geography": [
+              {
+                "Name": "United States of America"
+              }
+            ],
+            "SubGeography": [
+              {
+                "Name": "Virginia"
+              }
+            ],
+            "State": "available"
+          },
+          {
+            "OptInStatus": "opt-in-not-required",
+            "Messages": [],
+            "RegionName": "us-east-1",
+            "ZoneName": "us-east-1d",
+            "ZoneId": "use1-az4",
+            "GroupName": "us-east-1-zg-1",
+            "NetworkBorderGroup": "us-east-1",
+            "ZoneType": "availability-zone",
+            "GroupLongName": "US East (N. Virginia) 1",
+            "Geography": [
+              {
+                "Name": "United States of America"
+              }
+            ],
+            "SubGeography": [
+              {
+                "Name": "Virginia"
+              }
+            ],
+            "State": "available"
+          },
+          {
+            "OptInStatus": "opt-in-not-required",
+            "Messages": [],
+            "RegionName": "us-east-1",
+            "ZoneName": "us-east-1e",
+            "ZoneId": "use1-az3",
+            "GroupName": "us-east-1-zg-1",
+            "NetworkBorderGroup": "us-east-1",
+            "ZoneType": "availability-zone",
+            "GroupLongName": "US East (N. Virginia) 1",
+            "Geography": [
+              {
+                "Name": "United States of America"
+              }
+            ],
+            "SubGeography": [
+              {
+                "Name": "Virginia"
+              }
+            ],
+            "State": "available"
+          },
+          {
+            "OptInStatus": "opt-in-not-required",
+            "Messages": [],
+            "RegionName": "us-east-1",
+            "ZoneName": "us-east-1f",
+            "ZoneId": "use1-az5",
+            "GroupName": "us-east-1-zg-1",
+            "NetworkBorderGroup": "us-east-1",
+            "ZoneType": "availability-zone",
+            "GroupLongName": "US East (N. Virginia) 1",
+            "Geography": [
+              {
+                "Name": "United States of America"
+              }
+            ],
+            "SubGeography": [
+              {
+                "Name": "Virginia"
+              }
+            ],
+            "State": "available"
+          }
+        ]
+      },
+      "http_status": 200,
+      "request_id": "00778044-e11d-4117-9139-c34b037a1e58",
+      "finished_at": "2026-09-25T16:57:44.800219+00:00"
+    },
+    {
+      "label": "events-source",
+      "service": "ec2",
+      "operation": "CreateVolume",
+      "input": {
+        "AvailabilityZone": "us-east-1a",
+        "Size": 1,
+        "VolumeType": "gp3",
+        "TagSpecifications": [
+          {
+            "ResourceType": "volume",
+            "Tags": [
+              {
+                "Key": "suite",
+                "Value": "stackd-ebs-volume-controls-203770d8178b"
+              }
+            ]
+          }
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:44.814326+00:00",
+      "code": "Success",
+      "output": {
+        "AvailabilityZoneId": "use1-az6",
+        "Iops": 3000,
+        "Tags": [
+          {
+            "Key": "suite",
+            "Value": "stackd-ebs-volume-controls-203770d8178b"
+          }
+        ],
+        "VolumeType": "gp3",
+        "MultiAttachEnabled": false,
+        "Throughput": 125,
+        "VolumeId": "vol-08ffcced0a45d47ad",
+        "Size": 1,
+        "SnapshotId": "",
+        "AvailabilityZone": "us-east-1a",
+        "State": "creating",
+        "CreateTime": "2026-09-25T16:57:45+00:00",
+        "Encrypted": false
+      },
+      "http_status": 200,
+      "request_id": "ef50619c-cc64-4cd4-ae3b-53b75e98d32a",
+      "finished_at": "2026-09-25T16:57:45.216200+00:00"
+    },
+    {
+      "label": "available-vol-08ffcced0a45d47ad-0",
+      "service": "ec2",
+      "operation": "DescribeVolumes",
+      "input": {
+        "VolumeIds": [
+          "vol-08ffcced0a45d47ad"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:45.226012+00:00",
+      "code": "Success",
+      "output": {
+        "Volumes": [
+          {
+            "AvailabilityZoneId": "use1-az6",
+            "Iops": 3000,
+            "Tags": [
+              {
+                "Key": "suite",
+                "Value": "stackd-ebs-volume-controls-203770d8178b"
+              }
+            ],
+            "VolumeType": "gp3",
+            "MultiAttachEnabled": false,
+            "Throughput": 125,
+            "Operator": {
+              "Managed": false,
+              "HiddenByDefault": false
+            },
+            "VolumeArn": "arn:aws:ec2:us-east-1:000000000000:volume/vol-08ffcced0a45d47ad",
+            "OwnerId": "000000000000",
+            "VolumeId": "vol-08ffcced0a45d47ad",
+            "Size": 1,
+            "SnapshotId": "",
+            "AvailabilityZone": "us-east-1a",
+            "State": "creating",
+            "CreateTime": "2026-09-25T16:57:45.101000+00:00",
+            "Attachments": [],
+            "Encrypted": false
+          }
+        ]
+      },
+      "http_status": 200,
+      "request_id": "9dcde338-4a6e-4d31-958d-2ec9769977e7",
+      "finished_at": "2026-09-25T16:57:45.441711+00:00"
+    },
+    {
+      "label": "available-vol-08ffcced0a45d47ad-1",
+      "service": "ec2",
+      "operation": "DescribeVolumes",
+      "input": {
+        "VolumeIds": [
+          "vol-08ffcced0a45d47ad"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:47.451542+00:00",
+      "code": "Success",
+      "output": {
+        "Volumes": [
+          {
+            "AvailabilityZoneId": "use1-az6",
+            "Iops": 3000,
+            "Tags": [
+              {
+                "Key": "suite",
+                "Value": "stackd-ebs-volume-controls-203770d8178b"
+              }
+            ],
+            "VolumeType": "gp3",
+            "MultiAttachEnabled": false,
+            "Throughput": 125,
+            "Operator": {
+              "Managed": false,
+              "HiddenByDefault": false
+            },
+            "VolumeArn": "arn:aws:ec2:us-east-1:000000000000:volume/vol-08ffcced0a45d47ad",
+            "OwnerId": "000000000000",
+            "VolumeId": "vol-08ffcced0a45d47ad",
+            "Size": 1,
+            "SnapshotId": "",
+            "AvailabilityZone": "us-east-1a",
+            "State": "available",
+            "CreateTime": "2026-09-25T16:57:45.101000+00:00",
+            "Attachments": [],
+            "Encrypted": false
+          }
+        ]
+      },
+      "http_status": 200,
+      "request_id": "8528a4ac-6c4e-4f36-a0c8-32b0f7673182",
+      "finished_at": "2026-09-25T16:57:47.687763+00:00"
+    },
+    {
+      "label": "events-modify-grow",
+      "service": "ec2",
+      "operation": "ModifyVolume",
+      "input": {
+        "VolumeId": "vol-08ffcced0a45d47ad",
+        "Size": 2
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:47.698251+00:00",
+      "code": "Success",
+      "output": {
+        "VolumeModification": {
+          "VolumeId": "vol-08ffcced0a45d47ad",
+          "ModificationState": "modifying",
+          "TargetSize": 2,
+          "TargetIops": 3000,
+          "TargetVolumeType": "gp3",
+          "TargetThroughput": 125,
+          "TargetMultiAttachEnabled": false,
+          "OriginalSize": 1,
+          "OriginalIops": 3000,
+          "OriginalVolumeType": "gp3",
+          "OriginalThroughput": 125,
+          "OriginalMultiAttachEnabled": false,
+          "Progress": 0,
+          "StartTime": "2026-09-25T16:57:47+00:00"
+        }
+      },
+      "http_status": 200,
+      "request_id": "164bc080-5150-43d8-9313-fc181dfdb266",
+      "finished_at": "2026-09-25T16:57:48.012135+00:00"
+    },
+    {
+      "label": "events-modify-initial-state",
+      "service": "ec2",
+      "operation": "DescribeVolumesModifications",
+      "input": {
+        "VolumeIds": [
+          "vol-08ffcced0a45d47ad"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:57:48.022874+00:00",
+      "code": "Success",
+      "output": {
+        "VolumesModifications": [
+          {
+            "VolumeId": "vol-08ffcced0a45d47ad",
+            "ModificationState": "modifying",
+            "TargetSize": 2,
+            "TargetIops": 3000,
+            "TargetVolumeType": "gp3",
+            "TargetThroughput": 125,
+            "TargetMultiAttachEnabled": false,
+            "OriginalSize": 1,
+            "OriginalIops": 3000,
+            "OriginalVolumeType": "gp3",
+            "OriginalThroughput": 125,
+            "OriginalMultiAttachEnabled": false,
+            "Progress": 0,
+            "StartTime": "2026-09-25T16:57:47+00:00",
+            "Operator": {
+              "Managed": false,
+              "HiddenByDefault": false
+            }
+          }
+        ]
+      },
+      "http_status": 200,
+      "request_id": "63a9090a-e0a7-4c50-ab85-33b2092a33fa",
+      "finished_at": "2026-09-25T16:57:48.198379+00:00"
+    },
+    {
+      "label": "events-modify-final-state",
+      "service": "ec2",
+      "operation": "DescribeVolumesModifications",
+      "input": {
+        "VolumeIds": [
+          "vol-08ffcced0a45d47ad"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:22.318924+00:00",
+      "code": "Success",
+      "output": {
+        "VolumesModifications": [
+          {
+            "VolumeId": "vol-08ffcced0a45d47ad",
+            "ModificationState": "completed",
+            "TargetSize": 2,
+            "TargetIops": 3000,
+            "TargetVolumeType": "gp3",
+            "TargetThroughput": 125,
+            "TargetMultiAttachEnabled": false,
+            "OriginalSize": 1,
+            "OriginalIops": 3000,
+            "OriginalVolumeType": "gp3",
+            "OriginalThroughput": 125,
+            "OriginalMultiAttachEnabled": false,
+            "Progress": 100,
+            "StartTime": "2026-09-25T16:57:47+00:00",
+            "EndTime": "2026-09-25T16:57:50+00:00",
+            "Operator": {
+              "Managed": false,
+              "HiddenByDefault": false
+            }
+          }
+        ]
+      },
+      "http_status": 200,
+      "request_id": "29ce4a02-d8ef-410a-b940-d14a8128fa40",
+      "finished_at": "2026-09-25T16:59:22.881867+00:00"
+    },
+    {
+      "label": "cleanup-vol-08ffcced0a45d47ad",
+      "service": "ec2",
+      "operation": "DeleteVolume",
+      "input": {
+        "VolumeId": "vol-08ffcced0a45d47ad"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:22.885523+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "request_id": "c60eb902-2357-4dd6-b462-cc8490efa79b",
+      "finished_at": "2026-09-25T16:59:23.206011+00:00"
+    },
+    {
+      "label": "cleanup-vol-08ffcced0a45d47ad-immediate-describe_volumes",
+      "service": "ec2",
+      "operation": "DescribeVolumes",
+      "input": {
+        "VolumeIds": [
+          "vol-08ffcced0a45d47ad"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:23.216193+00:00",
+      "code": "Success",
+      "output": {
+        "Volumes": [
+          {
+            "AvailabilityZoneId": "use1-az6",
+            "Iops": 3000,
+            "Tags": [
+              {
+                "Key": "suite",
+                "Value": "stackd-ebs-volume-controls-203770d8178b"
+              }
+            ],
+            "VolumeType": "gp3",
+            "MultiAttachEnabled": false,
+            "Throughput": 125,
+            "Operator": {
+              "Managed": false,
+              "HiddenByDefault": false
+            },
+            "VolumeArn": "arn:aws:ec2:us-east-1:000000000000:volume/vol-08ffcced0a45d47ad",
+            "OwnerId": "000000000000",
+            "VolumeId": "vol-08ffcced0a45d47ad",
+            "Size": 2,
+            "SnapshotId": "",
+            "AvailabilityZone": "us-east-1a",
+            "State": "deleting",
+            "CreateTime": "2026-09-25T16:57:45.101000+00:00",
+            "Attachments": [],
+            "Encrypted": false
+          }
+        ]
+      },
+      "http_status": 200,
+      "request_id": "ae6c454a-f54e-4a99-8e97-fe8167823d73",
+      "finished_at": "2026-09-25T16:59:23.436301+00:00"
+    },
+    {
+      "label": "cleanup-vol-08ffcced0a45d47ad-immediate-describe_volume_status",
+      "service": "ec2",
+      "operation": "DescribeVolumeStatus",
+      "input": {
+        "VolumeIds": [
+          "vol-08ffcced0a45d47ad"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:23.438766+00:00",
+      "code": "InvalidVolume.NotFound",
+      "error": {
+        "Code": "InvalidVolume.NotFound",
+        "Message": "The volume 'vol-08ffcced0a45d47ad' does not exist."
+      },
+      "http_status": 400,
+      "request_id": "4b53e0e1-dc49-4b08-9952-9e728f3fcfb8",
+      "finished_at": "2026-09-25T16:59:23.617691+00:00"
+    },
+    {
+      "label": "cleanup-vol-08ffcced0a45d47ad-immediate-describe_volumes_modifications",
+      "service": "ec2",
+      "operation": "DescribeVolumesModifications",
+      "input": {
+        "VolumeIds": [
+          "vol-08ffcced0a45d47ad"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:23.628991+00:00",
+      "code": "InvalidVolume.NotFound",
+      "error": {
+        "Code": "InvalidVolume.NotFound",
+        "Message": "The volume 'vol-08ffcced0a45d47ad' does not exist."
+      },
+      "http_status": 400,
+      "request_id": "68687691-fe4c-498d-9537-878ff7f095dc",
+      "finished_at": "2026-09-25T16:59:24.185461+00:00"
+    },
+    {
+      "label": "cleanup-vol-08ffcced0a45d47ad-repeat",
+      "service": "ec2",
+      "operation": "DeleteVolume",
+      "input": {
+        "VolumeId": "vol-08ffcced0a45d47ad"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:24.195950+00:00",
+      "code": "InvalidVolume.NotFound",
+      "error": {
+        "Code": "InvalidVolume.NotFound",
+        "Message": "The volume 'vol-08ffcced0a45d47ad' does not exist."
+      },
+      "http_status": 400,
+      "request_id": "73b3a540-d55a-46a9-b0b3-9823187871b8",
+      "finished_at": "2026-09-25T16:59:24.700642+00:00"
+    },
+    {
+      "label": "cleanup-vol-08ffcced0a45d47ad-absence-0",
+      "service": "ec2",
+      "operation": "DescribeVolumes",
+      "input": {
+        "VolumeIds": [
+          "vol-08ffcced0a45d47ad"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:24.711883+00:00",
+      "code": "InvalidVolume.NotFound",
+      "error": {
+        "Code": "InvalidVolume.NotFound",
+        "Message": "The volume 'vol-08ffcced0a45d47ad' does not exist."
+      },
+      "http_status": 400,
+      "request_id": "0c95289f-dacb-49a9-b6a9-afa5c1791bbf",
+      "finished_at": "2026-09-25T16:59:25.205945+00:00"
+    },
+    {
+      "label": "events-cleanup-target",
+      "service": "events",
+      "operation": "RemoveTargets",
+      "input": {
+        "Rule": "stackd-ebs-volume-controls-203770d8178b",
+        "Ids": [
+          "owned-modification"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:25.220252+00:00",
+      "code": "Success",
+      "output": {
+        "FailedEntryCount": 0,
+        "FailedEntries": []
+      },
+      "http_status": 200,
+      "request_id": "023154fd-5c65-47f2-b1ab-22fd02f885c4",
+      "finished_at": "2026-09-25T16:59:25.711572+00:00"
+    },
+    {
+      "label": "events-cleanup-rule",
+      "service": "events",
+      "operation": "DeleteRule",
+      "input": {
+        "Name": "stackd-ebs-volume-controls-203770d8178b"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:25.722844+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "request_id": "530586c4-1206-48c9-be8c-716ea0776654",
+      "finished_at": "2026-09-25T16:59:25.886713+00:00"
+    },
+    {
+      "label": "events-cleanup-queue",
+      "service": "sqs",
+      "operation": "DeleteQueue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-ebs-volume-controls-203770d8178b"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-25T16:59:25.897936+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "request_id": "af5c503e-c24e-5c20-9248-330e68e3ef82",
+      "finished_at": "2026-09-25T16:59:26.072967+00:00"
+    }
+  ],
+  "sessions": {},
+  "cleanup": {
+    "absent_volumes": [
+      "vol-08ffcced0a45d47ad"
+    ],
+    "failures": [],
+    "finished_at": "2026-09-25T16:59:25.219018+00:00",
+    "events_deleted": true
+  },
+  "gaps": [],
+  "zone": {
+    "OptInStatus": "opt-in-not-required",
+    "Messages": [],
+    "RegionName": "us-east-1",
+    "ZoneName": "us-east-1a",
+    "ZoneId": "use1-az6",
+    "GroupName": "us-east-1-zg-1",
+    "NetworkBorderGroup": "us-east-1",
+    "ZoneType": "availability-zone",
+    "GroupLongName": "US East (N. Virginia) 1",
+    "Geography": [
+      {
+        "Name": "United States of America"
+      }
+    ],
+    "SubGeography": [
+      {
+        "Name": "Virginia"
+      }
+    ],
+    "State": "available"
+  },
+  "eventbridge": {
+    "events": [
+      {
+        "received_at": "2026-09-25T16:57:50.014197+00:00",
+        "event": {
+          "version": "0",
+          "id": "e2206196-9b45-0cb4-8c73-7f94e2d20f13",
+          "detail-type": "EBS Volume Notification",
+          "source": "aws.ec2",
+          "account": "000000000000",
+          "time": "2026-09-25T16:57:49Z",
+          "region": "us-east-1",
+          "resources": [
+            "arn:aws:ec2:us-east-1:000000000000:volume/vol-08ffcced0a45d47ad"
+          ],
+          "detail": {
+            "result": "optimizing",
+            "cause": "",
+            "event": "modifyVolume",
+            "request-id": "164bc080-5150-43d8-9313-fc181dfdb266"
+          }
+        }
+      },
+      {
+        "received_at": "2026-09-25T16:57:50.273333+00:00",
+        "event": {
+          "version": "0",
+          "id": "fd512206-7aef-1e7f-3d87-b8376de93453",
+          "detail-type": "EBS Volume Notification",
+          "source": "aws.ec2",
+          "account": "000000000000",
+          "time": "2026-09-25T16:57:50Z",
+          "region": "us-east-1",
+          "resources": [
+            "arn:aws:ec2:us-east-1:000000000000:volume/vol-08ffcced0a45d47ad"
+          ],
+          "detail": {
+            "result": "completed",
+            "cause": "",
+            "event": "modifyVolume",
+            "request-id": "164bc080-5150-43d8-9313-fc181dfdb266"
+          }
+        }
+      }
+    ],
+    "boundary": "Positive delivered notifications only; missing records do not prove no notification",
+    "captured_at": "2026-09-25T16:59:22.884315+00:00"
+  },
+  "capture_complete_at": "2026-09-25T16:59:22.884322+00:00"
+}

@@ -1,0 +1,186 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Native AWS continuous_backup_readiness.json and continuous_backup_restore_readiness.json: ACTIVE alone does not imply readiness; both enable and no-op disable can be unavailable. A restore remains unavailable during actual creation, even after initial registration. Service-time scheduling is not a native duration guarantee.",
+  "steps": [
+    {
+      "name": "create-fresh-table",
+      "operation": "CreateTable",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-recovery-readiness",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}, {"AttributeName": "gpk", "AttributeType": "S"}],
+        "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+        "GlobalSecondaryIndexes": [{"IndexName": "by-group", "KeySchema": [{"AttributeName": "gpk", "KeyType": "HASH"}], "Projection": {"ProjectionType": "ALL"}}]
+      }
+    },
+    {
+      "name": "native-table-active-before-backup-readiness",
+      "operation": "DescribeTable",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness"},
+      "want": {"Table.TableStatus": "ACTIVE"}
+    },
+    {
+      "name": "initial-continuous-backups-disabled",
+      "operation": "DescribeContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness"},
+      "want": {
+        "ContinuousBackupsDescription.ContinuousBackupsStatus": "DISABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": null
+      }
+    },
+    {
+      "name": "enable-requires-backup-readiness",
+      "operation": "UpdateContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true}},
+      "code": "ContinuousBackupsUnavailableException"
+    },
+    {
+      "name": "no-op-disable-also-requires-readiness",
+      "operation": "UpdateContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": false}},
+      "code": "ContinuousBackupsUnavailableException"
+    },
+    {
+      "name": "input-validation-precedes-unavailable-backups",
+      "operation": "UpdateContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": false, "RecoveryPeriodInDays": 36}},
+      "code": "ValidationException"
+    },
+    {
+      "name": "reopen-does-not-bypass-initialization",
+      "operation": "DescribeContinuousBackups",
+      "advance": "0s",
+      "reopen": true,
+      "input": {"TableName": "stackd-recovery-readiness"},
+      "want": {"ContinuousBackupsDescription.ContinuousBackupsStatus": "DISABLED"}
+    },
+    {
+      "name": "initialization-completes-without-a-successful-update",
+      "operation": "DescribeContinuousBackups",
+      "advance": "1m",
+      "input": {"TableName": "stackd-recovery-readiness"},
+      "want": {
+        "ContinuousBackupsDescription.ContinuousBackupsStatus": "ENABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED"
+      }
+    },
+    {
+      "name": "ready-table-can-enable-real-recovery",
+      "operation": "UpdateContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true, "RecoveryPeriodInDays": 1}},
+      "want": {
+        "ContinuousBackupsDescription.ContinuousBackupsStatus": "ENABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "ENABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": 1789689660
+      }
+    },
+    {
+      "name": "ready-table-can-disable-recovery",
+      "operation": "UpdateContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": false}},
+      "want": {"ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED"}
+    },
+    {
+      "name": "disabling-and-reopening-does-not-restart-initialization",
+      "operation": "DescribeContinuousBackups",
+      "advance": "0s",
+      "reopen": true,
+      "input": {"TableName": "stackd-recovery-readiness"},
+      "want": {
+        "ContinuousBackupsDescription.ContinuousBackupsStatus": "ENABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED"
+      }
+    },
+    {
+      "name": "capture-real-source-backup",
+      "operation": "CreateBackup",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness", "BackupName": "readiness-source"},
+      "bind": {"@backup": "BackupDetails.BackupArn"}
+    },
+    {
+      "name": "await-real-source-backup",
+      "operation": "DescribeBackup",
+      "advance": "0s",
+      "input": {"BackupArn": "@backup"},
+      "waitBackup": true,
+      "want": {"BackupDescription.BackupDetails.BackupStatus": "AVAILABLE"}
+    },
+    {
+      "name": "start-restore-with-native-readiness-held",
+      "operation": "RestoreTableFromBackup",
+      "advance": "0s",
+      "restorePaused": true,
+      "waitRestoreBarrier": true,
+      "input": {"BackupArn": "@backup", "TargetTableName": "stackd-recovery-readiness-restored"},
+      "want": {"TableDescription.TableStatus": "CREATING"}
+    },
+    {
+      "name": "restore-not-yet-registered-with-backups",
+      "operation": "DescribeContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness-restored"},
+      "code": "TableNotFoundException"
+    },
+    {
+      "name": "registered-restore-still-waits-for-native-creation",
+      "operation": "DescribeContinuousBackups",
+      "advance": "1m",
+      "input": {"TableName": "stackd-recovery-readiness-restored"},
+      "want": {
+        "ContinuousBackupsDescription.ContinuousBackupsStatus": "DISABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED"
+      }
+    },
+    {
+      "name": "pending-restore-cannot-enable-recovery",
+      "operation": "UpdateContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness-restored", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true}},
+      "code": "ContinuousBackupsUnavailableException"
+    },
+    {
+      "name": "pending-restore-cannot-no-op-disable",
+      "operation": "UpdateContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness-restored", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": false}},
+      "code": "ContinuousBackupsUnavailableException"
+    },
+    {
+      "name": "complete-native-restore",
+      "operation": "DescribeTable",
+      "advance": "0s",
+      "restorePaused": false,
+      "input": {"TableName": "stackd-recovery-readiness-restored"},
+      "want": {"Table.TableStatus": "ACTIVE", "Table.RestoreSummary": null}
+    },
+    {
+      "name": "restored-table-has-ready-backups-not-source-pitr",
+      "operation": "DescribeContinuousBackups",
+      "advance": "0s",
+      "reopen": true,
+      "input": {"TableName": "stackd-recovery-readiness-restored"},
+      "want": {
+        "ContinuousBackupsDescription.ContinuousBackupsStatus": "ENABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED"
+      }
+    },
+    {
+      "name": "completed-restore-can-enable-own-history",
+      "operation": "UpdateContinuousBackups",
+      "advance": "0s",
+      "input": {"TableName": "stackd-recovery-readiness-restored", "PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true, "RecoveryPeriodInDays": 1}},
+      "want": {"ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "ENABLED"}
+    }
+  ]
+}

@@ -1,0 +1,247 @@
+{
+  "account": "000000000000",
+  "start": "2031-02-03T04:05:00Z",
+  "evidence": "aws/dynamodb/global_tables_scaling.json: provisioned admission requires table and GSI write targets plus policies; configuration is copied; AAS adjustments remain regional, unlike customer UpdateTable",
+  "steps": [
+    {
+      "name": "create provisioned source with an index",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "global-scaling",
+        "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}, {"AttributeName": "g", "AttributeType": "S"}],
+        "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+        "ProvisionedThroughput": {"ReadCapacityUnits": 2, "WriteCapacityUnits": 2},
+        "GlobalSecondaryIndexes": [{"IndexName": "by-g", "KeySchema": [{"AttributeName": "g", "KeyType": "HASH"}], "Projection": {"ProjectionType": "ALL"}, "ProvisionedThroughput": {"ReadCapacityUnits": 3, "WriteCapacityUnits": 2}}]
+      }
+    },
+    {
+      "name": "reject provisioned replica without write scaling",
+      "operation": "UpdateTable",
+      "input": {"TableName": "global-scaling", "ReplicaUpdates": [{"Create": {"RegionName": "us-east-2"}}]},
+      "code": "ValidationException"
+    },
+    {
+      "name": "rejected creation leaves no peer",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "register source table write target",
+      "operation": "RegisterScalableTarget",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling", "ScalableDimension": "dynamodb:table:WriteCapacityUnits", "MinCapacity": 1, "MaxCapacity": 12}
+    },
+    {
+      "name": "target without policy is not auto scaled",
+      "operation": "UpdateTable",
+      "input": {"TableName": "global-scaling", "ReplicaUpdates": [{"Create": {"RegionName": "us-east-2"}}]},
+      "code": "ValidationException"
+    },
+    {
+      "name": "install source table write policy",
+      "operation": "PutScalingPolicy",
+      "input": {"PolicyName": "table-write", "ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling", "ScalableDimension": "dynamodb:table:WriteCapacityUnits", "PolicyType": "TargetTrackingScaling", "TargetTrackingScalingPolicyConfiguration": {"TargetValue": 70, "PredefinedMetricSpecification": {"PredefinedMetricType": "DynamoDBWriteCapacityUtilization"}, "DisableScaleIn": true}}
+    },
+    {
+      "name": "index independently requires write scaling",
+      "operation": "UpdateTable",
+      "input": {"TableName": "global-scaling", "ReplicaUpdates": [{"Create": {"RegionName": "us-east-2"}}]},
+      "code": "ValidationException"
+    },
+    {
+      "name": "register source index write target",
+      "operation": "RegisterScalableTarget",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling/index/by-g", "ScalableDimension": "dynamodb:index:WriteCapacityUnits", "MinCapacity": 1, "MaxCapacity": 12}
+    },
+    {
+      "name": "index target also requires policy",
+      "operation": "UpdateTable",
+      "input": {"TableName": "global-scaling", "ReplicaUpdates": [{"Create": {"RegionName": "us-east-2"}}]},
+      "code": "ValidationException"
+    },
+    {
+      "name": "install source index write policy",
+      "operation": "PutScalingPolicy",
+      "input": {"PolicyName": "index-write", "ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling/index/by-g", "ScalableDimension": "dynamodb:index:WriteCapacityUnits", "PolicyType": "TargetTrackingScaling", "TargetTrackingScalingPolicyConfiguration": {"TargetValue": 70, "PredefinedMetricSpecification": {"PredefinedMetricType": "DynamoDBWriteCapacityUtilization"}, "DisableScaleIn": true}}
+    },
+    {
+      "name": "register optional source table read target",
+      "operation": "RegisterScalableTarget",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling", "ScalableDimension": "dynamodb:table:ReadCapacityUnits", "MinCapacity": 1, "MaxCapacity": 12}
+    },
+    {
+      "name": "install optional source table read policy",
+      "operation": "PutScalingPolicy",
+      "input": {"PolicyName": "table-read", "ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling", "ScalableDimension": "dynamodb:table:ReadCapacityUnits", "PolicyType": "TargetTrackingScaling", "TargetTrackingScalingPolicyConfiguration": {"TargetValue": 65, "PredefinedMetricSpecification": {"PredefinedMetricType": "DynamoDBReadCapacityUtilization"}, "DisableScaleIn": true}}
+    },
+    {
+      "name": "create replica with separate read overrides",
+      "operation": "UpdateTable",
+      "input": {"TableName": "global-scaling", "ReplicaUpdates": [{"Create": {"RegionName": "us-east-2", "ProvisionedThroughputOverride": {"ReadCapacityUnits": 5}, "GlobalSecondaryIndexes": [{"IndexName": "by-g", "ProvisionedThroughputOverride": {"ReadCapacityUnits": 6}}]}}]}
+    },
+    {
+      "name": "await copied table and index capacity",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "waitWant": true,
+      "want": {"Table.TableStatus": "ACTIVE", "Table.ProvisionedThroughput.ReadCapacityUnits": 5, "Table.ProvisionedThroughput.WriteCapacityUnits": 2, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 6, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 2}
+    },
+    {
+      "name": "await source membership before regional scaling",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "waitWant": true,
+      "want": {"Table.TableStatus": "ACTIVE", "Table.Replicas.0.RegionName": "us-east-2", "Table.Replicas.0.ReplicaStatus": "ACTIVE"}
+    },
+    {
+      "name": "peer owns independently addressable table write target",
+      "region": "us-east-2",
+      "operation": "DescribeScalableTargets",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceIds": ["table/global-scaling"], "ScalableDimension": "dynamodb:table:WriteCapacityUnits"},
+      "want": {"ScalableTargets.0.MinCapacity": 1, "ScalableTargets.0.MaxCapacity": 12}
+    },
+    {
+      "name": "peer owns independently addressable index write target",
+      "region": "us-east-2",
+      "operation": "DescribeScalableTargets",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceIds": ["table/global-scaling/index/by-g"], "ScalableDimension": "dynamodb:index:WriteCapacityUnits"},
+      "want": {"ScalableTargets.0.MinCapacity": 1, "ScalableTargets.0.MaxCapacity": 12}
+    },
+    {
+      "name": "optional read tracking policy is copied with distinct configuration",
+      "region": "us-east-2",
+      "operation": "DescribeScalingPolicies",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling", "ScalableDimension": "dynamodb:table:ReadCapacityUnits"},
+      "want": {"ScalingPolicies.0.PolicyName": "table-read", "ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration": {"TargetValue": 65, "PredefinedMetricSpecification": {"PredefinedMetricType": "DynamoDBReadCapacityUtilization"}, "DisableScaleIn": true}}
+    },
+    {
+      "name": "peer policy retains native name and tracking configuration",
+      "region": "us-east-2",
+      "operation": "DescribeScalingPolicies",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling", "ScalableDimension": "dynamodb:table:WriteCapacityUnits"},
+      "want": {"ScalingPolicies.0.PolicyName": "table-write", "ScalingPolicies.0.PolicyType": "TargetTrackingScaling", "ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration": {"TargetValue": 70, "PredefinedMetricSpecification": {"PredefinedMetricType": "DynamoDBWriteCapacityUtilization"}, "DisableScaleIn": true}}
+    },
+    {
+      "name": "peer index policy retains its own tracking configuration",
+      "region": "us-east-2",
+      "operation": "DescribeScalingPolicies",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling/index/by-g", "ScalableDimension": "dynamodb:index:WriteCapacityUnits"},
+      "want": {"ScalingPolicies.0.PolicyName": "index-write", "ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration": {"TargetValue": 70, "PredefinedMetricSpecification": {"PredefinedMetricType": "DynamoDBWriteCapacityUtilization"}, "DisableScaleIn": true}}
+    },
+    {
+      "name": "raise source table write minimum",
+      "operation": "RegisterScalableTarget",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling", "ScalableDimension": "dynamodb:table:WriteCapacityUnits", "MinCapacity": 4, "MaxCapacity": 12}
+    },
+    {
+      "name": "await actual source table write increase",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "waitWant": true,
+      "want": {"Table.TableStatus": "ACTIVE", "Table.ProvisionedThroughput.WriteCapacityUnits": 4}
+    },
+    {
+      "name": "raise source index write minimum",
+      "operation": "RegisterScalableTarget",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling/index/by-g", "ScalableDimension": "dynamodb:index:WriteCapacityUnits", "MinCapacity": 4, "MaxCapacity": 12}
+    },
+    {
+      "name": "await actual source index write increase",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "waitWant": true,
+      "want": {"Table.TableStatus": "ACTIVE", "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 4}
+    },
+    {
+      "name": "raise source table read minimum independently",
+      "operation": "RegisterScalableTarget",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling", "ScalableDimension": "dynamodb:table:ReadCapacityUnits", "MinCapacity": 6, "MaxCapacity": 12}
+    },
+    {
+      "name": "actual source engine reaches scaling minimums",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "waitWant": true,
+      "want": {"Table.TableStatus": "ACTIVE", "Table.ProvisionedThroughput.ReadCapacityUnits": 6, "Table.ProvisionedThroughput.WriteCapacityUnits": 4, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 3, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 4}
+    },
+    {
+      "name": "regional scaling preserves peer writes and read overrides",
+      "advance": "10m",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "want": {"Table.TableStatus": "ACTIVE", "Table.ProvisionedThroughput.ReadCapacityUnits": 5, "Table.ProvisionedThroughput.WriteCapacityUnits": 2, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 6, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 2}
+    },
+    {
+      "name": "copied peer write target bounds remain independent",
+      "region": "us-east-2",
+      "operation": "DescribeScalableTargets",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceIds": ["table/global-scaling"], "ScalableDimension": "dynamodb:table:WriteCapacityUnits"},
+      "want": {"ScalableTargets.0.MinCapacity": 1}
+    },
+    {
+      "name": "copied peer read target bounds also remain independent",
+      "region": "us-east-2",
+      "operation": "DescribeScalableTargets",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceIds": ["table/global-scaling"], "ScalableDimension": "dynamodb:table:ReadCapacityUnits"},
+      "want": {"ScalableTargets.0.MinCapacity": 1}
+    },
+    {
+      "name": "same value customer update does not overwrite peer overrides",
+      "operation": "UpdateTable",
+      "input": {"TableName": "global-scaling", "ProvisionedThroughput": {"ReadCapacityUnits": 6, "WriteCapacityUnits": 4}, "GlobalSecondaryIndexUpdates": [{"Update": {"IndexName": "by-g", "ProvisionedThroughput": {"ReadCapacityUnits": 3, "WriteCapacityUnits": 4}}}]},
+      "code": "ValidationException"
+    },
+    {
+      "name": "effective customer update propagates required unchanged reads",
+      "operation": "UpdateTable",
+      "input": {"TableName": "global-scaling", "ProvisionedThroughput": {"ReadCapacityUnits": 6, "WriteCapacityUnits": 5}, "GlobalSecondaryIndexUpdates": [{"Update": {"IndexName": "by-g", "ProvisionedThroughput": {"ReadCapacityUnits": 3, "WriteCapacityUnits": 6}}}]}
+    },
+    {
+      "name": "customer update replaces peer overrides with source values",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "waitWant": true,
+      "want": {"Table.TableStatus": "ACTIVE", "Table.ProvisionedThroughput.ReadCapacityUnits": 6, "Table.ProvisionedThroughput.WriteCapacityUnits": 5, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 3, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 6}
+    },
+    {
+      "name": "await completed source capacity before reopen",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "waitWant": true,
+      "want": {"Table.TableStatus": "ACTIVE", "Table.ProvisionedThroughput.ReadCapacityUnits": 6, "Table.ProvisionedThroughput.WriteCapacityUnits": 5, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 3, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 6}
+    },
+    {
+      "name": "reopen retained service repositories",
+      "reopen": true
+    },
+    {
+      "name": "copied scaling policy survives service reopen",
+      "region": "us-east-2",
+      "operation": "DescribeScalingPolicies",
+      "input": {"ServiceNamespace": "dynamodb", "ResourceId": "table/global-scaling", "ScalableDimension": "dynamodb:table:WriteCapacityUnits"},
+      "want": {"ScalingPolicies.0.PolicyName": "table-write", "ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.DisableScaleIn": true}
+    },
+    {
+      "name": "persisted global capacity remains installed",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {"TableName": "global-scaling"},
+      "want": {"Table.TableStatus": "ACTIVE", "Table.ProvisionedThroughput.ReadCapacityUnits": 6, "Table.ProvisionedThroughput.WriteCapacityUnits": 5, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 3, "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 6}
+    },
+    {
+      "name": "remove peer first",
+      "region": "us-east-2",
+      "operation": "DeleteTable",
+      "input": {"TableName": "global-scaling"}
+    },
+    {
+      "name": "remove remaining source",
+      "operation": "DeleteTable",
+      "input": {"TableName": "global-scaling"}
+    }
+  ]
+}

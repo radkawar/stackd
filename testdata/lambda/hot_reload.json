@@ -1,0 +1,11 @@
+{
+  "source": "Local development-directory workflow, not an AWS hot-reload API",
+  "handler": "import pathlib, platform, urllib.request, uuid\nimport shared\nSOURCE = @CODE@\nBOOT = uuid.uuid4().hex\nTMP = pathlib.Path('/tmp/retained-token')\nif not TMP.exists():\n    TMP.write_text(uuid.uuid4().hex)\n\ndef invoke(event, context):\n    if event.get('hold_url'):\n        with urllib.request.urlopen(event['hold_url'], timeout=20) as response:\n            response.read()\n    try:\n        pathlib.Path('/var/task/should-not-write').write_text('unexpected')\n        write_errno = 0\n    except OSError as error:\n        write_errno = error.errno\n    return {'source': SOURCE, 'layer': shared.VALUE,\n            'extension': pathlib.Path('/tmp/extension-value').read_text(),\n            'boot': BOOT, 'tmp': TMP.read_text(), 'read_only_errno': write_errno,\n            'version': context.function_version, 'machine': platform.machine()}\n",
+  "layer": "VALUE = @LAYER@\n",
+  "extension": "#!/var/lang/bin/python3.12\nimport json, os, pathlib, urllib.request\npathlib.Path('/tmp/extension-value').write_text(@EXTENSION@)\nbase = 'http://' + os.environ['AWS_LAMBDA_RUNTIME_API'] + '/2020-01-01/extension'\nrequest = urllib.request.Request(base + '/register', data=json.dumps({'events':['SHUTDOWN']}).encode(), headers={'Lambda-Extension-Name':os.path.basename(__file__), 'Content-Type':'application/json'})\nwith urllib.request.urlopen(request) as response:\n    identifier = response.headers['Lambda-Extension-Identifier']\nrequest = urllib.request.Request(base + '/event/next', headers={'Lambda-Extension-Identifier':identifier})\nwith urllib.request.urlopen(request, timeout=900) as response:\n    json.load(response)\n",
+  "variants": {
+    "uploaded": {"code": "uploaded-code", "layer": "uploaded-layer", "extension": "uploaded-extension"},
+    "initial": {"code": "local-code-one", "layer": "local-layer-one", "extension": "local-extension-one"},
+    "updated": {"code": "local-code-two", "layer": "local-layer-two", "extension": "local-extension-two"}
+  }
+}

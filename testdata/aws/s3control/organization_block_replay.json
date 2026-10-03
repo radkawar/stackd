@@ -1,0 +1,1035 @@
+{
+  "Documentation": [
+    "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+    "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3_syntax.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html"
+  ],
+  "EvidenceClass": "documented-contract-local-replay-not-native-write-capture",
+  "Notes": [
+    "All replay writes target the local retainedCloud server. Separate native admission captures created and removed unattached policy definitions without changing account protections, attachments, enabled policy types or memberships.",
+    "One root-attached policy exercises real Organizations publication into S3Control and ordinary S3; generated root and policy identifiers are rebound from SDK responses.",
+    "ManualTime and Advance run existing scheduled jobs deterministically on memory and retained SQLite. The one-second publication boundary is the local service model, not a measured AWS propagation SLA.",
+    "The distinct stored RestrictPublicBuckets setting must survive all and none, rejected writes, policy update, detach, disable, and retained reopen. Organization none overrides account settings but not bucket restrictions or ordinary IAM denial.",
+    "An attached partial policy with no assignment uses the existing declarative inheritance grammar: once its empty effective view publishes, retained account settings apply again."
+  ],
+  "RemainingNativeGaps": [
+    "No native S3_POLICY attachment, detachment, enable/disable, propagation or account override writes were performed. Unattached create/update admission is captured separately in s3_policy_admission_evidence.json.gz.",
+    "This concentrated replay covers root inheritance; OU conflicts, new-member inheritance, and SCP interactions are not asserted here."
+  ],
+  "Scenarios": [
+    {
+      "Name": "root-inheritance-published-overrides-and-retained-restoration",
+      "ManualTime": true,
+      "Setup": [
+        {
+          "Label": "create public-policy bucket",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "organization-block-replay"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "leave bucket public-access controls off",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "store consumer bytes before organization management",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Body": "YWJj"
+        },
+        {
+          "Label": "grant public object reads",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::organization-block-replay/*\"}]}"
+          },
+          "Code": "Success",
+          "Status": 204
+        },
+        {
+          "Label": "retain distinct account settings",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "create explicitly denied reader",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateUser",
+          "Input": {
+            "UserName": "OrganizationDeniedReader"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "public policy must not override IAM explicit deny",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "PutUserPolicy",
+          "Input": {
+            "UserName": "OrganizationDeniedReader",
+            "PolicyName": "DenyPublicObject",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"s3:GetObject\",\"Resource\":\"*\"}]}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "issue denied reader credentials",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateAccessKey",
+          "Input": {
+            "UserName": "OrganizationDeniedReader"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Session": "deniedReader"
+        },
+        {
+          "Label": "create local all-features organization",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "CreateOrganization",
+          "Input": {
+            "FeatureSet": "ALL"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bind generated organization root",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "ListRoots",
+          "Input": {},
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "root": "Roots.0.Id"
+          }
+        },
+        {
+          "Label": "enable S3 management policies",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "EnablePolicyType",
+          "Input": {
+            "RootId": "${root}",
+            "PolicyType": "S3_POLICY"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "create all policy",
+          "Source": "s3control/s3_policy_admission_evidence.json.gz:create_combined_uppercase",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "CreatePolicy",
+          "Input": {
+            "Name": "OrganizationPublicAccess",
+            "Description": "Documentation-backed local replay",
+            "Type": "S3_POLICY",
+            "Content": "{\"S3_ATTRIBUTES\":{\"PUBLIC_ACCESS_BLOCK_CONFIGURATION\":{\"@@ASSIGN\":\"all\",\"@@OPERATORS_ALLOWED_FOR_CHILD_POLICIES\":[\"@@NONE\"]}}}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "policy": "Policy.PolicySummary.Id"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "unattached policy leaves stored flags effective",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "retained restriction initially denies anonymous reader",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "reject list where documented assignment requires scalar",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "CreatePolicy",
+          "Input": {
+            "Name": "InvalidPublicAccess",
+            "Description": "Invalid documented scalar shape",
+            "Type": "S3_POLICY",
+            "Content": "{\"s3_attributes\":{\"public_access_block_configuration\":{\"@@assign\":[\"all\"]}}}"
+          },
+          "Code": "MalformedPolicyDocumentException",
+          "Status": 400
+        },
+        {
+          "Label": "attach to root for inherited account control",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "AttachPolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "TargetId": "${root}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "attachment cannot bypass publication delay",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "halfway to publication still uses stored flags",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Advance": "500ms"
+        },
+        {
+          "Label": "published all overrides every stored account flag",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Advance": "500ms"
+        },
+        {
+          "Label": "published all denies public cross-account reader",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "published all retains bucket owner read access",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "all prevents account replacement",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "all prevents account deletion",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "all blocks a new public bucket policy",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::organization-block-replay/*\"}]}"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "reject undocumented assignment without changing active policy",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "UpdatePolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "Content": "{\"s3_attributes\":{\"public_access_block_configuration\":{\"@@assign\":\"sometimes\"}}}"
+          },
+          "Code": "MalformedPolicyDocumentException",
+          "Status": 400
+        },
+        {
+          "Label": "rejected update preserves published all after scheduler drain",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Advance": "1s"
+        },
+        {
+          "Label": "replace organization assignment with none",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "UpdatePolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "Content": "{\"s3_attributes\":{\"public_access_block_configuration\":{\"@@assign\":\"none\"}}}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "pending none update survives retained reopen without early apply",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "halfway update retains prior published all",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Advance": "500ms"
+        },
+        {
+          "Label": "published none overrides retained restrictive account flag",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Advance": "500ms"
+        },
+        {
+          "Label": "none enables anonymous policy access",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "none uses resource owner organization for foreign reader",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "none cannot bypass explicit IAM deny",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "deniedReader",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "none allows public bucket policy admission",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::organization-block-replay/*\"}]}"
+          },
+          "Code": "Success",
+          "Status": 204
+        },
+        {
+          "Label": "none still prevents account replacement",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "none still prevents account deletion",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "bucket may add restriction under organization none",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket restriction remains more restrictive than organization none",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "bucket restriction does not change effective account response",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "remove bucket-only restriction",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "Bucket": "organization-block-replay"
+          },
+          "Code": "Success",
+          "Status": 204
+        },
+        {
+          "Label": "removing bucket restriction restores public read under none",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "remove assignment while policy remains attached",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "UpdatePolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "Content": "{\"s3_attributes\":{}}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "empty update retains none until publication",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "published empty assignment restores retained account settings",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Advance": "1s"
+        },
+        {
+          "Label": "removing assignment through update restores public restriction",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "restore none assignment to attached policy",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "UpdatePolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "Content": "{\"s3_attributes\":{\"public_access_block_configuration\":{\"@@assign\":\"none\"}}}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "republished none again overrides retained account settings",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Advance": "1s"
+        },
+        {
+          "Label": "detach inherited policy from root",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "DetachPolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "TargetId": "${root}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "pending detach retains published managed none",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "pending detach still rejects account deletion",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "published detach restores original settings after reopen",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Reopen": true,
+          "Advance": "1s"
+        },
+        {
+          "Label": "restored account restriction denies public read",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "reattach none to root",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "AttachPolicy",
+          "Input": {
+            "PolicyId": "${policy}",
+            "TargetId": "${root}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "reattached none again overrides original restriction",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Advance": "1s"
+        },
+        {
+          "Label": "reattached none again allows public read",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "disable S3 policy type while inherited policy remains attached",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "organizations",
+          "Actor": "caller",
+          "Operation": "DisablePolicyType",
+          "Input": {
+            "RootId": "${root}",
+            "PolicyType": "S3_POLICY"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "disable immediately restores retained account flags",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "disabled restoration survives retained reopen and due jobs",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Reopen": true,
+          "Advance": "1s"
+        },
+        {
+          "Label": "disabled policy cannot grant public access past stored restriction",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "disabled management permits account replacement",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "account controls independently grant public access after disable",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "organization-block-replay",
+            "Key": "public"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "disabled management permits account deletion",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "account deletion remains absent after reopen",
+          "Source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "NoSuchPublicAccessBlockConfiguration",
+          "Status": 404,
+          "Reopen": true
+        }
+      ]
+    }
+  ]
+}

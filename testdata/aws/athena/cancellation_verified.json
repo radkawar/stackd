@@ -1,0 +1,439 @@
+{
+  "source": "native AWS",
+  "retrieved_at": "2026-09-26T15:04:54.880428+00:00",
+  "region": "us-east-1",
+  "run_suffix": "1832fb57669a4442",
+  "source_revisions": {
+    "aws_sdk_go_v2": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "primary_references": [
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_StopQueryExecution.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_QueryExecutionStatus.html",
+    "https://aws.amazon.com/athena/pricing/"
+  ],
+  "bounds": {
+    "max_calls": 45,
+    "wall_seconds": 150,
+    "max_buckets": 1,
+    "max_workgroups": 1,
+    "max_queries": 1,
+    "scan_cutoff_bytes": 10485760,
+    "poll_seconds": 60,
+    "max_generated_join_pairs": 100000000,
+    "cost_usd_upper_estimate": 0.01,
+    "cost_basis": "No customer data scan or provisioned compute; immediate cancellation; allowance covers tiny result/S3 requests."
+  },
+  "normalization": "Owned names, account/caller/role/query/run IDs and pagination tokens replaced consistently; timestamps, field presence, list order, errors and data bytes retained. Credentials/debug output never persisted.",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_ms": 1790435094880,
+      "finished_ms": 1790435095566,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "OWNEDCALLERID",
+          "Account": "123456789012",
+          "Arn": "arn:aws:iam::123456789012:user/owned-caller"
+        }
+      }
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-athena-cancel-owned"
+      },
+      "started_ms": 1790435095566,
+      "finished_ms": 1790435096478,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-athena-cancel-owned",
+          "BucketArn": "arn:aws:s3:::stackd-athena-cancel-owned"
+        }
+      }
+    },
+    {
+      "label": "create-workgroup",
+      "service": "athena",
+      "operation": "create-work-group",
+      "input": {
+        "Name": "stackd-athena-cancel-owned-wg",
+        "Configuration": {
+          "BytesScannedCutoffPerQuery": 10485760,
+          "PublishCloudWatchMetricsEnabled": false,
+          "ResultConfiguration": {
+            "OutputLocation": "s3://stackd-athena-cancel-owned/results/"
+          }
+        }
+      },
+      "started_ms": 1790435096479,
+      "finished_ms": 1790435097254,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "start-cancellable-query",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "WorkGroup": "stackd-athena-cancel-owned-wg",
+        "ClientRequestToken": "CANCEL_REQUEST_TOKEN",
+        "QueryString": "SELECT sum(sin(a.x + b.x)) FROM UNNEST(sequence(1,10000)) a(x) CROSS JOIN UNNEST(sequence(1,10000)) b(x)"
+      },
+      "started_ms": 1790435097263,
+      "finished_ms": 1790435097957,
+      "result": {
+        "http_status": 200,
+        "request_id": "56fac09b-9e30-4d56-a9b4-0fc18bf0c6ed",
+        "code": "Success",
+        "output": {
+          "QueryExecutionId": "CANCEL_QUERY_ID"
+        }
+      }
+    },
+    {
+      "label": "stop-immediately",
+      "service": "athena",
+      "operation": "stop-query-execution",
+      "input": {
+        "QueryExecutionId": "CANCEL_QUERY_ID"
+      },
+      "started_ms": 1790435097967,
+      "finished_ms": 1790435098356,
+      "result": {
+        "http_status": 200,
+        "request_id": "6ff6991b-5e6e-46ee-95ec-7997c07a2d67",
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "state-0",
+      "service": "athena",
+      "operation": "get-query-execution",
+      "input": {
+        "QueryExecutionId": "CANCEL_QUERY_ID"
+      },
+      "started_ms": 1790435098356,
+      "finished_ms": 1790435098678,
+      "result": {
+        "http_status": 200,
+        "request_id": "b461707f-90d7-4f7e-929b-938ab9d4c62b",
+        "code": "Success",
+        "output": {
+          "QueryExecution": {
+            "EngineVersion": {
+              "EffectiveEngineVersion": "Athena engine version 3",
+              "SelectedEngineVersion": "AUTO"
+            },
+            "Query": "SELECT sum(sin(a.x + b.x)) FROM UNNEST(sequence(1,10000)) a(x) CROSS JOIN UNNEST(sequence(1,10000)) b(x)",
+            "QueryExecutionContext": {},
+            "QueryExecutionId": "CANCEL_QUERY_ID",
+            "ResultConfiguration": {
+              "OutputLocation": "s3://stackd-athena-cancel-owned/results/CANCEL_QUERY_ID.csv"
+            },
+            "ResultReuseConfiguration": {
+              "ResultReuseByAgeConfiguration": {
+                "Enabled": false
+              }
+            },
+            "StatementType": "DML",
+            "Statistics": {
+              "DataScannedInBytes": 0,
+              "EngineExecutionTimeInMillis": 70,
+              "QueryQueueTimeInMillis": 96,
+              "ResultReuseInformation": {
+                "ReusedPreviousResult": false
+              },
+              "ServicePreProcessingTimeInMillis": 193,
+              "ServiceProcessingTimeInMillis": 2,
+              "TotalExecutionTimeInMillis": 361
+            },
+            "Status": {
+              "CompletionDateTime": 1790435098.245,
+              "State": "CANCELLED",
+              "StateChangeReason": "Query cancelled by user",
+              "SubmissionDateTime": 1790435097.884
+            },
+            "SubstatementType": "SELECT",
+            "WorkGroup": "stackd-athena-cancel-owned-wg"
+          },
+          "QueryExecutionDetail": {
+            "OutputLocation": "s3://stackd-athena-cancel-owned/results/CANCEL_QUERY_ID.csv",
+            "Query": "SELECT sum(sin(a.x + b.x)) FROM UNNEST(sequence(1,10000)) a(x) CROSS JOIN UNNEST(sequence(1,10000)) b(x)",
+            "QueryExecutionContext": {},
+            "QueryExecutionId": "CANCEL_QUERY_ID",
+            "ResultConfiguration": {
+              "OutputLocation": "s3://stackd-athena-cancel-owned/results/CANCEL_QUERY_ID.csv"
+            },
+            "Stats": {
+              "EngineExecutionTimeInMillis": 70,
+              "ProcessedBytes": 0,
+              "ProcessedInputBytes": 0,
+              "ProcessedInputRows": 0,
+              "ProcessedRows": 0,
+              "ResultReuseInformation": {
+                "ReusedPreviousResult": false
+              }
+            },
+            "Status": {
+              "CompletionDateTime": 1790435098.245,
+              "State": "CANCELED",
+              "StateChangeReason": "Query cancelled by user",
+              "SubmissionDateTime": 1790435097.884
+            },
+            "WorkGroup": "stackd-athena-cancel-owned-wg"
+          }
+        }
+      }
+    },
+    {
+      "label": "stop-terminal-again",
+      "service": "athena",
+      "operation": "stop-query-execution",
+      "input": {
+        "QueryExecutionId": "CANCEL_QUERY_ID"
+      },
+      "started_ms": 1790435098679,
+      "finished_ms": 1790435099014,
+      "result": {
+        "http_status": 200,
+        "request_id": "c3e103b6-af39-4374-b346-c5a427ec1cda",
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cancelled-results",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "CANCEL_QUERY_ID"
+      },
+      "started_ms": 1790435099015,
+      "finished_ms": 1790435099386,
+      "result": {
+        "http_status": 400,
+        "request_id": "bbaad8f7-0704-41cb-b47f-e619f278e70e",
+        "code": "InvalidRequestException",
+        "error": {
+          "__type": "InvalidRequestException",
+          "AthenaErrorCode": "RESULT_NOT_FOUND",
+          "ErrorCode": "RESULT_NOT_FOUND",
+          "Message": "Could not find results"
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "cleanup-stop-query",
+        "service": "athena",
+        "operation": "stop-query-execution",
+        "input": {
+          "QueryExecutionId": "CANCEL_QUERY_ID"
+        },
+        "started_ms": 1790435099386,
+        "finished_ms": 1790435100101,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-final-state",
+        "service": "athena",
+        "operation": "get-query-execution",
+        "input": {
+          "QueryExecutionId": "CANCEL_QUERY_ID"
+        },
+        "started_ms": 1790435100101,
+        "finished_ms": 1790435100765,
+        "result": {
+          "code": "Success",
+          "output": {
+            "QueryExecution": {
+              "QueryExecutionId": "CANCEL_QUERY_ID",
+              "Query": "SELECT sum(sin(a.x + b.x)) FROM UNNEST(sequence(1,10000)) a(x) CROSS JOIN UNNEST(sequence(1,10000)) b(x)",
+              "StatementType": "DML",
+              "ResultConfiguration": {
+                "OutputLocation": "s3://stackd-athena-cancel-owned/results/CANCEL_QUERY_ID.csv"
+              },
+              "ResultReuseConfiguration": {
+                "ResultReuseByAgeConfiguration": {
+                  "Enabled": false
+                }
+              },
+              "QueryExecutionContext": {},
+              "Status": {
+                "State": "CANCELLED",
+                "StateChangeReason": "Query cancelled by user",
+                "SubmissionDateTime": "2026-09-26T16:04:57.884000+01:00",
+                "CompletionDateTime": "2026-09-26T16:04:58.245000+01:00"
+              },
+              "Statistics": {
+                "EngineExecutionTimeInMillis": 70,
+                "DataScannedInBytes": 0,
+                "TotalExecutionTimeInMillis": 361,
+                "QueryQueueTimeInMillis": 96,
+                "ServicePreProcessingTimeInMillis": 193,
+                "ServiceProcessingTimeInMillis": 2,
+                "ResultReuseInformation": {
+                  "ReusedPreviousResult": false
+                }
+              },
+              "WorkGroup": "stackd-athena-cancel-owned-wg",
+              "EngineVersion": {
+                "SelectedEngineVersion": "AUTO",
+                "EffectiveEngineVersion": "Athena engine version 3"
+              },
+              "SubstatementType": "SELECT"
+            }
+          }
+        }
+      },
+      {
+        "label": "cleanup-workgroup",
+        "service": "athena",
+        "operation": "delete-work-group",
+        "input": {
+          "WorkGroup": "stackd-athena-cancel-owned-wg",
+          "RecursiveDeleteOption": true
+        },
+        "started_ms": 1790435100765,
+        "finished_ms": 1790435101588,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-workgroup-absent",
+        "service": "athena",
+        "operation": "get-work-group",
+        "input": {
+          "WorkGroup": "stackd-athena-cancel-owned-wg"
+        },
+        "started_ms": 1790435101589,
+        "finished_ms": 1790435102261,
+        "result": {
+          "code": "InvalidRequestException",
+          "error": {
+            "Message": "WorkGroup is not found.",
+            "Code": "InvalidRequestException",
+            "AthenaErrorCode": "INVALID_INPUT"
+          }
+        }
+      },
+      {
+        "label": "cleanup-owned-results",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-athena-cancel-owned",
+          "MaxKeys": 10
+        },
+        "started_ms": 1790435102262,
+        "finished_ms": 1790435102991,
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-athena-cancel-owned",
+            "Prefix": "",
+            "MaxKeys": 10,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "cleanup-bucket",
+        "service": "s3api",
+        "operation": "delete-bucket",
+        "input": {
+          "Bucket": "stackd-athena-cancel-owned"
+        },
+        "started_ms": 1790435102992,
+        "finished_ms": 1790435103880,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-bucket-absent-0",
+        "service": "s3api",
+        "operation": "head-bucket",
+        "input": {
+          "Bucket": "stackd-athena-cancel-owned"
+        },
+        "started_ms": 1790435103880,
+        "finished_ms": 1790435104571,
+        "result": {
+          "code": "404",
+          "error": {
+            "Code": "404",
+            "Message": "Not Found"
+          }
+        }
+      }
+    ],
+    "remaining_owned": []
+  },
+  "completed": true,
+  "cli_calls": 15,
+  "elapsed_seconds": 9.691,
+  "account": "123456789012",
+  "terminal": {
+    "EngineVersion": {
+      "EffectiveEngineVersion": "Athena engine version 3",
+      "SelectedEngineVersion": "AUTO"
+    },
+    "Query": "SELECT sum(sin(a.x + b.x)) FROM UNNEST(sequence(1,10000)) a(x) CROSS JOIN UNNEST(sequence(1,10000)) b(x)",
+    "QueryExecutionContext": {},
+    "QueryExecutionId": "CANCEL_QUERY_ID",
+    "ResultConfiguration": {
+      "OutputLocation": "s3://stackd-athena-cancel-owned/results/CANCEL_QUERY_ID.csv"
+    },
+    "ResultReuseConfiguration": {
+      "ResultReuseByAgeConfiguration": {
+        "Enabled": false
+      }
+    },
+    "StatementType": "DML",
+    "Statistics": {
+      "DataScannedInBytes": 0,
+      "EngineExecutionTimeInMillis": 70,
+      "QueryQueueTimeInMillis": 96,
+      "ResultReuseInformation": {
+        "ReusedPreviousResult": false
+      },
+      "ServicePreProcessingTimeInMillis": 193,
+      "ServiceProcessingTimeInMillis": 2,
+      "TotalExecutionTimeInMillis": 361
+    },
+    "Status": {
+      "CompletionDateTime": 1790435098.245,
+      "State": "CANCELLED",
+      "StateChangeReason": "Query cancelled by user",
+      "SubmissionDateTime": 1790435097.884
+    },
+    "SubstatementType": "SELECT",
+    "WorkGroup": "stackd-athena-cancel-owned-wg"
+  },
+  "transitions": [
+    "CANCELLED"
+  ],
+  "cancellation_observed": true
+}

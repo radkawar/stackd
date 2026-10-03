@@ -1,0 +1,4822 @@
+{
+  "source": "native AWS",
+  "retrieved_at": "2026-09-26T14:55:25.275330+00:00",
+  "region": "us-east-1",
+  "run_suffix": "559a984dc6f94d6e",
+  "source_revisions": {
+    "aws_sdk_go_v2": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "primary_references": [
+    "https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateJob.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_GetJobRun.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_StartQueryExecution.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_GetQueryResults.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_StopQueryExecution.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_UpdateWorkGroup.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_DeleteWorkGroup.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_CreatePreparedStatement.html",
+    "https://docs.aws.amazon.com/athena/latest/ug/athena-events.html",
+    "https://docs.aws.amazon.com/glue/latest/dg/automating-awsglue-with-cloudwatch-events.html",
+    "https://aws.amazon.com/glue/pricing/",
+    "https://aws.amazon.com/athena/pricing/"
+  ],
+  "bounds": {
+    "max_calls": 260,
+    "wall_seconds": 1200,
+    "cli_timeout_seconds": 30,
+    "max_buckets": 1,
+    "max_total_object_bytes": 1048576,
+    "max_iam_roles": 2,
+    "max_databases": 1,
+    "max_tables": 1,
+    "max_workgroups": 2,
+    "max_jobs": 1,
+    "max_job_runs": 2,
+    "job_dpu": 0.0625,
+    "job_timeout_minutes": 2,
+    "job_retries": 0,
+    "max_query_submissions": 8,
+    "query_bytes_scanned_cutoff": 10485760,
+    "query_poll_deadline_seconds": 90,
+    "job_poll_deadline_seconds": 240,
+    "cost_usd_upper_estimate": 0.1,
+    "cost_basis": "Glue <=2*0.0625 DPU*2/60h*$0.44=$0.001834; Athena <=8*10MiB at $5/TB (<$0.001). Remaining conservative allowance covers <1MiB S3, catalog/API requests. No Spark/crawler/capacity reservation/EC2."
+  },
+  "normalization": "Owned names, account/caller/role/query/run IDs and pagination tokens replaced consistently; timestamps, field presence, list order, errors and data bytes retained. Credentials/debug output never persisted.",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_ms": 1790434525287,
+      "finished_ms": 1790434525937,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "OWNEDCALLERID",
+          "Account": "123456789012",
+          "Arn": "arn:aws:iam::123456789012:user/owned-caller"
+        }
+      }
+    },
+    {
+      "label": "create-event-queue",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-analytics-owned-events",
+        "Attributes": {
+          "MessageRetentionPeriod": "3600"
+        }
+      },
+      "started_ms": 1790434525941,
+      "finished_ms": 1790434526739,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events"
+        }
+      }
+    },
+    {
+      "label": "event-queue-arn",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "started_ms": 1790434526739,
+      "finished_ms": 1790434527408,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events"
+          }
+        }
+      }
+    },
+    {
+      "label": "create-event-rule-glue-job",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "stackd-analytics-owned-glue-job",
+        "EventPattern": "{\"source\": [\"aws.glue\"], \"detail\": {\"jobName\": [\"stackd-analytics-owned-job\"]}}",
+        "State": "ENABLED"
+      },
+      "started_ms": 1790434527409,
+      "finished_ms": 1790434528188,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-glue-job"
+        }
+      }
+    },
+    {
+      "label": "create-event-rule-glue-catalog",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "stackd-analytics-owned-glue-catalog",
+        "EventPattern": "{\"source\": [\"aws.glue\"], \"detail\": {\"databaseName\": [\"stackd_analytics_owned\"]}}",
+        "State": "ENABLED"
+      },
+      "started_ms": 1790434528189,
+      "finished_ms": 1790434528935,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-glue-catalog"
+        }
+      }
+    },
+    {
+      "label": "create-event-rule-athena",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "stackd-analytics-owned-athena",
+        "EventPattern": "{\"source\": [\"aws.athena\"], \"detail\": {\"workgroupName\": [\"stackd-analytics-owned-wg\"]}}",
+        "State": "ENABLED"
+      },
+      "started_ms": 1790434528935,
+      "finished_ms": 1790434529686,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-athena"
+        }
+      }
+    },
+    {
+      "label": "event-queue-policy",
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": [\"arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-glue-job\", \"arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-glue-catalog\", \"arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-athena\"]}}}]}"
+        }
+      },
+      "started_ms": 1790434529687,
+      "finished_ms": 1790434530396,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "attach-event-target",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "stackd-analytics-owned-glue-job",
+        "Targets": [
+          {
+            "Id": "owned",
+            "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events"
+          }
+        ]
+      },
+      "started_ms": 1790434530397,
+      "finished_ms": 1790434531097,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      }
+    },
+    {
+      "label": "attach-event-target",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "stackd-analytics-owned-glue-catalog",
+        "Targets": [
+          {
+            "Id": "owned",
+            "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events"
+          }
+        ]
+      },
+      "started_ms": 1790434531097,
+      "finished_ms": 1790434531812,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      }
+    },
+    {
+      "label": "attach-event-target",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "stackd-analytics-owned-athena",
+        "Targets": [
+          {
+            "Id": "owned",
+            "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events"
+          }
+        ]
+      },
+      "started_ms": 1790434531813,
+      "finished_ms": 1790434532543,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      }
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-analytics-owned"
+      },
+      "started_ms": 1790434532545,
+      "finished_ms": 1790434533453,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-analytics-owned",
+          "BucketArn": "arn:aws:s3:::stackd-analytics-owned"
+        }
+      }
+    },
+    {
+      "label": "put-input",
+      "service": "s3api",
+      "operation": "put-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "input/source.csv"
+      },
+      "started_ms": 1790434533453,
+      "finished_ms": 1790434534243,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ETag": "\"65e87086b1b3b1fb793e494eb0e926cf\"",
+          "ChecksumCRC64NVME": "9423O/kxYGw=",
+          "ChecksumType": "FULL_OBJECT",
+          "ServerSideEncryption": "AES256"
+        }
+      }
+    },
+    {
+      "label": "put-producer",
+      "service": "s3api",
+      "operation": "put-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "scripts/producer.py"
+      },
+      "started_ms": 1790434534244,
+      "finished_ms": 1790434535038,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ETag": "\"6f0f66091c9f8e703ec1150e83495572\"",
+          "ChecksumCRC64NVME": "N7vjnBcTdkM=",
+          "ChecksumType": "FULL_OBJECT",
+          "ServerSideEncryption": "AES256"
+        }
+      }
+    },
+    {
+      "label": "create-execution-role",
+      "service": "iam",
+      "operation": "create-role",
+      "input": {
+        "RoleName": "stackd-analytics-owned-execution",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"glue.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "started_ms": 1790434535039,
+      "finished_ms": 1790434535822,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-analytics-owned-execution",
+            "RoleId": "EXECUTION_ROLE_ID",
+            "Arn": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+            "CreateDate": "2026-09-26T14:55:35+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "glue.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "execution-policy",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-analytics-owned-execution",
+        "PolicyName": "owned",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\"], \"Resource\": [\"arn:aws:s3:::stackd-analytics-owned/scripts/*\", \"arn:aws:s3:::stackd-analytics-owned/input/*\"]}, {\"Effect\": \"Allow\", \"Action\": [\"s3:PutObject\"], \"Resource\": \"arn:aws:s3:::stackd-analytics-owned/data/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:ListBucket\", \"s3:GetBucketLocation\"], \"Resource\": \"arn:aws:s3:::stackd-analytics-owned\"}]}"
+      },
+      "started_ms": 1790434535832,
+      "finished_ms": 1790434536604,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-job",
+      "service": "glue",
+      "operation": "create-job",
+      "input": {
+        "Name": "stackd-analytics-owned-job",
+        "Role": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+        "Command": {
+          "Name": "pythonshell",
+          "PythonVersion": "3.9",
+          "ScriptLocation": "s3://stackd-analytics-owned/scripts/producer.py"
+        },
+        "MaxCapacity": 0.0625,
+        "Timeout": 2,
+        "MaxRetries": 0,
+        "ExecutionProperty": {
+          "MaxConcurrentRuns": 1
+        },
+        "DefaultArguments": {
+          "--library-set": "none",
+          "--bucket": "stackd-analytics-owned"
+        }
+      },
+      "started_ms": 1790434536605,
+      "finished_ms": 1790434537366,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-analytics-owned-job"
+        }
+      }
+    },
+    {
+      "label": "duplicate-job",
+      "service": "glue",
+      "operation": "create-job",
+      "input": {
+        "Name": "stackd-analytics-owned-job",
+        "Role": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+        "Command": {
+          "Name": "pythonshell",
+          "PythonVersion": "3.9",
+          "ScriptLocation": "s3://stackd-analytics-owned/scripts/producer.py"
+        },
+        "MaxCapacity": 0.0625,
+        "Timeout": 2,
+        "MaxRetries": 0,
+        "ExecutionProperty": {
+          "MaxConcurrentRuns": 1
+        },
+        "DefaultArguments": {
+          "--library-set": "none",
+          "--bucket": "stackd-analytics-owned"
+        }
+      },
+      "started_ms": 1790434537366,
+      "finished_ms": 1790434538109,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-analytics-owned-job"
+        }
+      }
+    },
+    {
+      "label": "get-job",
+      "service": "glue",
+      "operation": "get-job",
+      "input": {
+        "JobName": "stackd-analytics-owned-job"
+      },
+      "started_ms": 1790434538110,
+      "finished_ms": 1790434538824,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Job": {
+            "Name": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "Role": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+            "CreatedOn": "2026-09-26T15:55:37.221000+01:00",
+            "LastModifiedOn": "2026-09-26T15:55:37.221000+01:00",
+            "ExecutionProperty": {
+              "MaxConcurrentRuns": 1
+            },
+            "Command": {
+              "Name": "pythonshell",
+              "ScriptLocation": "s3://stackd-analytics-owned/scripts/producer.py",
+              "PythonVersion": "3.9"
+            },
+            "DefaultArguments": {
+              "--library-set": "none",
+              "--bucket": "stackd-analytics-owned"
+            },
+            "MaxRetries": 0,
+            "AllocatedCapacity": 0,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "start-job-success",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "success"
+        }
+      },
+      "started_ms": 1790434550826,
+      "finished_ms": 1790434551630,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRunId": "JOB_SUCCESS_ID"
+        }
+      }
+    },
+    {
+      "label": "concurrent-job-run",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "success"
+        }
+      },
+      "started_ms": 1790434551640,
+      "finished_ms": 1790434552408,
+      "result": {
+        "code": "ConcurrentRunsExceededException",
+        "error": {
+          "Message": "Concurrent runs exceeded.",
+          "Code": "ConcurrentRunsExceededException"
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-0",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790434552409,
+      "finished_ms": 1790434553135,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:55:51.469000+01:00",
+            "LastModifiedOn": "2026-09-26T15:55:51.473000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 0,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-1",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790434558135,
+      "finished_ms": 1790434558911,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:55:51.469000+01:00",
+            "LastModifiedOn": "2026-09-26T15:55:54.762000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 0,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-2",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790434563912,
+      "finished_ms": 1790434564690,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:55:51.469000+01:00",
+            "LastModifiedOn": "2026-09-26T15:55:54.762000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 5,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-3",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790434569692,
+      "finished_ms": 1790434570438,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:55:51.469000+01:00",
+            "LastModifiedOn": "2026-09-26T15:55:54.762000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 11,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-4",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790434575440,
+      "finished_ms": 1790434576178,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:55:51.469000+01:00",
+            "LastModifiedOn": "2026-09-26T15:56:11.294000+01:00",
+            "CompletedOn": "2026-09-26T15:56:11.294000+01:00",
+            "JobRunState": "SUCCEEDED",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 12,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "consume-produced-csv",
+      "service": "s3api",
+      "operation": "get-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "data/part.csv"
+      },
+      "started_ms": 1790434576188,
+      "finished_ms": 1790434576956,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AcceptRanges": "bytes",
+          "LastModified": "2026-09-26T14:56:01+00:00",
+          "ContentLength": 25,
+          "ETag": "\"e19b299c9db03f11e0a0bc673ddebf87\"",
+          "ChecksumCRC64NVME": "X/O/GH1vp38=",
+          "ChecksumType": "FULL_OBJECT",
+          "ContentType": "text/csv",
+          "ServerSideEncryption": "AES256",
+          "Metadata": {}
+        }
+      }
+    },
+    {
+      "label": "start-job-failure",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "failure"
+        }
+      },
+      "started_ms": 1790434576966,
+      "finished_ms": 1790434577774,
+      "result": {
+        "code": "ConcurrentRunsExceededException",
+        "error": {
+          "Message": "Concurrent runs exceeded.",
+          "Code": "ConcurrentRunsExceededException"
+        }
+      }
+    },
+    {
+      "label": "start-job-failure-slot-release-0",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "failure"
+        }
+      },
+      "started_ms": 1790434582774,
+      "finished_ms": 1790434583543,
+      "result": {
+        "code": "ConcurrentRunsExceededException",
+        "error": {
+          "Message": "Concurrent runs exceeded.",
+          "Code": "ConcurrentRunsExceededException"
+        }
+      }
+    },
+    {
+      "label": "start-job-failure-slot-release-1",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "failure"
+        }
+      },
+      "started_ms": 1790434588544,
+      "finished_ms": 1790434589309,
+      "result": {
+        "code": "ConcurrentRunsExceededException",
+        "error": {
+          "Message": "Concurrent runs exceeded.",
+          "Code": "ConcurrentRunsExceededException"
+        }
+      }
+    },
+    {
+      "label": "start-job-failure-slot-release-2",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "failure"
+        }
+      },
+      "started_ms": 1790434594310,
+      "finished_ms": 1790434595110,
+      "result": {
+        "code": "ConcurrentRunsExceededException",
+        "error": {
+          "Message": "Concurrent runs exceeded.",
+          "Code": "ConcurrentRunsExceededException"
+        }
+      }
+    },
+    {
+      "label": "start-job-failure-slot-release-3",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "failure"
+        }
+      },
+      "started_ms": 1790434600111,
+      "finished_ms": 1790434600895,
+      "result": {
+        "code": "ConcurrentRunsExceededException",
+        "error": {
+          "Message": "Concurrent runs exceeded.",
+          "Code": "ConcurrentRunsExceededException"
+        }
+      }
+    },
+    {
+      "label": "start-job-failure-slot-release-4",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "failure"
+        }
+      },
+      "started_ms": 1790434605896,
+      "finished_ms": 1790434606714,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRunId": "JOB_FAILURE_ID"
+        }
+      }
+    },
+    {
+      "label": "job-failure-poll-0",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_FAILURE_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790434606724,
+      "finished_ms": 1790434607437,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_FAILURE_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:56:46.560000+01:00",
+            "LastModifiedOn": "2026-09-26T15:56:46.563000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "failure"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 0,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-failure-poll-1",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_FAILURE_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790434612439,
+      "finished_ms": 1790434613193,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_FAILURE_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:56:46.560000+01:00",
+            "LastModifiedOn": "2026-09-26T15:56:49.726000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "failure"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 1,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-failure-poll-2",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_FAILURE_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790434618194,
+      "finished_ms": 1790434618969,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_FAILURE_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:56:46.560000+01:00",
+            "LastModifiedOn": "2026-09-26T15:56:49.726000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "failure"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 7,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-failure-poll-3",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_FAILURE_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790434623970,
+      "finished_ms": 1790434624712,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_FAILURE_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:56:46.560000+01:00",
+            "LastModifiedOn": "2026-09-26T15:57:02.310000+01:00",
+            "CompletedOn": "2026-09-26T15:57:02.310000+01:00",
+            "JobRunState": "FAILED",
+            "Arguments": {
+              "--mode": "failure"
+            },
+            "ErrorMessage": "RuntimeError: owned intentional producer failure",
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 11,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "get-job-runs",
+      "service": "glue",
+      "operation": "get-job-runs",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "MaxResults": 10
+      },
+      "started_ms": 1790434624723,
+      "finished_ms": 1790434625457,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRuns": [
+            {
+              "Id": "JOB_FAILURE_ID",
+              "Attempt": 0,
+              "JobName": "stackd-analytics-owned-job",
+              "JobMode": "SCRIPT",
+              "JobRunQueuingEnabled": false,
+              "StartedOn": "2026-09-26T15:56:46.560000+01:00",
+              "LastModifiedOn": "2026-09-26T15:57:02.310000+01:00",
+              "CompletedOn": "2026-09-26T15:57:02.310000+01:00",
+              "JobRunState": "FAILED",
+              "Arguments": {
+                "--mode": "failure"
+              },
+              "ErrorMessage": "RuntimeError: owned intentional producer failure",
+              "PredecessorRuns": [],
+              "AllocatedCapacity": 0,
+              "ExecutionTime": 11,
+              "Timeout": 2,
+              "MaxCapacity": 0.0625,
+              "LogGroupName": "/aws-glue/python-jobs",
+              "GlueVersion": "6.0"
+            },
+            {
+              "Id": "JOB_SUCCESS_ID",
+              "Attempt": 0,
+              "JobName": "stackd-analytics-owned-job",
+              "JobMode": "SCRIPT",
+              "JobRunQueuingEnabled": false,
+              "StartedOn": "2026-09-26T15:55:51.469000+01:00",
+              "LastModifiedOn": "2026-09-26T15:56:11.294000+01:00",
+              "CompletedOn": "2026-09-26T15:56:11.294000+01:00",
+              "JobRunState": "SUCCEEDED",
+              "Arguments": {
+                "--mode": "success"
+              },
+              "PredecessorRuns": [],
+              "AllocatedCapacity": 0,
+              "ExecutionTime": 12,
+              "Timeout": 2,
+              "MaxCapacity": 0.0625,
+              "LogGroupName": "/aws-glue/python-jobs",
+              "GlueVersion": "6.0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "stop-terminal-and-missing-runs",
+      "service": "glue",
+      "operation": "batch-stop-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "JobRunIds": [
+          "JOB_SUCCESS_ID",
+          "jr_0000000000000000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      "started_ms": 1790434625459,
+      "finished_ms": 1790434626191,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SuccessfulSubmissions": [],
+          "Errors": [
+            {
+              "JobName": "stackd-analytics-owned-job",
+              "JobRunId": "JOB_SUCCESS_ID",
+              "ErrorDetail": {
+                "ErrorCode": "JobRunCannotBeStoppedException",
+                "ErrorMessage": "Job Run cannot be stopped in current state."
+              }
+            },
+            {
+              "JobName": "stackd-analytics-owned-job",
+              "JobRunId": "jr_0000000000000000000000000000000000000000000000000000000000000000",
+              "ErrorDetail": {
+                "ErrorCode": "EntityNotFoundException",
+                "ErrorMessage": "Job Run not found."
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "update-job-replacement",
+      "service": "glue",
+      "operation": "update-job",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "JobUpdate": {
+          "Role": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+          "Command": {
+            "Name": "pythonshell",
+            "PythonVersion": "3.9",
+            "ScriptLocation": "s3://stackd-analytics-owned/scripts/producer.py"
+          },
+          "MaxCapacity": 0.0625,
+          "Timeout": 2,
+          "MaxRetries": 0
+        }
+      },
+      "started_ms": 1790434626192,
+      "finished_ms": 1790434626961,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobName": "stackd-analytics-owned-job"
+        }
+      }
+    },
+    {
+      "label": "get-job-after-update",
+      "service": "glue",
+      "operation": "get-job",
+      "input": {
+        "JobName": "stackd-analytics-owned-job"
+      },
+      "started_ms": 1790434626963,
+      "finished_ms": 1790434627697,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Job": {
+            "Name": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "Role": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+            "CreatedOn": "2026-09-26T15:55:37.221000+01:00",
+            "LastModifiedOn": "2026-09-26T15:57:06.835000+01:00",
+            "ExecutionProperty": {
+              "MaxConcurrentRuns": 1
+            },
+            "Command": {
+              "Name": "pythonshell",
+              "ScriptLocation": "s3://stackd-analytics-owned/scripts/producer.py",
+              "PythonVersion": "3.9"
+            },
+            "MaxRetries": 0,
+            "AllocatedCapacity": 0,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "create-database",
+      "service": "glue",
+      "operation": "create-database",
+      "input": {
+        "DatabaseInput": {
+          "Name": "stackd_analytics_owned"
+        }
+      },
+      "started_ms": 1790434627699,
+      "finished_ms": 1790434628487,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-table",
+      "service": "glue",
+      "operation": "create-table",
+      "input": {
+        "DatabaseName": "stackd_analytics_owned",
+        "TableInput": {
+          "Name": "sales",
+          "TableType": "EXTERNAL_TABLE",
+          "Parameters": {
+            "classification": "csv"
+          },
+          "StorageDescriptor": {
+            "Columns": [
+              {
+                "Name": "category",
+                "Type": "string"
+              },
+              {
+                "Name": "amount",
+                "Type": "int"
+              }
+            ],
+            "Location": "s3://stackd-analytics-owned/data/",
+            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+            "SerdeInfo": {
+              "SerializationLibrary": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+              "Parameters": {
+                "field.delim": ",",
+                "serialization.format": ","
+              }
+            }
+          },
+          "PartitionKeys": []
+        }
+      },
+      "started_ms": 1790434628488,
+      "finished_ms": 1790434629349,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-workgroup",
+      "service": "athena",
+      "operation": "create-work-group",
+      "input": {
+        "Name": "stackd-analytics-owned-wg",
+        "Configuration": {
+          "EnforceWorkGroupConfiguration": true,
+          "PublishCloudWatchMetricsEnabled": false,
+          "BytesScannedCutoffPerQuery": 10485760,
+          "ResultConfiguration": {
+            "OutputLocation": "s3://stackd-analytics-owned/results/",
+            "EncryptionConfiguration": {
+              "EncryptionOption": "SSE_S3"
+            }
+          },
+          "EngineVersion": {
+            "SelectedEngineVersion": "Athena engine version 3"
+          }
+        },
+        "Tags": [
+          {
+            "Key": "owned",
+            "Value": "analytics-probe"
+          }
+        ]
+      },
+      "started_ms": 1790434629351,
+      "finished_ms": 1790434630151,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "duplicate-workgroup",
+      "service": "athena",
+      "operation": "create-work-group",
+      "input": {
+        "Name": "stackd-analytics-owned-wg"
+      },
+      "started_ms": 1790434630152,
+      "finished_ms": 1790434630829,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "WorkGroup is already created",
+          "Code": "InvalidRequestException",
+          "AthenaErrorCode": "INVALID_INPUT"
+        }
+      }
+    },
+    {
+      "label": "get-workgroup",
+      "service": "athena",
+      "operation": "get-work-group",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg"
+      },
+      "started_ms": 1790434630831,
+      "finished_ms": 1790434631505,
+      "result": {
+        "code": "Success",
+        "output": {
+          "WorkGroup": {
+            "Name": "stackd-analytics-owned-wg",
+            "State": "ENABLED",
+            "Configuration": {
+              "ResultConfiguration": {
+                "OutputLocation": "s3://stackd-analytics-owned/results/",
+                "EncryptionConfiguration": {
+                  "EncryptionOption": "SSE_S3"
+                }
+              },
+              "EnforceWorkGroupConfiguration": true,
+              "PublishCloudWatchMetricsEnabled": false,
+              "BytesScannedCutoffPerQuery": 10485760,
+              "RequesterPaysEnabled": false,
+              "EngineVersion": {
+                "SelectedEngineVersion": "Athena engine version 3",
+                "EffectiveEngineVersion": "Athena engine version 3"
+              },
+              "EnableMinimumEncryptionConfiguration": false
+            },
+            "CreationTime": "2026-09-26T15:57:10.027000+01:00"
+          }
+        }
+      }
+    },
+    {
+      "label": "catalog-get-database",
+      "service": "athena",
+      "operation": "get-database",
+      "input": {
+        "CatalogName": "AwsDataCatalog",
+        "DatabaseName": "stackd_analytics_owned"
+      },
+      "started_ms": 1790434631507,
+      "finished_ms": 1790434632294,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Database": {
+            "Name": "stackd_analytics_owned"
+          }
+        }
+      }
+    },
+    {
+      "label": "catalog-get-table",
+      "service": "athena",
+      "operation": "get-table-metadata",
+      "input": {
+        "CatalogName": "AwsDataCatalog",
+        "DatabaseName": "stackd_analytics_owned",
+        "TableName": "sales"
+      },
+      "started_ms": 1790434632296,
+      "finished_ms": 1790434633091,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TableMetadata": {
+            "Name": "sales",
+            "CreateTime": "2026-09-26T15:57:09+01:00",
+            "TableType": "EXTERNAL_TABLE",
+            "Columns": [
+              {
+                "Name": "category",
+                "Type": "string"
+              },
+              {
+                "Name": "amount",
+                "Type": "int"
+              }
+            ],
+            "PartitionKeys": [],
+            "Parameters": {
+              "classification": "csv",
+              "inputformat": "org.apache.hadoop.mapred.TextInputFormat",
+              "location": "s3://stackd-analytics-owned/data/",
+              "outputformat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+              "serde.param.field.delim": ",",
+              "serde.param.serialization.format": ",",
+              "serde.serialization.lib": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "catalog-missing-database",
+      "service": "athena",
+      "operation": "get-database",
+      "input": {
+        "CatalogName": "AwsDataCatalog",
+        "DatabaseName": "stackd_analytics_owned_missing"
+      },
+      "started_ms": 1790434633092,
+      "finished_ms": 1790434633840,
+      "result": {
+        "code": "MetadataException",
+        "error": {
+          "Message": "Database stackd_analytics_owned_missing not found. (Service: AmazonDataCatalog; Status Code: 400; Error Code: EntityNotFoundException; Request ID: 2646ed13-6d0a-40cb-8c08-7fe8dc882f0d; Proxy: null)",
+          "Code": "MetadataException"
+        }
+      }
+    },
+    {
+      "label": "catalog-missing-table",
+      "service": "athena",
+      "operation": "get-table-metadata",
+      "input": {
+        "CatalogName": "AwsDataCatalog",
+        "DatabaseName": "stackd_analytics_owned",
+        "TableName": "missing"
+      },
+      "started_ms": 1790434633842,
+      "finished_ms": 1790434634600,
+      "result": {
+        "code": "MetadataException",
+        "error": {
+          "Message": "Entity Not Found (Service: AmazonDataCatalog; Status Code: 400; Error Code: EntityNotFoundException; Request ID: 793e8e52-29f6-439f-b719-b31ed4e8cdb2; Proxy: null)",
+          "Code": "MetadataException"
+        }
+      }
+    },
+    {
+      "label": "create-other-workgroup",
+      "service": "athena",
+      "operation": "create-work-group",
+      "input": {
+        "Name": "stackd-analytics-owned-other"
+      },
+      "started_ms": 1790434634601,
+      "finished_ms": 1790434635331,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "other-workgroup-defaults",
+      "service": "athena",
+      "operation": "get-work-group",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-other"
+      },
+      "started_ms": 1790434635333,
+      "finished_ms": 1790434636018,
+      "result": {
+        "code": "Success",
+        "output": {
+          "WorkGroup": {
+            "Name": "stackd-analytics-owned-other",
+            "State": "ENABLED",
+            "Configuration": {
+              "EnforceWorkGroupConfiguration": true,
+              "PublishCloudWatchMetricsEnabled": true,
+              "RequesterPaysEnabled": false,
+              "EngineVersion": {
+                "SelectedEngineVersion": "AUTO",
+                "EffectiveEngineVersion": "Athena engine version 3"
+              },
+              "EnableMinimumEncryptionConfiguration": false
+            },
+            "CreationTime": "2026-09-26T15:57:15.219000+01:00"
+          }
+        }
+      }
+    },
+    {
+      "label": "update-other-result",
+      "service": "athena",
+      "operation": "update-work-group",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-other",
+        "ConfigurationUpdates": {
+          "ResultConfigurationUpdates": {
+            "OutputLocation": "s3://stackd-analytics-owned/other/",
+            "EncryptionConfiguration": {
+              "EncryptionOption": "SSE_S3"
+            }
+          }
+        }
+      },
+      "started_ms": 1790434636019,
+      "finished_ms": 1790434636695,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "remove-other-result",
+      "service": "athena",
+      "operation": "update-work-group",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-other",
+        "ConfigurationUpdates": {
+          "ResultConfigurationUpdates": {
+            "RemoveOutputLocation": true,
+            "RemoveEncryptionConfiguration": true
+          }
+        }
+      },
+      "started_ms": 1790434636696,
+      "finished_ms": 1790434637393,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "other-workgroup-after-remove",
+      "service": "athena",
+      "operation": "get-work-group",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-other"
+      },
+      "started_ms": 1790434637395,
+      "finished_ms": 1790434638072,
+      "result": {
+        "code": "Success",
+        "output": {
+          "WorkGroup": {
+            "Name": "stackd-analytics-owned-other",
+            "State": "ENABLED",
+            "Configuration": {
+              "ResultConfiguration": {},
+              "EnforceWorkGroupConfiguration": true,
+              "PublishCloudWatchMetricsEnabled": true,
+              "RequesterPaysEnabled": false,
+              "EngineVersion": {
+                "SelectedEngineVersion": "AUTO",
+                "EffectiveEngineVersion": "Athena engine version 3"
+              },
+              "EnableMinimumEncryptionConfiguration": false
+            },
+            "CreationTime": "2026-09-26T15:57:15.219000+01:00"
+          }
+        }
+      }
+    },
+    {
+      "label": "query-missing-output",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-other",
+        "QueryString": "SELECT 1",
+        "ClientRequestToken": "cd7a113131644987a2bc092e7cc72776"
+      },
+      "started_ms": 1790434638074,
+      "finished_ms": 1790434638751,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "No output location provided. You did not provide an output location for  your query results. Either specify an S3 bucket location or enable Athena managed query results in your workgroup settings.",
+          "Code": "InvalidRequestException",
+          "AthenaErrorCode": "INVALID_INPUT"
+        }
+      }
+    },
+    {
+      "label": "query-aggregate",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "QueryString": "SELECT category, sum(amount) AS total FROM sales GROUP BY category ORDER BY category",
+        "ClientRequestToken": "QUERY_AGGREGATE_TOKEN",
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "QueryExecutionContext": {
+          "Database": "stackd_analytics_owned",
+          "Catalog": "AwsDataCatalog"
+        },
+        "ResultConfiguration": {
+          "OutputLocation": "s3://stackd-analytics-owned/ignored-client/"
+        }
+      },
+      "started_ms": 1790434638761,
+      "finished_ms": 1790434639524,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecutionId": "QUERY_AGGREGATE_ID"
+        }
+      }
+    },
+    {
+      "label": "query-idempotent-retry",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "QueryString": "SELECT category, sum(amount) AS total FROM sales GROUP BY category ORDER BY category",
+        "ClientRequestToken": "QUERY_AGGREGATE_TOKEN",
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "QueryExecutionContext": {
+          "Database": "stackd_analytics_owned",
+          "Catalog": "AwsDataCatalog"
+        },
+        "ResultConfiguration": {
+          "OutputLocation": "s3://stackd-analytics-owned/ignored-client/"
+        }
+      },
+      "started_ms": 1790434639535,
+      "finished_ms": 1790434640212,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecutionId": "QUERY_AGGREGATE_ID"
+        }
+      }
+    },
+    {
+      "label": "query-token-mismatch",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "QueryString": "SELECT 999",
+        "ClientRequestToken": "QUERY_AGGREGATE_TOKEN",
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "QueryExecutionContext": {
+          "Database": "stackd_analytics_owned",
+          "Catalog": "AwsDataCatalog"
+        },
+        "ResultConfiguration": {
+          "OutputLocation": "s3://stackd-analytics-owned/ignored-client/"
+        }
+      },
+      "started_ms": 1790434640214,
+      "finished_ms": 1790434640907,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "Idempotent parameters do not match",
+          "Code": "InvalidRequestException",
+          "AthenaErrorCode": "IDEMPOTENT_PARAMETER_MISMATCH"
+        }
+      }
+    },
+    {
+      "label": "aggregate-poll-0",
+      "service": "athena",
+      "operation": "get-query-execution",
+      "input": {
+        "QueryExecutionId": "QUERY_AGGREGATE_ID"
+      },
+      "started_ms": 1790434640909,
+      "finished_ms": 1790434641598,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecution": {
+            "QueryExecutionId": "QUERY_AGGREGATE_ID",
+            "Query": "SELECT category, sum(amount) AS total FROM sales GROUP BY category ORDER BY category",
+            "StatementType": "DML",
+            "ResultConfiguration": {
+              "OutputLocation": "s3://stackd-analytics-owned/results/QUERY_AGGREGATE_ID.csv",
+              "EncryptionConfiguration": {
+                "EncryptionOption": "SSE_S3"
+              }
+            },
+            "ResultReuseConfiguration": {
+              "ResultReuseByAgeConfiguration": {
+                "Enabled": false
+              }
+            },
+            "QueryExecutionContext": {
+              "Database": "stackd_analytics_owned",
+              "Catalog": "awsdatacatalog"
+            },
+            "Status": {
+              "State": "SUCCEEDED",
+              "SubmissionDateTime": "2026-09-26T15:57:19.397000+01:00",
+              "CompletionDateTime": "2026-09-26T15:57:20.006000+01:00"
+            },
+            "Statistics": {
+              "EngineExecutionTimeInMillis": 414,
+              "DataScannedInBytes": 25,
+              "TotalExecutionTimeInMillis": 609,
+              "QueryQueueTimeInMillis": 93,
+              "ServicePreProcessingTimeInMillis": 70,
+              "QueryPlanningTimeInMillis": 95,
+              "ServiceProcessingTimeInMillis": 32,
+              "ResultReuseInformation": {
+                "ReusedPreviousResult": false
+              }
+            },
+            "WorkGroup": "stackd-analytics-owned-wg",
+            "EngineVersion": {
+              "SelectedEngineVersion": "Athena engine version 3",
+              "EffectiveEngineVersion": "Athena engine version 3"
+            },
+            "SubstatementType": "SELECT"
+          }
+        }
+      }
+    },
+    {
+      "label": "aggregate-results",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_AGGREGATE_ID"
+      },
+      "started_ms": 1790434641609,
+      "finished_ms": 1790434642341,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UpdateCount": 0,
+          "ResultSet": {
+            "Rows": [
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "category"
+                  },
+                  {
+                    "VarCharValue": "total"
+                  }
+                ]
+              },
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "north"
+                  },
+                  {
+                    "VarCharValue": "10"
+                  }
+                ]
+              },
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "south"
+                  },
+                  {
+                    "VarCharValue": "14"
+                  }
+                ]
+              }
+            ],
+            "ResultSetMetadata": {
+              "ColumnInfo": [
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "category",
+                  "Label": "category",
+                  "Type": "varchar",
+                  "Precision": 2147483647,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": true
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "total",
+                  "Label": "total",
+                  "Type": "bigint",
+                  "Precision": 19,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "aggregate-results-page-one",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_AGGREGATE_ID",
+        "MaxResults": 1
+      },
+      "started_ms": 1790434642343,
+      "finished_ms": 1790434643105,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UpdateCount": 0,
+          "ResultSet": {
+            "Rows": [
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "category"
+                  },
+                  {
+                    "VarCharValue": "total"
+                  }
+                ]
+              }
+            ],
+            "ResultSetMetadata": {
+              "ColumnInfo": [
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "category",
+                  "Label": "category",
+                  "Type": "varchar",
+                  "Precision": 2147483647,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": true
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "total",
+                  "Label": "total",
+                  "Type": "bigint",
+                  "Precision": 19,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                }
+              ]
+            }
+          },
+          "NextToken": "RESULT_PAGE_2_TOKEN"
+        }
+      }
+    },
+    {
+      "label": "aggregate-results-page-2",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_AGGREGATE_ID",
+        "MaxResults": 1,
+        "NextToken": "RESULT_PAGE_2_TOKEN"
+      },
+      "started_ms": 1790434643115,
+      "finished_ms": 1790434643864,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UpdateCount": 0,
+          "ResultSet": {
+            "Rows": [
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "north"
+                  },
+                  {
+                    "VarCharValue": "10"
+                  }
+                ]
+              }
+            ],
+            "ResultSetMetadata": {
+              "ColumnInfo": [
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "category",
+                  "Label": "category",
+                  "Type": "varchar",
+                  "Precision": 2147483647,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": true
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "total",
+                  "Label": "total",
+                  "Type": "bigint",
+                  "Precision": 19,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                }
+              ]
+            }
+          },
+          "NextToken": "RESULT_PAGE_3_TOKEN"
+        }
+      }
+    },
+    {
+      "label": "aggregate-results-page-3",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_AGGREGATE_ID",
+        "MaxResults": 1,
+        "NextToken": "RESULT_PAGE_3_TOKEN"
+      },
+      "started_ms": 1790434643868,
+      "finished_ms": 1790434644607,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UpdateCount": 0,
+          "ResultSet": {
+            "Rows": [
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "south"
+                  },
+                  {
+                    "VarCharValue": "14"
+                  }
+                ]
+              }
+            ],
+            "ResultSetMetadata": {
+              "ColumnInfo": [
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "category",
+                  "Label": "category",
+                  "Type": "varchar",
+                  "Precision": 2147483647,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": true
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "total",
+                  "Label": "total",
+                  "Type": "bigint",
+                  "Precision": 19,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                }
+              ]
+            }
+          },
+          "NextToken": "RESULT_PAGE_4_TOKEN"
+        }
+      }
+    },
+    {
+      "label": "aggregate-results-page-4",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_AGGREGATE_ID",
+        "MaxResults": 1,
+        "NextToken": "RESULT_PAGE_4_TOKEN"
+      },
+      "started_ms": 1790434644619,
+      "finished_ms": 1790434645351,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UpdateCount": 0,
+          "ResultSet": {
+            "Rows": [],
+            "ResultSetMetadata": {
+              "ColumnInfo": [
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "category",
+                  "Label": "category",
+                  "Type": "varchar",
+                  "Precision": 2147483647,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": true
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "total",
+                  "Label": "total",
+                  "Type": "bigint",
+                  "Precision": 19,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "consume-query-csv",
+      "service": "s3api",
+      "operation": "get-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "results/QUERY_AGGREGATE_ID.csv"
+      },
+      "started_ms": 1790434645354,
+      "finished_ms": 1790434646144,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AcceptRanges": "bytes",
+          "LastModified": "2026-09-26T14:57:20+00:00",
+          "ContentLength": 45,
+          "ETag": "\"77e6fab2801f6a159948b035b2939667\"",
+          "ChecksumCRC64NVME": "i6T3cuwEayU=",
+          "ChecksumType": "FULL_OBJECT",
+          "ContentType": "application/octet-stream",
+          "ServerSideEncryption": "AES256",
+          "Metadata": {}
+        }
+      }
+    },
+    {
+      "label": "query-types",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "QueryString": "SELECT CAST(NULL AS varchar) AS null_value, '' AS empty_value, CAST(12.30 AS decimal(6,2)) AS decimal_value, CAST(7 AS bigint) AS integer_value, true AS flag, DATE '2026-01-02' AS day_value, TIMESTAMP '2026-01-02 03:04:05.123' AS timestamp_value, CAST('hi' AS char(4)) AS char_value, ARRAY[1,2] AS array_value, MAP(ARRAY['a'],ARRAY[3]) AS map_value, CAST(ROW(1,'x') AS ROW(n integer,s varchar)) AS row_value",
+        "ClientRequestToken": "QUERY_TYPES_TOKEN",
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "QueryExecutionContext": {
+          "Database": "stackd_analytics_owned",
+          "Catalog": "AwsDataCatalog"
+        }
+      },
+      "started_ms": 1790434646158,
+      "finished_ms": 1790434646925,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecutionId": "QUERY_TYPES_ID"
+        }
+      }
+    },
+    {
+      "label": "types-poll-0",
+      "service": "athena",
+      "operation": "get-query-execution",
+      "input": {
+        "QueryExecutionId": "QUERY_TYPES_ID"
+      },
+      "started_ms": 1790434646937,
+      "finished_ms": 1790434647601,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecution": {
+            "QueryExecutionId": "QUERY_TYPES_ID",
+            "Query": "SELECT CAST(NULL AS varchar) AS null_value, '' AS empty_value, CAST(12.30 AS decimal(6,2)) AS decimal_value, CAST(7 AS bigint) AS integer_value, true AS flag, DATE '2026-01-02' AS day_value, TIMESTAMP '2026-01-02 03:04:05.123' AS timestamp_value, CAST('hi' AS char(4)) AS char_value, ARRAY[1,2] AS array_value, MAP(ARRAY['a'],ARRAY[3]) AS map_value, CAST(ROW(1,'x') AS ROW(n integer,s varchar)) AS row_value",
+            "StatementType": "DML",
+            "ResultConfiguration": {
+              "OutputLocation": "s3://stackd-analytics-owned/results/QUERY_TYPES_ID.csv",
+              "EncryptionConfiguration": {
+                "EncryptionOption": "SSE_S3"
+              }
+            },
+            "ResultReuseConfiguration": {
+              "ResultReuseByAgeConfiguration": {
+                "Enabled": false
+              }
+            },
+            "QueryExecutionContext": {
+              "Database": "stackd_analytics_owned",
+              "Catalog": "awsdatacatalog"
+            },
+            "Status": {
+              "State": "SUCCEEDED",
+              "SubmissionDateTime": "2026-09-26T15:57:26.794000+01:00",
+              "CompletionDateTime": "2026-09-26T15:57:27.204000+01:00"
+            },
+            "Statistics": {
+              "EngineExecutionTimeInMillis": 222,
+              "DataScannedInBytes": 0,
+              "TotalExecutionTimeInMillis": 410,
+              "QueryQueueTimeInMillis": 92,
+              "ServicePreProcessingTimeInMillis": 54,
+              "QueryPlanningTimeInMillis": 45,
+              "ServiceProcessingTimeInMillis": 42,
+              "ResultReuseInformation": {
+                "ReusedPreviousResult": false
+              }
+            },
+            "WorkGroup": "stackd-analytics-owned-wg",
+            "EngineVersion": {
+              "SelectedEngineVersion": "Athena engine version 3",
+              "EffectiveEngineVersion": "Athena engine version 3"
+            },
+            "SubstatementType": "SELECT"
+          }
+        }
+      }
+    },
+    {
+      "label": "typed-results",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_TYPES_ID"
+      },
+      "started_ms": 1790434647612,
+      "finished_ms": 1790434648349,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UpdateCount": 0,
+          "ResultSet": {
+            "Rows": [
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "null_value"
+                  },
+                  {
+                    "VarCharValue": "empty_value"
+                  },
+                  {
+                    "VarCharValue": "decimal_value"
+                  },
+                  {
+                    "VarCharValue": "integer_value"
+                  },
+                  {
+                    "VarCharValue": "flag"
+                  },
+                  {
+                    "VarCharValue": "day_value"
+                  },
+                  {
+                    "VarCharValue": "timestamp_value"
+                  },
+                  {
+                    "VarCharValue": "char_value"
+                  },
+                  {
+                    "VarCharValue": "array_value"
+                  },
+                  {
+                    "VarCharValue": "map_value"
+                  },
+                  {
+                    "VarCharValue": "row_value"
+                  }
+                ]
+              },
+              {
+                "Data": [
+                  {},
+                  {
+                    "VarCharValue": ""
+                  },
+                  {
+                    "VarCharValue": "12.30"
+                  },
+                  {
+                    "VarCharValue": "7"
+                  },
+                  {
+                    "VarCharValue": "true"
+                  },
+                  {
+                    "VarCharValue": "2026-01-02"
+                  },
+                  {
+                    "VarCharValue": "2026-01-02 03:04:05.123"
+                  },
+                  {
+                    "VarCharValue": "hi  "
+                  },
+                  {
+                    "VarCharValue": "[1, 2]"
+                  },
+                  {
+                    "VarCharValue": "{a=3}"
+                  },
+                  {
+                    "VarCharValue": "{n=1, s=x}"
+                  }
+                ]
+              }
+            ],
+            "ResultSetMetadata": {
+              "ColumnInfo": [
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "null_value",
+                  "Label": "null_value",
+                  "Type": "varchar",
+                  "Precision": 2147483647,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": true
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "empty_value",
+                  "Label": "empty_value",
+                  "Type": "varchar",
+                  "Precision": 0,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": true
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "decimal_value",
+                  "Label": "decimal_value",
+                  "Type": "decimal",
+                  "Precision": 6,
+                  "Scale": 2,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "integer_value",
+                  "Label": "integer_value",
+                  "Type": "bigint",
+                  "Precision": 19,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "flag",
+                  "Label": "flag",
+                  "Type": "boolean",
+                  "Precision": 0,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "day_value",
+                  "Label": "day_value",
+                  "Type": "date",
+                  "Precision": 0,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "timestamp_value",
+                  "Label": "timestamp_value",
+                  "Type": "timestamp",
+                  "Precision": 3,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "char_value",
+                  "Label": "char_value",
+                  "Type": "char",
+                  "Precision": 4,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": true
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "array_value",
+                  "Label": "array_value",
+                  "Type": "array",
+                  "Precision": 0,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "map_value",
+                  "Label": "map_value",
+                  "Type": "map",
+                  "Precision": 0,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "row_value",
+                  "Label": "row_value",
+                  "Type": "row",
+                  "Precision": 0,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "query-failure",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "QueryString": "SELECT missing_column FROM sales",
+        "ClientRequestToken": "QUERY_FAILURE_TOKEN",
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "QueryExecutionContext": {
+          "Database": "stackd_analytics_owned",
+          "Catalog": "AwsDataCatalog"
+        }
+      },
+      "started_ms": 1790434648361,
+      "finished_ms": 1790434649097,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecutionId": "QUERY_FAILURE_ID"
+        }
+      }
+    },
+    {
+      "label": "failure-poll-0",
+      "service": "athena",
+      "operation": "get-query-execution",
+      "input": {
+        "QueryExecutionId": "QUERY_FAILURE_ID"
+      },
+      "started_ms": 1790434649109,
+      "finished_ms": 1790434649786,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecution": {
+            "QueryExecutionId": "QUERY_FAILURE_ID",
+            "Query": "SELECT missing_column FROM sales",
+            "StatementType": "DML",
+            "ResultConfiguration": {
+              "OutputLocation": "s3://stackd-analytics-owned/results/QUERY_FAILURE_ID.csv",
+              "EncryptionConfiguration": {
+                "EncryptionOption": "SSE_S3"
+              }
+            },
+            "ResultReuseConfiguration": {
+              "ResultReuseByAgeConfiguration": {
+                "Enabled": false
+              }
+            },
+            "QueryExecutionContext": {
+              "Database": "stackd_analytics_owned",
+              "Catalog": "awsdatacatalog"
+            },
+            "Status": {
+              "State": "FAILED",
+              "StateChangeReason": "COLUMN_NOT_FOUND: line 1:8: Column 'missing_column' cannot be resolved or requester is not authorized to access requested resources",
+              "SubmissionDateTime": "2026-09-26T15:57:28.973000+01:00",
+              "CompletionDateTime": "2026-09-26T15:57:29.384000+01:00",
+              "AthenaError": {
+                "ErrorCategory": 2,
+                "ErrorType": 1006,
+                "Retryable": false,
+                "ErrorMessage": "COLUMN_NOT_FOUND: line 1:8: Column 'missing_column' cannot be resolved or requester is not authorized to access requested resources"
+              }
+            },
+            "Statistics": {
+              "EngineExecutionTimeInMillis": 201,
+              "DataScannedInBytes": 0,
+              "TotalExecutionTimeInMillis": 411,
+              "QueryQueueTimeInMillis": 53,
+              "ServicePreProcessingTimeInMillis": 72,
+              "ServiceProcessingTimeInMillis": 85,
+              "ResultReuseInformation": {
+                "ReusedPreviousResult": false
+              }
+            },
+            "WorkGroup": "stackd-analytics-owned-wg",
+            "EngineVersion": {
+              "SelectedEngineVersion": "Athena engine version 3",
+              "EffectiveEngineVersion": "Athena engine version 3"
+            },
+            "SubstatementType": "SELECT"
+          }
+        }
+      }
+    },
+    {
+      "label": "failed-results",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_FAILURE_ID"
+      },
+      "started_ms": 1790434649798,
+      "finished_ms": 1790434650468,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "Query did not finish successfully. Final query state: FAILED",
+          "Code": "InvalidRequestException",
+          "AthenaErrorCode": "INVALID_QUERY_EXECUTION_STATE"
+        }
+      }
+    },
+    {
+      "label": "query-cancel",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "QueryString": "SELECT sum(a.x*b.x) FROM UNNEST(sequence(1,1000)) a(x) CROSS JOIN UNNEST(sequence(1,1000)) b(x)",
+        "ClientRequestToken": "QUERY_CANCEL_TOKEN",
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "QueryExecutionContext": {
+          "Database": "stackd_analytics_owned",
+          "Catalog": "AwsDataCatalog"
+        }
+      },
+      "started_ms": 1790434650481,
+      "finished_ms": 1790434651218,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecutionId": "QUERY_CANCEL_ID"
+        }
+      }
+    },
+    {
+      "label": "cancel-query",
+      "service": "athena",
+      "operation": "stop-query-execution",
+      "input": {
+        "QueryExecutionId": "QUERY_CANCEL_ID"
+      },
+      "started_ms": 1790434651230,
+      "finished_ms": 1790434651908,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cancel-poll-0",
+      "service": "athena",
+      "operation": "get-query-execution",
+      "input": {
+        "QueryExecutionId": "QUERY_CANCEL_ID"
+      },
+      "started_ms": 1790434651911,
+      "finished_ms": 1790434652582,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecution": {
+            "QueryExecutionId": "QUERY_CANCEL_ID",
+            "Query": "SELECT sum(a.x*b.x) FROM UNNEST(sequence(1,1000)) a(x) CROSS JOIN UNNEST(sequence(1,1000)) b(x)",
+            "StatementType": "DML",
+            "ResultConfiguration": {
+              "OutputLocation": "s3://stackd-analytics-owned/results/QUERY_CANCEL_ID.csv",
+              "EncryptionConfiguration": {
+                "EncryptionOption": "SSE_S3"
+              }
+            },
+            "ResultReuseConfiguration": {
+              "ResultReuseByAgeConfiguration": {
+                "Enabled": false
+              }
+            },
+            "QueryExecutionContext": {
+              "Database": "stackd_analytics_owned",
+              "Catalog": "awsdatacatalog"
+            },
+            "Status": {
+              "State": "SUCCEEDED",
+              "SubmissionDateTime": "2026-09-26T15:57:31.094000+01:00",
+              "CompletionDateTime": "2026-09-26T15:57:31.668000+01:00"
+            },
+            "Statistics": {
+              "EngineExecutionTimeInMillis": 418,
+              "DataScannedInBytes": 0,
+              "TotalExecutionTimeInMillis": 574,
+              "QueryQueueTimeInMillis": 67,
+              "ServicePreProcessingTimeInMillis": 63,
+              "QueryPlanningTimeInMillis": 65,
+              "ServiceProcessingTimeInMillis": 26,
+              "ResultReuseInformation": {
+                "ReusedPreviousResult": false
+              }
+            },
+            "WorkGroup": "stackd-analytics-owned-wg",
+            "EngineVersion": {
+              "SelectedEngineVersion": "Athena engine version 3",
+              "EffectiveEngineVersion": "Athena engine version 3"
+            },
+            "SubstatementType": "SELECT"
+          }
+        }
+      }
+    },
+    {
+      "label": "cancel-query-again",
+      "service": "athena",
+      "operation": "stop-query-execution",
+      "input": {
+        "QueryExecutionId": "QUERY_CANCEL_ID"
+      },
+      "started_ms": 1790434652594,
+      "finished_ms": 1790434653271,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cancelled-results",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_CANCEL_ID"
+      },
+      "started_ms": 1790434653274,
+      "finished_ms": 1790434654042,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UpdateCount": 0,
+          "ResultSet": {
+            "Rows": [
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "_col0"
+                  }
+                ]
+              },
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "250500250000"
+                  }
+                ]
+              }
+            ],
+            "ResultSetMetadata": {
+              "ColumnInfo": [
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "_col0",
+                  "Label": "_col0",
+                  "Type": "bigint",
+                  "Precision": 19,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "query-other-workgroup-history",
+      "service": "athena",
+      "operation": "list-query-executions",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-other",
+        "MaxResults": 10
+      },
+      "started_ms": 1790434654045,
+      "finished_ms": 1790434654744,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecutionIds": []
+        }
+      }
+    },
+    {
+      "label": "create-prepared",
+      "service": "athena",
+      "operation": "create-prepared-statement",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "StatementName": "owned_statement",
+        "QueryStatement": "SELECT category FROM sales WHERE amount > ?",
+        "Description": "first"
+      },
+      "started_ms": 1790434654747,
+      "finished_ms": 1790434655473,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "duplicate-prepared",
+      "service": "athena",
+      "operation": "create-prepared-statement",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "StatementName": "owned_statement",
+        "QueryStatement": "SELECT category FROM sales WHERE amount > ?",
+        "Description": "duplicate replacement"
+      },
+      "started_ms": 1790434655477,
+      "finished_ms": 1790434656172,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "Prepared Statement owned_statement already exists in WorkGroup stackd-analytics-owned-wg ",
+          "Code": "InvalidRequestException",
+          "AthenaErrorCode": "INVALID_INPUT"
+        }
+      }
+    },
+    {
+      "label": "get-prepared-after-duplicate",
+      "service": "athena",
+      "operation": "get-prepared-statement",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "StatementName": "owned_statement"
+      },
+      "started_ms": 1790434656176,
+      "finished_ms": 1790434656837,
+      "result": {
+        "code": "Success",
+        "output": {
+          "PreparedStatement": {
+            "StatementName": "owned_statement",
+            "QueryStatement": "SELECT category FROM sales WHERE amount > ?",
+            "WorkGroupName": "stackd-analytics-owned-wg",
+            "Description": "first",
+            "LastModifiedTime": "2026-09-26T15:57:35.363000+01:00"
+          }
+        }
+      }
+    },
+    {
+      "label": "update-prepared-missing",
+      "service": "athena",
+      "operation": "update-prepared-statement",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "StatementName": "missing",
+        "QueryStatement": "SELECT 1"
+      },
+      "started_ms": 1790434656840,
+      "finished_ms": 1790434657541,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Prepared Statement missing does not exist in WorkGroup stackd-analytics-owned-wg ",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "get-prepared-other-workgroup",
+      "service": "athena",
+      "operation": "get-prepared-statement",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-other",
+        "StatementName": "owned_statement"
+      },
+      "started_ms": 1790434657544,
+      "finished_ms": 1790434658215,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "No Prepared Statement with statement name owned_statement exists in WorkGroup stackd-analytics-owned-other",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "update-prepared",
+      "service": "athena",
+      "operation": "update-prepared-statement",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "StatementName": "owned_statement",
+        "QueryStatement": "SELECT amount FROM sales WHERE amount > ?"
+      },
+      "started_ms": 1790434658219,
+      "finished_ms": 1790434658904,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "get-prepared-updated",
+      "service": "athena",
+      "operation": "get-prepared-statement",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "StatementName": "owned_statement"
+      },
+      "started_ms": 1790434658908,
+      "finished_ms": 1790434659593,
+      "result": {
+        "code": "Success",
+        "output": {
+          "PreparedStatement": {
+            "StatementName": "owned_statement",
+            "QueryStatement": "SELECT amount FROM sales WHERE amount > ?",
+            "WorkGroupName": "stackd-analytics-owned-wg",
+            "Description": "first",
+            "LastModifiedTime": "2026-09-26T15:57:38.790000+01:00"
+          }
+        }
+      }
+    },
+    {
+      "label": "create-reader-role",
+      "service": "iam",
+      "operation": "create-role",
+      "input": {
+        "RoleName": "stackd-analytics-owned-reader",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "started_ms": 1790434659597,
+      "finished_ms": 1790434660431,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-analytics-owned-reader",
+            "RoleId": "READER_ROLE_ID",
+            "Arn": "arn:aws:iam::123456789012:role/stackd-analytics-owned-reader",
+            "CreateDate": "2026-09-26T14:57:40+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "AWS": "arn:aws:iam::123456789012:root"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "reader-policy-athena-deny",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-analytics-owned-reader",
+        "PolicyName": "owned",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"glue:GetDatabase\", \"glue:GetTable\"], \"Resource\": [\"arn:aws:glue:us-east-1:123456789012:catalog\", \"arn:aws:glue:us-east-1:123456789012:database/stackd_analytics_owned\", \"arn:aws:glue:us-east-1:123456789012:table/stackd_analytics_owned/*\"]}, {\"Effect\": \"Deny\", \"Action\": \"glue:GetTable\", \"Resource\": \"arn:aws:glue:us-east-1:123456789012:table/stackd_analytics_owned/sales\"}, {\"Effect\": \"Allow\", \"Action\": [\"athena:GetQueryExecution\", \"athena:GetQueryResults\", \"athena:GetWorkGroup\", \"athena:StartQueryExecution\"], \"Resource\": \"arn:aws:athena:us-east-1:123456789012:workgroup/stackd-analytics-owned-wg\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:ListBucket\", \"s3:GetBucketLocation\"], \"Resource\": [\"arn:aws:s3:::stackd-analytics-owned\", \"arn:aws:s3:::stackd-analytics-owned/*\"]}, {\"Effect\": \"Deny\", \"Action\": \"athena:GetQueryResults\", \"Resource\": \"arn:aws:athena:us-east-1:123456789012:workgroup/stackd-analytics-owned-wg\"}]}"
+      },
+      "started_ms": 1790434660438,
+      "finished_ms": 1790434661173,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "reader-glue-database",
+      "service": "glue",
+      "operation": "get-database",
+      "input": {
+        "Name": "stackd_analytics_owned"
+      },
+      "started_ms": 1790434683253,
+      "finished_ms": 1790434684062,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Database": {
+            "Name": "stackd_analytics_owned",
+            "CreateTime": "2026-09-26T15:57:08+01:00",
+            "CreateTableDefaultPermissions": [
+              {
+                "Principal": {
+                  "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                },
+                "Permissions": [
+                  "ALL"
+                ]
+              }
+            ],
+            "CatalogId": "123456789012"
+          }
+        }
+      }
+    },
+    {
+      "label": "reader-glue-table-denied",
+      "service": "glue",
+      "operation": "get-table",
+      "input": {
+        "DatabaseName": "stackd_analytics_owned",
+        "Name": "sales"
+      },
+      "started_ms": 1790434684066,
+      "finished_ms": 1790434684813,
+      "result": {
+        "code": "AccessDeniedException",
+        "error": {
+          "Message": "User: arn:aws:sts::123456789012:assumed-role/stackd-analytics-owned-reader/owned-probe is not authorized to perform: glue:GetTable on resource: arn:aws:glue:us-east-1:123456789012:table/stackd_analytics_owned/sales with an explicit deny in an identity-based policy",
+          "Code": "AccessDeniedException"
+        }
+      }
+    },
+    {
+      "label": "reader-other-workgroup-denied",
+      "service": "athena",
+      "operation": "get-work-group",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-other"
+      },
+      "started_ms": 1790434684819,
+      "finished_ms": 1790434685524,
+      "result": {
+        "code": "AccessDeniedException",
+        "error": {
+          "Message": "You are not authorized to perform: athena:GetWorkGroup on the resource. After your AWS administrator or you have updated your permissions, please try again.",
+          "Code": "AccessDeniedException"
+        }
+      }
+    },
+    {
+      "label": "reader-athena-results-denied",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_AGGREGATE_ID"
+      },
+      "started_ms": 1790434685528,
+      "finished_ms": 1790434686194,
+      "result": {
+        "code": "AccessDeniedException",
+        "error": {
+          "Message": "You are not authorized to perform: athena:GetQueryResults on the resource. After your AWS administrator or you have updated your permissions, please try again.",
+          "Code": "AccessDeniedException"
+        }
+      }
+    },
+    {
+      "label": "reader-s3-results-allowed",
+      "service": "s3api",
+      "operation": "get-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "results/QUERY_AGGREGATE_ID.csv"
+      },
+      "started_ms": 1790434686198,
+      "finished_ms": 1790434686979,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AcceptRanges": "bytes",
+          "LastModified": "2026-09-26T14:57:20+00:00",
+          "ContentLength": 45,
+          "ETag": "\"77e6fab2801f6a159948b035b2939667\"",
+          "ChecksumCRC64NVME": "i6T3cuwEayU=",
+          "ChecksumType": "FULL_OBJECT",
+          "ContentType": "application/octet-stream",
+          "ServerSideEncryption": "AES256",
+          "Metadata": {}
+        }
+      }
+    },
+    {
+      "label": "reader-idempotent-no-table-permission",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "QueryString": "SELECT category, sum(amount) AS total FROM sales GROUP BY category ORDER BY category",
+        "ClientRequestToken": "QUERY_AGGREGATE_TOKEN",
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "QueryExecutionContext": {
+          "Database": "stackd_analytics_owned",
+          "Catalog": "AwsDataCatalog"
+        },
+        "ResultConfiguration": {
+          "OutputLocation": "s3://stackd-analytics-owned/ignored-client/"
+        }
+      },
+      "started_ms": 1790434686992,
+      "finished_ms": 1790434687704,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueryExecutionId": "QUERY_AGGREGATE_ID"
+        }
+      }
+    },
+    {
+      "label": "reader-policy-s3-deny",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-analytics-owned-reader",
+        "PolicyName": "owned",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"glue:GetDatabase\", \"glue:GetTable\"], \"Resource\": [\"arn:aws:glue:us-east-1:123456789012:catalog\", \"arn:aws:glue:us-east-1:123456789012:database/stackd_analytics_owned\", \"arn:aws:glue:us-east-1:123456789012:table/stackd_analytics_owned/*\"]}, {\"Effect\": \"Deny\", \"Action\": \"glue:GetTable\", \"Resource\": \"arn:aws:glue:us-east-1:123456789012:table/stackd_analytics_owned/sales\"}, {\"Effect\": \"Allow\", \"Action\": [\"athena:GetQueryExecution\", \"athena:GetQueryResults\", \"athena:GetWorkGroup\", \"athena:StartQueryExecution\"], \"Resource\": \"arn:aws:athena:us-east-1:123456789012:workgroup/stackd-analytics-owned-wg\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:ListBucket\", \"s3:GetBucketLocation\"], \"Resource\": [\"arn:aws:s3:::stackd-analytics-owned\", \"arn:aws:s3:::stackd-analytics-owned/*\"]}, {\"Effect\": \"Deny\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::stackd-analytics-owned/results/*\"}]}"
+      },
+      "started_ms": 1790434687708,
+      "finished_ms": 1790434688473,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "reader-s3-denial-poll-0",
+      "service": "s3api",
+      "operation": "get-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "results/QUERY_AGGREGATE_ID.csv"
+      },
+      "started_ms": 1790434688477,
+      "finished_ms": 1790434689175,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AcceptRanges": "bytes",
+          "LastModified": "2026-09-26T14:57:20+00:00",
+          "ContentLength": 45,
+          "ETag": "\"77e6fab2801f6a159948b035b2939667\"",
+          "ChecksumCRC64NVME": "i6T3cuwEayU=",
+          "ChecksumType": "FULL_OBJECT",
+          "ContentType": "application/octet-stream",
+          "ServerSideEncryption": "AES256",
+          "Metadata": {}
+        }
+      }
+    },
+    {
+      "label": "reader-s3-denial-poll-1",
+      "service": "s3api",
+      "operation": "get-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "results/QUERY_AGGREGATE_ID.csv"
+      },
+      "started_ms": 1790434694188,
+      "finished_ms": 1790434694926,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AcceptRanges": "bytes",
+          "LastModified": "2026-09-26T14:57:20+00:00",
+          "ContentLength": 45,
+          "ETag": "\"77e6fab2801f6a159948b035b2939667\"",
+          "ChecksumCRC64NVME": "i6T3cuwEayU=",
+          "ChecksumType": "FULL_OBJECT",
+          "ContentType": "application/octet-stream",
+          "ServerSideEncryption": "AES256",
+          "Metadata": {}
+        }
+      }
+    },
+    {
+      "label": "reader-s3-denial-poll-2",
+      "service": "s3api",
+      "operation": "get-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "results/QUERY_AGGREGATE_ID.csv"
+      },
+      "started_ms": 1790434699940,
+      "finished_ms": 1790434700761,
+      "result": {
+        "code": "AccessDenied",
+        "error": {
+          "Code": "AccessDenied",
+          "Message": "User: arn:aws:sts::123456789012:assumed-role/stackd-analytics-owned-reader/owned-probe is not authorized to perform: s3:GetObject on resource: \"arn:aws:s3:::stackd-analytics-owned/results/QUERY_AGGREGATE_ID.csv\" with an explicit deny in an identity-based policy"
+        }
+      }
+    },
+    {
+      "label": "reader-results-current-s3-deny",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_AGGREGATE_ID"
+      },
+      "started_ms": 1790434700765,
+      "finished_ms": 1790434701462,
+      "result": {
+        "code": "AccessDeniedException",
+        "error": {
+          "Message": "You are not authorized to perform: athena:GetQueryResults on the resource. After your AWS administrator or you have updated your permissions, please try again.",
+          "Code": "AccessDeniedException"
+        }
+      }
+    },
+    {
+      "label": "disable-workgroup",
+      "service": "athena",
+      "operation": "update-work-group",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "State": "DISABLED"
+      },
+      "started_ms": 1790434701466,
+      "finished_ms": 1790434702167,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "query-disabled-workgroup",
+      "service": "athena",
+      "operation": "start-query-execution",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "QueryString": "SELECT 1",
+        "ClientRequestToken": "a94be37f27cb45d6b4d93afb099574aa"
+      },
+      "started_ms": 1790434702171,
+      "finished_ms": 1790434702860,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "WorkGroup stackd-analytics-owned-wg is disabled.",
+          "Code": "InvalidRequestException",
+          "AthenaErrorCode": "INVALID_INPUT"
+        }
+      }
+    },
+    {
+      "label": "get-results-disabled-workgroup",
+      "service": "athena",
+      "operation": "get-query-results",
+      "input": {
+        "QueryExecutionId": "QUERY_AGGREGATE_ID"
+      },
+      "started_ms": 1790434702864,
+      "finished_ms": 1790434703640,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UpdateCount": 0,
+          "ResultSet": {
+            "Rows": [
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "category"
+                  },
+                  {
+                    "VarCharValue": "total"
+                  }
+                ]
+              },
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "north"
+                  },
+                  {
+                    "VarCharValue": "10"
+                  }
+                ]
+              },
+              {
+                "Data": [
+                  {
+                    "VarCharValue": "south"
+                  },
+                  {
+                    "VarCharValue": "14"
+                  }
+                ]
+              }
+            ],
+            "ResultSetMetadata": {
+              "ColumnInfo": [
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "category",
+                  "Label": "category",
+                  "Type": "varchar",
+                  "Precision": 2147483647,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": true
+                },
+                {
+                  "CatalogName": "hive",
+                  "SchemaName": "",
+                  "TableName": "",
+                  "Name": "total",
+                  "Label": "total",
+                  "Type": "bigint",
+                  "Precision": 19,
+                  "Scale": 0,
+                  "Nullable": "UNKNOWN",
+                  "CaseSensitive": false
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "delete-workgroup-nonrecursive",
+      "service": "athena",
+      "operation": "delete-work-group",
+      "input": {
+        "WorkGroup": "stackd-analytics-owned-wg",
+        "RecursiveDeleteOption": false
+      },
+      "started_ms": 1790434703644,
+      "finished_ms": 1790434704422,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "WorkGroup stackd-analytics-owned-wg is not empty",
+          "Code": "InvalidRequestException",
+          "AthenaErrorCode": "WORKGROUP_NOT_EMPTY"
+        }
+      }
+    },
+    {
+      "label": "receive-owned-events-0",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 120
+      },
+      "started_ms": 1790434704426,
+      "finished_ms": 1790434705183,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"64a85374-5d43-e83c-e4dd-746b2e4267e4\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:29Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"QUEUED\",\"queryExecutionId\":\"QUERY_FAILURE_ID\",\"sequenceNumber\":\"1\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "0ba22210-405b-458a-82ff-482031981bbd"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"ceab5aaa-c077-4cfd-2206-00a46e4733e5\",\"detail-type\":\"Glue Job State Change\",\"source\":\"aws.glue\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:58:03Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"jobName\":\"stackd-analytics-owned-job\",\"severity\":\"ERROR\",\"state\":\"FAILED\",\"jobRunId\":\"JOB_FAILURE_ID\",\"message\":\"RuntimeError: owned intentional producer failure\"}}",
+              "MessageId": "e1adc5ce-1473-4bee-a181-ac4b009c912a"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "receive-owned-events-1",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 120
+      },
+      "started_ms": 1790434705190,
+      "finished_ms": 1790434705868,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"5e1c08dd-5d39-271e-4d7f-c6fba2b7f109\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:20Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"SUCCEEDED\",\"previousState\":\"RUNNING\",\"queryExecutionId\":\"QUERY_AGGREGATE_ID\",\"sequenceNumber\":\"3\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "0cb1cae5-0af4-4da4-9ed0-08ac99e7e9ae"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"5cdc5871-d5fb-dd19-6f15-43b2f3f73185\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:27Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"QUEUED\",\"queryExecutionId\":\"QUERY_TYPES_ID\",\"sequenceNumber\":\"1\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "8214c8c0-d59f-46b6-b2cc-35afbd9f32b6"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"db4e45cf-ab9c-9c06-bfb1-26abf9a694f3\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:30Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"RUNNING\",\"previousState\":\"QUEUED\",\"queryExecutionId\":\"QUERY_FAILURE_ID\",\"sequenceNumber\":\"2\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "96d12e2e-ac8c-4d6c-8af1-06f5e3486933"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "receive-owned-events-2",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 120
+      },
+      "started_ms": 1790434705873,
+      "finished_ms": 1790434706561,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"6083439c-fe0c-e96c-cd72-c28540ccc24e\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:28Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"SUCCEEDED\",\"previousState\":\"RUNNING\",\"queryExecutionId\":\"QUERY_TYPES_ID\",\"sequenceNumber\":\"3\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "f4b1b58d-ff7f-48da-ac98-e5f6d39f3d77"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"47712c6a-71b2-84b0-5363-1cab42e59b4e\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:31Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"athenaError\":{\"errorCategory\":2.0,\"errorType\":1006.0,\"errorMessage\":\"COLUMN_NOT_FOUND: line 1:8: Column 'missing_column' cannot be resolved or requester is not authorized to access requested resources\",\"retryable\":false},\"currentState\":\"FAILED\",\"previousState\":\"RUNNING\",\"queryExecutionId\":\"QUERY_FAILURE_ID\",\"sequenceNumber\":\"3\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "5d1ddacc-ce5b-486b-a081-e63d26d2bab6"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"8852bd52-99cb-2ad0-052d-f0970942ead6\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:32Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"QUEUED\",\"queryExecutionId\":\"QUERY_CANCEL_ID\",\"sequenceNumber\":\"1\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "126faa14-ec39-4c79-aee2-4d706ee3cd3a"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "receive-owned-events-3",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 120
+      },
+      "started_ms": 1790434706565,
+      "finished_ms": 1790434707316,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"04c778f8-bcf1-2ec8-80bb-a2d56b05b256\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:20Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"QUEUED\",\"queryExecutionId\":\"QUERY_AGGREGATE_ID\",\"sequenceNumber\":\"1\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "ea52a0b2-0c1e-42bd-b7ef-1efdb584a7b2"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"837b7c0b-3f5a-ebbf-99ee-4421c4831119\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:33Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"SUCCEEDED\",\"previousState\":\"RUNNING\",\"queryExecutionId\":\"QUERY_CANCEL_ID\",\"sequenceNumber\":\"3\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "490dce4a-bb2c-4bb0-a104-2e6fe6cd84cf"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "receive-owned-events-4",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 120
+      },
+      "started_ms": 1790434707320,
+      "finished_ms": 1790434708084,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"3cc3c812-d2b3-b6f0-ac0c-0bf39e0ce345\",\"detail-type\":\"Glue Data Catalog Database State Change\",\"source\":\"aws.glue\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:09Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:glue:us-east-1:123456789012:table/stackd_analytics_owned/sales\"],\"detail\":{\"catalogId\":\"123456789012\",\"databaseName\":\"stackd_analytics_owned\",\"typeOfChange\":\"CreateTable\",\"changedTables\":[\"sales\"]}}",
+              "MessageId": "60d89f70-5279-4883-b359-1cb7af2888ec"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"8e81c8ed-8309-2cc5-dcb3-396c9a52b8a4\",\"detail-type\":\"Glue Job State Change\",\"source\":\"aws.glue\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:12Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"jobName\":\"stackd-analytics-owned-job\",\"severity\":\"INFO\",\"state\":\"SUCCEEDED\",\"jobRunId\":\"JOB_SUCCESS_ID\",\"message\":\"Job run succeeded\"}}",
+              "MessageId": "527f5f15-9553-4ff3-9cbe-8e4417010493"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"abeeaaea-69f3-ba61-408c-03e4d791ee64\",\"detail-type\":\"Glue Data Catalog Database State Change\",\"source\":\"aws.glue\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:08Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:glue:us-east-1:123456789012:database/stackd_analytics_owned\"],\"detail\":{\"catalogId\":\"123456789012\",\"databaseName\":\"stackd_analytics_owned\",\"typeOfChange\":\"CreateDatabase\",\"changedTables\":[]}}",
+              "MessageId": "0074a28f-b7f8-447c-8e21-dc429f4dae38"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"62d849e5-63de-6a2e-86c6-88c04e2758e5\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:21Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"RUNNING\",\"previousState\":\"QUEUED\",\"queryExecutionId\":\"QUERY_AGGREGATE_ID\",\"sequenceNumber\":\"2\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "3939d4ff-1e40-4c26-8b2b-64316867809d"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"4689f6d8-d919-6854-c8db-fac9a7a2e07b\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:28Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"RUNNING\",\"previousState\":\"QUEUED\",\"queryExecutionId\":\"QUERY_TYPES_ID\",\"sequenceNumber\":\"2\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "c8471353-62cc-4391-9d1b-3acd362d344f"
+            },
+            {
+              "Body": "{\"version\":\"0\",\"id\":\"fd58427d-80a8-eea6-832a-29691581dc09\",\"detail-type\":\"Athena Query State Change\",\"source\":\"aws.athena\",\"account\":\"123456789012\",\"time\":\"2026-09-26T14:57:33Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"currentState\":\"RUNNING\",\"previousState\":\"QUEUED\",\"queryExecutionId\":\"QUERY_CANCEL_ID\",\"sequenceNumber\":\"2\",\"statementType\":\"DML\",\"versionId\":\"0\",\"workgroupName\":\"stackd-analytics-owned-wg\"}}",
+              "MessageId": "a88e29de-183c-48c3-bdca-169bb77a5c19"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "receive-owned-events-5",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 120
+      },
+      "started_ms": 1790434708089,
+      "finished_ms": 1790434713803,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": null
+        }
+      }
+    },
+    {
+      "label": "receive-owned-events-6",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 120
+      },
+      "started_ms": 1790434713807,
+      "finished_ms": 1790434719512,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": null
+        }
+      }
+    },
+    {
+      "label": "receive-owned-events-7",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 120
+      },
+      "started_ms": 1790434719517,
+      "finished_ms": 1790434725226,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": null
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "cleanup-stop-query",
+        "service": "athena",
+        "operation": "stop-query-execution",
+        "input": {
+          "QueryExecutionId": "QUERY_AGGREGATE_ID"
+        },
+        "started_ms": 1790434725235,
+        "finished_ms": 1790434725945,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-stop-query",
+        "service": "athena",
+        "operation": "stop-query-execution",
+        "input": {
+          "QueryExecutionId": "QUERY_TYPES_ID"
+        },
+        "started_ms": 1790434725950,
+        "finished_ms": 1790434726627,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-stop-query",
+        "service": "athena",
+        "operation": "stop-query-execution",
+        "input": {
+          "QueryExecutionId": "QUERY_FAILURE_ID"
+        },
+        "started_ms": 1790434726632,
+        "finished_ms": 1790434727315,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-stop-query",
+        "service": "athena",
+        "operation": "stop-query-execution",
+        "input": {
+          "QueryExecutionId": "QUERY_CANCEL_ID"
+        },
+        "started_ms": 1790434727320,
+        "finished_ms": 1790434727995,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-job-state",
+        "service": "glue",
+        "operation": "get-job-run",
+        "input": {
+          "JobName": "stackd-analytics-owned-job",
+          "RunId": "JOB_SUCCESS_ID"
+        },
+        "started_ms": 1790434728000,
+        "finished_ms": 1790434728727,
+        "result": {
+          "code": "Success",
+          "output": {
+            "JobRun": {
+              "Id": "JOB_SUCCESS_ID",
+              "Attempt": 0,
+              "JobName": "stackd-analytics-owned-job",
+              "JobMode": "SCRIPT",
+              "JobRunQueuingEnabled": false,
+              "StartedOn": "2026-09-26T15:55:51.469000+01:00",
+              "LastModifiedOn": "2026-09-26T15:56:11.294000+01:00",
+              "CompletedOn": "2026-09-26T15:56:11.294000+01:00",
+              "JobRunState": "SUCCEEDED",
+              "Arguments": {
+                "--mode": "success"
+              },
+              "PredecessorRuns": [],
+              "AllocatedCapacity": 0,
+              "ExecutionTime": 12,
+              "Timeout": 2,
+              "MaxCapacity": 0.0625,
+              "LogGroupName": "/aws-glue/python-jobs",
+              "GlueVersion": "6.0"
+            }
+          }
+        }
+      },
+      {
+        "label": "cleanup-job-state",
+        "service": "glue",
+        "operation": "get-job-run",
+        "input": {
+          "JobName": "stackd-analytics-owned-job",
+          "RunId": "JOB_FAILURE_ID"
+        },
+        "started_ms": 1790434728732,
+        "finished_ms": 1790434729475,
+        "result": {
+          "code": "Success",
+          "output": {
+            "JobRun": {
+              "Id": "JOB_FAILURE_ID",
+              "Attempt": 0,
+              "JobName": "stackd-analytics-owned-job",
+              "JobMode": "SCRIPT",
+              "JobRunQueuingEnabled": false,
+              "StartedOn": "2026-09-26T15:56:46.560000+01:00",
+              "LastModifiedOn": "2026-09-26T15:57:02.310000+01:00",
+              "CompletedOn": "2026-09-26T15:57:02.310000+01:00",
+              "JobRunState": "FAILED",
+              "Arguments": {
+                "--mode": "failure"
+              },
+              "ErrorMessage": "RuntimeError: owned intentional producer failure",
+              "PredecessorRuns": [],
+              "AllocatedCapacity": 0,
+              "ExecutionTime": 11,
+              "Timeout": 2,
+              "MaxCapacity": 0.0625,
+              "LogGroupName": "/aws-glue/python-jobs",
+              "GlueVersion": "6.0"
+            }
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-job",
+        "service": "glue",
+        "operation": "delete-job",
+        "input": {
+          "JobName": "stackd-analytics-owned-job"
+        },
+        "started_ms": 1790434729482,
+        "finished_ms": 1790434730284,
+        "result": {
+          "code": "Success",
+          "output": {
+            "JobName": "stackd-analytics-owned-job"
+          }
+        }
+      },
+      {
+        "label": "verify-job-absent",
+        "service": "glue",
+        "operation": "get-job",
+        "input": {
+          "JobName": "stackd-analytics-owned-job"
+        },
+        "started_ms": 1790434730290,
+        "finished_ms": 1790434731022,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Job not found.",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-workgroup",
+        "service": "athena",
+        "operation": "delete-work-group",
+        "input": {
+          "WorkGroup": "stackd-analytics-owned-wg",
+          "RecursiveDeleteOption": true
+        },
+        "started_ms": 1790434731028,
+        "finished_ms": 1790434731923,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-workgroup-absent",
+        "service": "athena",
+        "operation": "get-work-group",
+        "input": {
+          "WorkGroup": "stackd-analytics-owned-wg"
+        },
+        "started_ms": 1790434731927,
+        "finished_ms": 1790434732596,
+        "result": {
+          "code": "InvalidRequestException",
+          "error": {
+            "Message": "WorkGroup is not found.",
+            "Code": "InvalidRequestException",
+            "AthenaErrorCode": "INVALID_INPUT"
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-workgroup",
+        "service": "athena",
+        "operation": "delete-work-group",
+        "input": {
+          "WorkGroup": "stackd-analytics-owned-other",
+          "RecursiveDeleteOption": true
+        },
+        "started_ms": 1790434732604,
+        "finished_ms": 1790434733420,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-workgroup-absent",
+        "service": "athena",
+        "operation": "get-work-group",
+        "input": {
+          "WorkGroup": "stackd-analytics-owned-other"
+        },
+        "started_ms": 1790434733427,
+        "finished_ms": 1790434734078,
+        "result": {
+          "code": "InvalidRequestException",
+          "error": {
+            "Message": "WorkGroup is not found.",
+            "Code": "InvalidRequestException",
+            "AthenaErrorCode": "INVALID_INPUT"
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-table",
+        "service": "glue",
+        "operation": "delete-table",
+        "input": {
+          "DatabaseName": "stackd_analytics_owned",
+          "Name": "sales"
+        },
+        "started_ms": 1790434734083,
+        "finished_ms": 1790434735050,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-database",
+        "service": "glue",
+        "operation": "delete-database",
+        "input": {
+          "Name": "stackd_analytics_owned"
+        },
+        "started_ms": 1790434735055,
+        "finished_ms": 1790434735897,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-database-absent",
+        "service": "glue",
+        "operation": "get-database",
+        "input": {
+          "Name": "stackd_analytics_owned"
+        },
+        "started_ms": 1790434735902,
+        "finished_ms": 1790434736604,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Database stackd_analytics_owned not found.",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-list-owned-objects",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "MaxKeys": 100
+        },
+        "started_ms": 1790434736609,
+        "finished_ms": 1790434737396,
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "data/part.csv",
+                "LastModified": "2026-09-26T14:56:01+00:00",
+                "ETag": "\"e19b299c9db03f11e0a0bc673ddebf87\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 25,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "input/source.csv",
+                "LastModified": "2026-09-26T14:55:35+00:00",
+                "ETag": "\"65e87086b1b3b1fb793e494eb0e926cf\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 24,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "results/QUERY_CANCEL_ID.csv",
+                "LastModified": "2026-09-26T14:57:32+00:00",
+                "ETag": "\"85ed9516740e846d23072edd5e8d6505\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 23,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "results/QUERY_CANCEL_ID.csv.metadata",
+                "LastModified": "2026-09-26T14:57:32+00:00",
+                "ETag": "\"60c87c51d1edbe8cce13580bcfd75651\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 67,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "results/QUERY_AGGREGATE_ID.csv",
+                "LastModified": "2026-09-26T14:57:20+00:00",
+                "ETag": "\"77e6fab2801f6a159948b035b2939667\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 45,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "results/QUERY_AGGREGATE_ID.csv.metadata",
+                "LastModified": "2026-09-26T14:57:20+00:00",
+                "ETag": "\"330527b5f4c3f22cb0cd8318e35dadc1\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 116,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "results/QUERY_TYPES_ID.csv",
+                "LastModified": "2026-09-26T14:57:28+00:00",
+                "ETag": "\"fea11dec5b676889746b86f0db56751d\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 246,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "results/QUERY_TYPES_ID.csv.metadata",
+                "LastModified": "2026-09-26T14:57:28+00:00",
+                "ETag": "\"20f4eaceb749bc612f4459d3c0ab37d0\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 541,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "scripts/producer.py",
+                "LastModified": "2026-09-26T14:55:35+00:00",
+                "ETag": "\"6f0f66091c9f8e703ec1150e83495572\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 1083,
+                "StorageClass": "STANDARD"
+              }
+            ],
+            "Name": "stackd-analytics-owned",
+            "Prefix": "",
+            "MaxKeys": 100,
+            "EncodingType": "url",
+            "KeyCount": 9
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "data/part.csv"
+        },
+        "started_ms": 1790434737402,
+        "finished_ms": 1790434738089,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "input/source.csv"
+        },
+        "started_ms": 1790434738094,
+        "finished_ms": 1790434738798,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "results/QUERY_CANCEL_ID.csv"
+        },
+        "started_ms": 1790434738804,
+        "finished_ms": 1790434739481,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "results/QUERY_CANCEL_ID.csv.metadata"
+        },
+        "started_ms": 1790434739486,
+        "finished_ms": 1790434740167,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "results/QUERY_AGGREGATE_ID.csv"
+        },
+        "started_ms": 1790434740173,
+        "finished_ms": 1790434740876,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "results/QUERY_AGGREGATE_ID.csv.metadata"
+        },
+        "started_ms": 1790434740881,
+        "finished_ms": 1790434741594,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "results/QUERY_TYPES_ID.csv"
+        },
+        "started_ms": 1790434741599,
+        "finished_ms": 1790434742304,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "results/QUERY_TYPES_ID.csv.metadata"
+        },
+        "started_ms": 1790434742309,
+        "finished_ms": 1790434743050,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "scripts/producer.py"
+        },
+        "started_ms": 1790434743055,
+        "finished_ms": 1790434743743,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-bucket",
+        "service": "s3api",
+        "operation": "delete-bucket",
+        "input": {
+          "Bucket": "stackd-analytics-owned"
+        },
+        "started_ms": 1790434743749,
+        "finished_ms": 1790434744641,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-bucket-absent",
+        "service": "s3api",
+        "operation": "head-bucket",
+        "input": {
+          "Bucket": "stackd-analytics-owned"
+        },
+        "started_ms": 1790434744647,
+        "finished_ms": 1790434745315,
+        "result": {
+          "code": "404",
+          "error": {
+            "Code": "404",
+            "Message": "Not Found"
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-role-policy",
+        "service": "iam",
+        "operation": "delete-role-policy",
+        "input": {
+          "RoleName": "stackd-analytics-owned-reader",
+          "PolicyName": "owned"
+        },
+        "started_ms": 1790434745320,
+        "finished_ms": 1790434746118,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-role",
+        "service": "iam",
+        "operation": "delete-role",
+        "input": {
+          "RoleName": "stackd-analytics-owned-reader"
+        },
+        "started_ms": 1790434746123,
+        "finished_ms": 1790434746896,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-role-absent",
+        "service": "iam",
+        "operation": "get-role",
+        "input": {
+          "RoleName": "stackd-analytics-owned-reader"
+        },
+        "started_ms": 1790434746901,
+        "finished_ms": 1790434747595,
+        "result": {
+          "code": "NoSuchEntity",
+          "error": {
+            "Code": "NoSuchEntity",
+            "Message": "The role with name stackd-analytics-owned-reader cannot be found."
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-role-policy",
+        "service": "iam",
+        "operation": "delete-role-policy",
+        "input": {
+          "RoleName": "stackd-analytics-owned-execution",
+          "PolicyName": "owned"
+        },
+        "started_ms": 1790434747601,
+        "finished_ms": 1790434748335,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-role",
+        "service": "iam",
+        "operation": "delete-role",
+        "input": {
+          "RoleName": "stackd-analytics-owned-execution"
+        },
+        "started_ms": 1790434748340,
+        "finished_ms": 1790434749133,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-role-absent",
+        "service": "iam",
+        "operation": "get-role",
+        "input": {
+          "RoleName": "stackd-analytics-owned-execution"
+        },
+        "started_ms": 1790434749138,
+        "finished_ms": 1790434749837,
+        "result": {
+          "code": "NoSuchEntity",
+          "error": {
+            "Code": "NoSuchEntity",
+            "Message": "The role with name stackd-analytics-owned-execution cannot be found."
+          }
+        }
+      },
+      {
+        "label": "cleanup-remove-event-target",
+        "service": "events",
+        "operation": "remove-targets",
+        "input": {
+          "Rule": "stackd-analytics-owned-glue-job",
+          "Ids": [
+            "owned"
+          ]
+        },
+        "started_ms": 1790434749843,
+        "finished_ms": 1790434750571,
+        "result": {
+          "code": "Success",
+          "output": {
+            "FailedEntryCount": 0,
+            "FailedEntries": []
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-event-rule",
+        "service": "events",
+        "operation": "delete-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-glue-job"
+        },
+        "started_ms": 1790434750580,
+        "finished_ms": 1790434751318,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-event-rule-absent",
+        "service": "events",
+        "operation": "describe-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-glue-job"
+        },
+        "started_ms": 1790434751327,
+        "finished_ms": 1790434751994,
+        "result": {
+          "code": "ResourceNotFoundException",
+          "error": {
+            "Message": "Rule stackd-analytics-owned-glue-job does not exist on EventBus default.",
+            "Code": "ResourceNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-remove-event-target",
+        "service": "events",
+        "operation": "remove-targets",
+        "input": {
+          "Rule": "stackd-analytics-owned-glue-catalog",
+          "Ids": [
+            "owned"
+          ]
+        },
+        "started_ms": 1790434752000,
+        "finished_ms": 1790434752705,
+        "result": {
+          "code": "Success",
+          "output": {
+            "FailedEntryCount": 0,
+            "FailedEntries": []
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-event-rule",
+        "service": "events",
+        "operation": "delete-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-glue-catalog"
+        },
+        "started_ms": 1790434752713,
+        "finished_ms": 1790434753429,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-event-rule-absent",
+        "service": "events",
+        "operation": "describe-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-glue-catalog"
+        },
+        "started_ms": 1790434753438,
+        "finished_ms": 1790434754120,
+        "result": {
+          "code": "ResourceNotFoundException",
+          "error": {
+            "Message": "Rule stackd-analytics-owned-glue-catalog does not exist on EventBus default.",
+            "Code": "ResourceNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-remove-event-target",
+        "service": "events",
+        "operation": "remove-targets",
+        "input": {
+          "Rule": "stackd-analytics-owned-athena",
+          "Ids": [
+            "owned"
+          ]
+        },
+        "started_ms": 1790434754128,
+        "finished_ms": 1790434754803,
+        "result": {
+          "code": "Success",
+          "output": {
+            "FailedEntryCount": 0,
+            "FailedEntries": []
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-event-rule",
+        "service": "events",
+        "operation": "delete-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-athena"
+        },
+        "started_ms": 1790434754808,
+        "finished_ms": 1790434755534,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-event-rule-absent",
+        "service": "events",
+        "operation": "describe-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-athena"
+        },
+        "started_ms": 1790434755540,
+        "finished_ms": 1790434756216,
+        "result": {
+          "code": "ResourceNotFoundException",
+          "error": {
+            "Message": "Rule stackd-analytics-owned-athena does not exist on EventBus default.",
+            "Code": "ResourceNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-event-queue",
+        "service": "sqs",
+        "operation": "delete-queue",
+        "input": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events"
+        },
+        "started_ms": 1790434756222,
+        "finished_ms": 1790434757000,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-event-queue-absent",
+        "service": "sqs",
+        "operation": "get-queue-url",
+        "input": {
+          "QueueName": "stackd-analytics-owned-events"
+        },
+        "started_ms": 1790434757005,
+        "finished_ms": 1790434757672,
+        "result": {
+          "code": "AWS.SimpleQueueService.NonExistentQueue",
+          "error": {
+            "Message": "The specified queue does not exist.",
+            "Code": "AWS.SimpleQueueService.NonExistentQueue"
+          }
+        }
+      }
+    ],
+    "remaining_owned": []
+  },
+  "completed": true,
+  "cli_calls": 156,
+  "elapsed_seconds": 232.403,
+  "account": "123456789012",
+  "uncertainty": [
+    "One account and region, Python shell 3.9 only; no Glue Spark or Athena Spark conformance claimed.",
+    "IAM role propagation observations are retained; their durations are not contractual.",
+    "Athena cancellation races execution; native terminal state is retained, never overwritten as CANCELLED.",
+    "Query history and deleted Glue job run history have no native purge API; resource deletion/terminal runs prevent ongoing compute.",
+    "No CloudWatch default log groups are created, modified or granted to job role; this run does not prove runtime log delivery.",
+    "No Lake Formation grants/defaults, global catalog lists, standing workgroups or IAM policies modified."
+  ],
+  "event_resources": {
+    "queue_name": "stackd-analytics-owned-events",
+    "queue_url": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+    "rules": [
+      "stackd-analytics-owned-glue-job",
+      "stackd-analytics-owned-glue-catalog",
+      "stackd-analytics-owned-athena"
+    ]
+  },
+  "event_capture_bounds": {
+    "max_rules": 3,
+    "max_queues": 1,
+    "receive_seconds": 35,
+    "max_receive_calls": 8,
+    "delivery": "Best effort; bounded missing events are not asserted absent forever."
+  },
+  "job_transitions": {
+    "job-success": [
+      "RUNNING",
+      "RUNNING",
+      "RUNNING",
+      "RUNNING",
+      "SUCCEEDED"
+    ],
+    "job-failure": [
+      "RUNNING",
+      "RUNNING",
+      "RUNNING",
+      "FAILED"
+    ]
+  },
+  "job_terminal": {
+    "job-success": {
+      "Id": "JOB_SUCCESS_ID",
+      "Attempt": 0,
+      "JobName": "stackd-analytics-owned-job",
+      "JobMode": "SCRIPT",
+      "JobRunQueuingEnabled": false,
+      "StartedOn": "2026-09-26T15:55:51.469000+01:00",
+      "LastModifiedOn": "2026-09-26T15:56:11.294000+01:00",
+      "CompletedOn": "2026-09-26T15:56:11.294000+01:00",
+      "JobRunState": "SUCCEEDED",
+      "Arguments": {
+        "--mode": "success"
+      },
+      "PredecessorRuns": [],
+      "AllocatedCapacity": 0,
+      "ExecutionTime": 12,
+      "Timeout": 2,
+      "MaxCapacity": 0.0625,
+      "LogGroupName": "/aws-glue/python-jobs",
+      "GlueVersion": "6.0"
+    },
+    "job-failure": {
+      "Id": "JOB_FAILURE_ID",
+      "Attempt": 0,
+      "JobName": "stackd-analytics-owned-job",
+      "JobMode": "SCRIPT",
+      "JobRunQueuingEnabled": false,
+      "StartedOn": "2026-09-26T15:56:46.560000+01:00",
+      "LastModifiedOn": "2026-09-26T15:57:02.310000+01:00",
+      "CompletedOn": "2026-09-26T15:57:02.310000+01:00",
+      "JobRunState": "FAILED",
+      "Arguments": {
+        "--mode": "failure"
+      },
+      "ErrorMessage": "RuntimeError: owned intentional producer failure",
+      "PredecessorRuns": [],
+      "AllocatedCapacity": 0,
+      "ExecutionTime": 11,
+      "Timeout": 2,
+      "MaxCapacity": 0.0625,
+      "LogGroupName": "/aws-glue/python-jobs",
+      "GlueVersion": "6.0"
+    }
+  },
+  "consumers": {
+    "consume-produced-csv": {
+      "body_utf8": "north,4\nsouth,14\nnorth,6\n",
+      "byte_count": 25
+    },
+    "consume-query-csv": {
+      "body_utf8": "\"category\",\"total\"\n\"north\",\"10\"\n\"south\",\"14\"\n",
+      "byte_count": 45
+    },
+    "reader-s3-results-allowed": {
+      "body_utf8": "\"category\",\"total\"\n\"north\",\"10\"\n\"south\",\"14\"\n",
+      "byte_count": 45
+    },
+    "reader-s3-denial-poll-0": {
+      "body_utf8": "\"category\",\"total\"\n\"north\",\"10\"\n\"south\",\"14\"\n",
+      "byte_count": 45
+    },
+    "reader-s3-denial-poll-1": {
+      "body_utf8": "\"category\",\"total\"\n\"north\",\"10\"\n\"south\",\"14\"\n",
+      "byte_count": 45
+    }
+  },
+  "query_transitions": {
+    "aggregate": [
+      "SUCCEEDED"
+    ],
+    "types": [
+      "SUCCEEDED"
+    ],
+    "failure": [
+      "FAILED"
+    ],
+    "cancel": [
+      "SUCCEEDED"
+    ]
+  },
+  "query_terminal": {
+    "aggregate": {
+      "QueryExecutionId": "QUERY_AGGREGATE_ID",
+      "Query": "SELECT category, sum(amount) AS total FROM sales GROUP BY category ORDER BY category",
+      "StatementType": "DML",
+      "ResultConfiguration": {
+        "OutputLocation": "s3://stackd-analytics-owned/results/QUERY_AGGREGATE_ID.csv",
+        "EncryptionConfiguration": {
+          "EncryptionOption": "SSE_S3"
+        }
+      },
+      "ResultReuseConfiguration": {
+        "ResultReuseByAgeConfiguration": {
+          "Enabled": false
+        }
+      },
+      "QueryExecutionContext": {
+        "Database": "stackd_analytics_owned",
+        "Catalog": "awsdatacatalog"
+      },
+      "Status": {
+        "State": "SUCCEEDED",
+        "SubmissionDateTime": "2026-09-26T15:57:19.397000+01:00",
+        "CompletionDateTime": "2026-09-26T15:57:20.006000+01:00"
+      },
+      "Statistics": {
+        "EngineExecutionTimeInMillis": 414,
+        "DataScannedInBytes": 25,
+        "TotalExecutionTimeInMillis": 609,
+        "QueryQueueTimeInMillis": 93,
+        "ServicePreProcessingTimeInMillis": 70,
+        "QueryPlanningTimeInMillis": 95,
+        "ServiceProcessingTimeInMillis": 32,
+        "ResultReuseInformation": {
+          "ReusedPreviousResult": false
+        }
+      },
+      "WorkGroup": "stackd-analytics-owned-wg",
+      "EngineVersion": {
+        "SelectedEngineVersion": "Athena engine version 3",
+        "EffectiveEngineVersion": "Athena engine version 3"
+      },
+      "SubstatementType": "SELECT"
+    },
+    "types": {
+      "QueryExecutionId": "QUERY_TYPES_ID",
+      "Query": "SELECT CAST(NULL AS varchar) AS null_value, '' AS empty_value, CAST(12.30 AS decimal(6,2)) AS decimal_value, CAST(7 AS bigint) AS integer_value, true AS flag, DATE '2026-01-02' AS day_value, TIMESTAMP '2026-01-02 03:04:05.123' AS timestamp_value, CAST('hi' AS char(4)) AS char_value, ARRAY[1,2] AS array_value, MAP(ARRAY['a'],ARRAY[3]) AS map_value, CAST(ROW(1,'x') AS ROW(n integer,s varchar)) AS row_value",
+      "StatementType": "DML",
+      "ResultConfiguration": {
+        "OutputLocation": "s3://stackd-analytics-owned/results/QUERY_TYPES_ID.csv",
+        "EncryptionConfiguration": {
+          "EncryptionOption": "SSE_S3"
+        }
+      },
+      "ResultReuseConfiguration": {
+        "ResultReuseByAgeConfiguration": {
+          "Enabled": false
+        }
+      },
+      "QueryExecutionContext": {
+        "Database": "stackd_analytics_owned",
+        "Catalog": "awsdatacatalog"
+      },
+      "Status": {
+        "State": "SUCCEEDED",
+        "SubmissionDateTime": "2026-09-26T15:57:26.794000+01:00",
+        "CompletionDateTime": "2026-09-26T15:57:27.204000+01:00"
+      },
+      "Statistics": {
+        "EngineExecutionTimeInMillis": 222,
+        "DataScannedInBytes": 0,
+        "TotalExecutionTimeInMillis": 410,
+        "QueryQueueTimeInMillis": 92,
+        "ServicePreProcessingTimeInMillis": 54,
+        "QueryPlanningTimeInMillis": 45,
+        "ServiceProcessingTimeInMillis": 42,
+        "ResultReuseInformation": {
+          "ReusedPreviousResult": false
+        }
+      },
+      "WorkGroup": "stackd-analytics-owned-wg",
+      "EngineVersion": {
+        "SelectedEngineVersion": "Athena engine version 3",
+        "EffectiveEngineVersion": "Athena engine version 3"
+      },
+      "SubstatementType": "SELECT"
+    },
+    "failure": {
+      "QueryExecutionId": "QUERY_FAILURE_ID",
+      "Query": "SELECT missing_column FROM sales",
+      "StatementType": "DML",
+      "ResultConfiguration": {
+        "OutputLocation": "s3://stackd-analytics-owned/results/QUERY_FAILURE_ID.csv",
+        "EncryptionConfiguration": {
+          "EncryptionOption": "SSE_S3"
+        }
+      },
+      "ResultReuseConfiguration": {
+        "ResultReuseByAgeConfiguration": {
+          "Enabled": false
+        }
+      },
+      "QueryExecutionContext": {
+        "Database": "stackd_analytics_owned",
+        "Catalog": "awsdatacatalog"
+      },
+      "Status": {
+        "State": "FAILED",
+        "StateChangeReason": "COLUMN_NOT_FOUND: line 1:8: Column 'missing_column' cannot be resolved or requester is not authorized to access requested resources",
+        "SubmissionDateTime": "2026-09-26T15:57:28.973000+01:00",
+        "CompletionDateTime": "2026-09-26T15:57:29.384000+01:00",
+        "AthenaError": {
+          "ErrorCategory": 2,
+          "ErrorType": 1006,
+          "Retryable": false,
+          "ErrorMessage": "COLUMN_NOT_FOUND: line 1:8: Column 'missing_column' cannot be resolved or requester is not authorized to access requested resources"
+        }
+      },
+      "Statistics": {
+        "EngineExecutionTimeInMillis": 201,
+        "DataScannedInBytes": 0,
+        "TotalExecutionTimeInMillis": 411,
+        "QueryQueueTimeInMillis": 53,
+        "ServicePreProcessingTimeInMillis": 72,
+        "ServiceProcessingTimeInMillis": 85,
+        "ResultReuseInformation": {
+          "ReusedPreviousResult": false
+        }
+      },
+      "WorkGroup": "stackd-analytics-owned-wg",
+      "EngineVersion": {
+        "SelectedEngineVersion": "Athena engine version 3",
+        "EffectiveEngineVersion": "Athena engine version 3"
+      },
+      "SubstatementType": "SELECT"
+    },
+    "cancel": {
+      "QueryExecutionId": "QUERY_CANCEL_ID",
+      "Query": "SELECT sum(a.x*b.x) FROM UNNEST(sequence(1,1000)) a(x) CROSS JOIN UNNEST(sequence(1,1000)) b(x)",
+      "StatementType": "DML",
+      "ResultConfiguration": {
+        "OutputLocation": "s3://stackd-analytics-owned/results/QUERY_CANCEL_ID.csv",
+        "EncryptionConfiguration": {
+          "EncryptionOption": "SSE_S3"
+        }
+      },
+      "ResultReuseConfiguration": {
+        "ResultReuseByAgeConfiguration": {
+          "Enabled": false
+        }
+      },
+      "QueryExecutionContext": {
+        "Database": "stackd_analytics_owned",
+        "Catalog": "awsdatacatalog"
+      },
+      "Status": {
+        "State": "SUCCEEDED",
+        "SubmissionDateTime": "2026-09-26T15:57:31.094000+01:00",
+        "CompletionDateTime": "2026-09-26T15:57:31.668000+01:00"
+      },
+      "Statistics": {
+        "EngineExecutionTimeInMillis": 418,
+        "DataScannedInBytes": 0,
+        "TotalExecutionTimeInMillis": 574,
+        "QueryQueueTimeInMillis": 67,
+        "ServicePreProcessingTimeInMillis": 63,
+        "QueryPlanningTimeInMillis": 65,
+        "ServiceProcessingTimeInMillis": 26,
+        "ResultReuseInformation": {
+          "ReusedPreviousResult": false
+        }
+      },
+      "WorkGroup": "stackd-analytics-owned-wg",
+      "EngineVersion": {
+        "SelectedEngineVersion": "Athena engine version 3",
+        "EffectiveEngineVersion": "Athena engine version 3"
+      },
+      "SubstatementType": "SELECT"
+    }
+  },
+  "role_acquisition": [
+    {
+      "attempt": 1,
+      "code": "AccessDenied"
+    },
+    {
+      "attempt": 2,
+      "code": "AccessDenied"
+    },
+    {
+      "attempt": 3,
+      "code": "Success"
+    }
+  ],
+  "native_events": [
+    {
+      "version": "0",
+      "id": "64a85374-5d43-e83c-e4dd-746b2e4267e4",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:29Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "QUEUED",
+        "queryExecutionId": "QUERY_FAILURE_ID",
+        "sequenceNumber": "1",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "ceab5aaa-c077-4cfd-2206-00a46e4733e5",
+      "detail-type": "Glue Job State Change",
+      "source": "aws.glue",
+      "account": "123456789012",
+      "time": "2026-09-26T14:58:03Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "jobName": "stackd-analytics-owned-job",
+        "severity": "ERROR",
+        "state": "FAILED",
+        "jobRunId": "JOB_FAILURE_ID",
+        "message": "RuntimeError: owned intentional producer failure"
+      }
+    },
+    {
+      "version": "0",
+      "id": "5e1c08dd-5d39-271e-4d7f-c6fba2b7f109",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:20Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "SUCCEEDED",
+        "previousState": "RUNNING",
+        "queryExecutionId": "QUERY_AGGREGATE_ID",
+        "sequenceNumber": "3",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "5cdc5871-d5fb-dd19-6f15-43b2f3f73185",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:27Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "QUEUED",
+        "queryExecutionId": "QUERY_TYPES_ID",
+        "sequenceNumber": "1",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "db4e45cf-ab9c-9c06-bfb1-26abf9a694f3",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:30Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "RUNNING",
+        "previousState": "QUEUED",
+        "queryExecutionId": "QUERY_FAILURE_ID",
+        "sequenceNumber": "2",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "6083439c-fe0c-e96c-cd72-c28540ccc24e",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:28Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "SUCCEEDED",
+        "previousState": "RUNNING",
+        "queryExecutionId": "QUERY_TYPES_ID",
+        "sequenceNumber": "3",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "47712c6a-71b2-84b0-5363-1cab42e59b4e",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:31Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "athenaError": {
+          "errorCategory": 2.0,
+          "errorType": 1006.0,
+          "errorMessage": "COLUMN_NOT_FOUND: line 1:8: Column 'missing_column' cannot be resolved or requester is not authorized to access requested resources",
+          "retryable": false
+        },
+        "currentState": "FAILED",
+        "previousState": "RUNNING",
+        "queryExecutionId": "QUERY_FAILURE_ID",
+        "sequenceNumber": "3",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "8852bd52-99cb-2ad0-052d-f0970942ead6",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:32Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "QUEUED",
+        "queryExecutionId": "QUERY_CANCEL_ID",
+        "sequenceNumber": "1",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "04c778f8-bcf1-2ec8-80bb-a2d56b05b256",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:20Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "QUEUED",
+        "queryExecutionId": "QUERY_AGGREGATE_ID",
+        "sequenceNumber": "1",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "837b7c0b-3f5a-ebbf-99ee-4421c4831119",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:33Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "SUCCEEDED",
+        "previousState": "RUNNING",
+        "queryExecutionId": "QUERY_CANCEL_ID",
+        "sequenceNumber": "3",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "3cc3c812-d2b3-b6f0-ac0c-0bf39e0ce345",
+      "detail-type": "Glue Data Catalog Database State Change",
+      "source": "aws.glue",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:09Z",
+      "region": "us-east-1",
+      "resources": [
+        "arn:aws:glue:us-east-1:123456789012:table/stackd_analytics_owned/sales"
+      ],
+      "detail": {
+        "catalogId": "123456789012",
+        "databaseName": "stackd_analytics_owned",
+        "typeOfChange": "CreateTable",
+        "changedTables": [
+          "sales"
+        ]
+      }
+    },
+    {
+      "version": "0",
+      "id": "8e81c8ed-8309-2cc5-dcb3-396c9a52b8a4",
+      "detail-type": "Glue Job State Change",
+      "source": "aws.glue",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:12Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "jobName": "stackd-analytics-owned-job",
+        "severity": "INFO",
+        "state": "SUCCEEDED",
+        "jobRunId": "JOB_SUCCESS_ID",
+        "message": "Job run succeeded"
+      }
+    },
+    {
+      "version": "0",
+      "id": "abeeaaea-69f3-ba61-408c-03e4d791ee64",
+      "detail-type": "Glue Data Catalog Database State Change",
+      "source": "aws.glue",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:08Z",
+      "region": "us-east-1",
+      "resources": [
+        "arn:aws:glue:us-east-1:123456789012:database/stackd_analytics_owned"
+      ],
+      "detail": {
+        "catalogId": "123456789012",
+        "databaseName": "stackd_analytics_owned",
+        "typeOfChange": "CreateDatabase",
+        "changedTables": []
+      }
+    },
+    {
+      "version": "0",
+      "id": "62d849e5-63de-6a2e-86c6-88c04e2758e5",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:21Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "RUNNING",
+        "previousState": "QUEUED",
+        "queryExecutionId": "QUERY_AGGREGATE_ID",
+        "sequenceNumber": "2",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "4689f6d8-d919-6854-c8db-fac9a7a2e07b",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:28Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "RUNNING",
+        "previousState": "QUEUED",
+        "queryExecutionId": "QUERY_TYPES_ID",
+        "sequenceNumber": "2",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    },
+    {
+      "version": "0",
+      "id": "fd58427d-80a8-eea6-832a-29691581dc09",
+      "detail-type": "Athena Query State Change",
+      "source": "aws.athena",
+      "account": "123456789012",
+      "time": "2026-09-26T14:57:33Z",
+      "region": "us-east-1",
+      "resources": [],
+      "detail": {
+        "currentState": "RUNNING",
+        "previousState": "QUEUED",
+        "queryExecutionId": "QUERY_CANCEL_ID",
+        "sequenceNumber": "2",
+        "statementType": "DML",
+        "versionId": "0",
+        "workgroupName": "stackd-analytics-owned-wg"
+      }
+    }
+  ],
+  "event_projection": "SQS ReceiptHandle omitted by CLI JMESPath before recording; native event Body parsed without changing fields/order."
+}

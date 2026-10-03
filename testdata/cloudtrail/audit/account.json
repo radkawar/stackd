@@ -1,0 +1,66 @@
+{
+  "source": "https://docs.aws.amazon.com/accounts/latest/reference/monitoring-cloudtrail.html",
+  "evidenceKind": "documentation_example",
+  "notes": [
+    "These are the observable request/classification/response/resource fields of official examples 1, 2 and 3, not a newly captured native AWS call.",
+    "The test creates its own contacts through the SDK before replaying these documented reads/deletes.",
+    "PutAlternateContact example 2 logs name, emailAddress and title despite their Smithy-sensitive models, and omits the required PhoneNumber. Replay supplies an owned synthetic phone number that must not enter the record.",
+    "Other Account operations without a captured/documented event use explicitly derived read/write classification, the documented lower-camel request convention, and null responses. GetRegionOptStatus uses the separate native capture and preserves RegionName.",
+    "The available evidence only demonstrates caller-account recipients; explicit cross-account request targets do not manufacture resource ARNs or a second recipient event."
+  ],
+  "observations": [
+    {
+      "label": "documented-put-alternate-contact",
+      "operation": "PutAlternateContact",
+      "input": {"AlternateContactType": "BILLING", "Name": "*Alejandro Rosalez*", "EmailAddress": "alrosalez@example.com", "Title": "CFO", "PhoneNumber": "+1 202 555 0100"},
+      "result": {"code": "Success", "http_status": 200}
+    },
+    {
+      "label": "documented-get-alternate-contact",
+      "operation": "GetAlternateContact",
+      "input": {"AlternateContactType": "SECURITY"},
+      "result": {"code": "Success", "http_status": 200}
+    },
+    {
+      "label": "documented-delete-alternate-contact",
+      "operation": "DeleteAlternateContact",
+      "input": {"AlternateContactType": "OPERATIONS"},
+      "result": {"code": "Success", "http_status": 200}
+    }
+  ],
+  "events": [
+    {
+      "eventSource": "account.amazonaws.com",
+      "eventName": "PutAlternateContact",
+      "awsRegion": "us-east-1",
+      "requestParameters": {"name": "*Alejandro Rosalez*", "emailAddress": "alrosalez@example.com", "title": "CFO", "alternateContactType": "BILLING"},
+      "responseElements": null,
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "eventCategory": "Management"
+    },
+    {
+      "eventSource": "account.amazonaws.com",
+      "eventName": "GetAlternateContact",
+      "awsRegion": "us-east-1",
+      "requestParameters": {"alternateContactType": "SECURITY"},
+      "responseElements": null,
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "eventCategory": "Management"
+    },
+    {
+      "eventSource": "account.amazonaws.com",
+      "eventName": "DeleteAlternateContact",
+      "awsRegion": "us-east-1",
+      "requestParameters": {"alternateContactType": "OPERATIONS"},
+      "responseElements": null,
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "eventCategory": "Management"
+    }
+  ]
+}

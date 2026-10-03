@@ -1,0 +1,1890 @@
+{
+  "Source": "s3/replication_read_alias_evidence.json.gz",
+  "ProjectionNotes": [
+    "Replays the fresh repeated eleven-case native matrix runs[2]; earlier seven-case run independently corroborates successful cases. Sequence is one-based within runs[2].events.",
+    "Initial PENDING and bounded missing replicas precede explicit scheduler drain; first terminal source HEAD drains all due local work. Native wall-clock latency is not an AWS SLA.",
+    "Native owner account, bucket/role names and opaque version IDs are rebound. Actual binary uploads, SHA256 checksums, readable replica bytes, source/replica version and LastModified equality remain asserted.",
+    "Pending jobs and IAM/configuration survive SQLite reconstruction before drain. Committed replica bytes and status survive another reopen before the first successful GET.",
+    "GetObjectVersion and GetObjectVersionForReplication are independent permitted alternatives for these SSE-S3 objects. Explicit denial of one does not deny the separately allowed other. Dual denial or denial of the only grant fails.",
+    "Calls.At is a local scheduler projection, not native wall-clock latency: start at the first call timestamp truncated to milliseconds, freeze time between Drain rows, and on each Drain advance to max(the original row.At truncated to milliseconds, previous local time plus one second). Larger native drain jumps are retained. Drain catches up all due work synchronously; automatic workers remain enabled. Original timestamps remain unchanged in the native evidence bundles."
+  ],
+  "Limitations": [
+    "SSE-S3 only; no KMS fallback claim. No CloudTrail fixture in this slice.",
+    "Native setup run0 BadDigest resulted from an incorrect CLI body transport and is excluded from the alias contract; its cleanup remains in raw evidence."
+  ],
+  "ExcludedObservations": [
+    "Repeated pending polls, setup/readback plumbing, and native teardown remain in raw evidence but are not replayed."
+  ],
+  "Scenarios": [
+    {
+      "Name": "sse-s3-source-read-permission-alternatives-and-explicit-denials",
+      "Setup": [],
+      "Calls": [
+        {
+          "Label": "create-bucket-2",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 2,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source"
+          }
+        },
+        {
+          "Label": "put-bucket-versioning-3",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 3,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          }
+        },
+        {
+          "Label": "create-bucket-5",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 5,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination"
+          }
+        },
+        {
+          "Label": "put-bucket-versioning-6",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 6,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          }
+        },
+        {
+          "Label": "create-role-8",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 8,
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "replication-read-alias-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Bind": {
+            "read_alias_role": "Role.Arn"
+          }
+        },
+        {
+          "Label": "put-role-policy-9",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 9,
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "replication-read-alias-role",
+            "PolicyName": "read-alias-cases",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetReplicationConfiguration\", \"s3:ListBucket\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersionAcl\", \"s3:GetObjectVersionTagging\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:ReplicateObject\", \"s3:ReplicateDelete\", \"s3:ReplicateTags\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-destination/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersion\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/version-only/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/replication-only/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersion\", \"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/both-control/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersion\", \"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/identity-deny-version/*\"}, {\"Effect\": \"Deny\", \"Action\": \"s3:GetObjectVersion\", \"Resource\": \"arn:aws:s3:::replication-read-alias-source/identity-deny-version/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersion\", \"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/identity-deny-replication/*\"}, {\"Effect\": \"Deny\", \"Action\": \"s3:GetObjectVersionForReplication\", \"Resource\": \"arn:aws:s3:::replication-read-alias-source/identity-deny-replication/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersion\", \"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/bucket-deny-version/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersion\", \"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/bucket-deny-replication/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersion\", \"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/identity-deny-both/*\"}, {\"Effect\": \"Deny\", \"Action\": [\"s3:GetObjectVersion\", \"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/identity-deny-both/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersion\", \"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/bucket-deny-both/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersion\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/sole-version-denied/*\"}, {\"Effect\": \"Deny\", \"Action\": \"s3:GetObjectVersion\", \"Resource\": \"arn:aws:s3:::replication-read-alias-source/sole-version-denied/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/sole-replication-denied/*\"}, {\"Effect\": \"Deny\", \"Action\": \"s3:GetObjectVersionForReplication\", \"Resource\": \"arn:aws:s3:::replication-read-alias-source/sole-replication-denied/*\"}]}"
+          }
+        },
+        {
+          "Label": "put-bucket-policy-10",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 10,
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"${read_alias_role}\"}, \"Action\": \"s3:GetObjectVersion\", \"Resource\": \"arn:aws:s3:::replication-read-alias-source/bucket-deny-version/*\"}, {\"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"${read_alias_role}\"}, \"Action\": \"s3:GetObjectVersionForReplication\", \"Resource\": \"arn:aws:s3:::replication-read-alias-source/bucket-deny-replication/*\"}, {\"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"${read_alias_role}\"}, \"Action\": [\"s3:GetObjectVersion\", \"s3:GetObjectVersionForReplication\"], \"Resource\": \"arn:aws:s3:::replication-read-alias-source/bucket-deny-both/*\"}]}"
+          }
+        },
+        {
+          "Label": "put-bucket-replication-11",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 11,
+          "Service": "s3",
+          "Operation": "PutBucketReplication",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "ReplicationConfiguration": {
+              "Role": "${read_alias_role}",
+              "Rules": [
+                {
+                  "ID": "immutable-prefix-cases",
+                  "Status": "Enabled",
+                  "Priority": 1,
+                  "Filter": {
+                    "Prefix": ""
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::replication-read-alias-destination"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "put-object-version-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 15,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "version-only/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "x6a1iQeWqAcdxJl3W+M0sWbTPZ+MhejzYlx4V8Tk/5Q=",
+            "Tagging": "probe=readalias&case=version-only"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_version-only_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"3b436912ece1509122e78b0eaf891444\"",
+            "ChecksumSHA256": "x6a1iQeWqAcdxJl3W+M0sWbTPZ+MhejzYlx4V8Tk/5Q=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_version-only_version}"
+          }
+        },
+        {
+          "Label": "head-object-version-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 16,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "version-only/body.bin",
+            "VersionId": "${read_alias_version-only_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:34+00:00",
+            "ContentLength": 2109,
+            "ChecksumSHA256": "x6a1iQeWqAcdxJl3W+M0sWbTPZ+MhejzYlx4V8Tk/5Q=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"3b436912ece1509122e78b0eaf891444\"",
+            "VersionId": "${read_alias_version-only_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_version-only_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-replication-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 17,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "replication-only/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "uFW4BjYJQKN9QpUhyjykLFro2BqwSpEnAsVDsR7j9k8=",
+            "Tagging": "probe=readalias&case=replication-only"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_replication-only_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"07748681eddc78a5a56ca1ca706b440e\"",
+            "ChecksumSHA256": "uFW4BjYJQKN9QpUhyjykLFro2BqwSpEnAsVDsR7j9k8=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_replication-only_version}"
+          }
+        },
+        {
+          "Label": "head-object-replication-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 18,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "replication-only/body.bin",
+            "VersionId": "${read_alias_replication-only_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:36+00:00",
+            "ContentLength": 2113,
+            "ChecksumSHA256": "uFW4BjYJQKN9QpUhyjykLFro2BqwSpEnAsVDsR7j9k8=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"07748681eddc78a5a56ca1ca706b440e\"",
+            "VersionId": "${read_alias_replication-only_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_replication-only_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-both-control",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 19,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "both-control/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "8vXjEsapdXKnM+y5ypPHE07iVRavJDrae4d74ZFDkBI=",
+            "Tagging": "probe=readalias&case=both-control"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_both-control_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"864058c7c5aa324c069568d55de354dc\"",
+            "ChecksumSHA256": "8vXjEsapdXKnM+y5ypPHE07iVRavJDrae4d74ZFDkBI=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_both-control_version}"
+          }
+        },
+        {
+          "Label": "head-object-both-control",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 20,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "both-control/body.bin",
+            "VersionId": "${read_alias_both-control_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:37+00:00",
+            "ContentLength": 2109,
+            "ChecksumSHA256": "8vXjEsapdXKnM+y5ypPHE07iVRavJDrae4d74ZFDkBI=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"864058c7c5aa324c069568d55de354dc\"",
+            "VersionId": "${read_alias_both-control_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_both-control_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-identity-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 21,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "identity-deny-version/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "Gdi8U96XdTn6it3cHa2xNw2PhyoSLq1PylmsUSwNZAs=",
+            "Tagging": "probe=readalias&case=identity-deny-version"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_identity-deny-version_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"3babdd6f8cc197c21b1f6ec863ab4323\"",
+            "ChecksumSHA256": "Gdi8U96XdTn6it3cHa2xNw2PhyoSLq1PylmsUSwNZAs=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_identity-deny-version_version}"
+          }
+        },
+        {
+          "Label": "head-object-identity-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 22,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "identity-deny-version/body.bin",
+            "VersionId": "${read_alias_identity-deny-version_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:39+00:00",
+            "ContentLength": 2118,
+            "ChecksumSHA256": "Gdi8U96XdTn6it3cHa2xNw2PhyoSLq1PylmsUSwNZAs=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"3babdd6f8cc197c21b1f6ec863ab4323\"",
+            "VersionId": "${read_alias_identity-deny-version_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_identity-deny-version_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-identity-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 23,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "identity-deny-replication/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "BK3FkqMOJnMgIsVuZanbptJiktJ9t02pv05bQxwYle4=",
+            "Tagging": "probe=readalias&case=identity-deny-replication"
+          },
+          "Body": "TmF0aXZlIFMzIHJlcGxpY2F0aW9uIHJlYWQgcGVybWlzc2lvbiBhbGlhcwD/gA0KaWRlbnRpdHktZGVueS1yZXBsaWNhdGlvbgoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+          "Bind": {
+            "read_alias_identity-deny-replication_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"4f164cb1a55e5bbfdc1289f392a614fc\"",
+            "ChecksumSHA256": "BK3FkqMOJnMgIsVuZanbptJiktJ9t02pv05bQxwYle4=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_identity-deny-replication_version}"
+          }
+        },
+        {
+          "Label": "head-object-identity-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 24,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "identity-deny-replication/body.bin",
+            "VersionId": "${read_alias_identity-deny-replication_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:41+00:00",
+            "ContentLength": 2122,
+            "ChecksumSHA256": "BK3FkqMOJnMgIsVuZanbptJiktJ9t02pv05bQxwYle4=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"4f164cb1a55e5bbfdc1289f392a614fc\"",
+            "VersionId": "${read_alias_identity-deny-replication_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_identity-deny-replication_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-bucket-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 25,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "bucket-deny-version/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "j1HgUwzR7W05l7RNlr2ZyMk6WmVcELrAOzFk9B3/OOU=",
+            "Tagging": "probe=readalias&case=bucket-deny-version"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_bucket-deny-version_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"50bdcc0d1a04b32b2411c59d55dc1e50\"",
+            "ChecksumSHA256": "j1HgUwzR7W05l7RNlr2ZyMk6WmVcELrAOzFk9B3/OOU=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_bucket-deny-version_version}"
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 26,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "bucket-deny-version/body.bin",
+            "VersionId": "${read_alias_bucket-deny-version_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:42+00:00",
+            "ContentLength": 2116,
+            "ChecksumSHA256": "j1HgUwzR7W05l7RNlr2ZyMk6WmVcELrAOzFk9B3/OOU=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"50bdcc0d1a04b32b2411c59d55dc1e50\"",
+            "VersionId": "${read_alias_bucket-deny-version_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_bucket-deny-version_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-bucket-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 27,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "bucket-deny-replication/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "hoO9sqD/ztrmv0eBBDX+C1oro0VRHAiTjU5ycjUvQGA=",
+            "Tagging": "probe=readalias&case=bucket-deny-replication"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_bucket-deny-replication_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"c542cc5caca934fa545537320c28d1bf\"",
+            "ChecksumSHA256": "hoO9sqD/ztrmv0eBBDX+C1oro0VRHAiTjU5ycjUvQGA=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_bucket-deny-replication_version}"
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 28,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "bucket-deny-replication/body.bin",
+            "VersionId": "${read_alias_bucket-deny-replication_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:44+00:00",
+            "ContentLength": 2120,
+            "ChecksumSHA256": "hoO9sqD/ztrmv0eBBDX+C1oro0VRHAiTjU5ycjUvQGA=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"c542cc5caca934fa545537320c28d1bf\"",
+            "VersionId": "${read_alias_bucket-deny-replication_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_bucket-deny-replication_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-identity-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 29,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "identity-deny-both/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "0gHsX9PjvK+TqjVDe/Gx1ceixxUSDISup/A9t5GshQQ=",
+            "Tagging": "probe=readalias&case=identity-deny-both"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_identity-deny-both_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"ff3033a164c940e213fa3fefd6d8f684\"",
+            "ChecksumSHA256": "0gHsX9PjvK+TqjVDe/Gx1ceixxUSDISup/A9t5GshQQ=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_identity-deny-both_version}"
+          }
+        },
+        {
+          "Label": "head-object-identity-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 30,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "identity-deny-both/body.bin",
+            "VersionId": "${read_alias_identity-deny-both_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:46+00:00",
+            "ContentLength": 2115,
+            "ChecksumSHA256": "0gHsX9PjvK+TqjVDe/Gx1ceixxUSDISup/A9t5GshQQ=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"ff3033a164c940e213fa3fefd6d8f684\"",
+            "VersionId": "${read_alias_identity-deny-both_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_identity-deny-both_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-bucket-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 31,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "bucket-deny-both/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "1qpI0sbx1FA2Xqi6YJ97t0q69xTToSbK30xwN8VPUmc=",
+            "Tagging": "probe=readalias&case=bucket-deny-both"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_bucket-deny-both_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"d5745c49978ba57cc5ff46fa20d4ea5a\"",
+            "ChecksumSHA256": "1qpI0sbx1FA2Xqi6YJ97t0q69xTToSbK30xwN8VPUmc=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_bucket-deny-both_version}"
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 32,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "bucket-deny-both/body.bin",
+            "VersionId": "${read_alias_bucket-deny-both_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:48+00:00",
+            "ContentLength": 2113,
+            "ChecksumSHA256": "1qpI0sbx1FA2Xqi6YJ97t0q69xTToSbK30xwN8VPUmc=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"d5745c49978ba57cc5ff46fa20d4ea5a\"",
+            "VersionId": "${read_alias_bucket-deny-both_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_bucket-deny-both_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-sole-version-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 33,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "sole-version-denied/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "JJsscEE8fWRtaqj2Wra7NfrqKVkPLesrM4eLs3sAcno=",
+            "Tagging": "probe=readalias&case=sole-version-denied"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_sole-version-denied_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"d4afe5906fcc30be1cf7ee30d277af1b\"",
+            "ChecksumSHA256": "JJsscEE8fWRtaqj2Wra7NfrqKVkPLesrM4eLs3sAcno=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_sole-version-denied_version}"
+          }
+        },
+        {
+          "Label": "head-object-sole-version-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 34,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "sole-version-denied/body.bin",
+            "VersionId": "${read_alias_sole-version-denied_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:49+00:00",
+            "ContentLength": 2116,
+            "ChecksumSHA256": "JJsscEE8fWRtaqj2Wra7NfrqKVkPLesrM4eLs3sAcno=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"d4afe5906fcc30be1cf7ee30d277af1b\"",
+            "VersionId": "${read_alias_sole-version-denied_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_sole-version-denied_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "put-object-sole-replication-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 35,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "sole-replication-denied/body.bin",
+            "ServerSideEncryption": "AES256",
+            "ChecksumAlgorithm": "SHA256",
+            "ChecksumSHA256": "Pd5xGC378M10qPoONQGa6HOb/imfneyY4PiRCldiSug=",
+            "Tagging": "probe=readalias&case=sole-replication-denied"
+          },
+          "Body": "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",
+          "Bind": {
+            "read_alias_sole-replication-denied_version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"32d3c825d11b8ab9244eb4d66ad8340a\"",
+            "ChecksumSHA256": "Pd5xGC378M10qPoONQGa6HOb/imfneyY4PiRCldiSug=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${read_alias_sole-replication-denied_version}"
+          }
+        },
+        {
+          "Label": "head-object-sole-replication-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 36,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "sole-replication-denied/body.bin",
+            "VersionId": "${read_alias_sole-replication-denied_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T12:25:51+00:00",
+            "ContentLength": 2120,
+            "ChecksumSHA256": "Pd5xGC378M10qPoONQGa6HOb/imfneyY4PiRCldiSug=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"32d3c825d11b8ab9244eb4d66ad8340a\"",
+            "VersionId": "${read_alias_sole-replication-denied_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "PENDING",
+            "TagCount": 2
+          },
+          "Bind": {
+            "read_alias_sole-replication-denied_modified": "LastModified"
+          }
+        },
+        {
+          "Label": "head-object-version-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 38,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "version-only/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-replication-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 40,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "replication-only/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-both-control",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 42,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "both-control/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-identity-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 44,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "identity-deny-version/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-identity-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 46,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "identity-deny-replication/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 48,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "bucket-deny-version/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 50,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "bucket-deny-replication/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-identity-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 52,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "identity-deny-both/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 54,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "bucket-deny-both/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-sole-version-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 56,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "sole-version-denied/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-sole-replication-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 58,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:24:52.166Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "sole-replication-denied/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-version-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 59,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "version-only/body.bin",
+            "VersionId": "${read_alias_version-only_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_version-only_modified}",
+            "ContentLength": 2109,
+            "ChecksumSHA256": "x6a1iQeWqAcdxJl3W+M0sWbTPZ+MhejzYlx4V8Tk/5Q=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"3b436912ece1509122e78b0eaf891444\"",
+            "VersionId": "${read_alias_version-only_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "COMPLETED",
+            "TagCount": 2
+          },
+          "Drain": true,
+          "Reopen": true
+        },
+        {
+          "Label": "head-object-version-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 60,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "version-only/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_version-only_modified}",
+            "ContentLength": 2109,
+            "ChecksumSHA256": "x6a1iQeWqAcdxJl3W+M0sWbTPZ+MhejzYlx4V8Tk/5Q=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"3b436912ece1509122e78b0eaf891444\"",
+            "VersionId": "${read_alias_version-only_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "get-object-version-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 61,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "version-only/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_version-only_modified}",
+            "ContentLength": 2109,
+            "ETag": "\"3b436912ece1509122e78b0eaf891444\"",
+            "ChecksumSHA256": "x6a1iQeWqAcdxJl3W+M0sWbTPZ+MhejzYlx4V8Tk/5Q=",
+            "ChecksumType": "FULL_OBJECT",
+            "VersionId": "${read_alias_version-only_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          },
+          "Plaintext": "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",
+          "Reopen": true
+        },
+        {
+          "Label": "head-object-replication-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 62,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "replication-only/body.bin",
+            "VersionId": "${read_alias_replication-only_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_replication-only_modified}",
+            "ContentLength": 2113,
+            "ChecksumSHA256": "uFW4BjYJQKN9QpUhyjykLFro2BqwSpEnAsVDsR7j9k8=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"07748681eddc78a5a56ca1ca706b440e\"",
+            "VersionId": "${read_alias_replication-only_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "COMPLETED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-replication-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 63,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "replication-only/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_replication-only_modified}",
+            "ContentLength": 2113,
+            "ChecksumSHA256": "uFW4BjYJQKN9QpUhyjykLFro2BqwSpEnAsVDsR7j9k8=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"07748681eddc78a5a56ca1ca706b440e\"",
+            "VersionId": "${read_alias_replication-only_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "get-object-replication-only",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 64,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "replication-only/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_replication-only_modified}",
+            "ContentLength": 2113,
+            "ETag": "\"07748681eddc78a5a56ca1ca706b440e\"",
+            "ChecksumSHA256": "uFW4BjYJQKN9QpUhyjykLFro2BqwSpEnAsVDsR7j9k8=",
+            "ChecksumType": "FULL_OBJECT",
+            "VersionId": "${read_alias_replication-only_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          },
+          "Plaintext": "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"
+        },
+        {
+          "Label": "head-object-both-control",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 65,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "both-control/body.bin",
+            "VersionId": "${read_alias_both-control_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_both-control_modified}",
+            "ContentLength": 2109,
+            "ChecksumSHA256": "8vXjEsapdXKnM+y5ypPHE07iVRavJDrae4d74ZFDkBI=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"864058c7c5aa324c069568d55de354dc\"",
+            "VersionId": "${read_alias_both-control_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "COMPLETED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-both-control",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 66,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "both-control/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_both-control_modified}",
+            "ContentLength": 2109,
+            "ChecksumSHA256": "8vXjEsapdXKnM+y5ypPHE07iVRavJDrae4d74ZFDkBI=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"864058c7c5aa324c069568d55de354dc\"",
+            "VersionId": "${read_alias_both-control_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "get-object-both-control",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 67,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "both-control/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_both-control_modified}",
+            "ContentLength": 2109,
+            "ETag": "\"864058c7c5aa324c069568d55de354dc\"",
+            "ChecksumSHA256": "8vXjEsapdXKnM+y5ypPHE07iVRavJDrae4d74ZFDkBI=",
+            "ChecksumType": "FULL_OBJECT",
+            "VersionId": "${read_alias_both-control_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          },
+          "Plaintext": "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"
+        },
+        {
+          "Label": "head-object-identity-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 68,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "identity-deny-version/body.bin",
+            "VersionId": "${read_alias_identity-deny-version_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_identity-deny-version_modified}",
+            "ContentLength": 2118,
+            "ChecksumSHA256": "Gdi8U96XdTn6it3cHa2xNw2PhyoSLq1PylmsUSwNZAs=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"3babdd6f8cc197c21b1f6ec863ab4323\"",
+            "VersionId": "${read_alias_identity-deny-version_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "COMPLETED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-identity-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 69,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "identity-deny-version/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_identity-deny-version_modified}",
+            "ContentLength": 2118,
+            "ChecksumSHA256": "Gdi8U96XdTn6it3cHa2xNw2PhyoSLq1PylmsUSwNZAs=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"3babdd6f8cc197c21b1f6ec863ab4323\"",
+            "VersionId": "${read_alias_identity-deny-version_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "get-object-identity-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 70,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "identity-deny-version/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_identity-deny-version_modified}",
+            "ContentLength": 2118,
+            "ETag": "\"3babdd6f8cc197c21b1f6ec863ab4323\"",
+            "ChecksumSHA256": "Gdi8U96XdTn6it3cHa2xNw2PhyoSLq1PylmsUSwNZAs=",
+            "ChecksumType": "FULL_OBJECT",
+            "VersionId": "${read_alias_identity-deny-version_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          },
+          "Plaintext": "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"
+        },
+        {
+          "Label": "head-object-identity-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 71,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "identity-deny-replication/body.bin",
+            "VersionId": "${read_alias_identity-deny-replication_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_identity-deny-replication_modified}",
+            "ContentLength": 2122,
+            "ChecksumSHA256": "BK3FkqMOJnMgIsVuZanbptJiktJ9t02pv05bQxwYle4=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"4f164cb1a55e5bbfdc1289f392a614fc\"",
+            "VersionId": "${read_alias_identity-deny-replication_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "COMPLETED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-identity-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 72,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "identity-deny-replication/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_identity-deny-replication_modified}",
+            "ContentLength": 2122,
+            "ChecksumSHA256": "BK3FkqMOJnMgIsVuZanbptJiktJ9t02pv05bQxwYle4=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"4f164cb1a55e5bbfdc1289f392a614fc\"",
+            "VersionId": "${read_alias_identity-deny-replication_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "get-object-identity-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 73,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "identity-deny-replication/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_identity-deny-replication_modified}",
+            "ContentLength": 2122,
+            "ETag": "\"4f164cb1a55e5bbfdc1289f392a614fc\"",
+            "ChecksumSHA256": "BK3FkqMOJnMgIsVuZanbptJiktJ9t02pv05bQxwYle4=",
+            "ChecksumType": "FULL_OBJECT",
+            "VersionId": "${read_alias_identity-deny-replication_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          },
+          "Plaintext": "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"
+        },
+        {
+          "Label": "head-object-bucket-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 74,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "bucket-deny-version/body.bin",
+            "VersionId": "${read_alias_bucket-deny-version_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_bucket-deny-version_modified}",
+            "ContentLength": 2116,
+            "ChecksumSHA256": "j1HgUwzR7W05l7RNlr2ZyMk6WmVcELrAOzFk9B3/OOU=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"50bdcc0d1a04b32b2411c59d55dc1e50\"",
+            "VersionId": "${read_alias_bucket-deny-version_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "COMPLETED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 75,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "bucket-deny-version/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_bucket-deny-version_modified}",
+            "ContentLength": 2116,
+            "ChecksumSHA256": "j1HgUwzR7W05l7RNlr2ZyMk6WmVcELrAOzFk9B3/OOU=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"50bdcc0d1a04b32b2411c59d55dc1e50\"",
+            "VersionId": "${read_alias_bucket-deny-version_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "get-object-bucket-deny-version",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 76,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "bucket-deny-version/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_bucket-deny-version_modified}",
+            "ContentLength": 2116,
+            "ETag": "\"50bdcc0d1a04b32b2411c59d55dc1e50\"",
+            "ChecksumSHA256": "j1HgUwzR7W05l7RNlr2ZyMk6WmVcELrAOzFk9B3/OOU=",
+            "ChecksumType": "FULL_OBJECT",
+            "VersionId": "${read_alias_bucket-deny-version_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          },
+          "Plaintext": "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"
+        },
+        {
+          "Label": "head-object-bucket-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 77,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "bucket-deny-replication/body.bin",
+            "VersionId": "${read_alias_bucket-deny-replication_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_bucket-deny-replication_modified}",
+            "ContentLength": 2120,
+            "ChecksumSHA256": "hoO9sqD/ztrmv0eBBDX+C1oro0VRHAiTjU5ycjUvQGA=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"c542cc5caca934fa545537320c28d1bf\"",
+            "VersionId": "${read_alias_bucket-deny-replication_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "COMPLETED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 78,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "bucket-deny-replication/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_bucket-deny-replication_modified}",
+            "ContentLength": 2120,
+            "ChecksumSHA256": "hoO9sqD/ztrmv0eBBDX+C1oro0VRHAiTjU5ycjUvQGA=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"c542cc5caca934fa545537320c28d1bf\"",
+            "VersionId": "${read_alias_bucket-deny-replication_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "get-object-bucket-deny-replication",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 79,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "bucket-deny-replication/body.bin",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_bucket-deny-replication_modified}",
+            "ContentLength": 2120,
+            "ETag": "\"c542cc5caca934fa545537320c28d1bf\"",
+            "ChecksumSHA256": "hoO9sqD/ztrmv0eBBDX+C1oro0VRHAiTjU5ycjUvQGA=",
+            "ChecksumType": "FULL_OBJECT",
+            "VersionId": "${read_alias_bucket-deny-replication_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "REPLICA",
+            "TagCount": 2
+          },
+          "Plaintext": "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"
+        },
+        {
+          "Label": "head-object-identity-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 80,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "identity-deny-both/body.bin",
+            "VersionId": "${read_alias_identity-deny-both_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_identity-deny-both_modified}",
+            "ContentLength": 2115,
+            "ChecksumSHA256": "0gHsX9PjvK+TqjVDe/Gx1ceixxUSDISup/A9t5GshQQ=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"ff3033a164c940e213fa3fefd6d8f684\"",
+            "VersionId": "${read_alias_identity-deny-both_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "FAILED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-identity-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 81,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "identity-deny-both/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 82,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "bucket-deny-both/body.bin",
+            "VersionId": "${read_alias_bucket-deny-both_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_bucket-deny-both_modified}",
+            "ContentLength": 2113,
+            "ChecksumSHA256": "1qpI0sbx1FA2Xqi6YJ97t0q69xTToSbK30xwN8VPUmc=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"d5745c49978ba57cc5ff46fa20d4ea5a\"",
+            "VersionId": "${read_alias_bucket-deny-both_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "FAILED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-bucket-deny-both",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 83,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "bucket-deny-both/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-sole-version-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 84,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "sole-version-denied/body.bin",
+            "VersionId": "${read_alias_sole-version-denied_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_sole-version-denied_modified}",
+            "ContentLength": 2116,
+            "ChecksumSHA256": "JJsscEE8fWRtaqj2Wra7NfrqKVkPLesrM4eLs3sAcno=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"d4afe5906fcc30be1cf7ee30d277af1b\"",
+            "VersionId": "${read_alias_sole-version-denied_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "FAILED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-sole-version-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 85,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "sole-version-denied/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        },
+        {
+          "Label": "head-object-sole-replication-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 86,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "replication-read-alias-source",
+            "Key": "sole-replication-denied/body.bin",
+            "VersionId": "${read_alias_sole-replication-denied_version}",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${read_alias_sole-replication-denied_modified}",
+            "ContentLength": 2120,
+            "ChecksumSHA256": "Pd5xGC378M10qPoONQGa6HOb/imfneyY4PiRCldiSug=",
+            "ChecksumType": "FULL_OBJECT",
+            "ETag": "\"32d3c825d11b8ab9244eb4d66ad8340a\"",
+            "VersionId": "${read_alias_sole-replication-denied_version}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "ReplicationStatus": "FAILED",
+            "TagCount": 2
+          }
+        },
+        {
+          "Label": "head-object-sole-replication-denied",
+          "Source": "s3/replication_read_alias_evidence.json.gz:runs[2]",
+          "Sequence": 87,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "At": "2026-09-21T12:26:28.223Z",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "replication-read-alias-destination",
+            "Key": "sole-replication-denied/body.bin",
+            "ChecksumMode": "ENABLED"
+          }
+        }
+      ]
+    }
+  ],
+  "IntegrationNotes": [
+    "All five replication groups use TestS3ReplicationNativeReplay and the existing runS3ObjectCalls on memory and SQLite. The draft partition-binding gap is resolved by the shared replay values map; original drafting limitations remain as provenance.",
+    "Source paths resolve beneath testdata/aws. Complete native captures retain original inputs, HTTP results, raw XML, polling and cleanup. Historical paths inside evidence are capture provenance, never runtime dependencies. Supplemental recovered binary files and digest evidence are packaged in s3/replication_payload_evidence.json.gz.",
+    "Native capture packaging removes credential-bearing fields, including non-secret audit access-key identifiers. No permission inputs, response outcomes, payload bytes, versions or audit principal/session ARNs are changed. Scheduling/drain/reopen are local projections, not native latency guarantees."
+  ]
+}

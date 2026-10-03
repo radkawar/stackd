@@ -1,0 +1,14 @@
+{
+  "evidence": "Native optimized ECS output/error contracts: aws/stepfunctions/ecs_workflows.json and ecs_schema_admission.json; https://docs.aws.amazon.com/step-functions/latest/dg/connect-ecs.html. Recovery and event-only completion with DescribeTasks denied are local integration regressions, not native crash or permission-removal observations.",
+  "image": "python@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97",
+  "scenarios": [
+    {"name":"request-response", "pattern":"", "count":2, "command":"import time; time.sleep(1)", "status":"SUCCEEDED"},
+    {"name":"sync-count-rejected", "pattern":".sync", "count":1, "command":"pass", "definitionError":"InvalidDefinition"},
+    {"name":"sync-success", "pattern":".sync", "command":"pass", "status":"SUCCEEDED"},
+    {"name":"sync-failed", "pattern":".sync", "command":"import sys; sys.exit(7)", "status":"FAILED", "error":"States.TaskFailed"},
+    {"name":"sync-event-only", "pattern":".sync", "command":"pass", "denyPoll":true, "status":"SUCCEEDED"},
+    {"name":"sync-recovery", "pattern":".sync", "command":"import time; time.sleep(6)", "reopen":true, "status":"SUCCEEDED"},
+    {"name":"callback", "pattern":".waitForTaskToken", "command":"pass", "callback":true, "status":"SUCCEEDED"},
+    {"name":"sync-cancel", "pattern":".sync", "command":"import os,signal,time; signal.signal(signal.SIGTERM, lambda *_: os._exit(0)); time.sleep(60)", "cancel":true, "status":"ABORTED"}
+  ]
+}

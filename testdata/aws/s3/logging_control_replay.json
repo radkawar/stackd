@@ -1,0 +1,1283 @@
+{
+  "Source": "access_logging_evidence.json.gz",
+  "Normalization": "Source sequences identify captured native events. Bucket and account identities are rebound; canonical IDs are obtained from GetBucketAcl Owner.ID rather than equated with account IDs. Local role prerequisites only establish the captured foreign session. Reopen observes retained public configuration. Absent format/date/grants fields remain absent rather than inventing effective delivery defaults. Native sequence 19 had a transport failure; default observations use successful sequences 27 and 35.",
+  "Scenarios": [
+    {
+      "Name": "default-explicit-omitted-formats-and-disable",
+      "Setup": [
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-simple",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-event",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 3,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-event"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-delivery",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-delivery"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest1"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-dest2",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 9,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest2"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "destination allow policy stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "logging-native-dest1",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedSourceScopedDelivery\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"logging.s3.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::logging-native-dest1/*\", \"Condition\": {\"ArnLike\": {\"aws:SourceArn\": [\"arn:aws:s3:::logging-native-simple\", \"arn:aws:s3:::logging-native-event\", \"arn:aws:s3:::logging-native-delivery\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"${account}\"}}}]}"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "enable simple",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 20,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest1",
+                "TargetPrefix": "simple/",
+                "TargetObjectKeyFormat": {
+                  "SimplePrefix": {}
+                }
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "enable simple state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 21,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest1",
+              "TargetPrefix": "simple/",
+              "TargetObjectKeyFormat": {
+                "SimplePrefix": {}
+              }
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetGrants"
+          ],
+          "Reopen": true
+        },
+        {
+          "Label": "default GetBucketLogging stackd-sal-caebb7dc8db4-event",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 27,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-event"
+          },
+          "Output": {},
+          "Absent": [
+            "LoggingEnabled"
+          ]
+        },
+        {
+          "Label": "enable event",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 28,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-event",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest1",
+                "TargetPrefix": "event/",
+                "TargetObjectKeyFormat": {
+                  "PartitionedPrefix": {
+                    "PartitionDateSource": "EventTime"
+                  }
+                }
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "enable event state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 29,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-event"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest1",
+              "TargetPrefix": "event/",
+              "TargetObjectKeyFormat": {
+                "PartitionedPrefix": {
+                  "PartitionDateSource": "EventTime"
+                }
+              }
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetGrants"
+          ]
+        },
+        {
+          "Label": "default GetBucketLogging stackd-sal-caebb7dc8db4-delivery",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 35,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-delivery"
+          },
+          "Output": {},
+          "Absent": [
+            "LoggingEnabled"
+          ]
+        },
+        {
+          "Label": "enable delivery",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 36,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-delivery",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest1",
+                "TargetPrefix": "delivery/",
+                "TargetObjectKeyFormat": {
+                  "PartitionedPrefix": {
+                    "PartitionDateSource": "DeliveryTime"
+                  }
+                }
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "enable delivery state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 37,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-delivery"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest1",
+              "TargetPrefix": "delivery/",
+              "TargetObjectKeyFormat": {
+                "PartitionedPrefix": {
+                  "PartitionDateSource": "DeliveryTime"
+                }
+              }
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetGrants"
+          ],
+          "Reopen": true
+        },
+        {
+          "Label": "omitted object format default",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 239,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest2",
+                "TargetPrefix": "default-format/"
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "omitted object format default state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 240,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest2",
+              "TargetPrefix": "default-format/"
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetObjectKeyFormat",
+            "LoggingEnabled.TargetGrants"
+          ]
+        },
+        {
+          "Label": "empty partition date default",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 241,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest2",
+                "TargetPrefix": "default-date/",
+                "TargetObjectKeyFormat": {
+                  "PartitionedPrefix": {}
+                }
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "empty partition date default state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 242,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest2",
+              "TargetPrefix": "default-date/",
+              "TargetObjectKeyFormat": {
+                "PartitionedPrefix": {}
+              }
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetGrants",
+            "LoggingEnabled.TargetObjectKeyFormat.PartitionedPrefix.PartitionDateSource"
+          ],
+          "Reopen": true
+        },
+        {
+          "Label": "disable third source logging",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 643,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-delivery",
+            "BucketLoggingStatus": {}
+          },
+          "Output": {}
+        },
+        {
+          "Label": "disable third source logging state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 644,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-delivery"
+          },
+          "Output": {},
+          "Absent": [
+            "LoggingEnabled"
+          ],
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "destination-admission-grants-and-requester-pays",
+      "Setup": [
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-simple",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-event",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 3,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-event"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-delivery",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-delivery"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest1"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-dest2",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 9,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest2"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "destination allow policy stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "logging-native-dest1",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedSourceScopedDelivery\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"logging.s3.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::logging-native-dest1/*\", \"Condition\": {\"ArnLike\": {\"aws:SourceArn\": [\"arn:aws:s3:::logging-native-simple\", \"arn:aws:s3:::logging-native-event\", \"arn:aws:s3:::logging-native-delivery\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"${account}\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "destination allow policy stackd-sal-caebb7dc8db4-dest2",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 18,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "logging-native-dest2",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedSourceScopedDelivery\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"logging.s3.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::logging-native-dest2/*\", \"Condition\": {\"ArnLike\": {\"aws:SourceArn\": [\"arn:aws:s3:::logging-native-simple\", \"arn:aws:s3:::logging-native-event\", \"arn:aws:s3:::logging-native-delivery\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"${account}\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "canonical source owner",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 113,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketAcl",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {},
+          "Bind": {
+            "ownerCanonical": "Owner.ID"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "enable simple",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 20,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest1",
+                "TargetPrefix": "simple/",
+                "TargetObjectKeyFormat": {
+                  "SimplePrefix": {}
+                }
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "remove target policy for admission",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 107,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "DeleteBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "logging-native-dest2"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "target without delivery permission admission",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 108,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest2",
+                "TargetPrefix": "no-permission/"
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "target without delivery permission admission state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 109,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest2",
+              "TargetPrefix": "no-permission/"
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetObjectKeyFormat",
+            "LoggingEnabled.TargetGrants"
+          ],
+          "Reopen": true
+        },
+        {
+          "Label": "destination allow policy stackd-sal-caebb7dc8db4-dest2",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 110,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "logging-native-dest2",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedSourceScopedDelivery\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"logging.s3.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::logging-native-dest2/*\", \"Condition\": {\"ArnLike\": {\"aws:SourceArn\": [\"arn:aws:s3:::logging-native-simple\", \"arn:aws:s3:::logging-native-event\", \"arn:aws:s3:::logging-native-delivery\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"${account}\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "restore baseline after permission admission",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 111,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest1",
+                "TargetPrefix": "simple/",
+                "TargetObjectKeyFormat": {
+                  "SimplePrefix": {}
+                }
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "BOE target grants",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 114,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "AccessControlListNotSupported",
+          "Status": 400,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest2",
+                "TargetPrefix": "grants/",
+                "TargetGrants": [
+                  {
+                    "Grantee": {
+                      "Type": "CanonicalUser",
+                      "ID": "${ownerCanonical}"
+                    },
+                    "Permission": "READ"
+                  }
+                ]
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "BOE target grants state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 115,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest1",
+              "TargetPrefix": "simple/",
+              "TargetObjectKeyFormat": {
+                "SimplePrefix": {}
+              }
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetGrants"
+          ]
+        },
+        {
+          "Label": "BOE empty target grants",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 116,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest2",
+                "TargetPrefix": "empty-grants/",
+                "TargetGrants": []
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "BOE empty target grants state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 117,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest2",
+              "TargetGrants": [],
+              "TargetPrefix": "empty-grants/"
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetObjectKeyFormat"
+          ]
+        },
+        {
+          "Label": "owned destination enable ACLs",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 118,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketOwnershipControls",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest2",
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ACL-enabled target grants",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 119,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest2",
+                "TargetPrefix": "acl-grants/",
+                "TargetGrants": [
+                  {
+                    "Grantee": {
+                      "Type": "CanonicalUser",
+                      "ID": "${ownerCanonical}"
+                    },
+                    "Permission": "READ"
+                  }
+                ]
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ACL-enabled target grants state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 120,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest2",
+              "TargetGrants": [
+                {
+                  "Grantee": {
+                    "ID": "${ownerCanonical}",
+                    "Type": "CanonicalUser"
+                  },
+                  "Permission": "READ"
+                }
+              ],
+              "TargetPrefix": "acl-grants/"
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetObjectKeyFormat"
+          ],
+          "Reopen": true
+        },
+        {
+          "Label": "restore owned destination BOE",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 121,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketOwnershipControls",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest2",
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerEnforced"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "requester target supplement enable",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 215,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest2",
+            "RequestPaymentConfiguration": {
+              "Payer": "Requester"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "verify target Requester Pays before logging admission",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 216,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest2"
+          },
+          "Output": {
+            "Payer": "Requester"
+          }
+        },
+        {
+          "Label": "confirmed requester target admission",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 217,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest2",
+                "TargetPrefix": "confirmed-requester/"
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "confirmed requester target admission state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 218,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest2",
+              "TargetPrefix": "confirmed-requester/"
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetObjectKeyFormat",
+            "LoggingEnabled.TargetGrants"
+          ],
+          "Reopen": true
+        },
+        {
+          "Label": "requester target supplement restore",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 219,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest2",
+            "RequestPaymentConfiguration": {
+              "Payer": "BucketOwner"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "verify target BucketOwner restored",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 220,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest2"
+          },
+          "Output": {
+            "Payer": "BucketOwner"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "expected-owner-and-foreign-control-authority",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-createrole",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "CreateRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "AssumeRolePolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${account}:root\"},\"Action\":\"sts:AssumeRole\"}]}"
+          },
+          "Output": {},
+          "Bind": {
+            "memberRole": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-prerequisite-putrolepolicy",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "PutRolePolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "PolicyName": "NativeOwnershipProbe",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cross-assume-existing-member-role",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Operation": "AssumeRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${memberRole}",
+            "RoleSessionName": "logging-native"
+          },
+          "Output": {},
+          "Actor": "caller",
+          "Service": "sts",
+          "Session": "foreign"
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-simple",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest1"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "destination allow policy stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "logging-native-dest1",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedSourceScopedDelivery\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"logging.s3.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::logging-native-dest1/*\", \"Condition\": {\"ArnLike\": {\"aws:SourceArn\": [\"arn:aws:s3:::logging-native-simple\", \"arn:aws:s3:::logging-native-event\", \"arn:aws:s3:::logging-native-delivery\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"${account}\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "enable simple",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 20,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest1",
+                "TargetPrefix": "simple/",
+                "TargetObjectKeyFormat": {
+                  "SimplePrefix": {}
+                }
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owned source bucket-local public controls",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 22,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "expected owner mismatch Get",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 96,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "ExpectedBucketOwner": "000000000000"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "expected owner mismatch Put",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 97,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {},
+            "ExpectedBucketOwner": "000000000000"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "expected owner mismatch Put state after",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 98,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest1",
+              "TargetPrefix": "simple/",
+              "TargetObjectKeyFormat": {
+                "SimplePrefix": {}
+              }
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetGrants"
+          ]
+        },
+        {
+          "Label": "member without grant Get logging",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 150,
+          "Service": "s3",
+          "Actor": "foreign",
+          "Operation": "GetBucketLogging",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member without grant Put logging",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 151,
+          "Service": "s3",
+          "Actor": "foreign",
+          "Operation": "PutBucketLogging",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {}
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owned source grants member logging authority",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 245,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::logging-native-simple/*\"}, {\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${otherAccount}:role/OrganizationAccountAccessRole\"}, \"Action\": [\"s3:GetBucketLogging\", \"s3:PutBucketLogging\"], \"Resource\": \"arn:aws:s3:::logging-native-simple\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member explicitly granted Get logging",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 246,
+          "Service": "s3",
+          "Actor": "foreign",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest1",
+              "TargetPrefix": "simple/",
+              "TargetObjectKeyFormat": {
+                "SimplePrefix": {}
+              }
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetGrants"
+          ]
+        },
+        {
+          "Label": "member explicitly granted Put logging",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 247,
+          "Service": "s3",
+          "Actor": "foreign",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest1",
+                "TargetPrefix": "simple/",
+                "TargetObjectKeyFormat": {
+                  "SimplePrefix": {}
+                }
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owner reads state after member granted Put",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 248,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {
+            "LoggingEnabled": {
+              "TargetBucket": "logging-native-dest1",
+              "TargetPrefix": "simple/",
+              "TargetObjectKeyFormat": {
+                "SimplePrefix": {}
+              }
+            }
+          },
+          "Absent": [
+            "LoggingEnabled.TargetGrants"
+          ],
+          "Reopen": true
+        }
+      ]
+    }
+  ]
+}

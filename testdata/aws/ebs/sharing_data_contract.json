@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "source_script": "scripts/aws/ebs_sharing_data_probe.py",
+  "region": "us-east-1",
+  "owner_account": "000000000000",
+  "recipient_account": "917546008205",
+  "scope": "Finite native AWS observations on owned 1-GiB synthetic snapshots; not a general parity claim.",
+  "fixtures": {
+    "sharing_data.json": "Immediate share/revoke observations and first delivered audit; propagation-sensitive.",
+    "sharing_data_settled.json": "Owner-readable controls; private sharing, IAM/KMS, revoke/reset, and two-account delivered audit.",
+    "sharing_data_lookup.json": "Explicit shared/deleted snapshot IDs and service-malformed controls.",
+    "sharing_data_tags.json": "Recipient-local tags and a 65-second revoke window.",
+    "sharing_data_tags_settled.json": "Recipient-local tags after confirmed empty permissions and a 300-second revoke window.",
+    "sharing_data_pairs.json": "Shared lineage, cross-owner unrelated pairs, one inaccessible endpoint, public ownership distinctions.",
+    "sharing_data_public_token.json": "Previously valid recipient block token after public+private and public-only sharing.",
+    "sharing_data_limits.json": "500/501 duplicate self-account additions in canonical and legacy forms; no resource reprovisioning."
+  },
+  "contracts": {
+    "private_visibility": "Recipient explicit DescribeSnapshots returns InvalidSnapshot.NotFound; EBS List/Get and shared-parent Start return ResourceNotFoundException/SNAPSHOT_NOT_FOUND before sharing.",
+    "private_sharing": "After propagation, recipient List/Get succeed and return the synthetic owner block. An owner-minted token also works for the recipient.",
+    "shared_parent": "StartSnapshot with a privately shared parent returns ResourceNotFoundException/SNAPSHOT_NOT_FOUND even while recipient List/Get succeed, for plain and CMK-encrypted sources. No cross-account child was created; inheritance/child-deletion independence is therefore inapplicable.",
+    "iam": "Account sharing does not replace identity/session authority: no identity allow, implicit session deny and explicit EBS action denies reject reads. ResourceAccount=source owner allows shared reads; ResourceAccount=requester denies. Denying ec2:DescribeSnapshots does not deny EBS reads.",
+    "kms": "Encrypted shared reads without CMK trust, or with sole session Deny kms:Decrypt, return ResourceNotFoundException/DEPENDENCY_RESOURCE_NOT_FOUND with message KMS key not found. Key-policy trust without grants permits reads. Sole Deny GenerateDataKeyWithoutPlaintext or CreateGrant does not prevent reads.",
+    "revocation": "After settled revoke/reset, List/Get reject with SNAPSHOT_NOT_FOUND even using a previously valid token. Re-sharing makes that same token usable again. EC2 metadata and EBS data propagation are independently observable.",
+    "discovery": "For an explicitly shared source, recipient OwnerIds=[source owner], RestorableByUserIds=self and RestorableByUserIds=[numeric recipient] include it; OwnerIds=self and RestorableByUserIds=[numeric source owner] do not. Explicit-ID lookup after settled revoke is InvalidSnapshot.NotFound.",
+    "mutation": "Sharing does not allow recipient source delete/permission mutation, PutSnapshotBlock, or CompleteSnapshot. Recipient CreateTags is a separate account-local namespace and does not mutate owner tags.",
+    "tags": "Recipient DescribeTags and tag-filtered DescribeSnapshots use recipient-local tags. Shared CreateTags ec2:Owner and aws:ResourceAccount conditions match source owner, not requester. After settled revoke, DescribeSnapshots/CreateTags deny visibility but DescribeTags retains recipient tags and DeleteTags still removes them.",
+    "changed_blocks": "Both owner snapshots in one privately shared lineage can be compared by recipient. Valid accessible cross-owner independent snapshots reject with ValidationException/UNRELATED_SNAPSHOTS. One revoked endpoint causes SNAPSHOT_NOT_FOUND in either argument order.",
+    "public": "Owner List/Get remain usable on own public snapshots. Recipient List and Get reject with ValidationException/INVALID_SNAPSHOT_ID: Public snapshots are not supported. This applies even when an explicit private grant coexists, and even when reusing a token issued before the public flag.",
+    "modification_limit": "500 duplicate self-account Add entries succeed in both canonical and legacy forms without permission mutation; 501 fail InvalidParameterValue: Modification size must not be greater than 500. This proves counting before duplicate/self no-op elimination for the tested Add forms.",
+    "ebs_audit": "Positive caller/owner paired GetSnapshotBlock records share sharedEventID; paired records also exist for shared-source rejected StartSnapshot, CompleteSnapshot and PutSnapshotBlock, including KMS-failed Get. Owner userIdentity is AWSAccount, caller is AssumedRole. Both EBS copies use requester accountId in resources, independently of snapshot owner and recipientAccountId. Caller List/ListChanged records were delivered; their missing owner copies do not establish absence.",
+    "kms_audit": "Positive owner/caller DescribeKey and Decrypt pairs have invokedBy=ebs.amazonaws.com and source snapshot encryptionContext aws:ebs:id. Owner identity is AWSAccount, caller is AssumedRole, recipientAccountId follows the delivery account. Mixed Get/List sessions do not identify which one caused a particular KMS child event."
+  },
+  "documentation": [
+    "https://docs.aws.amazon.com/ebs/latest/APIReference/API_StartSnapshot.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebsapi-permissions.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebsapi-faq.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/logging-ebs-apis-using-cloudtrail.html"
+  ],
+  "boundaries": [
+    "Observed propagation windows are not service latency guarantees.",
+    "Finite delivered CloudTrail records are positive evidence only; omissions are not absence claims.",
+    "The broad documentation note denying owner delivery for shared EBS data is contradicted by captured paired Get/Put records.",
+    "Cross-account EBS aws:ResourceTag owner-versus-recipient namespace was not probed because snapshots had already been cleaned when requested; no reprovisioning was authorized.",
+    "Only Add duplicate-entry limit forms were measured, not every combined Add/Remove size or validation-precedence permutation."
+  ],
+  "captured_through": "2026-09-25T14:24:53.014265+00:00",
+  "verification": {
+    "native_successful_block_reads": 27,
+    "synthetic_block_length": 524288,
+    "synthetic_sha256": "0da31737cbc5ed5fce860e3e29e13f55b75fec538fc0e91627341b2bd8f3ccc6",
+    "project_builds_tests_formatters_run": false
+  },
+  "cleanup": [
+    {
+      "fixture": "sharing_data.json",
+      "snapshots": {
+        "snap-044a551ef44b77294": "000000000000",
+        "snap-04bb5fb3a0f4f3377": "000000000000"
+      },
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-04bb5fb3a0f4f3377",
+          "snap-044a551ef44b77294"
+        ],
+        "remaining_snapshots": [],
+        "key_deletion_scheduled": {
+          "KeyId": "arn:aws:kms:us-east-1:000000000000:key/a86857ab-e256-4719-9e79-334754cc7d2c",
+          "DeletionDate": "2026-10-02T14:49:57.496000+01:00",
+          "KeyState": "PendingDeletion",
+          "PendingWindowInDays": 7
+        },
+        "owner_audit_deleted": true,
+        "member_audit_deleted": true,
+        "finished_at": "2026-09-25T14:07:36.812585+00:00",
+        "recipient_tags_removed": [
+          "snap-04bb5fb3a0f4f3377",
+          "snap-044a551ef44b77294"
+        ]
+      }
+    },
+    {
+      "fixture": "sharing_data_tags.json",
+      "snapshots": {
+        "snap-05451b763ead1d705": "000000000000"
+      },
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-05451b763ead1d705"
+        ],
+        "remaining_snapshots": [],
+        "recipient_tags_removed": [
+          "snap-05451b763ead1d705"
+        ],
+        "finished_at": "2026-09-25T14:07:36.415518+00:00"
+      }
+    },
+    {
+      "fixture": "sharing_data_tags_settled.json",
+      "snapshots": {
+        "snap-0144e89e81cb2156b": "000000000000"
+      },
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-0144e89e81cb2156b"
+        ],
+        "remaining_snapshots": [],
+        "recipient_tags_removed": [
+          "snap-0144e89e81cb2156b"
+        ],
+        "finished_at": "2026-09-25T14:07:36.472794+00:00"
+      }
+    },
+    {
+      "fixture": "sharing_data_pairs.json",
+      "snapshots": {
+        "snap-02ccb49e51262bd0d": "000000000000",
+        "snap-0c5e787e1b6790833": "000000000000",
+        "snap-060188e9e9447d955": "917546008205"
+      },
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-060188e9e9447d955",
+          "snap-0c5e787e1b6790833",
+          "snap-02ccb49e51262bd0d"
+        ],
+        "remaining_snapshots": [],
+        "recipient_tags_removed": [
+          "snap-060188e9e9447d955",
+          "snap-0c5e787e1b6790833",
+          "snap-02ccb49e51262bd0d"
+        ],
+        "finished_at": "2026-09-25T14:13:48.634371+00:00"
+      }
+    },
+    {
+      "fixture": "sharing_data_public_token.json",
+      "snapshots": {
+        "snap-0ab7a9806c5e740c0": "000000000000"
+      },
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-0ab7a9806c5e740c0"
+        ],
+        "recipient_tags_removed": [
+          "snap-0ab7a9806c5e740c0"
+        ],
+        "remaining_snapshots": []
+      }
+    },
+    {
+      "fixture": "sharing_data_settled.json",
+      "snapshots": {
+        "snap-09e418732fc57bb94": "000000000000",
+        "snap-0e71574b4c32bd7af": "000000000000"
+      },
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-0e71574b4c32bd7af",
+          "snap-09e418732fc57bb94"
+        ],
+        "remaining_snapshots": [],
+        "member_role_deleted": true,
+        "key_deletion_scheduled": {
+          "KeyId": "arn:aws:kms:us-east-1:000000000000:key/bd5562e5-a0cd-46b0-aedd-b7a687465989",
+          "DeletionDate": "2026-10-02T15:07:51.534000+01:00",
+          "KeyState": "PendingDeletion",
+          "PendingWindowInDays": 7
+        },
+        "owner_audit_deleted": true,
+        "member_audit_deleted": true,
+        "finished_at": "2026-09-25T14:24:00.721562+00:00",
+        "recipient_tags_removed": [
+          "snap-0e71574b4c32bd7af",
+          "snap-09e418732fc57bb94"
+        ]
+      }
+    }
+  ],
+  "audit": {
+    "fixture": "sharing_data_settled.json",
+    "delivered_records": 469,
+    "delivered_objects": 37,
+    "positive_paired_examples": [
+      {
+        "label": "plain-shared-get",
+        "shared_event_id": "42b8790c-5c1d-4751-abd8-f042a8033359",
+        "copies": [
+          {
+            "account": "owner",
+            "event_id": "69a31032-687f-327b-870a-7c36e8c57e07",
+            "request_id": "0f7caca6-99d6-495e-98b9-90589b4aa582",
+            "identity_type": "AWSAccount",
+            "recipient_account": "000000000000",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          },
+          {
+            "account": "member",
+            "event_id": "c95c3932-f027-3830-bc13-56eb85f44a15",
+            "request_id": "0f7caca6-99d6-495e-98b9-90589b4aa582",
+            "identity_type": "AssumedRole",
+            "recipient_account": "917546008205",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "encrypted-key-shared-get",
+        "shared_event_id": "5d0e6174-6b04-43a9-9416-4435a342f477",
+        "copies": [
+          {
+            "account": "owner",
+            "event_id": "e5b5fdd9-c7b9-3728-8d62-59306e5aac38",
+            "request_id": "a2efbfe9-75ea-47a1-8eb4-9cd1471839a3",
+            "identity_type": "AWSAccount",
+            "recipient_account": "000000000000",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          },
+          {
+            "account": "member",
+            "event_id": "573aaca5-807f-393a-ae27-37fdc2ce681d",
+            "request_id": "a2efbfe9-75ea-47a1-8eb4-9cd1471839a3",
+            "identity_type": "AssumedRole",
+            "recipient_account": "917546008205",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "plain-shared-parent",
+        "shared_event_id": "eddeb3f8-00f2-49e8-b509-e735d789bfad",
+        "copies": [
+          {
+            "account": "owner",
+            "event_id": "e245be13-5f5a-35e8-ac75-14fdeb768c61",
+            "request_id": "7d48c164-8a3a-45f4-aa9b-d46689b604ca",
+            "identity_type": "AWSAccount",
+            "recipient_account": "000000000000",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          },
+          {
+            "account": "member",
+            "event_id": "516c4105-139a-3a9f-8a6e-65d1b3face22",
+            "request_id": "7d48c164-8a3a-45f4-aa9b-d46689b604ca",
+            "identity_type": "AssumedRole",
+            "recipient_account": "917546008205",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "plain-member-source-complete",
+        "shared_event_id": "a7ebda35-b36a-49ab-b4fc-757b14c9f70f",
+        "copies": [
+          {
+            "account": "owner",
+            "event_id": "1881e83c-5fe9-36f9-8a79-369dbe80b7cd",
+            "request_id": "87c2e804-781d-4025-a7f4-bc12c12e088e",
+            "identity_type": "AWSAccount",
+            "recipient_account": "000000000000",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          },
+          {
+            "account": "member",
+            "event_id": "52fcc1fb-6143-37c9-b3ce-8898691a1aa2",
+            "request_id": "87c2e804-781d-4025-a7f4-bc12c12e088e",
+            "identity_type": "AssumedRole",
+            "recipient_account": "917546008205",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "plain-member-source-put",
+        "shared_event_id": "5db811cc-e6a5-42ba-ae1c-9d9dc7ac6c85",
+        "copies": [
+          {
+            "account": "owner",
+            "event_id": "38bccc0a-1211-36fa-b0a8-8bc8c67bc6d4",
+            "request_id": "0db17048-6ad0-4a9d-a904-d2634a9cd291",
+            "identity_type": "AWSAccount",
+            "recipient_account": "000000000000",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          },
+          {
+            "account": "member",
+            "event_id": "6673d8fa-6ac9-3818-9034-8c28936d9c7d",
+            "request_id": "0db17048-6ad0-4a9d-a904-d2634a9cd291",
+            "identity_type": "AssumedRole",
+            "recipient_account": "917546008205",
+            "resource_accounts": [
+              "917546008205"
+            ]
+          }
+        ]
+      }
+    ],
+    "counts": [
+      {
+        "account": "member",
+        "source": "ebs.amazonaws.com",
+        "category": "Data",
+        "count": 76
+      },
+      {
+        "account": "member",
+        "source": "ebs.amazonaws.com",
+        "category": "Management",
+        "count": 17
+      },
+      {
+        "account": "member",
+        "source": "ec2.amazonaws.com",
+        "category": "Management",
+        "count": 124
+      },
+      {
+        "account": "member",
+        "source": "kms.amazonaws.com",
+        "category": "Management",
+        "count": 8
+      },
+      {
+        "account": "member",
+        "source": "s3.amazonaws.com",
+        "category": "Management",
+        "count": 1
+      },
+      {
+        "account": "member",
+        "source": "sts.amazonaws.com",
+        "category": "Management",
+        "count": 44
+      },
+      {
+        "account": "owner",
+        "source": "cloudtrail.amazonaws.com",
+        "category": "Management",
+        "count": 2
+      },
+      {
+        "account": "owner",
+        "source": "ebs.amazonaws.com",
+        "category": "Data",
+        "count": 62
+      },
+      {
+        "account": "owner",
+        "source": "ebs.amazonaws.com",
+        "category": "Management",
+        "count": 19
+      },
+      {
+        "account": "owner",
+        "source": "ec2.amazonaws.com",
+        "category": "Management",
+        "count": 84
+      },
+      {
+        "account": "owner",
+        "source": "kms.amazonaws.com",
+        "category": "Management",
+        "count": 14
+      },
+      {
+        "account": "owner",
+        "source": "s3.amazonaws.com",
+        "category": "Management",
+        "count": 3
+      },
+      {
+        "account": "owner",
+        "source": "sts.amazonaws.com",
+        "category": "Management",
+        "count": 15
+      }
+    ]
+  }
+}

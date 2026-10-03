@@ -1,0 +1,3683 @@
+{
+  "region": "us-west-2",
+  "caller_account": "000000000000",
+  "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+  "prefix": "stackd-target-eeac821e24",
+  "sources": [
+    {
+      "path": "scripts/aws/.target_lookup_membership_probe.py",
+      "content": "#!/usr/bin/env python3\n\"\"\"Owned native EventBridge target membership capture; never publishes events.\"\"\"\nimport ast\nimport json\nimport os\nfrom pathlib import Path\nimport sys\nimport time\nimport uuid\n\nimport botocore.session\nfrom botocore.config import Config\nfrom botocore.exceptions import ClientError\nfrom aws_cli import run, result\n\nREGION = \"us-west-2\"\nACCOUNT = \"000000000000\"\nPREFIX = \"stackd-target-\" + uuid.uuid4().hex[:10]\nDEST = Path(\"testdata/aws/eventbridge/target_lookup.json\")\nENV = {k: v for k, v in os.environ.items() if not k.startswith(\"AWS_ENDPOINT_URL\")}\nENV.update(AWS_DEFAULT_REGION=REGION, AWS_REGION=REGION, AWS_MAX_ATTEMPTS=\"1\", AWS_PAGER=\"\")\nfor key in list(os.environ):\n    if key.startswith(\"AWS_ENDPOINT_URL\"):\n        del os.environ[key]\nCAPTURE = {\"region\": REGION, \"caller_account\": ACCOUNT, \"actor_arn\": None, \"prefix\": PREFIX,\n           \"sources\": [{\"path\": \"scripts/aws/.target_lookup_membership_probe.py\", \"content\": Path(__file__).read_text()},\n                       {\"path\": \"scripts/aws/aws_cli.py\", \"content\": Path(\"scripts/aws/aws_cli.py\").read_text()}],\n           \"observations\": [], \"cleanup\": [], \"cleanup_verification\": {},\n           \"evidence_boundaries\": [\n               \"Signed native HTTPS calls; AWS CLI automatic pagination and retries disabled. Raw debug logs stay in memory and are discarded.\",\n               \"No customer events published. Only uniquely owned rules, custom bus and queues modified; owned default-bus rule removed.\",\n               \"Membership checks poll configured expected sets with bounded convergence, preserving every actual call; an early absence is not an absence oracle.\",\n               \"Native order and tokens retained without normalization. Observed small stable orders do not establish a universal ordering contract.\",\n               \"Botocore parameter validation disabled only for explicit wire boundary requests; no SDK-validation result represented as native AWS behavior.\",\n               \"No IAM matrix, cross-account authorization, delivery, audit trail or token expiration experiment in this fixture.\"],\n           \"references\": [\"https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_ListRuleNamesByTarget.html\"],\n           \"pagination_traversals\": [], \"convergence\": []}\nACTOR = None\nWIRE = None\n\n\ndef save():\n    DEST.write_text(json.dumps(CAPTURE, indent=2) + \"\\n\")\n\n\ndef request(label, operation, parameters, service=\"events\", region=REGION, cleanup=False, wire=False):\n    global ACTOR, WIRE\n    started = time.time_ns() // 1_000_000\n    headers = {}\n    if wire:\n        if WIRE is None:\n            WIRE = botocore.session.get_session().create_client(\"events\", region_name=REGION,\n                config=Config(parameter_validation=False, retries={\"total_max_attempts\": 1}, connect_timeout=10, read_timeout=30))\n        try:\n            native = WIRE.list_rule_names_by_target(**parameters)\n            code = \"Success\"\n        except ClientError as error:\n            native = error.response\n            code = native[\"Error\"][\"Code\"]\n        meta = native.pop(\"ResponseMetadata\")\n        response = {\"code\": code, \"output\": native, \"http_status\": meta[\"HTTPStatusCode\"], \"request_id\": meta[\"RequestId\"]}\n        headers = {k: v for k, v in meta.get(\"HTTPHeaders\", {}).items() if k.lower() in (\"content-type\", \"x-amzn-requestid\", \"date\")}\n    else:\n        process = run(service, operation, parameters, dict(ENV, AWS_DEFAULT_REGION=region, AWS_REGION=region),\n                      options=[\"--debug\", \"--no-paginate\", \"--cli-connect-timeout\", \"10\", \"--cli-read-timeout\", \"30\"], timeout=50)\n        response = result(process, debug=True)\n        bodies = []\n        for line in process.stderr.splitlines():\n            if \"Response headers:\" in line:\n                decoded = ast.literal_eval(line.split(\"Response headers:\", 1)[1].strip())\n                headers = {k.lower(): v for k, v in decoded.items() if k.lower() in (\"content-type\", \"x-amzn-requestid\", \"x-amzn-request-id\", \"x-amz-request-id\", \"date\")}\n            if line.startswith((\"b'\", 'b\"')):\n                try:\n                    raw = ast.literal_eval(line)\n                    bodies.append(json.loads(raw))\n                except (ValueError, SyntaxError, TypeError):\n                    pass\n        response[\"request_id\"] = next((headers[k] for k in (\"x-amzn-requestid\", \"x-amzn-request-id\", \"x-amz-request-id\") if k in headers), None)\n        if response[\"code\"] != \"Success\":\n            response[\"output\"] = bodies[-1] if bodies else {}\n        if response[\"code\"] == \"CLIError\" or not response.get(\"http_status\") or not response[\"request_id\"]:\n            raise RuntimeError(\"Native transport metadata missing for \" + label + \": \" + json.dumps(response))\n    if service == \"sts\" and operation == \"get-caller-identity\" and response[\"code\"] == \"Success\":\n        if response[\"output\"][\"Account\"] != ACCOUNT:\n            raise RuntimeError(\"Unexpected account\")\n        ACTOR = response[\"output\"][\"Arn\"]\n        CAPTURE[\"actor_arn\"] = ACTOR\n    row = {\"label\": label, \"service\": service, \"operation\": operation, \"region\": region, \"input\": parameters,\n           \"request_started_ms\": started, \"request_finished_ms\": time.time_ns() // 1_000_000,\n           \"caller_account\": ACCOUNT, \"actor_arn\": ACTOR, \"result\": response,\n           \"transport\": \"botocore signed HTTPS, validation disabled\" if wire else \"AWS CLI signed HTTPS\",\n           \"response_headers\": headers}\n    CAPTURE[\"cleanup\" if cleanup else \"observations\"].append(row)\n    save()\n    print(label + \": \" + json.dumps(response), flush=True)\n    return response\n\n\ndef must(label, operation, parameters, **kwargs):\n    response = request(label, operation, parameters, **kwargs)\n    if response[\"code\"] != \"Success\" or response[\"output\"].get(\"FailedEntryCount\", 0):\n        raise RuntimeError(\"Setup/mutation failed: \" + label)\n    return response[\"output\"]\n\n\ndef lookup(label, arn, bus=None, **kwargs):\n    params = {\"TargetArn\": arn}\n    if bus is not None:\n        params[\"EventBusName\"] = bus\n    params.update(kwargs)\n    return request(label, \"list-rule-names-by-target\", params)\n\n\ndef converge(label, arn, bus, expected):\n    attempts = []\n    until = time.monotonic() + 100\n    consecutive = 0\n    while True:\n        call_label = label + \"-\" + str(len(attempts) + 1)\n        response = lookup(call_label, arn, bus)\n        attempts.append(call_label)\n        matches = response[\"code\"] == \"Success\" and set(response[\"output\"].get(\"RuleNames\", [])) == set(expected) and len(response[\"output\"].get(\"RuleNames\", [])) == len(expected) and not response[\"output\"].get(\"NextToken\")\n        consecutive = consecutive + 1 if matches else 0\n        if consecutive == 2 or time.monotonic() >= until:\n            CAPTURE[\"convergence\"].append({\"label\": label, \"expected_names\": expected, \"observations\": attempts, \"converged\": consecutive == 2})\n            save()\n            if consecutive != 2:\n                raise RuntimeError(\"Membership did not converge: \" + label)\n            return\n        time.sleep(2)\n\n\ndef traverse(label, arn, bus, limit):\n    token = None\n    labels, names, tokens = [], [], []\n    for index in range(20):\n        args = {\"Limit\": limit}\n        if token:\n            args[\"NextToken\"] = token\n        call_label = label + \"-page-\" + str(index + 1)\n        response = lookup(call_label, arn, bus, **args)\n        if response[\"code\"] != \"Success\":\n            raise RuntimeError(\"Pagination failed\")\n        labels.append(call_label)\n        names.extend(response[\"output\"].get(\"RuleNames\", []))\n        token = response[\"output\"].get(\"NextToken\")\n        if not token:\n            CAPTURE[\"pagination_traversals\"].append({\"label\": label, \"observations\": labels, \"rule_names_in_native_order\": names, \"terminal_next_token_absent\": \"NextToken\" not in response[\"output\"]})\n            save()\n            return tokens\n        tokens.append(token)\n    raise RuntimeError(\"Pagination did not terminate\")\n\n\ndef main():\n    must(\"caller-identity\", \"get-caller-identity\", {}, service=\"sts\")\n    bus = PREFIX + \"-bus\"\n    bus_arn = \"arn:aws:events:\" + REGION + \":\" + ACCOUNT + \":event-bus/\" + bus\n    default_arn = \"arn:aws:events:\" + REGION + \":\" + ACCOUNT + \":event-bus/default\"\n    names = [PREFIX + \"-\" + suffix for suffix in (\"zeta\", \"alpha\", \"mu\", \"beta\")]\n    empty_rule = PREFIX + \"-empty\"\n    queues = []\n    rules = []\n    created_bus = False\n    try:\n        must(\"create-custom-bus\", \"create-event-bus\", {\"Name\": bus})\n        created_bus = True\n        for suffix in (\"a\", \"b\"):\n            qname = PREFIX + \"-\" + suffix\n            output = must(\"create-queue-\" + suffix, \"create-queue\", {\"QueueName\": qname}, service=\"sqs\")\n            url = output[\"QueueUrl\"]\n            queues.append((qname, url))\n        a, b = [\"arn:aws:sqs:\" + REGION + \":\" + ACCOUNT + \":\" + q[0] for q in queues]\n        missing = \"arn:aws:sqs:\" + REGION + \":\" + ACCOUNT + \":\" + PREFIX + \"-never-created\"\n        lookup(\"empty-custom-bus\", a, bus)\n        lookup(\"valid-nonexistent-target\", missing, bus)\n        lookup(\"absent-custom-bus\", a, bus + \"-absent\")\n        for name in names + [empty_rule]:\n            must(\"create-rule-\" + name.rsplit(\"-\", 1)[-1], \"put-rule\", {\"Name\": name, \"EventBusName\": bus, \"EventPattern\": json.dumps({\"source\": [PREFIX]}), \"State\": \"ENABLED\"})\n            rules.append((bus, name))\n            if name != empty_rule:\n                targets = [{\"Id\": \"primary\", \"Arn\": a}]\n                if name == names[0]:\n                    targets.append({\"Id\": \"duplicate\", \"Arn\": a})\n                if name in (names[1], names[3]):\n                    targets.append({\"Id\": \"other\", \"Arn\": b})\n                must(\"configure-targets-\" + name.rsplit(\"-\", 1)[-1], \"put-targets\", {\"Rule\": name, \"EventBusName\": bus, \"Targets\": targets})\n        must(\"create-owned-default-rule\", \"put-rule\", {\"Name\": names[0], \"EventPattern\": json.dumps({\"source\": [PREFIX]}), \"State\": \"DISABLED\"})\n        rules.append((\"default\", names[0]))\n        must(\"configure-default-target\", \"put-targets\", {\"Rule\": names[0], \"Targets\": [{\"Id\": \"primary\", \"Arn\": a}]})\n        converge(\"all-custom-members\", a, bus, names)\n        converge(\"default-members\", a, None, [names[0]])\n        lookup(\"custom-bus-arn\", a, bus_arn)\n        lookup(\"default-bus-name\", a, \"default\")\n        lookup(\"default-bus-arn\", a, default_arn)\n        request(\"other-region-same-custom-bus\", \"list-rule-names-by-target\", {\"TargetArn\": a, \"EventBusName\": bus}, region=\"us-east-1\")\n        request(\"other-region-default-bus\", \"list-rule-names-by-target\", {\"TargetArn\": a}, region=\"us-east-1\")\n        must(\"disable-mu\", \"disable-rule\", {\"Name\": names[2], \"EventBusName\": bus})\n        must(\"describe-disabled-mu\", \"describe-rule\", {\"Name\": names[2], \"EventBusName\": bus})\n        converge(\"disabled-still-member\", a, bus, names)\n        must(\"describe-duplicate-targets\", \"list-targets-by-rule\", {\"Rule\": names[0], \"EventBusName\": bus})\n        tokens = traverse(\"limit-one\", a, bus, 1)\n        traverse(\"limit-two\", a, bus, 2)\n        traverse(\"repeat-limit-one\", a, bus, 1)\n        token = tokens[0]\n        lookup(\"token-changed-target\", b, bus, Limit=1, NextToken=token)\n        lookup(\"token-changed-bus\", a, \"default\", Limit=1, NextToken=token)\n        lookup(\"token-bus-name-to-arn\", a, bus_arn, Limit=1, NextToken=token)\n        lookup(\"token-changed-limit\", a, bus, Limit=2, NextToken=token)\n        lookup(\"invalid-token\", a, bus, Limit=1, NextToken=\"not-a-native-token\")\n        for label, extra in [(\"limit-zero\", {\"Limit\": 0}), (\"limit-negative\", {\"Limit\": -1}), (\"limit-over-maximum\", {\"Limit\": 101}), (\"empty-token\", {\"NextToken\": \"\"}), (\"docs-zero-empty-token\", {\"Limit\": 0, \"NextToken\": \"\"})]:\n            request(label, \"list-rule-names-by-target\", dict(TargetArn=a, EventBusName=bus, **extra), wire=True)\n        for label, params in [(\"missing-target\", {\"EventBusName\": bus}), (\"empty-target\", {\"EventBusName\": bus, \"TargetArn\": \"\"}), (\"malformed-target\", {\"EventBusName\": bus, \"TargetArn\": \"not-an-arn\"})]:\n            request(label, \"list-rule-names-by-target\", params, wire=True)\n        must(\"remove-one-duplicate\", \"remove-targets\", {\"Rule\": names[0], \"EventBusName\": bus, \"Ids\": [\"primary\"]})\n        converge(\"one-duplicate-retains-member\", a, bus, names)\n        must(\"remove-last-duplicate\", \"remove-targets\", {\"Rule\": names[0], \"EventBusName\": bus, \"Ids\": [\"duplicate\"]})\n        converge(\"last-duplicate-removes-member\", a, bus, names[1:])\n        must(\"replace-alpha-primary-target\", \"put-targets\", {\"Rule\": names[1], \"EventBusName\": bus, \"Targets\": [{\"Id\": \"primary\", \"Arn\": b}]})\n        converge(\"replacement-old-arn\", a, bus, names[2:])\n        converge(\"replacement-new-arn-deduplicated\", b, bus, [names[1], names[3]])\n        must(\"remove-beta-targets\", \"remove-targets\", {\"Rule\": names[3], \"EventBusName\": bus, \"Ids\": [\"primary\", \"other\"]})\n        must(\"delete-beta-rule\", \"delete-rule\", {\"Name\": names[3], \"EventBusName\": bus})\n        request(\"deleted-beta-absent\", \"describe-rule\", {\"Name\": names[3], \"EventBusName\": bus})\n        converge(\"deleted-rule-not-member\", a, bus, [names[2]])\n        must(\"delete-live-queue-a\", \"delete-queue\", {\"QueueUrl\": queues[0][1]}, service=\"sqs\")\n        queue_absent = request(\"deleted-target-queue-absent\", \"get-queue-url\", {\"QueueName\": queues[0][0]}, service=\"sqs\")\n        if queue_absent[\"code\"] != \"AWS.SimpleQueueService.NonExistentQueue\":\n            raise RuntimeError(\"Deleted queue absence not observed\")\n        must(\"configured-target-after-queue-delete\", \"list-targets-by-rule\", {\"Rule\": names[2], \"EventBusName\": bus})\n        converge(\"deleted-queue-still-member\", a, bus, [names[2]])\n        converge(\"deleted-queue-default-still-member\", a, None, [names[0]])\n        lookup(\"old-token-after-membership-mutations\", a, bus, Limit=1, NextToken=token)\n    finally:\n        for rule_bus, name in reversed(rules):\n            request(\"cleanup-targets-\" + rule_bus + \"-\" + name, \"remove-targets\", {\"Rule\": name, \"EventBusName\": rule_bus, \"Ids\": [\"primary\", \"duplicate\", \"other\"]}, cleanup=True)\n            request(\"cleanup-rule-\" + rule_bus + \"-\" + name, \"delete-rule\", {\"Name\": name, \"EventBusName\": rule_bus}, cleanup=True)\n            absent = request(\"verify-rule-absent-\" + rule_bus + \"-\" + name, \"describe-rule\", {\"Name\": name, \"EventBusName\": rule_bus}, cleanup=True)\n            CAPTURE[\"cleanup_verification\"][rule_bus + \"/\" + name] = {\"code\": absent[\"code\"], \"observed_absent\": absent[\"code\"] == \"ResourceNotFoundException\"}\n        if created_bus:\n            request(\"cleanup-custom-bus\", \"delete-event-bus\", {\"Name\": bus}, cleanup=True)\n            absent = request(\"verify-custom-bus-absent\", \"describe-event-bus\", {\"Name\": bus}, cleanup=True)\n            CAPTURE[\"cleanup_verification\"][bus] = {\"code\": absent[\"code\"], \"observed_absent\": absent[\"code\"] == \"ResourceNotFoundException\"}\n        for qname, url in queues:\n            request(\"cleanup-queue-\" + qname, \"delete-queue\", {\"QueueUrl\": url}, service=\"sqs\", cleanup=True)\n            absent = request(\"verify-queue-absent-\" + qname, \"get-queue-url\", {\"QueueName\": qname}, service=\"sqs\", cleanup=True)\n            CAPTURE[\"cleanup_verification\"][qname] = {\"code\": absent[\"code\"], \"observed_absent\": absent[\"code\"] == \"AWS.SimpleQueueService.NonExistentQueue\"}\n        save()\n    if not all(item[\"observed_absent\"] for item in CAPTURE[\"cleanup_verification\"].values()):\n        raise RuntimeError(\"Cleanup absence incomplete\")\n\n\nif __name__ == \"__main__\":\n    main()\n"
+    },
+    {
+      "path": "scripts/aws/aws_cli.py",
+      "content": "\"\"\"AWS CLI transport shared by native behavior probes.\n\nCallers own endpoint/retry choices, observations and resource cleanup. JSON shapes\nremain open because probes deliberately exercise invalid and newly added inputs.\n\"\"\"\nimport ast\nimport json\nimport re\nimport subprocess\nfrom collections.abc import Mapping, Sequence\nfrom typing import Any, NotRequired, TypedDict\n\n\nclass ProbeResult(TypedDict):\n    code: str\n    output: NotRequired[dict[str, Any]]\n    error: NotRequired[dict[str, Any]]\n    message: NotRequired[str]\n    http_status: NotRequired[int]\n\n\nclass CLITimeout(RuntimeError):\n    \"\"\"A bounded CLI call expired; command arguments may contain secrets.\"\"\"\n\n\nclass AWSCLIError(RuntimeError):\n    \"\"\"A failed strict call, retaining native JSON error fields for its caller.\"\"\"\n\n    def __init__(self, service: str, operation: str, stderr: str, details: dict[str, Any]):\n        super().__init__(f\"{service}:{operation}: {stderr.strip()}\")\n        self.details = details\n\n\ndef run(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n        env: Mapping[str, str] | None = None, *, options: Sequence[str] = (),\n        timeout: float | None = None) -> subprocess.CompletedProcess[str]:\n    \"\"\"Execute one CLI command without interpreting service or client failures.\"\"\"\n    command = [\"aws\", service, operation, \"--output\", \"json\", \"--no-cli-pager\"]\n    if parameters is not None:\n        command += [\"--cli-input-json\", json.dumps(parameters)]\n    try:\n        return subprocess.run(command + list(options), env=env, capture_output=True,\n                              text=True, check=False, timeout=timeout)\n    except subprocess.TimeoutExpired:\n        raise CLITimeout(\"AWS CLI timed out during \" + operation) from None\n\n\ndef call(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n         env: Mapping[str, str] | None = None, *, paginate: bool = True,\n         error_format: str | None = None) -> dict[str, Any]:\n    \"\"\"Return JSON output; service and CLI-validation errors retain typed details.\n\n    Configuration and transport failures abort capture instead of becoming\n    observations of AWS behavior. AWS CLI uses 252 for input errors and 254\n    for service errors.\n    \"\"\"\n    options = [\"--cli-connect-timeout\", \"10\", \"--cli-read-timeout\", \"30\"]\n    if error_format is not None:\n        options += [\"--cli-error-format\", error_format]\n    if not paginate:\n        options.append(\"--no-paginate\")\n    process = run(service, operation, parameters or None, env, options=options)\n    if process.returncode:\n        diagnosis = f\"{service}:{operation}: {process.stderr.strip()}\"\n        if error_format == \"json\" and process.returncode in (252, 254):\n            try:\n                details = json.loads(process.stderr)\n            except json.JSONDecodeError:\n                raise RuntimeError(diagnosis) from None\n            if isinstance(details, dict) and isinstance(details.get(\"Code\"), str):\n                raise AWSCLIError(service, operation, process.stderr, details)\n        raise RuntimeError(diagnosis)\n    return result(process)[\"output\"]\n\n\ndef observe(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n            env: Mapping[str, str] | None = None, *, paginate: bool = True) -> ProbeResult:\n    \"\"\"Capture native JSON success/error fields; callers own output redaction.\"\"\"\n    try:\n        output = call(service, operation, parameters, env, paginate=paginate, error_format=\"json\")\n    except AWSCLIError as error:\n        return {\"code\": error.details[\"Code\"], \"error\": error.details}\n    return {\"code\": \"Success\", \"output\": output}\n\n\ndef _text_error(stderr: str) -> tuple[str, str | None]:\n    match = re.search(r\"An error occurred \\(([^)]+)\\)(?:.*?operation(?: \\([^)]*\\))?: (.*))?\", stderr)\n    return (match[1], match[2]) if match else (\"CLIError\", None)\n\n\ndef result(process: subprocess.CompletedProcess[str], *, cli_error: str = \"CLIError\",\n           cli_message: str | None = \"AWS CLI failed; raw diagnostics discarded\",\n           debug: bool = False) -> ProbeResult:\n    \"\"\"Decode an observation, separating modeled errors from CLI rejection.\n\n    A None client message retains the final three diagnostic lines for probes\n    whose captured CLI-validation observations include those lines.\n    \"\"\"\n    if process.returncode:\n        code, message = _text_error(process.stderr)\n        decoded: ProbeResult = {\n            \"code\": code if message is not None else cli_error,\n            \"message\": message if message is not None else cli_message if cli_message is not None\n            else \" \".join(process.stderr.splitlines()[-3:]),\n        }\n    else:\n        decoded = {\"code\": \"Success\", \"output\": json.loads(process.stdout) if process.stdout.strip() else {}}\n    if debug:\n        statuses = re.findall(r'\"[A-Z]+ [^\"\\r\\n]* HTTP/1\\.[01]\" (\\d{3})', process.stderr)\n        if statuses:\n            decoded[\"http_status\"] = int(statuses[-1])\n    return decoded\n\n\ndef error_code(process: subprocess.CompletedProcess[str]) -> str:\n    \"\"\"Decode code-only observations, including CLI ParamValidation errors.\"\"\"\n    return _text_error(process.stderr)[0]\n\n\ndef raw_xml(process: subprocess.CompletedProcess[str]) -> bytes | None:\n    \"\"\"Extract the last XML response from CLI debug output; discard other logs.\"\"\"\n    raw = None\n    for line in process.stderr.splitlines():\n        if line.startswith((\"b'<\", 'b\"<')):\n            try:\n                candidate = ast.literal_eval(line)\n                if candidate.startswith(b\"<\"):\n                    raw = candidate\n            except (ValueError, SyntaxError):\n                pass\n    return raw\n"
+    },
+    {
+      "path": "scripts/aws/.target_lookup_arn_boundaries.py",
+      "content": "#!/usr/bin/env python3\n\"\"\"Append native no-resource ARN syntax controls to owned target membership evidence.\"\"\"\nimport ast\nimport json\nimport os\nfrom pathlib import Path\nimport time\nfrom aws_cli import run, result\n\npath = Path(\"testdata/aws/eventbridge/target_lookup.json\")\ncapture = json.loads(path.read_text())\nenv = {k: v for k, v in os.environ.items() if not k.startswith(\"AWS_ENDPOINT_URL\")}\nenv.update(AWS_DEFAULT_REGION=capture[\"region\"], AWS_REGION=capture[\"region\"], AWS_MAX_ATTEMPTS=\"1\", AWS_PAGER=\"\")\ncapture[\"sources\"].append({\"path\": \"scripts/aws/.target_lookup_arn_boundaries.py\", \"content\": Path(__file__).read_text()})\n\n\ndef request(label, service, operation, parameters):\n    started = time.time_ns() // 1_000_000\n    process = run(service, operation, parameters, env, options=[\"--debug\", \"--no-paginate\", \"--cli-connect-timeout\", \"10\", \"--cli-read-timeout\", \"30\"], timeout=50)\n    response = result(process, debug=True)\n    headers, bodies = {}, []\n    for line in process.stderr.splitlines():\n        if \"Response headers:\" in line:\n            decoded = ast.literal_eval(line.split(\"Response headers:\", 1)[1].strip())\n            headers = {k.lower(): v for k, v in decoded.items() if k.lower() in (\"content-type\", \"x-amzn-requestid\", \"x-amzn-request-id\", \"x-amz-request-id\", \"date\")}\n        if line.startswith((\"b'\", 'b\"')):\n            try:\n                bodies.append(json.loads(ast.literal_eval(line)))\n            except (ValueError, SyntaxError, TypeError):\n                pass\n    response[\"request_id\"] = next((headers[k] for k in (\"x-amzn-requestid\", \"x-amzn-request-id\", \"x-amz-request-id\") if k in headers), None)\n    if response[\"code\"] != \"Success\":\n        response[\"output\"] = bodies[-1] if bodies else {}\n    if response[\"code\"] == \"CLIError\" or not response.get(\"http_status\") or not response[\"request_id\"]:\n        raise RuntimeError(\"Missing native metadata\")\n    if service == \"sts\":\n        if response[\"output\"][\"Account\"] != capture[\"caller_account\"] or response[\"output\"][\"Arn\"] != capture[\"actor_arn\"]:\n            raise RuntimeError(\"Unexpected identity\")\n    capture[\"observations\"].append({\"label\": label, \"service\": service, \"operation\": operation, \"region\": capture[\"region\"], \"input\": parameters,\n        \"request_started_ms\": started, \"request_finished_ms\": time.time_ns() // 1_000_000,\n        \"caller_account\": capture[\"caller_account\"], \"actor_arn\": capture[\"actor_arn\"], \"result\": response,\n        \"transport\": \"AWS CLI signed HTTPS\", \"response_headers\": headers})\n    path.write_text(json.dumps(capture, indent=2) + \"\\n\")\n    print(label + \": \" + json.dumps(response), flush=True)\n\n\nrequest(\"arn-boundaries-caller-identity\", \"sts\", \"get-caller-identity\", {})\naccount, region, prefix = capture[\"caller_account\"], capture[\"region\"], capture[\"prefix\"]\nfor label, arn in [\n    (\"nonexistent-lambda\", f\"arn:aws:lambda:{region}:{account}:function:{prefix}-never-created\"),\n    (\"unknown-service\", f\"arn:aws:madeup:{region}:{account}:{prefix}-never-created\"),\n    (\"wrong-known-partition\", f\"arn:aws-cn:sqs:{region}:{account}:{prefix}-never-created\"),\n    (\"unknown-partition\", f\"arn:notaws:sqs:{region}:{account}:{prefix}-never-created\"),\n    (\"empty-region\", f\"arn:aws:sqs::{account}:{prefix}-never-created\"),\n    (\"empty-account\", f\"arn:aws:sqs:{region}::{prefix}-never-created\"),\n    (\"empty-resource\", f\"arn:aws:sqs:{region}:{account}:\"),\n    (\"iam-empty-region\", f\"arn:aws:iam::{account}:role/{prefix}-never-created\"),\n]:\n    request(\"arn-boundary-\" + label, \"events\", \"list-rule-names-by-target\", {\"TargetArn\": arn})\ncapture[\"evidence_boundaries\"].append(\"The arn-boundary observations ran after all owned resources were cleaned up. These signed default-bus lookups provisioned nothing; their later timestamps retain actual sequencing and previous cleanup proof is unchanged.\")\npath.write_text(json.dumps(capture, indent=2) + \"\\n\")\n"
+    }
+  ],
+  "observations": [
+    {
+      "label": "caller-identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "region": "us-west-2",
+      "input": {},
+      "request_started_ms": 1790176880305,
+      "request_finished_ms": 1790176881216,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200,
+        "request_id": "84f58615-709f-4222-adbd-ee04f3da6cb0"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "84f58615-709f-4222-adbd-ee04f3da6cb0",
+        "content-type": "text/xml",
+        "date": "Wed, 23 Sep 2026 15:21:21 GMT"
+      }
+    },
+    {
+      "label": "create-custom-bus",
+      "service": "events",
+      "operation": "create-event-bus",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176881218,
+      "request_finished_ms": 1790176882173,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "EventBusArn": "arn:aws:events:us-west-2:000000000000:event-bus/stackd-target-eeac821e24-bus"
+        },
+        "http_status": 200,
+        "request_id": "f5c80215-343d-4cbf-ac86-d94993089147"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "f5c80215-343d-4cbf-ac86-d94993089147",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:22 GMT"
+      }
+    },
+    {
+      "label": "create-queue-a",
+      "service": "sqs",
+      "operation": "create-queue",
+      "region": "us-west-2",
+      "input": {
+        "QueueName": "stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790176882183,
+      "request_finished_ms": 1790176883145,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-west-2.amazonaws.com/000000000000/stackd-target-eeac821e24-a"
+        },
+        "http_status": 200,
+        "request_id": "4e563931-3022-5002-a349-5a1cc0903e42"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "4e563931-3022-5002-a349-5a1cc0903e42",
+        "date": "Wed, 23 Sep 2026 15:21:23 GMT",
+        "content-type": "application/x-amz-json-1.0"
+      }
+    },
+    {
+      "label": "create-queue-b",
+      "service": "sqs",
+      "operation": "create-queue",
+      "region": "us-west-2",
+      "input": {
+        "QueueName": "stackd-target-eeac821e24-b"
+      },
+      "request_started_ms": 1790176883146,
+      "request_finished_ms": 1790176884050,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-west-2.amazonaws.com/000000000000/stackd-target-eeac821e24-b"
+        },
+        "http_status": 200,
+        "request_id": "0d4f5058-a22f-5b47-ae75-3375529c374b"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "0d4f5058-a22f-5b47-ae75-3375529c374b",
+        "date": "Wed, 23 Sep 2026 15:21:23 GMT",
+        "content-type": "application/x-amz-json-1.0"
+      }
+    },
+    {
+      "label": "empty-custom-bus",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176884050,
+      "request_finished_ms": 1790176884920,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": []
+        },
+        "http_status": 200,
+        "request_id": "df770edc-9039-45e1-8911-3da5784f3aab"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "df770edc-9039-45e1-8911-3da5784f3aab",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:24 GMT"
+      }
+    },
+    {
+      "label": "valid-nonexistent-target",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-never-created",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176884920,
+      "request_finished_ms": 1790176885813,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": []
+        },
+        "http_status": 200,
+        "request_id": "aadb53c0-9fa5-4fc6-8a51-1b8a73c6647e"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "aadb53c0-9fa5-4fc6-8a51-1b8a73c6647e",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:25 GMT"
+      }
+    },
+    {
+      "label": "absent-custom-bus",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus-absent"
+      },
+      "request_started_ms": 1790176885814,
+      "request_finished_ms": 1790176886688,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Event bus stackd-target-eeac821e24-bus-absent does not exist.",
+        "http_status": 400,
+        "request_id": "defe8586-0531-4624-a6a3-0be4985023f1",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Event bus stackd-target-eeac821e24-bus-absent does not exist."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "defe8586-0531-4624-a6a3-0be4985023f1",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:26 GMT"
+      }
+    },
+    {
+      "label": "create-rule-zeta",
+      "service": "events",
+      "operation": "put-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "EventPattern": "{\"source\": [\"stackd-target-eeac821e24\"]}",
+        "State": "ENABLED"
+      },
+      "request_started_ms": 1790176886688,
+      "request_finished_ms": 1790176887603,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-west-2:000000000000:rule/stackd-target-eeac821e24-bus/stackd-target-eeac821e24-zeta"
+        },
+        "http_status": 200,
+        "request_id": "fe5236c2-4003-42af-aac0-33811b1d4c23"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "fe5236c2-4003-42af-aac0-33811b1d4c23",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:27 GMT"
+      }
+    },
+    {
+      "label": "configure-targets-zeta",
+      "service": "events",
+      "operation": "put-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Targets": [
+          {
+            "Id": "primary",
+            "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+          },
+          {
+            "Id": "duplicate",
+            "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+          }
+        ]
+      },
+      "request_started_ms": 1790176887603,
+      "request_finished_ms": 1790176888521,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "15076877-9394-4b1d-880a-9d4322b25732"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "15076877-9394-4b1d-880a-9d4322b25732",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:28 GMT"
+      }
+    },
+    {
+      "label": "create-rule-alpha",
+      "service": "events",
+      "operation": "put-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-alpha",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "EventPattern": "{\"source\": [\"stackd-target-eeac821e24\"]}",
+        "State": "ENABLED"
+      },
+      "request_started_ms": 1790176888522,
+      "request_finished_ms": 1790176889467,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-west-2:000000000000:rule/stackd-target-eeac821e24-bus/stackd-target-eeac821e24-alpha"
+        },
+        "http_status": 200,
+        "request_id": "66935b13-9cfd-4272-ad7a-98677500019c"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "66935b13-9cfd-4272-ad7a-98677500019c",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:29 GMT"
+      }
+    },
+    {
+      "label": "configure-targets-alpha",
+      "service": "events",
+      "operation": "put-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-alpha",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Targets": [
+          {
+            "Id": "primary",
+            "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+          },
+          {
+            "Id": "other",
+            "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-b"
+          }
+        ]
+      },
+      "request_started_ms": 1790176889468,
+      "request_finished_ms": 1790176890409,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "f2191d9f-9d2a-4b26-b5dd-dc65473843fe"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "f2191d9f-9d2a-4b26-b5dd-dc65473843fe",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:30 GMT"
+      }
+    },
+    {
+      "label": "create-rule-mu",
+      "service": "events",
+      "operation": "put-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-mu",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "EventPattern": "{\"source\": [\"stackd-target-eeac821e24\"]}",
+        "State": "ENABLED"
+      },
+      "request_started_ms": 1790176890409,
+      "request_finished_ms": 1790176891337,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-west-2:000000000000:rule/stackd-target-eeac821e24-bus/stackd-target-eeac821e24-mu"
+        },
+        "http_status": 200,
+        "request_id": "55cf128e-97a6-47bb-ae1b-ab2ecfdd31c1"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "55cf128e-97a6-47bb-ae1b-ab2ecfdd31c1",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:31 GMT"
+      }
+    },
+    {
+      "label": "configure-targets-mu",
+      "service": "events",
+      "operation": "put-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-mu",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Targets": [
+          {
+            "Id": "primary",
+            "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+          }
+        ]
+      },
+      "request_started_ms": 1790176891338,
+      "request_finished_ms": 1790176892290,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "c53fa126-3ecf-4b95-988a-19c51332df68"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "c53fa126-3ecf-4b95-988a-19c51332df68",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:32 GMT"
+      }
+    },
+    {
+      "label": "create-rule-beta",
+      "service": "events",
+      "operation": "put-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-beta",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "EventPattern": "{\"source\": [\"stackd-target-eeac821e24\"]}",
+        "State": "ENABLED"
+      },
+      "request_started_ms": 1790176892290,
+      "request_finished_ms": 1790176893368,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-west-2:000000000000:rule/stackd-target-eeac821e24-bus/stackd-target-eeac821e24-beta"
+        },
+        "http_status": 200,
+        "request_id": "f68928d2-e620-433f-9fef-fd807c6b9deb"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "f68928d2-e620-433f-9fef-fd807c6b9deb",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:33 GMT"
+      }
+    },
+    {
+      "label": "configure-targets-beta",
+      "service": "events",
+      "operation": "put-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-beta",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Targets": [
+          {
+            "Id": "primary",
+            "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+          },
+          {
+            "Id": "other",
+            "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-b"
+          }
+        ]
+      },
+      "request_started_ms": 1790176893369,
+      "request_finished_ms": 1790176894286,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "8ff265f1-2b1c-4e0f-8c55-f84d5e695ec3"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "8ff265f1-2b1c-4e0f-8c55-f84d5e695ec3",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:34 GMT"
+      }
+    },
+    {
+      "label": "create-rule-empty",
+      "service": "events",
+      "operation": "put-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-empty",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "EventPattern": "{\"source\": [\"stackd-target-eeac821e24\"]}",
+        "State": "ENABLED"
+      },
+      "request_started_ms": 1790176894287,
+      "request_finished_ms": 1790176895201,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-west-2:000000000000:rule/stackd-target-eeac821e24-bus/stackd-target-eeac821e24-empty"
+        },
+        "http_status": 200,
+        "request_id": "411132b6-cdee-4ae1-a32e-d2473fed5385"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "411132b6-cdee-4ae1-a32e-d2473fed5385",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:35 GMT"
+      }
+    },
+    {
+      "label": "create-owned-default-rule",
+      "service": "events",
+      "operation": "put-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-zeta",
+        "EventPattern": "{\"source\": [\"stackd-target-eeac821e24\"]}",
+        "State": "DISABLED"
+      },
+      "request_started_ms": 1790176895201,
+      "request_finished_ms": 1790176896098,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-west-2:000000000000:rule/stackd-target-eeac821e24-zeta"
+        },
+        "http_status": 200,
+        "request_id": "990e312e-0583-4e9b-a20a-079148ef8ee4"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "990e312e-0583-4e9b-a20a-079148ef8ee4",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:35 GMT"
+      }
+    },
+    {
+      "label": "configure-default-target",
+      "service": "events",
+      "operation": "put-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-zeta",
+        "Targets": [
+          {
+            "Id": "primary",
+            "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+          }
+        ]
+      },
+      "request_started_ms": 1790176896098,
+      "request_finished_ms": 1790176896996,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "76a617f2-e19e-4a5f-84d8-a7ac2a269c47"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "76a617f2-e19e-4a5f-84d8-a7ac2a269c47",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:36 GMT"
+      }
+    },
+    {
+      "label": "all-custom-members-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176896996,
+      "request_finished_ms": 1790176897855,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu",
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "25b16391-1c78-4672-9f6b-c5feb7247da4"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "25b16391-1c78-4672-9f6b-c5feb7247da4",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:37 GMT"
+      }
+    },
+    {
+      "label": "all-custom-members-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176899856,
+      "request_finished_ms": 1790176900774,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu",
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "611f78c0-7906-458b-9ac7-7c6eb845dff0"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "611f78c0-7906-458b-9ac7-7c6eb845dff0",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:40 GMT"
+      }
+    },
+    {
+      "label": "default-members-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790176900783,
+      "request_finished_ms": 1790176901655,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "14b1aa69-39af-43b7-97c0-ee27e25a4696"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "14b1aa69-39af-43b7-97c0-ee27e25a4696",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:41 GMT"
+      }
+    },
+    {
+      "label": "default-members-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790176903655,
+      "request_finished_ms": 1790176904559,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "171c6df3-8ea8-464e-afd0-56ec603f1782"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "171c6df3-8ea8-464e-afd0-56ec603f1782",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:44 GMT"
+      }
+    },
+    {
+      "label": "custom-bus-arn",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "arn:aws:events:us-west-2:000000000000:event-bus/stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176904568,
+      "request_finished_ms": 1790176905438,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu",
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "68b383e1-9bd7-4f83-86c2-d6d0760327c1"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "68b383e1-9bd7-4f83-86c2-d6d0760327c1",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:45 GMT"
+      }
+    },
+    {
+      "label": "default-bus-name",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "default"
+      },
+      "request_started_ms": 1790176905438,
+      "request_finished_ms": 1790176906314,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "23700b8e-8922-4ef7-b325-d65789011eb0"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "23700b8e-8922-4ef7-b325-d65789011eb0",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:46 GMT"
+      }
+    },
+    {
+      "label": "default-bus-arn",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "arn:aws:events:us-west-2:000000000000:event-bus/default"
+      },
+      "request_started_ms": 1790176906314,
+      "request_finished_ms": 1790176907172,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "9d7074af-e458-43f1-8fc7-2d29442bffe5"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "9d7074af-e458-43f1-8fc7-2d29442bffe5",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:47 GMT"
+      }
+    },
+    {
+      "label": "other-region-same-custom-bus",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-east-1",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176907173,
+      "request_finished_ms": 1790176907871,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Event bus stackd-target-eeac821e24-bus does not exist.",
+        "http_status": 400,
+        "request_id": "3a88b1db-7e56-45ff-a57c-6a33a041af4f",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Event bus stackd-target-eeac821e24-bus does not exist."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "3a88b1db-7e56-45ff-a57c-6a33a041af4f",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:47 GMT"
+      }
+    },
+    {
+      "label": "other-region-default-bus",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-east-1",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790176907872,
+      "request_finished_ms": 1790176908564,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": []
+        },
+        "http_status": 200,
+        "request_id": "727715c2-8514-410a-a1b8-95d38feca4f1"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "727715c2-8514-410a-a1b8-95d38feca4f1",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:48 GMT"
+      }
+    },
+    {
+      "label": "disable-mu",
+      "service": "events",
+      "operation": "disable-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-mu",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176908564,
+      "request_finished_ms": 1790176909459,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "5718bb1c-885f-41d3-8fa9-0742b3c8ec6e"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "5718bb1c-885f-41d3-8fa9-0742b3c8ec6e",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:49 GMT"
+      }
+    },
+    {
+      "label": "describe-disabled-mu",
+      "service": "events",
+      "operation": "describe-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-mu",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176909459,
+      "request_finished_ms": 1790176910321,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-target-eeac821e24-mu",
+          "Arn": "arn:aws:events:us-west-2:000000000000:rule/stackd-target-eeac821e24-bus/stackd-target-eeac821e24-mu",
+          "EventPattern": "{\"source\": [\"stackd-target-eeac821e24\"]}",
+          "State": "DISABLED",
+          "EventBusName": "stackd-target-eeac821e24-bus",
+          "CreatedBy": "000000000000"
+        },
+        "http_status": 200,
+        "request_id": "6d98769a-163a-42eb-80aa-6272c8445d99"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "6d98769a-163a-42eb-80aa-6272c8445d99",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:50 GMT"
+      }
+    },
+    {
+      "label": "disabled-still-member-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176910321,
+      "request_finished_ms": 1790176911203,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu",
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "7a4c282d-0807-4539-b9a3-50e4be6f656f"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "7a4c282d-0807-4539-b9a3-50e4be6f656f",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:51 GMT"
+      }
+    },
+    {
+      "label": "disabled-still-member-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176913203,
+      "request_finished_ms": 1790176914088,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu",
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "483e95de-09af-4d04-83b4-50566a85e4a7"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "483e95de-09af-4d04-83b4-50566a85e4a7",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:53 GMT"
+      }
+    },
+    {
+      "label": "describe-duplicate-targets",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176914097,
+      "request_finished_ms": 1790176915174,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": [
+            {
+              "Id": "duplicate",
+              "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+            },
+            {
+              "Id": "primary",
+              "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "7faa5613-26d7-4787-b273-b81b9580a8eb"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "7faa5613-26d7-4787-b273-b81b9580a8eb",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:55 GMT"
+      }
+    },
+    {
+      "label": "limit-one-page-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1
+      },
+      "request_started_ms": 1790176915174,
+      "request_finished_ms": 1790176916065,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha"
+          ],
+          "NextToken": "MQAAAOgAAAAAAAAAAQAAABAIK8037XAH0/m2/PS2X/02AAAA0I5WiIwhI+opU3uypSl0SatIeXb18Am/9Tw5UVU5UiOBgErxtJXirkf3b1FYErCidMDE2Is8bpd5NaRFbGYwHbFkEKxH1Kk21aUAfeC0Oy1S9zs2RtVTHrZNAm7UZMLjl8WetG8TlVh+UAjHG+W1DP3g98P6Y5fZ/5nmnDMfBouHdNadSMdbMt/UXjfBc6SNib+IUC7U1pzM8MLDJuyNEGk+OKDC82F4LjcVv8Xq0qOK0lJ7JJabQeBjv9cqYOP7y+nNSj4YSbDS/w7gS3dYZXQAAAAgAAAAAAAAAAGBZCmk5DeS+bIhieZr/ZcG4SB2yM0+63F9InEbTotD8w=="
+        },
+        "http_status": 200,
+        "request_id": "ed79006d-b59f-4493-802c-90fa31a823fa"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "ed79006d-b59f-4493-802c-90fa31a823fa",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:55 GMT"
+      }
+    },
+    {
+      "label": "limit-one-page-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABAIK8037XAH0/m2/PS2X/02AAAA0I5WiIwhI+opU3uypSl0SatIeXb18Am/9Tw5UVU5UiOBgErxtJXirkf3b1FYErCidMDE2Is8bpd5NaRFbGYwHbFkEKxH1Kk21aUAfeC0Oy1S9zs2RtVTHrZNAm7UZMLjl8WetG8TlVh+UAjHG+W1DP3g98P6Y5fZ/5nmnDMfBouHdNadSMdbMt/UXjfBc6SNib+IUC7U1pzM8MLDJuyNEGk+OKDC82F4LjcVv8Xq0qOK0lJ7JJabQeBjv9cqYOP7y+nNSj4YSbDS/w7gS3dYZXQAAAAgAAAAAAAAAAGBZCmk5DeS+bIhieZr/ZcG4SB2yM0+63F9InEbTotD8w=="
+      },
+      "request_started_ms": 1790176916066,
+      "request_finished_ms": 1790176916957,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-beta"
+          ],
+          "NextToken": "MQAAAOgAAAAAAAAAAQAAABADZu/kJfN41eLbWfWZfydsAAAA0DrT7LbJ46GVQURV+9kF3tSjCbPcEBldpDbzImx+EOV3NZBfEpraTH/A2xpgcmEibTaW+Ij4XJ2I4NK9hoIU5M63X7Llm860KrMJ7zuhOl3vuQlyzaG3/bovrTavRY4DMHJv2dteiJzwm7a9lACus1qvsl9Jh0wjIanJA9zBBs4sFsGjdiY/G5uzEHBjGqKvuqFaJaB2JZnHbP2ywhua3f7nfZj5bZusF17rKQlvtvWE1uoUmWITn2fR32wlZ/qYiAT+dsoA0LTc09v0D4DPjS8AAAAgAAAAAAAAAAE5R9a7lzjZJ+AxZs4jQX3OARKVgGbs7lDdI+hGHqtW7Q=="
+        },
+        "http_status": 200,
+        "request_id": "a9e12f94-775b-4cae-a920-cd5ec467c0bd"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "a9e12f94-775b-4cae-a920-cd5ec467c0bd",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:56 GMT"
+      }
+    },
+    {
+      "label": "limit-one-page-3",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABADZu/kJfN41eLbWfWZfydsAAAA0DrT7LbJ46GVQURV+9kF3tSjCbPcEBldpDbzImx+EOV3NZBfEpraTH/A2xpgcmEibTaW+Ij4XJ2I4NK9hoIU5M63X7Llm860KrMJ7zuhOl3vuQlyzaG3/bovrTavRY4DMHJv2dteiJzwm7a9lACus1qvsl9Jh0wjIanJA9zBBs4sFsGjdiY/G5uzEHBjGqKvuqFaJaB2JZnHbP2ywhua3f7nfZj5bZusF17rKQlvtvWE1uoUmWITn2fR32wlZ/qYiAT+dsoA0LTc09v0D4DPjS8AAAAgAAAAAAAAAAE5R9a7lzjZJ+AxZs4jQX3OARKVgGbs7lDdI+hGHqtW7Q=="
+      },
+      "request_started_ms": 1790176916958,
+      "request_finished_ms": 1790176917833,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-mu"
+          ],
+          "NextToken": "MQAAAOgAAAAAAAAAAQAAABBedehcnoouu6aaMWlpaw7CAAAA0NsICESb9OU0XcRYo675TWSvVKgTpqTpkc97VKuCqLfc8TVPv61lt7o7ff+ODqP2ee7wy0c0ZGNV8J3q9q2nb3Fj4R9K48QZAba4kRnSYkk5OgaimIRt/iJJ102yt3wV2DszjjjdQrZq5f2ISQ3I6spQeq0cXs02pUb52OQdgdjLZaZprOXY82kKspgW9j4kfhgalBOS1mNKA+ig8peyJ8r5I6rNrq7wnh/uw1AI7AUeddW+c9PH5r0KtxRdFYtfdUTnU226NiV+4iH6cZ+3YmkAAAAgAAAAAAAAAAEnkpLtpzg+aHtLTgPuv7nSm1W44tLZgOb5hbPPznRkWA=="
+        },
+        "http_status": 200,
+        "request_id": "1c46997e-8402-4b86-834b-d9a581137feb"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "1c46997e-8402-4b86-834b-d9a581137feb",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:57 GMT"
+      }
+    },
+    {
+      "label": "limit-one-page-4",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABBedehcnoouu6aaMWlpaw7CAAAA0NsICESb9OU0XcRYo675TWSvVKgTpqTpkc97VKuCqLfc8TVPv61lt7o7ff+ODqP2ee7wy0c0ZGNV8J3q9q2nb3Fj4R9K48QZAba4kRnSYkk5OgaimIRt/iJJ102yt3wV2DszjjjdQrZq5f2ISQ3I6spQeq0cXs02pUb52OQdgdjLZaZprOXY82kKspgW9j4kfhgalBOS1mNKA+ig8peyJ8r5I6rNrq7wnh/uw1AI7AUeddW+c9PH5r0KtxRdFYtfdUTnU226NiV+4iH6cZ+3YmkAAAAgAAAAAAAAAAEnkpLtpzg+aHtLTgPuv7nSm1W44tLZgOb5hbPPznRkWA=="
+      },
+      "request_started_ms": 1790176917834,
+      "request_finished_ms": 1790176918716,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "feace83b-bd16-4f1c-b66a-a9e54a7d849b"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "feace83b-bd16-4f1c-b66a-a9e54a7d849b",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:58 GMT"
+      }
+    },
+    {
+      "label": "limit-two-page-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 2
+      },
+      "request_started_ms": 1790176918725,
+      "request_finished_ms": 1790176919620,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta"
+          ],
+          "NextToken": "MQAAAOgAAAAAAAAAAQAAABDqd9DBDooBq2VJ2AUKXjW+AAAA0IR1KldJ9cj8fun1+MnsvgI8sIHFWi57ZzxhuQBiuLgoyY7mHCq6yTgvKqdwXo2TZnu5K0pQVOZh1K2zMO1qixt98mhlyVYp9fGW9mHH+rs5IRL9iYiPJrt+mncHucnTe4BJW3FtSzENVial/iR2oohf7InVc4/BU14LDqk+Lh1PYijOjPX+dXpLEd4fiLnH0bR1AbpAp9nLJJF4lfSA213zn/SscxWqWZ7CyXzK0TNbazuO42jkyyZVXpMg+V/mwa4g3BbzvXY3HAG4dNWmpUcAAAAgAAAAAAAAAAHnqM94UhNj9pQ7j1Ogc9n+2UyvQhJrVWmdOmHs3U9qeA=="
+        },
+        "http_status": 200,
+        "request_id": "ee2485ea-8a69-497b-b679-daa7181eb3db"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "ee2485ea-8a69-497b-b679-daa7181eb3db",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:21:59 GMT"
+      }
+    },
+    {
+      "label": "limit-two-page-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 2,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABDqd9DBDooBq2VJ2AUKXjW+AAAA0IR1KldJ9cj8fun1+MnsvgI8sIHFWi57ZzxhuQBiuLgoyY7mHCq6yTgvKqdwXo2TZnu5K0pQVOZh1K2zMO1qixt98mhlyVYp9fGW9mHH+rs5IRL9iYiPJrt+mncHucnTe4BJW3FtSzENVial/iR2oohf7InVc4/BU14LDqk+Lh1PYijOjPX+dXpLEd4fiLnH0bR1AbpAp9nLJJF4lfSA213zn/SscxWqWZ7CyXzK0TNbazuO42jkyyZVXpMg+V/mwa4g3BbzvXY3HAG4dNWmpUcAAAAgAAAAAAAAAAHnqM94UhNj9pQ7j1Ogc9n+2UyvQhJrVWmdOmHs3U9qeA=="
+      },
+      "request_started_ms": 1790176919622,
+      "request_finished_ms": 1790176920499,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-mu",
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "9d9b02bd-1526-4576-b2d4-b83bfdab0a32"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "9d9b02bd-1526-4576-b2d4-b83bfdab0a32",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:00 GMT"
+      }
+    },
+    {
+      "label": "repeat-limit-one-page-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1
+      },
+      "request_started_ms": 1790176920512,
+      "request_finished_ms": 1790176922730,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha"
+          ],
+          "NextToken": "MQAAAOgAAAAAAAAAAQAAABCSANGBo/ek8A/eoZSpjr6WAAAA0MuO86sNGxLPSXwztlO1U1mAxWsKWERIx8zgMw3CV0ot4mJ16xu1VYjzNBTxGJz7XpcotadRXM+G+Sv5dd+mp4snIXJYjmx827q9me2wTML+iUORfCzGzIFHc3VJGP0d9o4QFnLf/QY+j58yjfanL9UDLXx6LmvTNfkpm76N1vSmUOtxYyiJArAfQ7HjO7WIHTkrcJ1YUWecNGXfNRWR1xsTLNZTWXFZgZdil3HjYFjEBD/r5p/teuKaRbmLL2Qcj/8yW7+w3Sypt2YK91rz7xYAAAAgAAAAAAAAAAHHCs1wIUa3QTlEoFmhYUgMQ0z5vUDgc5Ac1f7Rlq0HpQ=="
+        },
+        "http_status": 200,
+        "request_id": "660ab7b6-8327-44c6-bfdb-8a3681968888"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "660ab7b6-8327-44c6-bfdb-8a3681968888",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:01 GMT"
+      }
+    },
+    {
+      "label": "repeat-limit-one-page-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABCSANGBo/ek8A/eoZSpjr6WAAAA0MuO86sNGxLPSXwztlO1U1mAxWsKWERIx8zgMw3CV0ot4mJ16xu1VYjzNBTxGJz7XpcotadRXM+G+Sv5dd+mp4snIXJYjmx827q9me2wTML+iUORfCzGzIFHc3VJGP0d9o4QFnLf/QY+j58yjfanL9UDLXx6LmvTNfkpm76N1vSmUOtxYyiJArAfQ7HjO7WIHTkrcJ1YUWecNGXfNRWR1xsTLNZTWXFZgZdil3HjYFjEBD/r5p/teuKaRbmLL2Qcj/8yW7+w3Sypt2YK91rz7xYAAAAgAAAAAAAAAAHHCs1wIUa3QTlEoFmhYUgMQ0z5vUDgc5Ac1f7Rlq0HpQ=="
+      },
+      "request_started_ms": 1790176922730,
+      "request_finished_ms": 1790176923646,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-beta"
+          ],
+          "NextToken": "MQAAAOgAAAAAAAAAAQAAABCt+G3X+t0xaPy2yw/Ax6QTAAAA0OYcjbJEHo06Z7uzeLwa4fzTsZjzQPwyjm+xm3HKvUv5VLLjzD47Cw/INjg2MJKHSJO2ZRcV1iFaprP4mYjhhTPkWY2rcAugamuOiG+t6PS9z3wjmN5r2pYEWjMASfW2w940DlgPeqntwIy2la5o1p+RDe8cjm/IkZSzt8iyn0mOL11Fb8pWezq4otK4oGFUSbpNJp+0uyG1J5x+QqYEGIJbuA69EvunGtwXmrLqSTGs9NL6gYSQMemOq9GmfefgqWVZ7qWtfbTEwlOS9PLfpDwAAAAgAAAAAAAAAAFeC0c8Xaa5dmzJz//M57xyWJ8W2sJ+mM7aR6qAVsg9Uw=="
+        },
+        "http_status": 200,
+        "request_id": "61d35248-fd01-405e-b8c4-2decb7b93faa"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "61d35248-fd01-405e-b8c4-2decb7b93faa",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:03 GMT"
+      }
+    },
+    {
+      "label": "repeat-limit-one-page-3",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABCt+G3X+t0xaPy2yw/Ax6QTAAAA0OYcjbJEHo06Z7uzeLwa4fzTsZjzQPwyjm+xm3HKvUv5VLLjzD47Cw/INjg2MJKHSJO2ZRcV1iFaprP4mYjhhTPkWY2rcAugamuOiG+t6PS9z3wjmN5r2pYEWjMASfW2w940DlgPeqntwIy2la5o1p+RDe8cjm/IkZSzt8iyn0mOL11Fb8pWezq4otK4oGFUSbpNJp+0uyG1J5x+QqYEGIJbuA69EvunGtwXmrLqSTGs9NL6gYSQMemOq9GmfefgqWVZ7qWtfbTEwlOS9PLfpDwAAAAgAAAAAAAAAAFeC0c8Xaa5dmzJz//M57xyWJ8W2sJ+mM7aR6qAVsg9Uw=="
+      },
+      "request_started_ms": 1790176923648,
+      "request_finished_ms": 1790176924525,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-mu"
+          ],
+          "NextToken": "MQAAAOgAAAAAAAAAAQAAABBiuj/hHq7ZXdtXM9pxJ38sAAAA0D+TJPl63jmPLASNkBVG917acB06zCKm8qS0KBRJf3QjeE2DM+kH7tDDycPLbTxPRvTDSy7A8o+VXvUlu7aGTCtX3nLthHktqV0EWwZRdtLqW6K2WWXAG6iN1iSBwjoXYoubV1UN5w4GAuR4hjMwJ6nmsFKs0MLT96e1LavjB39mvpIVIMgEFLx5+J5GLjxz3GcYaEI6DWYzBFefxWM/5LulRdEKLlLdgTU2V1hZDwTyZYw9C0qfBMKgEWaB/V6GMfr/UJjVFJjjC+5HKRLicXQAAAAgAAAAAAAAAAG2H6EAiQGCy3IHzhW2KaqGOifXBrIxsoZgACGk6GL0HA=="
+        },
+        "http_status": 200,
+        "request_id": "e6b643bf-ad27-4753-a290-9e32f1490ef6"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "e6b643bf-ad27-4753-a290-9e32f1490ef6",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:04 GMT"
+      }
+    },
+    {
+      "label": "repeat-limit-one-page-4",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABBiuj/hHq7ZXdtXM9pxJ38sAAAA0D+TJPl63jmPLASNkBVG917acB06zCKm8qS0KBRJf3QjeE2DM+kH7tDDycPLbTxPRvTDSy7A8o+VXvUlu7aGTCtX3nLthHktqV0EWwZRdtLqW6K2WWXAG6iN1iSBwjoXYoubV1UN5w4GAuR4hjMwJ6nmsFKs0MLT96e1LavjB39mvpIVIMgEFLx5+J5GLjxz3GcYaEI6DWYzBFefxWM/5LulRdEKLlLdgTU2V1hZDwTyZYw9C0qfBMKgEWaB/V6GMfr/UJjVFJjjC+5HKRLicXQAAAAgAAAAAAAAAAG2H6EAiQGCy3IHzhW2KaqGOifXBrIxsoZgACGk6GL0HA=="
+      },
+      "request_started_ms": 1790176924526,
+      "request_finished_ms": 1790176925444,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "a1cda4e7-e80a-4149-911a-56461ac31e11"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "a1cda4e7-e80a-4149-911a-56461ac31e11",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:05 GMT"
+      }
+    },
+    {
+      "label": "token-changed-target",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-b",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABAIK8037XAH0/m2/PS2X/02AAAA0I5WiIwhI+opU3uypSl0SatIeXb18Am/9Tw5UVU5UiOBgErxtJXirkf3b1FYErCidMDE2Is8bpd5NaRFbGYwHbFkEKxH1Kk21aUAfeC0Oy1S9zs2RtVTHrZNAm7UZMLjl8WetG8TlVh+UAjHG+W1DP3g98P6Y5fZ/5nmnDMfBouHdNadSMdbMt/UXjfBc6SNib+IUC7U1pzM8MLDJuyNEGk+OKDC82F4LjcVv8Xq0qOK0lJ7JJabQeBjv9cqYOP7y+nNSj4YSbDS/w7gS3dYZXQAAAAgAAAAAAAAAAGBZCmk5DeS+bIhieZr/ZcG4SB2yM0+63F9InEbTotD8w=="
+      },
+      "request_started_ms": 1790176925459,
+      "request_finished_ms": 1790176926365,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "message": "Parameter NextToken is not valid.",
+        "http_status": 400,
+        "request_id": "c85eebb3-dc81-4b2c-8a57-d88c9c742c16",
+        "output": {
+          "__type": "ValidationException",
+          "message": "Parameter NextToken is not valid."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "c85eebb3-dc81-4b2c-8a57-d88c9c742c16",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:06 GMT"
+      }
+    },
+    {
+      "label": "token-changed-bus",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "default",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABAIK8037XAH0/m2/PS2X/02AAAA0I5WiIwhI+opU3uypSl0SatIeXb18Am/9Tw5UVU5UiOBgErxtJXirkf3b1FYErCidMDE2Is8bpd5NaRFbGYwHbFkEKxH1Kk21aUAfeC0Oy1S9zs2RtVTHrZNAm7UZMLjl8WetG8TlVh+UAjHG+W1DP3g98P6Y5fZ/5nmnDMfBouHdNadSMdbMt/UXjfBc6SNib+IUC7U1pzM8MLDJuyNEGk+OKDC82F4LjcVv8Xq0qOK0lJ7JJabQeBjv9cqYOP7y+nNSj4YSbDS/w7gS3dYZXQAAAAgAAAAAAAAAAGBZCmk5DeS+bIhieZr/ZcG4SB2yM0+63F9InEbTotD8w=="
+      },
+      "request_started_ms": 1790176926365,
+      "request_finished_ms": 1790176927257,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "InternalException",
+        "message": "Service encountered unexpected problem. Please try again.",
+        "http_status": 500,
+        "request_id": "f1def87e-b837-4c89-85f1-951c4b7ca719",
+        "output": {
+          "__type": "InternalException",
+          "message": "Service encountered unexpected problem. Please try again."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "f1def87e-b837-4c89-85f1-951c4b7ca719",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:07 GMT"
+      }
+    },
+    {
+      "label": "token-bus-name-to-arn",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "arn:aws:events:us-west-2:000000000000:event-bus/stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABAIK8037XAH0/m2/PS2X/02AAAA0I5WiIwhI+opU3uypSl0SatIeXb18Am/9Tw5UVU5UiOBgErxtJXirkf3b1FYErCidMDE2Is8bpd5NaRFbGYwHbFkEKxH1Kk21aUAfeC0Oy1S9zs2RtVTHrZNAm7UZMLjl8WetG8TlVh+UAjHG+W1DP3g98P6Y5fZ/5nmnDMfBouHdNadSMdbMt/UXjfBc6SNib+IUC7U1pzM8MLDJuyNEGk+OKDC82F4LjcVv8Xq0qOK0lJ7JJabQeBjv9cqYOP7y+nNSj4YSbDS/w7gS3dYZXQAAAAgAAAAAAAAAAGBZCmk5DeS+bIhieZr/ZcG4SB2yM0+63F9InEbTotD8w=="
+      },
+      "request_started_ms": 1790176927258,
+      "request_finished_ms": 1790176928379,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-beta"
+          ],
+          "NextToken": "MQAAAOgAAAAAAAAAAQAAABAzof+go94PAkaM2FDr4VEKAAAA0AvThOASseFU2V+/xl0PsrJ+BAPLLI7xP69Ir0n6io/7zhiknSHXRgSSbGgaE+7kDTde438OyIMOup1ER5aZmLbEVdeNUTBls2utXDE5/CPIBWxEGm2XbAqR4TQf2BIjAsi9tgwlPqZBrjrXYTIbQYfglu6IcKMioMhMv5d5YlsOQZC5PTuQ8fFb74kdjVIkHrLDJeku2Fyy/1/wqSaWAf3qUnuk+PUFTDuWgnBlzqXi2P8Ba5QAp40jVlOqJddvPtxvyEwH2dJe+Buqev6larAAAAAgAAAAAAAAAAEgWT0J0eshZ6ollNnxvKqup74SOM0Fxey6abOxViUhpA=="
+        },
+        "http_status": 200,
+        "request_id": "eb3a8d4c-47b7-4ac8-a196-bc38a53e7382"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "eb3a8d4c-47b7-4ac8-a196-bc38a53e7382",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:08 GMT"
+      }
+    },
+    {
+      "label": "token-changed-limit",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 2,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABAIK8037XAH0/m2/PS2X/02AAAA0I5WiIwhI+opU3uypSl0SatIeXb18Am/9Tw5UVU5UiOBgErxtJXirkf3b1FYErCidMDE2Is8bpd5NaRFbGYwHbFkEKxH1Kk21aUAfeC0Oy1S9zs2RtVTHrZNAm7UZMLjl8WetG8TlVh+UAjHG+W1DP3g98P6Y5fZ/5nmnDMfBouHdNadSMdbMt/UXjfBc6SNib+IUC7U1pzM8MLDJuyNEGk+OKDC82F4LjcVv8Xq0qOK0lJ7JJabQeBjv9cqYOP7y+nNSj4YSbDS/w7gS3dYZXQAAAAgAAAAAAAAAAGBZCmk5DeS+bIhieZr/ZcG4SB2yM0+63F9InEbTotD8w=="
+      },
+      "request_started_ms": 1790176928379,
+      "request_finished_ms": 1790176929266,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu"
+          ],
+          "NextToken": "MQAAAOgAAAAAAAAAAQAAABDgenuNop/suWFP1TtkLZMeAAAA0OmFmGd+qOd/p8bbBOnCNPdgnAJtkOlhZ7ZwStpu2c+/rVBqL5inhSuU5yHzZ2xrV9Q01/DxyY+mTLQdf1y+SB11a1R7uqg6G7I+CqgI4vwSJUfyJVfaxfc/UScCekfYTrhd0hiNWxqsLMjMj2Rv/Z/LlMmZBjuYdtRgrlQNeQNe9RX+ic/LihmFfZVMyHe8JoxMlVeRh0Be9u8vq1K7ZD4u+TmcR9uuVab+yuRY3OkykdMR3fbLea6hnhujmBlZ3AWqtA9PihqoAoRxvVWzr4wAAAAgAAAAAAAAAAF+QguBhyMR4pH9g6hWuP4SjTECBJJ4MaCbUpPDh3fa8g=="
+        },
+        "http_status": 200,
+        "request_id": "ad731f7f-6024-410e-b3c2-4a516b39eb37"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "ad731f7f-6024-410e-b3c2-4a516b39eb37",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:09 GMT"
+      }
+    },
+    {
+      "label": "invalid-token",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "not-a-native-token"
+      },
+      "request_started_ms": 1790176929267,
+      "request_finished_ms": 1790176930874,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "message": "Parameter NextToken is not valid.",
+        "http_status": 400,
+        "request_id": "f908decf-52d1-42f6-9729-2a4c1485520a",
+        "output": {
+          "__type": "ValidationException",
+          "message": "Parameter NextToken is not valid."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "f908decf-52d1-42f6-9729-2a4c1485520a",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:10 GMT"
+      }
+    },
+    {
+      "label": "limit-zero",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 0
+      },
+      "request_started_ms": 1790176930874,
+      "request_finished_ms": 1790176932121,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "output": {
+          "Error": {
+            "Message": "1 validation error detected: Value '0' at 'limit' failed to satisfy constraint: Member must have value greater than or equal to 1",
+            "Code": "ValidationException"
+          }
+        },
+        "http_status": 400,
+        "request_id": "1358ffd7-c7f7-46ca-a039-c874567a323d"
+      },
+      "transport": "botocore signed HTTPS, validation disabled",
+      "response_headers": {
+        "x-amzn-requestid": "1358ffd7-c7f7-46ca-a039-c874567a323d",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:12 GMT"
+      }
+    },
+    {
+      "label": "limit-negative",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": -1
+      },
+      "request_started_ms": 1790176932122,
+      "request_finished_ms": 1790176933290,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "output": {
+          "Error": {
+            "Message": "1 validation error detected: Value '-1' at 'limit' failed to satisfy constraint: Member must have value greater than or equal to 1",
+            "Code": "ValidationException"
+          }
+        },
+        "http_status": 400,
+        "request_id": "e30b52ed-6777-4a2d-ba63-538d84e53ef4"
+      },
+      "transport": "botocore signed HTTPS, validation disabled",
+      "response_headers": {
+        "x-amzn-requestid": "e30b52ed-6777-4a2d-ba63-538d84e53ef4",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:13 GMT"
+      }
+    },
+    {
+      "label": "limit-over-maximum",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 101
+      },
+      "request_started_ms": 1790176933291,
+      "request_finished_ms": 1790176933983,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "output": {
+          "Error": {
+            "Message": "1 validation error detected: Value '101' at 'limit' failed to satisfy constraint: Member must have value less than or equal to 100",
+            "Code": "ValidationException"
+          }
+        },
+        "http_status": 400,
+        "request_id": "08f824ae-f69d-4a96-b63e-54a4d84f10de"
+      },
+      "transport": "botocore signed HTTPS, validation disabled",
+      "response_headers": {
+        "x-amzn-requestid": "08f824ae-f69d-4a96-b63e-54a4d84f10de",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:13 GMT"
+      }
+    },
+    {
+      "label": "empty-token",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "NextToken": ""
+      },
+      "request_started_ms": 1790176933984,
+      "request_finished_ms": 1790176934711,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "output": {
+          "Error": {
+            "Message": "1 validation error detected: Value '' at 'nextToken' failed to satisfy constraint: Member must have length greater than or equal to 1",
+            "Code": "ValidationException"
+          }
+        },
+        "http_status": 400,
+        "request_id": "58bbe39c-1028-4872-ba1b-efb57721b7c5"
+      },
+      "transport": "botocore signed HTTPS, validation disabled",
+      "response_headers": {
+        "x-amzn-requestid": "58bbe39c-1028-4872-ba1b-efb57721b7c5",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:14 GMT"
+      }
+    },
+    {
+      "label": "docs-zero-empty-token",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 0,
+        "NextToken": ""
+      },
+      "request_started_ms": 1790176934712,
+      "request_finished_ms": 1790176936466,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "output": {
+          "Error": {
+            "Message": "2 validation errors detected: Value '' at 'nextToken' failed to satisfy constraint: Member must have length greater than or equal to 1; Value '0' at 'limit' failed to satisfy constraint: Member must have value greater than or equal to 1",
+            "Code": "ValidationException"
+          }
+        },
+        "http_status": 400,
+        "request_id": "7628edfb-9b59-4733-be7a-a4c39c422ca1"
+      },
+      "transport": "botocore signed HTTPS, validation disabled",
+      "response_headers": {
+        "x-amzn-requestid": "7628edfb-9b59-4733-be7a-a4c39c422ca1",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:16 GMT"
+      }
+    },
+    {
+      "label": "missing-target",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176936467,
+      "request_finished_ms": 1790176937460,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "output": {
+          "Error": {
+            "Message": "1 validation error detected: Value null at 'targetArn' failed to satisfy constraint: Member must not be null",
+            "Code": "ValidationException"
+          }
+        },
+        "http_status": 400,
+        "request_id": "b38c0ea6-8523-4a1c-83c0-c6cfb6de6277"
+      },
+      "transport": "botocore signed HTTPS, validation disabled",
+      "response_headers": {
+        "x-amzn-requestid": "b38c0ea6-8523-4a1c-83c0-c6cfb6de6277",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:17 GMT"
+      }
+    },
+    {
+      "label": "empty-target",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "TargetArn": ""
+      },
+      "request_started_ms": 1790176937461,
+      "request_finished_ms": 1790176938395,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "output": {
+          "Error": {
+            "Message": "1 validation error detected: Value '' at 'targetArn' failed to satisfy constraint: Member must have length greater than or equal to 1",
+            "Code": "ValidationException"
+          }
+        },
+        "http_status": 400,
+        "request_id": "95ace006-0dd4-4343-b85c-328ee2a5eb5b"
+      },
+      "transport": "botocore signed HTTPS, validation disabled",
+      "response_headers": {
+        "x-amzn-requestid": "95ace006-0dd4-4343-b85c-328ee2a5eb5b",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:18 GMT"
+      }
+    },
+    {
+      "label": "malformed-target",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "TargetArn": "not-an-arn"
+      },
+      "request_started_ms": 1790176938396,
+      "request_finished_ms": 1790176941671,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "output": {
+          "Error": {
+            "Message": "Parameter not-an-arn is not valid. Reason: Provided Arn is not in correct format.",
+            "Code": "ValidationException"
+          }
+        },
+        "http_status": 400,
+        "request_id": "4ee105ae-e2fd-418d-a3e4-2e8119df8950"
+      },
+      "transport": "botocore signed HTTPS, validation disabled",
+      "response_headers": {
+        "x-amzn-requestid": "4ee105ae-e2fd-418d-a3e4-2e8119df8950",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:21 GMT"
+      }
+    },
+    {
+      "label": "remove-one-duplicate",
+      "service": "events",
+      "operation": "remove-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Ids": [
+          "primary"
+        ]
+      },
+      "request_started_ms": 1790176941672,
+      "request_finished_ms": 1790176942557,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "059dd304-dee6-42d2-85bc-199d475438ca"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "059dd304-dee6-42d2-85bc-199d475438ca",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:22 GMT"
+      }
+    },
+    {
+      "label": "one-duplicate-retains-member-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176942557,
+      "request_finished_ms": 1790176943873,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu",
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "5827d0f3-2397-497b-bb7c-6545b165024b"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "5827d0f3-2397-497b-bb7c-6545b165024b",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:23 GMT"
+      }
+    },
+    {
+      "label": "one-duplicate-retains-member-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176945874,
+      "request_finished_ms": 1790176946746,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu",
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "4527f8e8-c2a5-4e45-a628-0b245a971a38"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "4527f8e8-c2a5-4e45-a628-0b245a971a38",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:26 GMT"
+      }
+    },
+    {
+      "label": "remove-last-duplicate",
+      "service": "events",
+      "operation": "remove-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Ids": [
+          "duplicate"
+        ]
+      },
+      "request_started_ms": 1790176946748,
+      "request_finished_ms": 1790176947663,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "4f585746-8d55-4349-ac2f-1e5690f12cbd"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "4f585746-8d55-4349-ac2f-1e5690f12cbd",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:27 GMT"
+      }
+    },
+    {
+      "label": "last-duplicate-removes-member-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176947664,
+      "request_finished_ms": 1790176948537,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "065d52cd-453a-4ae9-a01e-cf470fd86384"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "065d52cd-453a-4ae9-a01e-cf470fd86384",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:28 GMT"
+      }
+    },
+    {
+      "label": "last-duplicate-removes-member-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176950538,
+      "request_finished_ms": 1790176951651,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "7d353c1d-7034-4b9b-8cf2-8e4c26bcd0b7"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "7d353c1d-7034-4b9b-8cf2-8e4c26bcd0b7",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:31 GMT"
+      }
+    },
+    {
+      "label": "replace-alpha-primary-target",
+      "service": "events",
+      "operation": "put-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-alpha",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Targets": [
+          {
+            "Id": "primary",
+            "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-b"
+          }
+        ]
+      },
+      "request_started_ms": 1790176951680,
+      "request_finished_ms": 1790176952654,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "ab78b345-367b-4dfc-ad16-b8f0f4f99308"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "ab78b345-367b-4dfc-ad16-b8f0f4f99308",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:32 GMT"
+      }
+    },
+    {
+      "label": "replacement-old-arn-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176952655,
+      "request_finished_ms": 1790176953525,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "5e1e533d-16ab-4216-b0df-783b081a9105"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "5e1e533d-16ab-4216-b0df-783b081a9105",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:33 GMT"
+      }
+    },
+    {
+      "label": "replacement-old-arn-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176955526,
+      "request_finished_ms": 1790176956392,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-beta",
+            "stackd-target-eeac821e24-mu"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "b025f61f-5868-4068-ac9f-665b03d7fa30"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "b025f61f-5868-4068-ac9f-665b03d7fa30",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:36 GMT"
+      }
+    },
+    {
+      "label": "replacement-new-arn-deduplicated-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-b",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176956419,
+      "request_finished_ms": 1790176957354,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "cfd488f1-4513-4b92-8250-270e84082f45"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "cfd488f1-4513-4b92-8250-270e84082f45",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:37 GMT"
+      }
+    },
+    {
+      "label": "replacement-new-arn-deduplicated-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-b",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176959355,
+      "request_finished_ms": 1790176960234,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-alpha",
+            "stackd-target-eeac821e24-beta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "5396c1ba-5534-4e29-8bf0-81e097a30e0c"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "5396c1ba-5534-4e29-8bf0-81e097a30e0c",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:40 GMT"
+      }
+    },
+    {
+      "label": "remove-beta-targets",
+      "service": "events",
+      "operation": "remove-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-beta",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Ids": [
+          "primary",
+          "other"
+        ]
+      },
+      "request_started_ms": 1790176960236,
+      "request_finished_ms": 1790176961106,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "403efba7-8704-436a-a75f-dd981c5b55e0"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "403efba7-8704-436a-a75f-dd981c5b55e0",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:40 GMT"
+      }
+    },
+    {
+      "label": "delete-beta-rule",
+      "service": "events",
+      "operation": "delete-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-beta",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176961107,
+      "request_finished_ms": 1790176962041,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "522e72e9-6cfe-441a-bcc2-ad9e79e2c68e"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "522e72e9-6cfe-441a-bcc2-ad9e79e2c68e",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:41 GMT"
+      }
+    },
+    {
+      "label": "deleted-beta-absent",
+      "service": "events",
+      "operation": "describe-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-beta",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176962042,
+      "request_finished_ms": 1790176962922,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Rule stackd-target-eeac821e24-beta does not exist on EventBus stackd-target-eeac821e24-bus.",
+        "http_status": 400,
+        "request_id": "395ff71f-6bf9-48cd-b7c2-bbadf2fe31e6",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Rule stackd-target-eeac821e24-beta does not exist on EventBus stackd-target-eeac821e24-bus."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "395ff71f-6bf9-48cd-b7c2-bbadf2fe31e6",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:42 GMT"
+      }
+    },
+    {
+      "label": "deleted-rule-not-member-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176962923,
+      "request_finished_ms": 1790176963782,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-mu"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "69a8f924-2d5a-42b7-a9d0-c648451f9d75"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "69a8f924-2d5a-42b7-a9d0-c648451f9d75",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:43 GMT"
+      }
+    },
+    {
+      "label": "deleted-rule-not-member-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176965783,
+      "request_finished_ms": 1790176966655,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-mu"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "b1baf6d9-b343-44e5-b9a6-4166849ed47c"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "b1baf6d9-b343-44e5-b9a6-4166849ed47c",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:46 GMT"
+      }
+    },
+    {
+      "label": "delete-live-queue-a",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "region": "us-west-2",
+      "input": {
+        "QueueUrl": "https://sqs.us-west-2.amazonaws.com/000000000000/stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790176966658,
+      "request_finished_ms": 1790176967598,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "d3a158a7-571b-53d9-962c-3b8aa61c16cc"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "d3a158a7-571b-53d9-962c-3b8aa61c16cc",
+        "date": "Wed, 23 Sep 2026 15:22:47 GMT",
+        "content-type": "application/x-amz-json-1.0"
+      }
+    },
+    {
+      "label": "deleted-target-queue-absent",
+      "service": "sqs",
+      "operation": "get-queue-url",
+      "region": "us-west-2",
+      "input": {
+        "QueueName": "stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790176967599,
+      "request_finished_ms": 1790176968437,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist.",
+        "http_status": 400,
+        "request_id": "895376c8-5a7b-5f78-ac01-15e5ab73e80c",
+        "output": {
+          "__type": "com.amazonaws.sqs#QueueDoesNotExist",
+          "message": "The specified queue does not exist."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "895376c8-5a7b-5f78-ac01-15e5ab73e80c",
+        "date": "Wed, 23 Sep 2026 15:22:48 GMT",
+        "content-type": "application/x-amz-json-1.0"
+      }
+    },
+    {
+      "label": "configured-target-after-queue-delete",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-mu",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176968438,
+      "request_finished_ms": 1790176969310,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": [
+            {
+              "Id": "primary",
+              "Arn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "78e78b1a-ab68-4836-a7c3-45ab90b6aa9f"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "78e78b1a-ab68-4836-a7c3-45ab90b6aa9f",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:49 GMT"
+      }
+    },
+    {
+      "label": "deleted-queue-still-member-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176969311,
+      "request_finished_ms": 1790176970204,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-mu"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "d88872ff-7a68-4ec3-8e80-05cbfc330ff5"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "d88872ff-7a68-4ec3-8e80-05cbfc330ff5",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:50 GMT"
+      }
+    },
+    {
+      "label": "deleted-queue-still-member-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176972205,
+      "request_finished_ms": 1790176973154,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-mu"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "99a0f7a5-efbb-4bba-972f-66e71e3f4fd7"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "99a0f7a5-efbb-4bba-972f-66e71e3f4fd7",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:53 GMT"
+      }
+    },
+    {
+      "label": "deleted-queue-default-still-member-1",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790176973162,
+      "request_finished_ms": 1790176974040,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "fa1731a5-5e00-4e9b-abc8-64f2e96dab10"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "fa1731a5-5e00-4e9b-abc8-64f2e96dab10",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:53 GMT"
+      }
+    },
+    {
+      "label": "deleted-queue-default-still-member-2",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790176976041,
+      "request_finished_ms": 1790176976941,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-zeta"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "9bb67c63-783e-45e2-b13a-13b23d8e40d1"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "9bb67c63-783e-45e2-b13a-13b23d8e40d1",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:56 GMT"
+      }
+    },
+    {
+      "label": "old-token-after-membership-mutations",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-a",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Limit": 1,
+        "NextToken": "MQAAAOgAAAAAAAAAAQAAABAIK8037XAH0/m2/PS2X/02AAAA0I5WiIwhI+opU3uypSl0SatIeXb18Am/9Tw5UVU5UiOBgErxtJXirkf3b1FYErCidMDE2Is8bpd5NaRFbGYwHbFkEKxH1Kk21aUAfeC0Oy1S9zs2RtVTHrZNAm7UZMLjl8WetG8TlVh+UAjHG+W1DP3g98P6Y5fZ/5nmnDMfBouHdNadSMdbMt/UXjfBc6SNib+IUC7U1pzM8MLDJuyNEGk+OKDC82F4LjcVv8Xq0qOK0lJ7JJabQeBjv9cqYOP7y+nNSj4YSbDS/w7gS3dYZXQAAAAgAAAAAAAAAAGBZCmk5DeS+bIhieZr/ZcG4SB2yM0+63F9InEbTotD8w=="
+      },
+      "request_started_ms": 1790176976945,
+      "request_finished_ms": 1790176977803,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": [
+            "stackd-target-eeac821e24-mu"
+          ]
+        },
+        "http_status": 200,
+        "request_id": "f3f95c8f-648c-49d0-a3ce-e312b1a15220"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "f3f95c8f-648c-49d0-a3ce-e312b1a15220",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:57 GMT"
+      }
+    },
+    {
+      "label": "arn-boundaries-caller-identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "region": "us-west-2",
+      "input": {},
+      "request_started_ms": 1790177138493,
+      "request_finished_ms": 1790177139438,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200,
+        "request_id": "c84722fb-6823-4285-855f-9d5b479e844a"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "c84722fb-6823-4285-855f-9d5b479e844a",
+        "content-type": "text/xml",
+        "date": "Wed, 23 Sep 2026 15:25:39 GMT"
+      }
+    },
+    {
+      "label": "arn-boundary-nonexistent-lambda",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:lambda:us-west-2:000000000000:function:stackd-target-eeac821e24-never-created"
+      },
+      "request_started_ms": 1790177139439,
+      "request_finished_ms": 1790177140392,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": []
+        },
+        "http_status": 200,
+        "request_id": "070639ba-d8de-427e-8368-f9c0e90f0c94"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "070639ba-d8de-427e-8368-f9c0e90f0c94",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:25:40 GMT"
+      }
+    },
+    {
+      "label": "arn-boundary-unknown-service",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:madeup:us-west-2:000000000000:stackd-target-eeac821e24-never-created"
+      },
+      "request_started_ms": 1790177140394,
+      "request_finished_ms": 1790177141290,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": []
+        },
+        "http_status": 200,
+        "request_id": "48b8018a-a0d5-43a6-961b-fa61ff252091"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "48b8018a-a0d5-43a6-961b-fa61ff252091",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:25:41 GMT"
+      }
+    },
+    {
+      "label": "arn-boundary-wrong-known-partition",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws-cn:sqs:us-west-2:000000000000:stackd-target-eeac821e24-never-created"
+      },
+      "request_started_ms": 1790177141292,
+      "request_finished_ms": 1790177142156,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "message": "Parameter arn:aws-cn:sqs:us-west-2:000000000000:stackd-target-eeac821e24-never-created is not valid. Reason: Provided Arn is not in correct format.",
+        "http_status": 400,
+        "request_id": "0a37cf68-c1df-4dd1-971e-e5268d2490aa",
+        "output": {
+          "__type": "ValidationException",
+          "message": "Parameter arn:aws-cn:sqs:us-west-2:000000000000:stackd-target-eeac821e24-never-created is not valid. Reason: Provided Arn is not in correct format."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "0a37cf68-c1df-4dd1-971e-e5268d2490aa",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:25:42 GMT"
+      }
+    },
+    {
+      "label": "arn-boundary-unknown-partition",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:notaws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-never-created"
+      },
+      "request_started_ms": 1790177142158,
+      "request_finished_ms": 1790177143031,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "message": "Parameter arn:notaws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-never-created is not valid. Reason: Provided Arn is not in correct format.",
+        "http_status": 400,
+        "request_id": "24cfe1d7-a217-4b5b-88c4-c487e6bc99d2",
+        "output": {
+          "__type": "ValidationException",
+          "message": "Parameter arn:notaws:sqs:us-west-2:000000000000:stackd-target-eeac821e24-never-created is not valid. Reason: Provided Arn is not in correct format."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "24cfe1d7-a217-4b5b-88c4-c487e6bc99d2",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:25:42 GMT"
+      }
+    },
+    {
+      "label": "arn-boundary-empty-region",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs::000000000000:stackd-target-eeac821e24-never-created"
+      },
+      "request_started_ms": 1790177143033,
+      "request_finished_ms": 1790177143938,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": []
+        },
+        "http_status": 200,
+        "request_id": "fcfdf349-1ecf-4fee-af30-45a5fd88ba09"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "fcfdf349-1ecf-4fee-af30-45a5fd88ba09",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:25:43 GMT"
+      }
+    },
+    {
+      "label": "arn-boundary-empty-account",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2::stackd-target-eeac821e24-never-created"
+      },
+      "request_started_ms": 1790177143940,
+      "request_finished_ms": 1790177144853,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": []
+        },
+        "http_status": 200,
+        "request_id": "d7d7d238-d72f-42cf-8e39-ad22304f6462"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "d7d7d238-d72f-42cf-8e39-ad22304f6462",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:25:44 GMT"
+      }
+    },
+    {
+      "label": "arn-boundary-empty-resource",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:sqs:us-west-2:000000000000:"
+      },
+      "request_started_ms": 1790177144855,
+      "request_finished_ms": 1790177145732,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ValidationException",
+        "message": "Parameter arn:aws:sqs:us-west-2:000000000000: is not valid. Reason: Provided Arn is not in correct format.",
+        "http_status": 400,
+        "request_id": "702492a0-b05c-47e6-9b11-d3d175bba684",
+        "output": {
+          "__type": "ValidationException",
+          "message": "Parameter arn:aws:sqs:us-west-2:000000000000: is not valid. Reason: Provided Arn is not in correct format."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "702492a0-b05c-47e6-9b11-d3d175bba684",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:25:45 GMT"
+      }
+    },
+    {
+      "label": "arn-boundary-iam-empty-region",
+      "service": "events",
+      "operation": "list-rule-names-by-target",
+      "region": "us-west-2",
+      "input": {
+        "TargetArn": "arn:aws:iam::000000000000:role/stackd-target-eeac821e24-never-created"
+      },
+      "request_started_ms": 1790177145733,
+      "request_finished_ms": 1790177146621,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleNames": []
+        },
+        "http_status": 200,
+        "request_id": "9a10b28e-9017-4983-bf36-623e3fb9f4f1"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "9a10b28e-9017-4983-bf36-623e3fb9f4f1",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:25:46 GMT"
+      }
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "cleanup-targets-default-stackd-target-eeac821e24-zeta",
+      "service": "events",
+      "operation": "remove-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "default",
+        "Ids": [
+          "primary",
+          "duplicate",
+          "other"
+        ]
+      },
+      "request_started_ms": 1790176977804,
+      "request_finished_ms": 1790176978695,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "f0df04ca-9ebb-4ed6-937b-5d53bc6f53c2"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "f0df04ca-9ebb-4ed6-937b-5d53bc6f53c2",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:58 GMT"
+      }
+    },
+    {
+      "label": "cleanup-rule-default-stackd-target-eeac821e24-zeta",
+      "service": "events",
+      "operation": "delete-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "default"
+      },
+      "request_started_ms": 1790176978697,
+      "request_finished_ms": 1790176979607,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "21469185-eb13-4873-bae6-55f72dcd83f0"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "21469185-eb13-4873-bae6-55f72dcd83f0",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:22:59 GMT"
+      }
+    },
+    {
+      "label": "verify-rule-absent-default-stackd-target-eeac821e24-zeta",
+      "service": "events",
+      "operation": "describe-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "default"
+      },
+      "request_started_ms": 1790176979608,
+      "request_finished_ms": 1790176980470,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Rule stackd-target-eeac821e24-zeta does not exist on EventBus default.",
+        "http_status": 400,
+        "request_id": "e61cec93-fdef-4fde-8108-6dc779e3fcb4",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Rule stackd-target-eeac821e24-zeta does not exist on EventBus default."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "e61cec93-fdef-4fde-8108-6dc779e3fcb4",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:00 GMT"
+      }
+    },
+    {
+      "label": "cleanup-targets-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-empty",
+      "service": "events",
+      "operation": "remove-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-empty",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Ids": [
+          "primary",
+          "duplicate",
+          "other"
+        ]
+      },
+      "request_started_ms": 1790176980471,
+      "request_finished_ms": 1790176981344,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "b7fc7b1b-e528-4839-b560-6c91804c5fc4"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "b7fc7b1b-e528-4839-b560-6c91804c5fc4",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:01 GMT"
+      }
+    },
+    {
+      "label": "cleanup-rule-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-empty",
+      "service": "events",
+      "operation": "delete-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-empty",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176981345,
+      "request_finished_ms": 1790176982276,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "898fc224-8aa4-4c1f-9626-e27d8a40ba8c"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "898fc224-8aa4-4c1f-9626-e27d8a40ba8c",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:02 GMT"
+      }
+    },
+    {
+      "label": "verify-rule-absent-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-empty",
+      "service": "events",
+      "operation": "describe-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-empty",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176982277,
+      "request_finished_ms": 1790176983160,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Rule stackd-target-eeac821e24-empty does not exist on EventBus stackd-target-eeac821e24-bus.",
+        "http_status": 400,
+        "request_id": "eed3f1aa-3038-4110-b4ee-b44b3999a7dd",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Rule stackd-target-eeac821e24-empty does not exist on EventBus stackd-target-eeac821e24-bus."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "eed3f1aa-3038-4110-b4ee-b44b3999a7dd",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:03 GMT"
+      }
+    },
+    {
+      "label": "cleanup-targets-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-beta",
+      "service": "events",
+      "operation": "remove-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-beta",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Ids": [
+          "primary",
+          "duplicate",
+          "other"
+        ]
+      },
+      "request_started_ms": 1790176983161,
+      "request_finished_ms": 1790176984024,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Rule stackd-target-eeac821e24-beta does not exist on EventBus stackd-target-eeac821e24-bus.",
+        "http_status": 400,
+        "request_id": "8539a749-1ec9-441f-83be-12dfa832d44c",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Rule stackd-target-eeac821e24-beta does not exist on EventBus stackd-target-eeac821e24-bus."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "8539a749-1ec9-441f-83be-12dfa832d44c",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:03 GMT"
+      }
+    },
+    {
+      "label": "cleanup-rule-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-beta",
+      "service": "events",
+      "operation": "delete-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-beta",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176984025,
+      "request_finished_ms": 1790176984907,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "975c864c-3e94-4603-917d-a759d134f64d"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "975c864c-3e94-4603-917d-a759d134f64d",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:04 GMT"
+      }
+    },
+    {
+      "label": "verify-rule-absent-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-beta",
+      "service": "events",
+      "operation": "describe-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-beta",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176984909,
+      "request_finished_ms": 1790176985778,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Rule stackd-target-eeac821e24-beta does not exist on EventBus stackd-target-eeac821e24-bus.",
+        "http_status": 400,
+        "request_id": "b4654cb8-3eb1-471c-a330-43b952a2bd9c",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Rule stackd-target-eeac821e24-beta does not exist on EventBus stackd-target-eeac821e24-bus."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "b4654cb8-3eb1-471c-a330-43b952a2bd9c",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:05 GMT"
+      }
+    },
+    {
+      "label": "cleanup-targets-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-mu",
+      "service": "events",
+      "operation": "remove-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-mu",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Ids": [
+          "primary",
+          "duplicate",
+          "other"
+        ]
+      },
+      "request_started_ms": 1790176985779,
+      "request_finished_ms": 1790176986659,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "6d709cd7-9188-44e5-b6be-f85f2fd1aa3f"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "6d709cd7-9188-44e5-b6be-f85f2fd1aa3f",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:06 GMT"
+      }
+    },
+    {
+      "label": "cleanup-rule-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-mu",
+      "service": "events",
+      "operation": "delete-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-mu",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176986660,
+      "request_finished_ms": 1790176987588,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "1e000051-edcb-4453-829a-aa311bc6c3a2"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "1e000051-edcb-4453-829a-aa311bc6c3a2",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:07 GMT"
+      }
+    },
+    {
+      "label": "verify-rule-absent-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-mu",
+      "service": "events",
+      "operation": "describe-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-mu",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176987589,
+      "request_finished_ms": 1790176988462,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Rule stackd-target-eeac821e24-mu does not exist on EventBus stackd-target-eeac821e24-bus.",
+        "http_status": 400,
+        "request_id": "2946a694-77e1-43d8-9737-fa36906681fe",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Rule stackd-target-eeac821e24-mu does not exist on EventBus stackd-target-eeac821e24-bus."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "2946a694-77e1-43d8-9737-fa36906681fe",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:08 GMT"
+      }
+    },
+    {
+      "label": "cleanup-targets-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-alpha",
+      "service": "events",
+      "operation": "remove-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-alpha",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Ids": [
+          "primary",
+          "duplicate",
+          "other"
+        ]
+      },
+      "request_started_ms": 1790176988464,
+      "request_finished_ms": 1790176989344,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "7efa7b8a-b66c-4ade-8e1f-b7b7c8cb5886"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "7efa7b8a-b66c-4ade-8e1f-b7b7c8cb5886",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:09 GMT"
+      }
+    },
+    {
+      "label": "cleanup-rule-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-alpha",
+      "service": "events",
+      "operation": "delete-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-alpha",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176989346,
+      "request_finished_ms": 1790176990255,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "f2f6dafe-02a3-4708-8f73-c8b7ab27af71"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "f2f6dafe-02a3-4708-8f73-c8b7ab27af71",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:10 GMT"
+      }
+    },
+    {
+      "label": "verify-rule-absent-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-alpha",
+      "service": "events",
+      "operation": "describe-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-alpha",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176990256,
+      "request_finished_ms": 1790176991136,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Rule stackd-target-eeac821e24-alpha does not exist on EventBus stackd-target-eeac821e24-bus.",
+        "http_status": 400,
+        "request_id": "f5a88ef9-7a8c-4ceb-ad9e-dec23e9b7dba",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Rule stackd-target-eeac821e24-alpha does not exist on EventBus stackd-target-eeac821e24-bus."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "f5a88ef9-7a8c-4ceb-ad9e-dec23e9b7dba",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:11 GMT"
+      }
+    },
+    {
+      "label": "cleanup-targets-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-zeta",
+      "service": "events",
+      "operation": "remove-targets",
+      "region": "us-west-2",
+      "input": {
+        "Rule": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "stackd-target-eeac821e24-bus",
+        "Ids": [
+          "primary",
+          "duplicate",
+          "other"
+        ]
+      },
+      "request_started_ms": 1790176991137,
+      "request_finished_ms": 1790176992769,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200,
+        "request_id": "ffe00b6a-c381-466c-a1b0-db963d81fbc6"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "ffe00b6a-c381-466c-a1b0-db963d81fbc6",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:12 GMT"
+      }
+    },
+    {
+      "label": "cleanup-rule-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-zeta",
+      "service": "events",
+      "operation": "delete-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790176992770,
+      "request_finished_ms": 1790177000770,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "8512249f-42a7-4fc4-8d20-9def6812f4cb"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "8512249f-42a7-4fc4-8d20-9def6812f4cb",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:20 GMT"
+      }
+    },
+    {
+      "label": "verify-rule-absent-stackd-target-eeac821e24-bus-stackd-target-eeac821e24-zeta",
+      "service": "events",
+      "operation": "describe-rule",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-zeta",
+        "EventBusName": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790177000771,
+      "request_finished_ms": 1790177001650,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Rule stackd-target-eeac821e24-zeta does not exist on EventBus stackd-target-eeac821e24-bus.",
+        "http_status": 400,
+        "request_id": "e52e812a-4ef3-423f-b839-41f39cb629ca",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Rule stackd-target-eeac821e24-zeta does not exist on EventBus stackd-target-eeac821e24-bus."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "e52e812a-4ef3-423f-b839-41f39cb629ca",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:21 GMT"
+      }
+    },
+    {
+      "label": "cleanup-custom-bus",
+      "service": "events",
+      "operation": "delete-event-bus",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790177001651,
+      "request_finished_ms": 1790177002586,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "931812ec-463d-4271-b670-b9f5b1561f68"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "931812ec-463d-4271-b670-b9f5b1561f68",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:22 GMT"
+      }
+    },
+    {
+      "label": "verify-custom-bus-absent",
+      "service": "events",
+      "operation": "describe-event-bus",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-target-eeac821e24-bus"
+      },
+      "request_started_ms": 1790177002587,
+      "request_finished_ms": 1790177003453,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Event bus stackd-target-eeac821e24-bus does not exist.",
+        "http_status": 400,
+        "request_id": "ca0d2c8a-d9f8-4c06-bf62-59f42b9684d6",
+        "output": {
+          "__type": "ResourceNotFoundException",
+          "message": "Event bus stackd-target-eeac821e24-bus does not exist."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "ca0d2c8a-d9f8-4c06-bf62-59f42b9684d6",
+        "content-type": "application/x-amz-json-1.1",
+        "date": "Wed, 23 Sep 2026 15:23:23 GMT"
+      }
+    },
+    {
+      "label": "cleanup-queue-stackd-target-eeac821e24-a",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "region": "us-west-2",
+      "input": {
+        "QueueUrl": "https://sqs.us-west-2.amazonaws.com/000000000000/stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790177003455,
+      "request_finished_ms": 1790177004354,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist.",
+        "http_status": 400,
+        "request_id": "ec5c4bab-039f-5912-8bb5-2886f2b3438e",
+        "output": {
+          "__type": "com.amazonaws.sqs#QueueDoesNotExist",
+          "message": "The specified queue does not exist."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "ec5c4bab-039f-5912-8bb5-2886f2b3438e",
+        "date": "Wed, 23 Sep 2026 15:23:24 GMT",
+        "content-type": "application/x-amz-json-1.0"
+      }
+    },
+    {
+      "label": "verify-queue-absent-stackd-target-eeac821e24-a",
+      "service": "sqs",
+      "operation": "get-queue-url",
+      "region": "us-west-2",
+      "input": {
+        "QueueName": "stackd-target-eeac821e24-a"
+      },
+      "request_started_ms": 1790177004355,
+      "request_finished_ms": 1790177005230,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist.",
+        "http_status": 400,
+        "request_id": "a3d4b7d5-7404-5570-85d1-d4f88529f284",
+        "output": {
+          "__type": "com.amazonaws.sqs#QueueDoesNotExist",
+          "message": "The specified queue does not exist."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "a3d4b7d5-7404-5570-85d1-d4f88529f284",
+        "date": "Wed, 23 Sep 2026 15:23:25 GMT",
+        "content-type": "application/x-amz-json-1.0"
+      }
+    },
+    {
+      "label": "cleanup-queue-stackd-target-eeac821e24-b",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "region": "us-west-2",
+      "input": {
+        "QueueUrl": "https://sqs.us-west-2.amazonaws.com/000000000000/stackd-target-eeac821e24-b"
+      },
+      "request_started_ms": 1790177005232,
+      "request_finished_ms": 1790177006151,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "1c4bb95c-5588-54bb-b649-da71a4a5be6f"
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "1c4bb95c-5588-54bb-b649-da71a4a5be6f",
+        "date": "Wed, 23 Sep 2026 15:23:26 GMT",
+        "content-type": "application/x-amz-json-1.0"
+      }
+    },
+    {
+      "label": "verify-queue-absent-stackd-target-eeac821e24-b",
+      "service": "sqs",
+      "operation": "get-queue-url",
+      "region": "us-west-2",
+      "input": {
+        "QueueName": "stackd-target-eeac821e24-b"
+      },
+      "request_started_ms": 1790177006153,
+      "request_finished_ms": 1790177007045,
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist.",
+        "http_status": 400,
+        "request_id": "8b18e830-349c-5850-90be-8b1dc5b2495a",
+        "output": {
+          "__type": "com.amazonaws.sqs#QueueDoesNotExist",
+          "message": "The specified queue does not exist."
+        }
+      },
+      "transport": "AWS CLI signed HTTPS",
+      "response_headers": {
+        "x-amzn-requestid": "8b18e830-349c-5850-90be-8b1dc5b2495a",
+        "date": "Wed, 23 Sep 2026 15:23:26 GMT",
+        "content-type": "application/x-amz-json-1.0"
+      }
+    }
+  ],
+  "cleanup_verification": {
+    "default/stackd-target-eeac821e24-zeta": {
+      "code": "ResourceNotFoundException",
+      "observed_absent": true
+    },
+    "stackd-target-eeac821e24-bus/stackd-target-eeac821e24-empty": {
+      "code": "ResourceNotFoundException",
+      "observed_absent": true
+    },
+    "stackd-target-eeac821e24-bus/stackd-target-eeac821e24-beta": {
+      "code": "ResourceNotFoundException",
+      "observed_absent": true
+    },
+    "stackd-target-eeac821e24-bus/stackd-target-eeac821e24-mu": {
+      "code": "ResourceNotFoundException",
+      "observed_absent": true
+    },
+    "stackd-target-eeac821e24-bus/stackd-target-eeac821e24-alpha": {
+      "code": "ResourceNotFoundException",
+      "observed_absent": true
+    },
+    "stackd-target-eeac821e24-bus/stackd-target-eeac821e24-zeta": {
+      "code": "ResourceNotFoundException",
+      "observed_absent": true
+    },
+    "stackd-target-eeac821e24-bus": {
+      "code": "ResourceNotFoundException",
+      "observed_absent": true
+    },
+    "stackd-target-eeac821e24-a": {
+      "code": "AWS.SimpleQueueService.NonExistentQueue",
+      "observed_absent": true
+    },
+    "stackd-target-eeac821e24-b": {
+      "code": "AWS.SimpleQueueService.NonExistentQueue",
+      "observed_absent": true
+    }
+  },
+  "evidence_boundaries": [
+    "Signed native HTTPS calls; AWS CLI automatic pagination and retries disabled. Raw debug logs stay in memory and are discarded.",
+    "No customer events published. Only uniquely owned rules, custom bus and queues modified; owned default-bus rule removed.",
+    "Membership checks poll configured expected sets with bounded convergence, preserving every actual call; an early absence is not an absence oracle.",
+    "Native order and tokens retained without normalization. Observed small stable orders do not establish a universal ordering contract.",
+    "Botocore parameter validation disabled only for explicit wire boundary requests; no SDK-validation result represented as native AWS behavior.",
+    "Changing a native continuation token to the other existing bus produced one InternalException HTTP 500; this is an observed counterexample, not evidence of a deterministic cross-bus token error contract.",
+    "All ten mutation/scope convergence checks matched their expected set in both actual consecutive observations; this run observed no transient mismatch and does not establish immediate consistency.",
+    "The cross-region controls used us-east-1 without creating resources there: the owned custom bus was absent and the default bus had no configuration for the owned us-west-2 queue ARN.",
+    "Native wire boundary errors retain botocore-parsed Error objects, HTTP status and request ID; CLI observations retain native JSON output/error body. No raw signed request headers retained.",
+    "No IAM matrix, cross-account authorization, delivery, audit trail or token expiration experiment in this fixture.",
+    "The arn-boundary observations ran after all owned resources were cleaned up. These signed default-bus lookups provisioned nothing; their later timestamps retain actual sequencing and previous cleanup proof is unchanged."
+  ],
+  "references": [
+    "https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_ListRuleNamesByTarget.html"
+  ],
+  "pagination_traversals": [
+    {
+      "label": "limit-one",
+      "observations": [
+        "limit-one-page-1",
+        "limit-one-page-2",
+        "limit-one-page-3",
+        "limit-one-page-4"
+      ],
+      "rule_names_in_native_order": [
+        "stackd-target-eeac821e24-alpha",
+        "stackd-target-eeac821e24-beta",
+        "stackd-target-eeac821e24-mu",
+        "stackd-target-eeac821e24-zeta"
+      ],
+      "terminal_next_token_absent": true
+    },
+    {
+      "label": "limit-two",
+      "observations": [
+        "limit-two-page-1",
+        "limit-two-page-2"
+      ],
+      "rule_names_in_native_order": [
+        "stackd-target-eeac821e24-alpha",
+        "stackd-target-eeac821e24-beta",
+        "stackd-target-eeac821e24-mu",
+        "stackd-target-eeac821e24-zeta"
+      ],
+      "terminal_next_token_absent": true
+    },
+    {
+      "label": "repeat-limit-one",
+      "observations": [
+        "repeat-limit-one-page-1",
+        "repeat-limit-one-page-2",
+        "repeat-limit-one-page-3",
+        "repeat-limit-one-page-4"
+      ],
+      "rule_names_in_native_order": [
+        "stackd-target-eeac821e24-alpha",
+        "stackd-target-eeac821e24-beta",
+        "stackd-target-eeac821e24-mu",
+        "stackd-target-eeac821e24-zeta"
+      ],
+      "terminal_next_token_absent": true
+    }
+  ],
+  "convergence": [
+    {
+      "label": "all-custom-members",
+      "expected_names": [
+        "stackd-target-eeac821e24-zeta",
+        "stackd-target-eeac821e24-alpha",
+        "stackd-target-eeac821e24-mu",
+        "stackd-target-eeac821e24-beta"
+      ],
+      "observations": [
+        "all-custom-members-1",
+        "all-custom-members-2"
+      ],
+      "converged": true
+    },
+    {
+      "label": "default-members",
+      "expected_names": [
+        "stackd-target-eeac821e24-zeta"
+      ],
+      "observations": [
+        "default-members-1",
+        "default-members-2"
+      ],
+      "converged": true
+    },
+    {
+      "label": "disabled-still-member",
+      "expected_names": [
+        "stackd-target-eeac821e24-zeta",
+        "stackd-target-eeac821e24-alpha",
+        "stackd-target-eeac821e24-mu",
+        "stackd-target-eeac821e24-beta"
+      ],
+      "observations": [
+        "disabled-still-member-1",
+        "disabled-still-member-2"
+      ],
+      "converged": true
+    },
+    {
+      "label": "one-duplicate-retains-member",
+      "expected_names": [
+        "stackd-target-eeac821e24-zeta",
+        "stackd-target-eeac821e24-alpha",
+        "stackd-target-eeac821e24-mu",
+        "stackd-target-eeac821e24-beta"
+      ],
+      "observations": [
+        "one-duplicate-retains-member-1",
+        "one-duplicate-retains-member-2"
+      ],
+      "converged": true
+    },
+    {
+      "label": "last-duplicate-removes-member",
+      "expected_names": [
+        "stackd-target-eeac821e24-alpha",
+        "stackd-target-eeac821e24-mu",
+        "stackd-target-eeac821e24-beta"
+      ],
+      "observations": [
+        "last-duplicate-removes-member-1",
+        "last-duplicate-removes-member-2"
+      ],
+      "converged": true
+    },
+    {
+      "label": "replacement-old-arn",
+      "expected_names": [
+        "stackd-target-eeac821e24-mu",
+        "stackd-target-eeac821e24-beta"
+      ],
+      "observations": [
+        "replacement-old-arn-1",
+        "replacement-old-arn-2"
+      ],
+      "converged": true
+    },
+    {
+      "label": "replacement-new-arn-deduplicated",
+      "expected_names": [
+        "stackd-target-eeac821e24-alpha",
+        "stackd-target-eeac821e24-beta"
+      ],
+      "observations": [
+        "replacement-new-arn-deduplicated-1",
+        "replacement-new-arn-deduplicated-2"
+      ],
+      "converged": true
+    },
+    {
+      "label": "deleted-rule-not-member",
+      "expected_names": [
+        "stackd-target-eeac821e24-mu"
+      ],
+      "observations": [
+        "deleted-rule-not-member-1",
+        "deleted-rule-not-member-2"
+      ],
+      "converged": true
+    },
+    {
+      "label": "deleted-queue-still-member",
+      "expected_names": [
+        "stackd-target-eeac821e24-mu"
+      ],
+      "observations": [
+        "deleted-queue-still-member-1",
+        "deleted-queue-still-member-2"
+      ],
+      "converged": true
+    },
+    {
+      "label": "deleted-queue-default-still-member",
+      "expected_names": [
+        "stackd-target-eeac821e24-zeta"
+      ],
+      "observations": [
+        "deleted-queue-default-still-member-1",
+        "deleted-queue-default-still-member-2"
+      ],
+      "converged": true
+    }
+  ]
+}

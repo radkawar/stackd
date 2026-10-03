@@ -1,0 +1,3528 @@
+{
+  "source": {
+    "account": "000000000000",
+    "region": "us-east-1",
+    "audit_artifact": "stackd-eb-archive-audit-7f4a91c2e8.json",
+    "wire_artifacts": [
+      "/tmp/stackd-eb-archive-control-c742210f4e-results.json",
+      "/tmp/stackd-eb-archive-control-c742210f4e-followup.json",
+      "/tmp/stackd-eb-archive-control-c742210f4e-targets.json",
+      "/tmp/stackd-eb-replay-delivery-8ca0f8f91e.json",
+      "/tmp/stackd-eb-replay-delivery-8ca0f8f91e-retention.json",
+      "/tmp/stackd-eb-ai-20ab0fece9.json",
+      "/tmp/stackd-eb-archive-kms-90480190a3.json"
+    ],
+    "normalization": {
+      "initial_time": "2026-09-16T01:00:00Z",
+      "names": {
+        "stackd-ac-c742210f4e": "audit-archive-control",
+        "stackd-eb-replay-delivery-8ca0f8f91e": "audit-replay-control",
+        "stackd-eb-ai-20ab0fece9": "audit-archive-iam"
+      },
+      "notes": [
+        "Replace source account with eventDeliveryAccount and listed owned prefixes with stable local names in inputs and independent native records.",
+        "Replay event-window instants remain the captured absolute instants; numeric IAM timestamps are rendered RFC3339 at captured CloudTrail second precision in SDK inputs.",
+        "Normalize each response creationTime/replayStartTime to the manual-clock instant of the explicitly named earlier SDK call; no expected request is derived from the local serializer.",
+        "Native request/event IDs remain provenance only. Local response IDs correlate the actual SDK call with LookupEvents. CLI wire artifacts did not expose request IDs; source matches use operation, independent request parameters, assumed-role identity for denials and request-time interval.",
+        "The IAM trust principal is changed from the captured Delegated IAM user to the local account root. Session policies and action/resource distinctions remain native.",
+        "Native opaque pagination tokens are replaced by the actual SDK token from token_from, in input and expected native request only.",
+        "Native scheduling latency is not an oracle: SDK calls share a frozen manual clock until advance_seconds explicitly advances and drains local deterministic replay jobs. Empty archives suffice for management projections; no event insertion or synthetic journal records are used."
+      ]
+    },
+    "exclusions": [
+      "Client-only ParamValidation calls never reached AWS and have no native CloudTrail projection.",
+      "RetentionDays=2147483648 lies outside the generated int32 SDK model; its wire success is retained in the control source artifact, not replayed by this SDK fixture.",
+      "Uncaptured outcomes are not inferred: invalid event-pattern and generated member-validation rejections, ListArchives DISABLED-filter success, StartReplay bad-source-bus and later filtered/terminal-cancel requests lacked a matching record in this polling window.",
+      "Repeated Describe polling, duplicate cleanup absence, overlapping successful updates and selector reads with the same projection are represented once per meaningful document/state distinction.",
+      "KMS CreateKey/CreateAlias/DescribeKey/GenerateDataKey/Decrypt and encrypted-delivery setup are outside EventBridge management projection scope. Archive KMS nonempty and empty request members plus missing-key rejections are represented here; successful CMK alias/key variants and crypto behavior remain in the dedicated encryption evidence.",
+      "SQS rules/targets, public PutEvents, receipts, replay-delivery polling and irrelevant STS identity/setup records are not needed for management projections and are excluded. A single captured destination rule supplies successful nonempty FilterArns.",
+      "The failed primary sacrificial archive create does not prove an archive/bus relationship; the managed-source-removal scenario instead uses the successfully created target-control archive."
+    ]
+  },
+  "scenarios": [
+    {
+      "name": "archive-control",
+      "observations": [
+        {
+          "label": "create-bus-stackd-ac-c742210f4e-bus1",
+          "service": "events",
+          "operation": "CreateEventBus",
+          "input": {
+            "Name": "stackd-ac-c742210f4e-bus1"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-bus-stackd-ac-c742210f4e-bus1",
+            "request_started": "2026-09-16T00:05:50.595400+00:00"
+          }
+        },
+        {
+          "label": "create-bus-stackd-ac-c742210f4e-bus2",
+          "service": "events",
+          "operation": "CreateEventBus",
+          "input": {
+            "Name": "stackd-ac-c742210f4e-bus2"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-bus-stackd-ac-c742210f4e-bus2",
+            "request_started": "2026-09-16T00:05:51.340624+00:00"
+          }
+        },
+        {
+          "label": "create-omitted-fields",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-omitted-fields",
+            "request_started": "2026-09-16T00:05:52.076786+00:00",
+            "request_id": "57d31a2d-1a21-4f7b-b25b-0ca2a3d8a541",
+            "event_id": "08b930ac-0250-4df7-903e-cf677fb478b4",
+            "event_time": "2026-09-16T00:05:52Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1"
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-ac-c742210f4e-a",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:05:52Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-omitted-fields"
+          }
+        },
+        {
+          "label": "create-empty-fields",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-b",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+            "Description": "",
+            "EventPattern": "",
+            "RetentionDays": 0
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-empty-fields",
+            "request_started": "2026-09-16T00:05:56.633781+00:00",
+            "request_id": "65281e3a-1eb0-4086-bb28-4b74c96224f8",
+            "event_id": "d25a68c1-a0d6-4cba-965b-c4981dc24e30",
+            "event_time": "2026-09-16T00:05:57Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-b",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+              "description": "",
+              "eventPattern": "",
+              "retentionDays": 0
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-ac-c742210f4e-b",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:05:57Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-empty-fields"
+          }
+        },
+        {
+          "label": "describe-omitted-fields-0",
+          "service": "events",
+          "operation": "DescribeArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "describe-omitted-fields-0",
+            "request_started": "2026-09-16T00:05:52.979855+00:00",
+            "request_id": "81c10b8d-83ec-4414-848c-2c1d93bb379b",
+            "event_id": "198cd90a-26ba-481b-89fb-1dabbf71b790",
+            "event_time": "2026-09-16T00:05:53Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DescribeArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "describe-empty-fields-0",
+          "service": "events",
+          "operation": "DescribeArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-b"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "describe-empty-fields-0",
+            "request_started": "2026-09-16T00:05:57.496224+00:00",
+            "request_id": "5b933d98-2317-4c26-8189-345cc5f9eb2d",
+            "event_id": "4f96452c-ef6e-44be-a93f-e86bd0e8772f",
+            "event_time": "2026-09-16T00:05:58Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DescribeArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-b"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "duplicate-identical",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1"
+          },
+          "result": {
+            "code": "ResourceAlreadyExistsException"
+          },
+          "evidence": {
+            "wire_label": "duplicate-identical",
+            "request_started": "2026-09-16T00:05:59.704387+00:00",
+            "request_id": "f0a427a8-5158-42a0-988d-cd7191f25405",
+            "event_id": "ad209456-3c64-4895-a351-e2541183b682",
+            "event_time": "2026-09-16T00:06:00Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1"
+            },
+            "responseElements": null,
+            "errorCode": "ResourceAlreadyExistsException",
+            "errorMessage": "Archive stackd-ac-c742210f4e-a already exists.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "duplicate-replacement-values",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+            "Description": "replacement",
+            "EventPattern": "{\"source\":[\"replacement\"]}",
+            "RetentionDays": 2
+          },
+          "result": {
+            "code": "ResourceAlreadyExistsException"
+          },
+          "evidence": {
+            "wire_label": "duplicate-replacement-values",
+            "request_started": "2026-09-16T00:06:00.446596+00:00",
+            "request_id": "32fe675c-df24-472c-9fab-8d7b98e207ed",
+            "event_id": "efb4511a-b1c7-4aea-92b2-469832b857ad",
+            "event_time": "2026-09-16T00:06:01Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+              "description": "replacement",
+              "eventPattern": "{\"source\":[\"replacement\"]}",
+              "retentionDays": 2
+            },
+            "responseElements": null,
+            "errorCode": "ResourceAlreadyExistsException",
+            "errorMessage": "Archive stackd-ac-c742210f4e-a already exists.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "duplicate-different-bus",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus2"
+          },
+          "result": {
+            "code": "ResourceAlreadyExistsException"
+          },
+          "evidence": {
+            "wire_label": "duplicate-different-bus",
+            "request_started": "2026-09-16T00:06:01.192354+00:00",
+            "request_id": "9ea966ca-ce12-47be-9aaa-20d84f1a7b92",
+            "event_id": "73d5975f-ed99-4354-b5f2-5712acd57bd7",
+            "event_time": "2026-09-16T00:06:01Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus2"
+            },
+            "responseElements": null,
+            "errorCode": "ResourceAlreadyExistsException",
+            "errorMessage": "Archive stackd-ac-c742210f4e-a already exists.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "describe-archive-missing",
+          "service": "events",
+          "operation": "DescribeArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-missing"
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "describe-archive-missing",
+            "request_started": "2026-09-16T00:06:03.381626+00:00",
+            "request_id": "87201581-d4d5-4a57-bbca-61d4331585e1",
+            "event_id": "e7e51fac-a1bc-4192-ad2b-631bef150fb9",
+            "event_time": "2026-09-16T00:06:03Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DescribeArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-missing"
+            },
+            "responseElements": null,
+            "errorCode": "ResourceNotFoundException",
+            "errorMessage": "Archive stackd-ac-c742210f4e-missing does not exist.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "delete-archive-missing",
+          "service": "events",
+          "operation": "DeleteArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-missing"
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "delete-archive-missing",
+            "request_started": "2026-09-16T00:06:06.165154+00:00",
+            "request_id": "d3f87b4e-2122-40f5-b8e9-cec4133159ee",
+            "event_id": "81f459b5-37f9-40a6-beac-c90d5b8729d3",
+            "event_time": "2026-09-16T00:06:06Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DeleteArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-missing"
+            },
+            "responseElements": null,
+            "errorCode": "ResourceNotFoundException",
+            "errorMessage": "Archive stackd-ac-c742210f4e-missing does not exist.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "update-archive-missing",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-missing"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "update-archive-missing",
+            "request_started": "2026-09-16T00:06:04.766046+00:00",
+            "request_id": "82fa5cd9-4b68-43a7-8960-c0a39acaff0d",
+            "event_id": "04289eab-cd8e-4294-9c61-0051b7093196",
+            "event_time": "2026-09-16T00:06:05Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-missing"
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "At least one of EventPattern, RetentionDays or Description must be provided.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "create-source-missing",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-srcmissing",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1missing"
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "create-source-missing",
+            "request_started": "2026-09-16T00:06:09.205103+00:00",
+            "request_id": "95bae9e1-299e-4abe-8544-6471ce846c97",
+            "event_id": "e5d15df8-2273-49a7-87aa-666b19d034b9",
+            "event_time": "2026-09-16T00:06:09Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-srcmissing",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1missing"
+            },
+            "responseElements": null,
+            "errorCode": "UnknownError",
+            "errorMessage": "An unknown error occurred",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "create-kms-nonexistent",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-kmsmissing",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+            "KmsKeyIdentifier": "arn:aws:kms:us-east-1:000000000000:key/ceafd64a-a40d-44cb-84e4-5d55e96b8ec7"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "create-kms-nonexistent",
+            "request_started": "2026-09-16T00:06:16.693509+00:00",
+            "request_id": "cdc63f03-60f9-40db-9f22-84aacd5e5f1b",
+            "event_id": "238a7db4-6dc1-487c-bfa1-bbac6e7b5d5e",
+            "event_time": "2026-09-16T00:06:17Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-kmsmissing",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+              "kmsKeyIdentifier": "arn:aws:kms:us-east-1:000000000000:key/ceafd64a-a40d-44cb-84e4-5d55e96b8ec7"
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "The provided KMS key does not exist. Please ensure that the key identifier is correct and your key exists in the same region as the event source.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "create-retention-intmax",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-retmax",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+            "RetentionDays": 2147483647
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-retention-intmax",
+            "request_started": "2026-09-16T00:06:10.906971+00:00",
+            "request_id": "2eae6e66-ff35-4b9a-9f33-1206f56b0e39",
+            "event_id": "b96ee4ef-71f3-42c8-ad92-1eb6711ee764",
+            "event_time": "2026-09-16T00:06:11Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-retmax",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+              "retentionDays": 2147483647
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-ac-c742210f4e-retmax",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:06:11Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-retention-intmax"
+          }
+        },
+        {
+          "label": "create-kms-empty",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-kmsempty",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+            "KmsKeyIdentifier": ""
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-kms-empty",
+            "request_started": "2026-09-16T00:06:17.447170+00:00",
+            "request_id": "18dcde9f-989a-46a0-b9eb-83e0cb78d038",
+            "event_id": "4b8f225e-ec03-4ffb-8ac1-c92f8c76548c",
+            "event_time": "2026-09-16T00:06:18Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-kmsempty",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+              "kmsKeyIdentifier": ""
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-ac-c742210f4e-kmsempty",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:06:18Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-kms-empty"
+          }
+        },
+        {
+          "label": "update-set-all",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a",
+            "Description": "updated",
+            "EventPattern": "{ \"source\" : [ \"control.updated\" ] }",
+            "RetentionDays": 3
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "update-set-all",
+            "request_started": "2026-09-16T00:06:19.012445+00:00",
+            "request_id": "48a198ef-9549-4569-8df4-a8214d9f54f7",
+            "event_id": "71a62429-c012-48ba-b19c-d8e5f511f5e7",
+            "event_time": "2026-09-16T00:06:19Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a",
+              "description": "updated",
+              "eventPattern": "{ \"source\" : [ \"control.updated\" ] }",
+              "retentionDays": 3
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-ac-c742210f4e-a",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:05:52Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-omitted-fields"
+          }
+        },
+        {
+          "label": "update-omitted-fields",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "update-omitted-fields",
+            "request_started": "2026-09-16T00:06:21.237327+00:00",
+            "request_id": "07561226-2494-4eef-8b16-857967c0ca5a",
+            "event_id": "ec7c355d-3811-4b95-a1f4-75bc733adef8",
+            "event_time": "2026-09-16T00:06:21Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a"
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "At least one of EventPattern, RetentionDays or Description must be provided.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "update-description-only",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a",
+            "Description": "description-only"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "update-description-only",
+            "request_started": "2026-09-16T00:06:22.667177+00:00",
+            "request_id": "c57994c6-a9b5-4df1-a399-c15a84c46cea",
+            "event_id": "4d885d77-a61c-4d98-921b-ef8e3198c120",
+            "event_time": "2026-09-16T00:06:23Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a",
+              "description": "description-only"
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-ac-c742210f4e-a",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:05:52Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-omitted-fields"
+          }
+        },
+        {
+          "label": "update-nonexistent-kms-with-description",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a",
+            "Description": "must-not-save",
+            "KmsKeyIdentifier": "arn:aws:kms:us-east-1:000000000000:key/b09c910d-4213-4311-a569-9f9b0a0ae66f"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "update-nonexistent-kms-with-description",
+            "request_started": "2026-09-16T00:06:26.667801+00:00",
+            "request_id": "c73dc541-e753-4f4c-b542-44a925d444df",
+            "event_id": "a487bbdd-83e4-44ad-b9e7-5735bb8a2372",
+            "event_time": "2026-09-16T00:06:27Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a",
+              "description": "must-not-save",
+              "kmsKeyIdentifier": "arn:aws:kms:us-east-1:000000000000:key/b09c910d-4213-4311-a569-9f9b0a0ae66f"
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "The provided KMS key does not exist. Please ensure that the key identifier is correct and your key exists in the same region as the event source.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "update-explicit-empty-fields",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a",
+            "Description": "",
+            "EventPattern": "",
+            "RetentionDays": 0,
+            "KmsKeyIdentifier": ""
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "update-explicit-empty-fields",
+            "request_started": "2026-09-16T00:06:28.196490+00:00",
+            "request_id": "98010c72-bb0f-4bb4-839a-a1f72f22d2a7",
+            "event_id": "dc3ad1d6-c754-42ca-b1af-22caf2d6805f",
+            "event_time": "2026-09-16T00:06:28Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a",
+              "description": "",
+              "eventPattern": "",
+              "retentionDays": 0,
+              "kmsKeyIdentifier": ""
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-ac-c742210f4e-a",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:05:52Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-omitted-fields"
+          }
+        },
+        {
+          "label": "list-by-prefix",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-by-prefix",
+            "request_started": "2026-09-16T00:06:30.462759+00:00",
+            "request_id": "faa32c4b-1d50-40e3-8288-851a1ba6800c",
+            "event_id": "3302f25b-9456-4150-b1c8-5d9deaf74dc0",
+            "event_time": "2026-09-16T00:06:31Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-by-source",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-by-source",
+            "request_started": "2026-09-16T00:06:31.398726+00:00",
+            "request_id": "5278fd80-205d-485d-9150-d56695ea45f6",
+            "event_id": "cb98002a-72b7-40cc-997f-720aae78c1b3",
+            "event_time": "2026-09-16T00:06:32Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-by-missing-source",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1missing"
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "list-by-missing-source",
+            "request_started": "2026-09-16T00:06:32.855660+00:00",
+            "request_id": "e5f96722-66d4-4668-9b00-53e44887098a",
+            "event_id": "cb906083-d239-4b09-af8e-7271e2a8d8f6",
+            "event_time": "2026-09-16T00:06:33Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1missing"
+            },
+            "responseElements": null,
+            "errorCode": "UnknownError",
+            "errorMessage": "An unknown error occurred",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-no-prefix-matches",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e-nomatch"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-no-prefix-matches",
+            "request_started": "2026-09-16T00:06:33.541048+00:00",
+            "request_id": "c30d5779-4817-48d5-8de0-6aa86fd01d4c",
+            "event_id": "7bc4edaa-7dc1-47d8-8389-08cfbba6cacf",
+            "event_time": "2026-09-16T00:06:34Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e-nomatch"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-prefix-plus-source",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "list-prefix-plus-source",
+            "request_started": "2026-09-16T00:06:34.278604+00:00",
+            "request_id": "a1fe4627-a71f-40ef-b10a-bbbf49088b16",
+            "event_id": "ca65cfb5-428d-42b6-a96b-b89dabe25700",
+            "event_time": "2026-09-16T00:06:34Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1"
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "At most one filter is allowed for ListArchives. Use either : State, EventSourceArn, or NamePrefix.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-prefix-plus-state",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e",
+            "State": "ENABLED"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "list-prefix-plus-state",
+            "request_started": "2026-09-16T00:06:34.985854+00:00",
+            "request_id": "eed0c221-f4ba-4d95-8a0f-12f2e924a042",
+            "event_id": "88caf82f-b725-410f-9271-a8d3f8c73df9",
+            "event_time": "2026-09-16T00:06:35Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e",
+              "state": "ENABLED"
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "At most one filter is allowed for ListArchives. Use either : State, EventSourceArn, or NamePrefix.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-source-plus-state",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+            "State": "ENABLED"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "list-source-plus-state",
+            "request_started": "2026-09-16T00:06:35.732469+00:00",
+            "request_id": "0dce4d42-3ea1-4c88-87f2-e7a17fe4faba",
+            "event_id": "ec37ef32-1f93-4074-a720-0aad2010217c",
+            "event_time": "2026-09-16T00:06:36Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+              "state": "ENABLED"
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "At most one filter is allowed for ListArchives. Use either : State, EventSourceArn, or NamePrefix.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-limit-1",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e",
+            "Limit": 1
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-limit-1",
+            "request_started": "2026-09-16T00:06:38.264097+00:00",
+            "request_id": "aa20d3a9-64db-43e7-b91c-4b69c0ff8eed",
+            "event_id": "24d618ee-7001-4689-a8cb-c207aa3f5aba",
+            "event_time": "2026-09-16T00:06:38Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e",
+              "limit": 1
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-token-5",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e",
+            "NextToken": "bogus"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "list-token-5",
+            "request_started": "2026-09-16T00:06:40.793476+00:00",
+            "request_id": "480bf8cb-b2ff-4e31-9272-e0bb4d8f81de",
+            "event_id": "893185c5-f9fc-4408-b508-0c9186a5b966",
+            "event_time": "2026-09-16T00:06:41Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e",
+              "nextToken": "bogus"
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "Parameter NextToken is not valid. Reason: Malformed request.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-page-one",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e",
+            "Limit": 1
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-page-one",
+            "request_started": "2026-09-16T00:06:42.272996+00:00",
+            "request_id": "9307c101-775e-4e56-aa6d-c2ce16e5efb5",
+            "event_id": "f388ba71-5c95-49e1-aae4-a83354a2caf9",
+            "event_time": "2026-09-16T00:06:42Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e",
+              "limit": 1
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-page-two",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e",
+            "Limit": 1,
+            "NextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-page-two",
+            "request_started": "2026-09-16T00:06:43.015998+00:00",
+            "request_id": "523a8db6-09c5-4b02-ab14-85d6f6920345",
+            "event_id": "f46bde5e-85a7-4422-bfa0-c70b8bc5ed0b",
+            "event_time": "2026-09-16T00:06:43Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e",
+              "nextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8",
+              "limit": 1
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          },
+          "token_from": "list-page-one"
+        },
+        {
+          "label": "list-token-repeat",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e",
+            "Limit": 1,
+            "NextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-token-repeat",
+            "request_started": "2026-09-16T00:06:43.760550+00:00",
+            "request_id": "d4134230-06a5-46f4-a308-1d9f9f961ee2",
+            "event_id": "80e8f6ce-4695-4db7-ba8d-9c3928ec826f",
+            "event_time": "2026-09-16T00:06:44Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e",
+              "nextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8",
+              "limit": 1
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          },
+          "token_from": "list-page-one"
+        },
+        {
+          "label": "list-token-changed-limit",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e",
+            "Limit": 2,
+            "NextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-token-changed-limit",
+            "request_started": "2026-09-16T00:06:44.535673+00:00",
+            "request_id": "f1819ffb-1a8b-404b-bcb7-58344c6926e2",
+            "event_id": "be09549a-075d-452c-ad0e-d1a5e2333544",
+            "event_time": "2026-09-16T00:06:45Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e",
+              "nextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8",
+              "limit": 2
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          },
+          "token_from": "list-page-one"
+        },
+        {
+          "label": "list-token-changed-prefix",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e-b",
+            "Limit": 1,
+            "NextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "list-token-changed-prefix",
+            "request_started": "2026-09-16T00:06:45.296155+00:00",
+            "request_id": "3dc22504-d938-43f0-a015-1c7b2bc88833",
+            "event_id": "a552f149-be10-4b63-87dd-6c212658fa71",
+            "event_time": "2026-09-16T00:06:45Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e-b",
+              "nextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8",
+              "limit": 1
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "Parameter NextToken is not valid. Reason: Token invalid.",
+            "eventVersion": "1.11"
+          },
+          "token_from": "list-page-one"
+        },
+        {
+          "label": "list-token-changed-filter",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+            "Limit": 1,
+            "NextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "list-token-changed-filter",
+            "request_started": "2026-09-16T00:06:46.079778+00:00",
+            "request_id": "36c43286-e292-4c08-82ee-af03bc5a9c7a",
+            "event_id": "3bb6dfcc-2e03-410a-a813-bbeffa1dfc23",
+            "event_time": "2026-09-16T00:06:46Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-bus1",
+              "nextToken": "ASQAAABhZjE1Y2Y4Zi03ODYzLTQxODUtYjdhNC1mMjA2MjQ5YmM4MzG4AAAAAQIDAHhDuhZn6ZvwAn1VX1VpnFcQGoFwHVuTBT6rLwyQbRPvmwENK1hSM0Ybr5KUKsiba6d7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4Jp4EvfqgNnA5Ni6AgEQgDszNfL-t49zmP2Sx671juhb3PSdA0K1n9ggk8AIiDBetpjY2YRjwAOhzLopgO8c1Vzt67X9dgWw5RC2KAwAAAABTW8Ia-N7H355yHlVAQAATZd8_z7-n-_MrXl9KVHeRZea5K0otBLnX2vIRyGfuqmRX9zR5YZzRzCEWjxL7SCSBPlWGZ-AndQqtInSodC9qGI9EN2ilCOOme3xPxZ3CjGuucZeeGTQFGQMmC-Lv7p3qKL54pQPvBGxO2ZLZfSJsRDrXUqBWVVbNKMr2atVNqCEmUyZi75hzeTaj9cY35Jpx_auAJTwHD0LIl8NfUHY37jhJ23_okbRkm7Qn2hW3U3YkNYmN85nSxXwZPlONcU8QOUUXzqWnrwBeaQhwKAdBl9gpak8MazzlRniz3yV-khMsPpWR7Agxrnifd3VxcRqYsbUqKxT2-NDWizvUmWNZFmSmDwGs-S64yNV9gNvtWz5QrxUFSJXCRMcDETuvom-Beex6x2_DRo79D0CMMzIgg3V3oC4IxSkF17S1T17C0eCybNEGKQCyXT8XbojJQeCWmDYwjQgAAAAPwt7jcl4T-WN5H0NPgJTzZ8EtpOaMkKsocHpyM_HAe8",
+              "limit": 1
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "Parameter NextToken is not valid. Reason: Token invalid.",
+            "eventVersion": "1.11"
+          },
+          "token_from": "list-page-one"
+        },
+        {
+          "label": "delete-main-archive",
+          "service": "events",
+          "operation": "DeleteArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-a"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "delete-main-archive",
+            "request_started": "2026-09-16T00:07:00.756571+00:00",
+            "request_id": "382f1b8b-ff4b-4213-91ed-8f8488edf7a5",
+            "event_id": "a05b39cd-9e87-4348-a241-ccf883b96d45",
+            "event_time": "2026-09-16T00:07:01Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DeleteArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-a"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        }
+      ]
+    },
+    {
+      "name": "replay-control",
+      "observations": [
+        {
+          "label": "create-source-bus",
+          "service": "events",
+          "operation": "CreateEventBus",
+          "input": {
+            "Name": "stackd-eb-replay-delivery-8ca0f8f91e-source"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-source-bus",
+            "request_started": "2026-09-16T00:03:47.954817+00:00"
+          }
+        },
+        {
+          "label": "create-foreign-owned-bus",
+          "service": "events",
+          "operation": "CreateEventBus",
+          "input": {
+            "Name": "stackd-eb-replay-delivery-8ca0f8f91e-foreign"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-foreign-owned-bus",
+            "request_started": "2026-09-16T00:03:48.767139+00:00"
+          }
+        },
+        {
+          "label": "create-rule-A",
+          "service": "events",
+          "operation": "PutRule",
+          "input": {
+            "Name": "stackd-eb-replay-delivery-8ca0f8f91e-A",
+            "EventBusName": "stackd-eb-replay-delivery-8ca0f8f91e-source",
+            "EventPattern": "{\"source\": [\"stackd.replay.probe\"]}",
+            "State": "ENABLED"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-rule-A",
+            "request_started": "2026-09-16T00:03:58.434686+00:00"
+          }
+        },
+        {
+          "label": "create-archive",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+            "EventPattern": "{\"source\": [\"stackd.replay.probe\"], \"detail\": {\"archive\": [true]}}",
+            "RetentionDays": 1
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-archive",
+            "request_started": "2026-09-16T00:04:05.309084+00:00",
+            "request_id": "8e2bad82-3580-4fd1-8b31-0861c35a5f09",
+            "event_id": "3900a0ee-8284-43aa-b374-01e452902585",
+            "event_time": "2026-09-16T00:04:06Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+              "eventPattern": "{\"source\": [\"stackd.replay.probe\"], \"detail\": {\"archive\": [true]}}",
+              "retentionDays": 1
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:04:05Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-archive"
+          }
+        },
+        {
+          "label": "missing-archive",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-missing-archive",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive-missing",
+            "EventStartTime": "2026-09-15T23:59:25+00:00",
+            "EventEndTime": "2026-09-16T00:01:27+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+            }
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "missing-archive",
+            "request_started": "2026-09-16T00:05:03.489722+00:00",
+            "request_id": "a801d34d-6ef3-44bf-a222-96a63c6ff162",
+            "event_id": "8d4e18a2-7d81-4eb3-aed1-05486558966c",
+            "event_time": "2026-09-16T00:05:04Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-missing-archive",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive-missing",
+              "eventStartTime": "2026-09-15T23:59:25Z",
+              "eventEndTime": "2026-09-16T00:01:27Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+              }
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "Parameter EventSourceArn is not valid. Reason: Archive stackd-eb-replay-delivery-8ca0f8f91e-archive-missing does not exist.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "foreign-destination",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-foreign-destination",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-15T23:59:25+00:00",
+            "EventEndTime": "2026-09-16T00:01:27+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-foreign"
+            }
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "foreign-destination",
+            "request_started": "2026-09-16T00:05:04.310316+00:00",
+            "request_id": "0328551d-d2a6-4b62-ad54-261ad9fea6cb",
+            "event_id": "b1d51384-b93e-42e3-81e9-b0dc1617de6f",
+            "event_time": "2026-09-16T00:05:05Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-foreign-destination",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-15T23:59:25Z",
+              "eventEndTime": "2026-09-16T00:01:27Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-foreign"
+              }
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "Parameter Destination.Arn is not valid. Reason: Cross event bus replay is not permitted.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "foreign-filter",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-foreign-filter",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-15T23:59:25+00:00",
+            "EventEndTime": "2026-09-16T00:01:27+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+              "FilterArns": [
+                "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-replay-delivery-8ca0f8f91e-foreign/stackd-eb-replay-delivery-8ca0f8f91e-foreignrule"
+              ]
+            }
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "foreign-filter",
+            "request_started": "2026-09-16T00:05:05.118614+00:00",
+            "request_id": "51d462af-82b3-464c-b1ad-d7d35008bb73",
+            "event_id": "7597c58d-7a88-4bf3-b539-13709d046dbc",
+            "event_time": "2026-09-16T00:05:05Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-foreign-filter",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-15T23:59:25Z",
+              "eventEndTime": "2026-09-16T00:01:27Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+                "filterArns": [
+                  "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-replay-delivery-8ca0f8f91e-foreign/stackd-eb-replay-delivery-8ca0f8f91e-foreignrule"
+                ]
+              }
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "Parameter Destination.FilterArns is not valid. Reason: Rule must be on the destination event bus.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "inverted-window",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-inverted-window",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-16T00:01:27+00:00",
+            "EventEndTime": "2026-09-15T23:59:25+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+            }
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "inverted-window",
+            "request_started": "2026-09-16T00:05:05.892310+00:00",
+            "request_id": "fe4abe62-dc7d-436b-9ba3-665363a05d47",
+            "event_id": "5f2c6bb6-01c1-42f2-96da-9df8b58c5f62",
+            "event_time": "2026-09-16T00:05:06Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-inverted-window",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-16T00:01:27Z",
+              "eventEndTime": "2026-09-15T23:59:25Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+              }
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "Parameter EventEndTime is not valid. Reason: EventStartTime must be before EventEndTime.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "future-window",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-future-window",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-16T00:06:02.777924+00:00",
+            "EventEndTime": "2026-09-16T00:07:02.777932+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+            }
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "future-window",
+            "request_started": "2026-09-16T00:05:06.624036+00:00",
+            "request_id": "5ee88220-39b3-4660-ac5f-ed981ddfdcc5",
+            "event_id": "57ea47a6-5424-4071-a87e-db834afa7d20",
+            "event_time": "2026-09-16T00:05:07Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-future-window",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-16T00:06:02Z",
+              "eventEndTime": "2026-09-16T00:07:02Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+              }
+            },
+            "responseElements": {
+              "replayArn": "arn:aws:events:us-east-1:000000000000:replay/stackd-eb-replay-delivery-8ca0f8f91e-future-window",
+              "state": "STARTING",
+              "replayStartTime": "2026-09-16T00:05:07Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "replayStartTime": "future-window"
+          }
+        },
+        {
+          "label": "future-window-state",
+          "service": "events",
+          "operation": "DescribeReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-future-window"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "future-window-state",
+            "request_started": "2026-09-16T00:05:07.420933+00:00",
+            "request_id": "31017c9d-5ed6-4ee7-b792-e3234fbda4f9",
+            "event_id": "c3ba113c-134e-4034-aa89-515ee137b275",
+            "event_time": "2026-09-16T00:05:08Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DescribeReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-future-window"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "missing-rule-filter",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-missing-rule-filter",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-15T23:59:25+00:00",
+            "EventEndTime": "2026-09-16T00:01:27+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+              "FilterArns": [
+                "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-replay-delivery-8ca0f8f91e-source/missing"
+              ]
+            }
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "missing-rule-filter",
+            "request_started": "2026-09-16T00:06:04.549972+00:00",
+            "request_id": "9ef0d817-437c-4b08-9ed9-fdb1df7445ee",
+            "event_id": "e9645959-35cc-4979-94cf-72ef02e06b4c",
+            "event_time": "2026-09-16T00:06:05Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-missing-rule-filter",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-15T23:59:25Z",
+              "eventEndTime": "2026-09-16T00:01:27Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+                "filterArns": [
+                  "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-replay-delivery-8ca0f8f91e-source/missing"
+                ]
+              }
+            },
+            "responseElements": null,
+            "errorCode": "UnknownError",
+            "errorMessage": "An unknown error occurred",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "empty-filter",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-empty-filter",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-15T23:59:25+00:00",
+            "EventEndTime": "2026-09-16T00:01:27+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+              "FilterArns": []
+            }
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "empty-filter",
+            "request_started": "2026-09-16T00:06:05.240162+00:00",
+            "request_id": "a898e743-a462-4e82-b86e-6df80e5b7401",
+            "event_id": "e81661ea-0e98-4a2f-ad98-72dda85dd30d",
+            "event_time": "2026-09-16T00:06:05Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-empty-filter",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-15T23:59:25Z",
+              "eventEndTime": "2026-09-16T00:01:27Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+                "filterArns": []
+              }
+            },
+            "responseElements": {
+              "replayArn": "arn:aws:events:us-east-1:000000000000:replay/stackd-eb-replay-delivery-8ca0f8f91e-empty-filter",
+              "state": "STARTING",
+              "replayStartTime": "2026-09-16T00:06:05Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "replayStartTime": "empty-filter"
+          }
+        },
+        {
+          "label": "cancel-missing",
+          "service": "events",
+          "operation": "CancelReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-missing"
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "cancel-missing",
+            "request_started": "2026-09-16T00:07:03.689436+00:00",
+            "request_id": "32073b57-892e-4790-88b9-037ddc27e31d",
+            "event_id": "54d01686-9336-491b-8643-bcd3dbf48fb4",
+            "event_time": "2026-09-16T00:07:04Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CancelReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-missing"
+            },
+            "responseElements": null,
+            "errorCode": "ResourceNotFoundException",
+            "errorMessage": "Replay stackd-eb-replay-delivery-8ca0f8f91e-missing does not exist.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "describe-missing",
+          "service": "events",
+          "operation": "DescribeReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-missing"
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "describe-missing",
+            "request_started": "2026-09-16T00:07:02.931926+00:00",
+            "request_id": "b73d8e1a-d6d1-4aaf-aaf5-a04ac8a18421",
+            "event_id": "32261142-41d0-4819-8fbf-58fdd8ca5e61",
+            "event_time": "2026-09-16T00:07:03Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DescribeReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-missing"
+            },
+            "responseElements": null,
+            "errorCode": "ResourceNotFoundException",
+            "errorMessage": "Replay stackd-eb-replay-delivery-8ca0f8f91e-missing does not exist.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-owned-early",
+          "service": "events",
+          "operation": "ListReplays",
+          "input": {
+            "NamePrefix": "stackd-eb-replay-delivery-8ca0f8f91e"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-owned-early",
+            "request_started": "2026-09-16T00:07:04.429345+00:00",
+            "request_id": "01ea1344-4619-4716-bf97-8142b95391f9",
+            "event_id": "f4e81438-6d3b-4cd3-b3af-4b4cd2e7d30c",
+            "event_time": "2026-09-16T00:07:05Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListReplays",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-eb-replay-delivery-8ca0f8f91e"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "full-first",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-full-first",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-15T23:59:25+00:00",
+            "EventEndTime": "2026-09-16T00:01:27+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+            }
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "full-first",
+            "request_started": "2026-09-16T00:14:38.422651+00:00",
+            "request_id": "26abc0e6-1a12-42ad-9983-0723bae4263b",
+            "event_id": "2b023bbd-d04b-4687-b8a7-13d4c856288a",
+            "event_time": "2026-09-16T00:14:39Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-full-first",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-15T23:59:25Z",
+              "eventEndTime": "2026-09-16T00:01:27Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+              }
+            },
+            "responseElements": {
+              "replayArn": "arn:aws:events:us-east-1:000000000000:replay/stackd-eb-replay-delivery-8ca0f8f91e-full-first",
+              "state": "STARTING",
+              "replayStartTime": "2026-09-16T00:14:39Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "replayStartTime": "full-first"
+          }
+        },
+        {
+          "label": "full-first-1",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-full-first",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-15T23:59:25+00:00",
+            "EventEndTime": "2026-09-16T00:01:27+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+            }
+          },
+          "result": {
+            "code": "ResourceAlreadyExistsException"
+          },
+          "evidence": {
+            "wire_label": "full-first",
+            "request_started": "2026-09-16T00:16:33.136641+00:00",
+            "request_id": "62029a9a-b8ae-4cd4-b3bb-008c6a4258c7",
+            "event_id": "8bd6ad0a-0876-43bf-a39e-7821fbd9e85a",
+            "event_time": "2026-09-16T00:16:33Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-full-first",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-15T23:59:25Z",
+              "eventEndTime": "2026-09-16T00:01:27Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source"
+              }
+            },
+            "responseElements": null,
+            "errorCode": "ResourceAlreadyExistsException",
+            "errorMessage": "Replay stackd-eb-replay-delivery-8ca0f8f91e-full-first already exists.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "oldest-to-middle",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-oldest-to-middle",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-15T23:59:26+00:00",
+            "EventEndTime": "2026-09-16T00:00:26+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+              "FilterArns": [
+                "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-replay-delivery-8ca0f8f91e-source/stackd-eb-replay-delivery-8ca0f8f91e-A"
+              ]
+            }
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "oldest-to-middle",
+            "request_started": "2026-09-16T00:16:36.159225+00:00",
+            "request_id": "2fba0b9f-ac68-4e85-9fe7-34f29f0cf910",
+            "event_id": "74e6fa37-c9eb-4a8b-8263-8643b0f4edcc",
+            "event_time": "2026-09-16T00:16:36Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-oldest-to-middle",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-15T23:59:26Z",
+              "eventEndTime": "2026-09-16T00:00:26Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+                "filterArns": [
+                  "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-replay-delivery-8ca0f8f91e-source/stackd-eb-replay-delivery-8ca0f8f91e-A"
+                ]
+              }
+            },
+            "responseElements": {
+              "replayArn": "arn:aws:events:us-east-1:000000000000:replay/stackd-eb-replay-delivery-8ca0f8f91e-oldest-to-middle",
+              "state": "STARTING",
+              "replayStartTime": "2026-09-16T00:16:36Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "replayStartTime": "oldest-to-middle"
+          }
+        },
+        {
+          "label": "cancel-completed",
+          "service": "events",
+          "operation": "CancelReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-full-first"
+          },
+          "result": {
+            "code": "IllegalStatusException"
+          },
+          "evidence": {
+            "wire_label": "cancel-completed",
+            "request_started": "2026-09-16T00:16:33.868191+00:00",
+            "request_id": "fcbefd50-c034-4ea5-bb63-3cb403b3f15b",
+            "event_id": "c70b78ec-f5b2-4d55-9e0d-78b41fe7de3e",
+            "event_time": "2026-09-16T00:16:34Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CancelReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-full-first"
+            },
+            "responseElements": null,
+            "errorCode": "IllegalStatusException",
+            "errorMessage": "Replay stackd-eb-replay-delivery-8ca0f8f91e-full-first is not in a valid state for this operation.",
+            "eventVersion": "1.11"
+          },
+          "advance_seconds": 60
+        },
+        {
+          "label": "list-completed",
+          "service": "events",
+          "operation": "ListReplays",
+          "input": {
+            "NamePrefix": "stackd-eb-replay-delivery-8ca0f8f91e",
+            "State": "COMPLETED",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive"
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "list-completed",
+            "request_started": "2026-09-16T00:16:34.593630+00:00",
+            "request_id": "ed721389-b00e-437e-b2ee-199e43734ffd",
+            "event_id": "4352fe6c-325a-43ca-809f-886fc4235398",
+            "event_time": "2026-09-16T00:16:35Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListReplays",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-eb-replay-delivery-8ca0f8f91e",
+              "state": "COMPLETED",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive"
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "At most one filter is allowed for ListReplays. Use either : State, EventSourceArn, or NamePrefix.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "exact-oldest",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-replay-delivery-8ca0f8f91e-exact-oldest",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+            "EventStartTime": "2026-09-15T23:59:26+00:00",
+            "EventEndTime": "2026-09-15T23:59:26+00:00",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+              "FilterArns": [
+                "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-replay-delivery-8ca0f8f91e-source/stackd-eb-replay-delivery-8ca0f8f91e-A"
+              ]
+            }
+          },
+          "result": {
+            "code": "ValidationException"
+          },
+          "evidence": {
+            "wire_label": "exact-oldest",
+            "request_started": "2026-09-16T00:16:35.345722+00:00",
+            "request_id": "b718fb58-3126-4796-b31b-69a91db0a272",
+            "event_id": "4c1695bb-1ef3-4cad-9501-f7f5243290bf",
+            "event_time": "2026-09-16T00:16:36Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-replay-delivery-8ca0f8f91e-exact-oldest",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-replay-delivery-8ca0f8f91e-archive",
+              "eventStartTime": "2026-09-15T23:59:26Z",
+              "eventEndTime": "2026-09-15T23:59:26Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-replay-delivery-8ca0f8f91e-source",
+                "filterArns": [
+                  "arn:aws:events:us-east-1:000000000000:rule/stackd-eb-replay-delivery-8ca0f8f91e-source/stackd-eb-replay-delivery-8ca0f8f91e-A"
+                ]
+              }
+            },
+            "responseElements": null,
+            "errorCode": "ValidationException",
+            "errorMessage": "Parameter EventEndTime is not valid. Reason: EventStartTime must be before EventEndTime.",
+            "eventVersion": "1.11"
+          }
+        }
+      ]
+    },
+    {
+      "name": "session-policy-denials",
+      "observations": [
+        {
+          "label": "create-bus",
+          "service": "events",
+          "operation": "CreateEventBus",
+          "input": {
+            "Name": "stackd-eb-ai-20ab0fece9",
+            "Tags": [
+              {
+                "Key": "probe",
+                "Value": "stackd-eb-ai-20ab0fece9"
+              }
+            ]
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-bus",
+            "request_started": "2026-09-16T00:11:44.820837+00:00"
+          }
+        },
+        {
+          "label": "create-source-archive",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-eb-ai-20ab0fece9-source",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-source-archive",
+            "request_started": "2026-09-16T00:11:45.538059+00:00",
+            "request_id": "597af4f9-b90b-4ef9-8ec6-b8dcf64ccbbc",
+            "event_id": "19888f6f-6869-4ead-b965-87b812d39a92",
+            "event_time": "2026-09-16T00:11:46Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-eb-ai-20ab0fece9-source",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:11:46Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-source-archive"
+          }
+        },
+        {
+          "label": "create-role",
+          "service": "iam",
+          "operation": "CreateRole",
+          "input": {
+            "RoleName": "stackd-eb-ai-20ab0fece9",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-role",
+            "request_started": "2026-09-16T00:11:47.092786+00:00"
+          }
+        },
+        {
+          "label": "role-permission",
+          "service": "iam",
+          "operation": "PutRolePolicy",
+          "input": {
+            "RoleName": "stackd-eb-ai-20ab0fece9",
+            "PolicyName": "events",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:*\", \"Resource\": \"*\"}]}"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "role-permission",
+            "request_started": "2026-09-16T00:11:47.842095+00:00"
+          }
+        },
+        {
+          "label": "create-resource-archive",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-eb-ai-20ab0fece9-create-archive",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+          },
+          "result": {
+            "code": "AccessDeniedException"
+          },
+          "evidence": {
+            "wire_label": "create-resource-archive",
+            "request_started": "2026-09-16T00:12:02.436443+00:00",
+            "request_id": "234e56fc-b848-4d5f-ba4d-2d9b98b27c85",
+            "event_id": "ae610335-7228-4f54-926b-f936192620cb",
+            "event_time": "2026-09-16T00:12:03Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": null,
+            "responseElements": null,
+            "errorCode": "AccessDenied",
+            "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-eb-ai-20ab0fece9/create-archive is not authorized to perform: events:CreateArchive on resource: arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9 because no session policy allows the events:CreateArchive action",
+            "eventVersion": "1.11"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "create-archive",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:CreateArchive\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-create-archive\"]}]}"
+          }
+        },
+        {
+          "label": "create-resource-bus",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-eb-ai-20ab0fece9-create-bus",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+          },
+          "result": {
+            "code": "AccessDeniedException"
+          },
+          "evidence": {
+            "wire_label": "create-resource-bus",
+            "request_started": "2026-09-16T00:12:03.844749+00:00",
+            "request_id": "1bb81616-d27b-42e5-83ae-6f65d2d6fb28",
+            "event_id": "5fe87c86-22a5-4bfd-8559-11c39c93810b",
+            "event_time": "2026-09-16T00:12:04Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": null,
+            "responseElements": null,
+            "errorCode": "AccessDenied",
+            "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-eb-ai-20ab0fece9/create-bus is not authorized to perform: events:CreateArchive on resource: arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-create-bus because no session policy allows the events:CreateArchive action",
+            "eventVersion": "1.11"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "create-bus",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:CreateArchive\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9\"]}]}"
+          }
+        },
+        {
+          "label": "create-resource-both",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-eb-ai-20ab0fece9-create-both",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-resource-both",
+            "request_started": "2026-09-16T00:12:05.248570+00:00",
+            "request_id": "1b8ec9a4-b9d2-4b9b-8285-45623a4bb855",
+            "event_id": "7f310313-67de-4081-b774-2731faebc565",
+            "event_time": "2026-09-16T00:12:05Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-eb-ai-20ab0fece9-create-both",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-create-both",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:12:05Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-resource-both"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "create-both",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:CreateArchive\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-create-both\", \"arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9\"]}]}"
+          }
+        },
+        {
+          "label": "update-resource-archive-only",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-eb-ai-20ab0fece9-source",
+            "Description": "archive-only"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "update-resource-archive-only",
+            "request_started": "2026-09-16T00:12:06.784942+00:00",
+            "request_id": "2fde18e4-90aa-4735-bc22-ad31b5eb8bf8",
+            "event_id": "9f7aee6b-737e-4fcf-9e2d-cea0f5ad86a6",
+            "event_time": "2026-09-16T00:12:07Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-eb-ai-20ab0fece9-source",
+              "description": "archive-only"
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:11:46Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-source-archive"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "update-archive-only",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:UpdateArchive\", \"Resource\": \"arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source\"}]}"
+          }
+        },
+        {
+          "label": "update-resource-deny-source-bus",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-eb-ai-20ab0fece9-source",
+            "Description": "deny-source-bus"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "update-resource-deny-source-bus",
+            "request_started": "2026-09-16T00:12:08.323102+00:00",
+            "request_id": "6e7d891a-c260-4d54-abfb-536aef84509e",
+            "event_id": "4429c2b3-1945-414c-92e9-bfdf63a5424c",
+            "event_time": "2026-09-16T00:12:09Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-eb-ai-20ab0fece9-source",
+              "description": "deny-source-bus"
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:11:46Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-source-archive"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "update-deny-source-bus",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:UpdateArchive\", \"Resource\": \"arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source\"}, {\"Effect\": \"Deny\", \"Action\": \"events:UpdateArchive\", \"Resource\": \"arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9\"}]}"
+          }
+        },
+        {
+          "label": "replay-resource-replay",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-ai-20ab0fece9-replay-0",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+            },
+            "EventStartTime": "2026-09-16T00:10:44Z",
+            "EventEndTime": "2026-09-16T00:11:44Z"
+          },
+          "result": {
+            "code": "AccessDeniedException"
+          },
+          "evidence": {
+            "wire_label": "replay-resource-replay",
+            "request_started": "2026-09-16T00:12:09.817818+00:00",
+            "request_id": "b38a07b5-3cad-43be-b245-0aa2965f85c0",
+            "event_id": "a09427c4-a327-4742-9241-b4e82f68f5de",
+            "event_time": "2026-09-16T00:12:10Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": null,
+            "responseElements": null,
+            "errorCode": "AccessDenied",
+            "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-eb-ai-20ab0fece9/replay-0 is not authorized to perform: events:StartReplay on resource: arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source because no session policy allows the events:StartReplay action",
+            "eventVersion": "1.11"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "replay-0",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:StartReplay\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:replay/stackd-eb-ai-20ab0fece9-replay-0\"]}]}"
+          }
+        },
+        {
+          "label": "replay-resource-archive",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-ai-20ab0fece9-replay-1",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+            },
+            "EventStartTime": "2026-09-16T00:10:44Z",
+            "EventEndTime": "2026-09-16T00:11:44Z"
+          },
+          "result": {
+            "code": "AccessDeniedException"
+          },
+          "evidence": {
+            "wire_label": "replay-resource-archive",
+            "request_started": "2026-09-16T00:12:11.227266+00:00",
+            "request_id": "9eb46721-354e-4d87-ab52-23bb8c04350d",
+            "event_id": "7ebe9e07-d0ce-4349-810c-23b5fac98905",
+            "event_time": "2026-09-16T00:12:11Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": null,
+            "responseElements": null,
+            "errorCode": "AccessDenied",
+            "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-eb-ai-20ab0fece9/replay-1 is not authorized to perform: events:StartReplay on resource: arn:aws:events:us-east-1:000000000000:replay/stackd-eb-ai-20ab0fece9-replay-1 because no session policy allows the events:StartReplay action",
+            "eventVersion": "1.11"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "replay-1",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:StartReplay\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source\"]}]}"
+          }
+        },
+        {
+          "label": "replay-resource-bus",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-ai-20ab0fece9-replay-2",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+            },
+            "EventStartTime": "2026-09-16T00:10:44Z",
+            "EventEndTime": "2026-09-16T00:11:44Z"
+          },
+          "result": {
+            "code": "AccessDeniedException"
+          },
+          "evidence": {
+            "wire_label": "replay-resource-bus",
+            "request_started": "2026-09-16T00:12:12.638373+00:00",
+            "request_id": "afef5c75-52ed-48ed-9d9e-c73b86a8e95f",
+            "event_id": "ebbfdb92-d741-4c8f-b148-9cb02cceb8b3",
+            "event_time": "2026-09-16T00:12:13Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": null,
+            "responseElements": null,
+            "errorCode": "AccessDenied",
+            "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-eb-ai-20ab0fece9/replay-2 is not authorized to perform: events:StartReplay on resource: arn:aws:events:us-east-1:000000000000:replay/stackd-eb-ai-20ab0fece9-replay-2 because no session policy allows the events:StartReplay action",
+            "eventVersion": "1.11"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "replay-2",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:StartReplay\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9\"]}]}"
+          }
+        },
+        {
+          "label": "replay-resource-archive-replay",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-ai-20ab0fece9-replay-3",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+            },
+            "EventStartTime": "2026-09-16T00:10:44Z",
+            "EventEndTime": "2026-09-16T00:11:44Z"
+          },
+          "result": {
+            "code": "AccessDeniedException"
+          },
+          "evidence": {
+            "wire_label": "replay-resource-archive-replay",
+            "request_started": "2026-09-16T00:12:14.019457+00:00",
+            "request_id": "95fc1b62-4ea4-4076-9463-7676cfd727e1",
+            "event_id": "1d834bc3-91a1-4ec2-bf7d-79e26c3ef1e5",
+            "event_time": "2026-09-16T00:12:14Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": null,
+            "responseElements": null,
+            "errorCode": "AccessDenied",
+            "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-eb-ai-20ab0fece9/replay-3 is not authorized to perform: events:StartReplay on resource: arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9 because no session policy allows the events:StartReplay action",
+            "eventVersion": "1.11"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "replay-3",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:StartReplay\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source\", \"arn:aws:events:us-east-1:000000000000:replay/stackd-eb-ai-20ab0fece9-replay-3\"]}]}"
+          }
+        },
+        {
+          "label": "replay-resource-archive-bus",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-ai-20ab0fece9-replay-4",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+            },
+            "EventStartTime": "2026-09-16T00:10:44Z",
+            "EventEndTime": "2026-09-16T00:11:44Z"
+          },
+          "result": {
+            "code": "AccessDeniedException"
+          },
+          "evidence": {
+            "wire_label": "replay-resource-archive-bus",
+            "request_started": "2026-09-16T00:12:15.393737+00:00",
+            "request_id": "75d9f9ac-8546-4060-8e35-8a03003bb4f6",
+            "event_id": "bd253046-a64f-439e-a631-b1b3801e4216",
+            "event_time": "2026-09-16T00:12:15Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": null,
+            "responseElements": null,
+            "errorCode": "AccessDenied",
+            "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-eb-ai-20ab0fece9/replay-4 is not authorized to perform: events:StartReplay on resource: arn:aws:events:us-east-1:000000000000:replay/stackd-eb-ai-20ab0fece9-replay-4 because no session policy allows the events:StartReplay action",
+            "eventVersion": "1.11"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "replay-4",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:StartReplay\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source\", \"arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9\"]}]}"
+          }
+        },
+        {
+          "label": "replay-resource-replay-bus",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-ai-20ab0fece9-replay-5",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+            },
+            "EventStartTime": "2026-09-16T00:10:44Z",
+            "EventEndTime": "2026-09-16T00:11:44Z"
+          },
+          "result": {
+            "code": "AccessDeniedException"
+          },
+          "evidence": {
+            "wire_label": "replay-resource-replay-bus",
+            "request_started": "2026-09-16T00:12:16.772186+00:00",
+            "request_id": "dd2f1d04-a225-492b-b9d5-87971ec18217",
+            "event_id": "87911fea-dbe9-47e1-9254-5ed88d49b7a0",
+            "event_time": "2026-09-16T00:12:17Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": null,
+            "responseElements": null,
+            "errorCode": "AccessDenied",
+            "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-eb-ai-20ab0fece9/replay-5 is not authorized to perform: events:StartReplay on resource: arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source because no session policy allows the events:StartReplay action",
+            "eventVersion": "1.11"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "replay-5",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:StartReplay\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:replay/stackd-eb-ai-20ab0fece9-replay-5\", \"arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9\"]}]}"
+          }
+        },
+        {
+          "label": "replay-resource-archive-replay-bus",
+          "service": "events",
+          "operation": "StartReplay",
+          "input": {
+            "ReplayName": "stackd-eb-ai-20ab0fece9-replay-6",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+            "Destination": {
+              "Arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+            },
+            "EventStartTime": "2026-09-16T00:10:44Z",
+            "EventEndTime": "2026-09-16T00:11:44Z"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "replay-resource-archive-replay-bus",
+            "request_started": "2026-09-16T00:12:18.115041+00:00",
+            "request_id": "e68ab060-3dba-4116-ac2a-889754656e2e",
+            "event_id": "c7679375-abd9-4155-93f1-41c64876f6d3",
+            "event_time": "2026-09-16T00:12:18Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "StartReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-ai-20ab0fece9-replay-6",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source",
+              "eventStartTime": "2026-09-16T00:10:44Z",
+              "eventEndTime": "2026-09-16T00:11:44Z",
+              "destination": {
+                "arn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9"
+              }
+            },
+            "responseElements": {
+              "replayArn": "arn:aws:events:us-east-1:000000000000:replay/stackd-eb-ai-20ab0fece9-replay-6",
+              "state": "STARTING",
+              "replayStartTime": "2026-09-16T00:12:18Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "replayStartTime": "replay-resource-archive-replay-bus"
+          },
+          "assume_role": {
+            "RoleArn": "arn:aws:iam::000000000000:role/stackd-eb-ai-20ab0fece9",
+            "RoleSessionName": "replay-6",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"events:StartReplay\", \"Resource\": [\"arn:aws:events:us-east-1:000000000000:archive/stackd-eb-ai-20ab0fece9-source\", \"arn:aws:events:us-east-1:000000000000:replay/stackd-eb-ai-20ab0fece9-replay-6\", \"arn:aws:events:us-east-1:000000000000:event-bus/stackd-eb-ai-20ab0fece9\"]}]}"
+          }
+        },
+        {
+          "label": "cleanup-cancel-replay",
+          "service": "events",
+          "operation": "CancelReplay",
+          "input": {
+            "ReplayName": "stackd-eb-ai-20ab0fece9-replay-6"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "cleanup-cancel-replay",
+            "request_started": "2026-09-16T00:12:26.967129+00:00",
+            "request_id": "d9d72dc0-7e47-4003-b5d8-ea85021a6f89",
+            "event_id": "9b0a4c74-07cf-4c94-a53e-b12f271d9349",
+            "event_time": "2026-09-16T00:12:27Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CancelReplay",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "replayName": "stackd-eb-ai-20ab0fece9-replay-6"
+            },
+            "responseElements": {
+              "replayArn": "arn:aws:events:us-east-1:000000000000:replay/stackd-eb-ai-20ab0fece9-replay-6",
+              "state": "CANCELLING"
+            },
+            "eventVersion": "1.11"
+          }
+        }
+      ]
+    },
+    {
+      "name": "missing-archive-update",
+      "observations": [
+        {
+          "label": "update-missing-with-description",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-f-missing",
+            "Description": "valid"
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "update-missing-with-description",
+            "request_started": "2026-09-16T00:09:53.597719+00:00",
+            "request_id": "6521661c-378d-4d9a-9d83-b54e30cea6b9",
+            "event_id": "fe806d36-dce0-4c2b-988d-9031d655ae01",
+            "event_time": "2026-09-16T00:09:54Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-f-missing",
+              "description": "valid"
+            },
+            "responseElements": null,
+            "errorCode": "ResourceNotFoundException",
+            "errorMessage": "Archive stackd-ac-c742210f4e-f-missing does not exist.",
+            "eventVersion": "1.11"
+          }
+        }
+      ]
+    },
+    {
+      "name": "managed-source-removal",
+      "observations": [
+        {
+          "label": "create-bus",
+          "service": "events",
+          "operation": "CreateEventBus",
+          "input": {
+            "Name": "stackd-ac-c742210f4e-g-bus"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-bus",
+            "request_started": "2026-09-16T00:11:27.592079+00:00"
+          }
+        },
+        {
+          "label": "create-archive",
+          "service": "events",
+          "operation": "CreateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-g-archive",
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-g-bus",
+            "Description": "original"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "create-archive",
+            "request_started": "2026-09-16T00:11:28.439513+00:00",
+            "request_id": "9d5a1e2f-09cf-430b-8902-971b5e9ce46c",
+            "event_id": "bd8daba2-5b75-43f7-8d34-fc0e447fb26b",
+            "event_time": "2026-09-16T00:11:29Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "CreateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-g-archive",
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-g-bus",
+              "description": "original"
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-ac-c742210f4e-g-archive",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:11:29Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-archive"
+          }
+        },
+        {
+          "label": "force-remove-archive-target-only",
+          "service": "events",
+          "operation": "RemoveTargets",
+          "input": {
+            "EventBusName": "stackd-ac-c742210f4e-g-bus",
+            "Rule": "Events-Archive-stackd-ac-c742210f4e-g-archive",
+            "Ids": [
+              "Events-Archive-stackd-ac-c742210f4e-g-archive"
+            ],
+            "Force": true
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "force-remove-archive-target-only",
+            "request_started": "2026-09-16T00:11:31.622151+00:00"
+          }
+        },
+        {
+          "label": "archive-after-target-removal-immediate",
+          "service": "events",
+          "operation": "DescribeArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-g-archive"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "archive-after-target-removal-immediate",
+            "request_started": "2026-09-16T00:11:32.325090+00:00",
+            "request_id": "06d4c6d2-c7e6-4a09-98b6-58ab57442551",
+            "event_id": "5b297941-c4c9-4bca-8a07-fefaf9cdf6ed",
+            "event_time": "2026-09-16T00:11:32Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DescribeArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-g-archive"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "update-description-only-after-target-removal",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-g-archive",
+            "Description": "repair-target"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "update-description-only-after-target-removal",
+            "request_started": "2026-09-16T00:11:40.959533+00:00",
+            "request_id": "b6f7eda9-73a5-474b-8925-918783b0ba54",
+            "event_id": "f95d135f-9496-4e23-82e6-9e23d648ef66",
+            "event_time": "2026-09-16T00:11:41Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-g-archive",
+              "description": "repair-target"
+            },
+            "responseElements": {
+              "archiveArn": "arn:aws:events:us-east-1:000000000000:archive/stackd-ac-c742210f4e-g-archive",
+              "state": "ENABLED",
+              "creationTime": "2026-09-16T00:11:29Z"
+            },
+            "eventVersion": "1.11"
+          },
+          "response_time_labels": {
+            "creationTime": "create-archive"
+          }
+        },
+        {
+          "label": "remove-target-before-rule-deletion",
+          "service": "events",
+          "operation": "RemoveTargets",
+          "input": {
+            "EventBusName": "stackd-ac-c742210f4e-g-bus",
+            "Rule": "Events-Archive-stackd-ac-c742210f4e-g-archive",
+            "Ids": [
+              "Events-Archive-stackd-ac-c742210f4e-g-archive"
+            ],
+            "Force": true
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "remove-target-before-rule-deletion",
+            "request_started": "2026-09-16T00:11:43.249047+00:00"
+          }
+        },
+        {
+          "label": "delete-rule",
+          "service": "events",
+          "operation": "DeleteRule",
+          "input": {
+            "EventBusName": "stackd-ac-c742210f4e-g-bus",
+            "Name": "Events-Archive-stackd-ac-c742210f4e-g-archive",
+            "Force": true
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "delete-rule",
+            "request_started": "2026-09-16T00:11:43.973984+00:00"
+          }
+        },
+        {
+          "label": "delete-bus-with-disabled-archive",
+          "service": "events",
+          "operation": "DeleteEventBus",
+          "input": {
+            "Name": "stackd-ac-c742210f4e-g-bus"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "delete-bus-with-disabled-archive",
+            "request_started": "2026-09-16T00:11:44.689501+00:00"
+          }
+        },
+        {
+          "label": "update-archive-after-source-bus-deletion",
+          "service": "events",
+          "operation": "UpdateArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-g-archive",
+            "Description": "must-not-save"
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "update-archive-after-source-bus-deletion",
+            "request_started": "2026-09-16T00:11:45.470746+00:00",
+            "request_id": "86297f42-2942-4a97-b106-01f1d5eb428b",
+            "event_id": "22131aeb-3333-43f2-b8bd-ce3ed70a4d61",
+            "event_time": "2026-09-16T00:11:46Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "UpdateArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-g-archive",
+              "description": "must-not-save"
+            },
+            "responseElements": null,
+            "errorCode": "ResourceNotFoundException",
+            "errorMessage": "Archive stackd-ac-c742210f4e-g-archive managed rule does not exist.",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "describe-after-missing-bus-update",
+          "service": "events",
+          "operation": "DescribeArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-g-archive"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "describe-after-missing-bus-update",
+            "request_started": "2026-09-16T00:11:46.224563+00:00",
+            "request_id": "b6c86879-c8ea-4b82-aec2-b923e5efa738",
+            "event_id": "91f9b0b9-d594-40de-bd66-e8d21cd4f6a4",
+            "event_time": "2026-09-16T00:11:46Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DescribeArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-g-archive"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-by-deleted-source-with-surviving-archive",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-g-bus"
+          },
+          "result": {
+            "code": "ResourceNotFoundException"
+          },
+          "evidence": {
+            "wire_label": "list-by-deleted-source-with-surviving-archive",
+            "request_started": "2026-09-16T00:11:46.968224+00:00",
+            "request_id": "3534392a-7764-4e39-b8ef-04a7fcd14af0",
+            "event_id": "87e72384-c3d6-4ac0-aa23-544bd293faed",
+            "event_time": "2026-09-16T00:11:47Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "eventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/stackd-ac-c742210f4e-g-bus"
+            },
+            "responseElements": null,
+            "errorCode": "UnknownError",
+            "errorMessage": "An unknown error occurred",
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "list-by-prefix-with-deleted-source",
+          "service": "events",
+          "operation": "ListArchives",
+          "input": {
+            "NamePrefix": "stackd-ac-c742210f4e-g"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "list-by-prefix-with-deleted-source",
+            "request_started": "2026-09-16T00:11:47.678215+00:00",
+            "request_id": "0b21bc32-adc1-4e62-99e1-267d954bf67d",
+            "event_id": "05f124f7-794b-48b5-840a-140e1d9273aa",
+            "event_time": "2026-09-16T00:11:48Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "ListArchives",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": true,
+            "requestParameters": {
+              "namePrefix": "stackd-ac-c742210f4e-g"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        },
+        {
+          "label": "cleanup-delete-archive",
+          "service": "events",
+          "operation": "DeleteArchive",
+          "input": {
+            "ArchiveName": "stackd-ac-c742210f4e-g-archive"
+          },
+          "result": {
+            "code": "Success"
+          },
+          "evidence": {
+            "wire_label": "cleanup-delete-archive",
+            "request_started": "2026-09-16T00:11:48.411278+00:00",
+            "request_id": "2ec007e8-5d9b-4009-b93d-f40db93cbe4d",
+            "event_id": "954b20f8-aec7-4cbe-a776-6c80478d55fc",
+            "event_time": "2026-09-16T00:11:49Z",
+            "correlation": "operation, request parameters (or assumed-role session for denial), and bounded request time; wire CLI artifacts do not retain request IDs"
+          },
+          "native": {
+            "eventSource": "events.amazonaws.com",
+            "eventName": "DeleteArchive",
+            "awsRegion": "us-east-1",
+            "eventType": "AwsApiCall",
+            "recipientAccountId": "000000000000",
+            "apiVersion": "2015-10-07",
+            "eventCategory": "Management",
+            "managementEvent": true,
+            "readOnly": false,
+            "requestParameters": {
+              "archiveName": "stackd-ac-c742210f4e-g-archive"
+            },
+            "responseElements": null,
+            "eventVersion": "1.11"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2338 @@
+{
+  "Source": "s3/analytics_controls_evidence.json.gz",
+  "TLS": true,
+  "AuditBucket": "analytics-controls-audit-logs",
+  "AuditPrefix": "owned/AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Every Record is copied from a native LookupEvents match with the same exact requestID as its source Rows response. Native history was captured without creating a paid trail; the local classic management selector delivers those positive records as real S3 gzip logs.",
+    "Only a dependency-complete subset of native controls is replayed. Unique owned buckets rebind to analytics-controls; native account to ${account}; native IAM user Delegated to audit-user/${auditUserARN}. API statuses, errors, stable outputs and record field presence remain native.",
+    "Native list aliases to GetBucketAnalyticsConfiguration; GET and LIST are readOnly management events, PUT and DELETE are write management events. LookupEvent.Resources is empty for every selected call, independently of the bucket resources inside its CloudTrailEvent.",
+    "All captured analytics responseElements are null. Unlike Inventory, Analytics omits even valid PUT XML from requestParameters. Query id is absent, empty, scalar or an ordered array as submitted; continuation-token retains its literal spelling.",
+    "NoSuchConfiguration still includes the bucket resource. Positively matched NoSuchBucket records omit resources and account for zero admitted request bytes, including malformed PUT bodies.",
+    "Request/event IDs remain provenance only. Existing delivery replay rebinds event time, Host, authenticated key, error wording, request correlation and wire byte counts; native network/TLS timing fields are archive-only. No whole-document digest is asserted.",
+    "Owner-header failures and other bounded unmatched history calls are not exclusion claims. This fixture establishes management projection and local trail delivery, not native analytics CSV generation, recommendations, delivery timing or report parity."
+  ],
+  "Setup": [
+    {
+      "Sequence": 1,
+      "At": "2026-09-22T11:05:16.217915+00:00",
+      "Label": "create-",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=1]; request XFJ99MXA6RZBCEHR",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Region": "us-east-1",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls"
+      },
+      "Output": {
+        "Location": "/analytics-controls",
+        "BucketArn": "arn:aws:s3:::analytics-controls"
+      }
+    },
+    {
+      "Sequence": 2,
+      "At": "2026-09-22T11:05:16.902159+00:00",
+      "Label": "create--dest",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=2]; request S8MNQWDJ100D9WVA",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Region": "us-east-1",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls-dest"
+      },
+      "Output": {
+        "Location": "/analytics-controls-dest",
+        "BucketArn": "arn:aws:s3:::analytics-controls-dest"
+      }
+    },
+    {
+      "Sequence": 3,
+      "At": "2026-09-22T11:05:17.447605+00:00",
+      "Label": "create--pages",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=3]; request S8MTPAM39WBYVZ3X",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Region": "us-east-1",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls-pages"
+      },
+      "Output": {
+        "Location": "/analytics-controls-pages",
+        "BucketArn": "arn:aws:s3:::analytics-controls-pages"
+      }
+    },
+    {
+      "Label": "create-analytics-controls-audit-logs",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls-audit-logs"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "configure-trail-delivery-policy",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "analytics-controls-audit-logs",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AWSCloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::analytics-controls-audit-logs\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/analytics-controls-audit\"}}}, {\"Sid\": \"AWSCloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::analytics-controls-audit-logs/owned/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/analytics-controls-audit\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "Output": {}
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create-classic-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EnableLogFileValidation": false,
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "IsOrganizationTrail": false,
+        "Name": "analytics-controls-audit",
+        "S3BucketName": "analytics-controls-audit-logs",
+        "S3KeyPrefix": "owned"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "select-all-analytics-management",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EventSelectors": [
+          {
+            "ExcludeManagementEventSources": [
+              "kms.amazonaws.com",
+              "rdsdata.amazonaws.com"
+            ],
+            "IncludeManagementEvents": true,
+            "ReadWriteType": "All"
+          }
+        ],
+        "TrailName": "analytics-controls-audit"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "analytics-controls-audit"
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Sequence": 6,
+      "At": "2026-09-22T11:05:18.629659+00:00",
+      "Label": "fresh-list",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=6]; request W6MD2J6YNAQF9GR8; AuditLookup Matches[EvidenceSequence=6], event 583a6e5e-e777-4967-882b-b8631288266a",
+      "Service": "s3",
+      "Operation": "ListBucketAnalyticsConfigurations",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls"
+      },
+      "Output": {
+        "IsTruncated": false,
+        "AnalyticsConfigurationList": []
+      },
+      "Absent": [
+        "ContinuationToken",
+        "NextContinuationToken"
+      ],
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:18Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075118686,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075118701,
+          "x-amz-id-2": "nxia83AtwkJUutZQicm+7MsRg5TB6OhwqBNUMcP33RG0OngUPRR1PccIJnl/lifcefWZTw8eQG8NP39HS3tsY8nmWS4/nZ6R",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 163
+        },
+        "requestID": "W6MD2J6YNAQF9GR8",
+        "eventID": "583a6e5e-e777-4967-882b-b8631288266a",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 7,
+      "At": "2026-09-22T11:05:18.762297+00:00",
+      "Label": "fresh-get",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=7]; request W6MFZYDRKE3Q6QAE; AuditLookup Matches[EvidenceSequence=7], event 299a0b37-dd3e-47d7-98fa-c7e5cf6a6cf0",
+      "Service": "s3",
+      "Operation": "GetBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {},
+      "ErrorDetails": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:18Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchConfiguration",
+        "errorMessage": "The specified configuration does not exist.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075118803,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075118818,
+          "x-amz-id-2": "9H9kI1RtdNUAh7R0Jqm0QGq7R+JjCMYvLLnZJJtZjuxw4oGwYIp8R2j+s09mwdFgCzZJt20fL25bciYEhT3Sz+uznYqUrrPR",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 300
+        },
+        "requestID": "W6MFZYDRKE3Q6QAE",
+        "eventID": "299a0b37-dd3e-47d7-98fa-c7e5cf6a6cf0",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 8,
+      "At": "2026-09-22T11:05:18.877154+00:00",
+      "Label": "fresh-delete",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=8]; request W6M7E3DGRVDQAF60; AuditLookup Matches[EvidenceSequence=8], event b6b66e3b-eeba-44ca-a7c4-efc76812d34b",
+      "Service": "s3",
+      "Operation": "DeleteBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {},
+      "ErrorDetails": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:18Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchConfiguration",
+        "errorMessage": "The specified configuration does not exist.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075118920,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075118940,
+          "x-amz-id-2": "b5yuvKxP7mcg/c9UOFK8ewqPOh2rXQZV/Vb+3jh9sMepWSRdTXzHgJTQtxEXTqIEvOTyCnbokmFisJM/a/PRoFp4ESEOCI0c",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 300
+        },
+        "requestID": "W6M7E3DGRVDQAF60",
+        "eventID": "b6b66e3b-eeba-44ca-a7c4-efc76812d34b",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 10,
+      "At": "2026-09-22T11:05:19.118496+00:00",
+      "Label": "minimal",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=10]; request H83N05RVJ022FBNF; AuditLookup Matches[EvidenceSequence=10], event 922be3f4-ea4f-4001-a6e3-94838d64b6b3",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state",
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {}
+        }
+      },
+      "Output": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:19Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 135,
+          "startTime": 1790075119164,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075119180,
+          "x-amz-id-2": "A4Db9W/Ls1S2/rVxHyOJsoDgL1dWvtzn7HL+OyiguYMWU6+nNBAndqPGK1JJkpSZFBwRAyRvSqNg6A+s5s96AdSPCqUDgXx1",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "H83N05RVJ022FBNF",
+        "eventID": "922be3f4-ea4f-4001-a6e3-94838d64b6b3",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 11,
+      "At": "2026-09-22T11:05:19.240423+00:00",
+      "Label": "minimal-get",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=11]; request H83Y1WX3K8RRPWXC; AuditLookup Matches[EvidenceSequence=11], event 83d0cdb3-d7c2-4e7d-b4c1-b39bd1104efd",
+      "Service": "s3",
+      "Operation": "GetBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {}
+        }
+      },
+      "Absent": [
+        "AnalyticsConfiguration.Filter",
+        "AnalyticsConfiguration.StorageClassAnalysis.DataExport"
+      ],
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:19Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075119286,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075119294,
+          "x-amz-id-2": "OZANH88Z6tBkt6KjACyg/XWLqZzj5Cjth2FJEIAhckYTYFK+lAR7gVvcmk0c1LsgUnUF8oG/bAVC/fg7xgKjdjY2CN1FjfWW",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 189
+        },
+        "requestID": "H83Y1WX3K8RRPWXC",
+        "eventID": "83d0cdb3-d7c2-4e7d-b4c1-b39bd1104efd",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 12,
+      "At": "2026-09-22T11:05:19.353850+00:00",
+      "Label": "minimal-list",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=12]; request H83T84YME60KAP7K; AuditLookup Matches[EvidenceSequence=12], event 70405e0b-13d8-4ef4-98b5-2fd63e9502d8",
+      "Service": "s3",
+      "Operation": "ListBucketAnalyticsConfigurations",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls"
+      },
+      "Output": {
+        "IsTruncated": false,
+        "AnalyticsConfigurationList": [
+          {
+            "Id": "state",
+            "StorageClassAnalysis": {}
+          }
+        ]
+      },
+      "Absent": [
+        "ContinuationToken",
+        "NextContinuationToken"
+      ],
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:19Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075119397,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075119408,
+          "x-amz-id-2": "RdLaE25Xk5EVaHguad3LIwz0Bv6UUAezXWmclp0Xs7HINTRF3kFukoVfm/REXOBWlTXTTlyCjH8vHXdklzYe2AXrgxT+MuTo",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 249
+        },
+        "requestID": "H83T84YME60KAP7K",
+        "eventID": "70405e0b-13d8-4ef4-98b5-2fd63e9502d8",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 21,
+      "At": "2026-09-22T11:05:20.876790+00:00",
+      "Label": "filter-and",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=21]; request 3BDFPHVGMR9B4CCY; AuditLookup Matches[EvidenceSequence=21], event f72a9d1d-80ad-4171-9c87-8bdf9cd9dd65",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state",
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {},
+          "Filter": {
+            "And": {
+              "Prefix": "logs/",
+              "Tags": [
+                {
+                  "Key": "team",
+                  "Value": "blue"
+                },
+                {
+                  "Key": "env",
+                  "Value": "prod"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Output": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:20Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 274,
+          "startTime": 1790075120920,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075120937,
+          "x-amz-id-2": "Rj09Nva8wiULj5LAscA0FwPqyinLjf5AiiGEfdPB5l4uQr67qG4yAE4RdQ05sNlr/W3+vZvOvYZE8PE0/nEcXP1obcA26lwM",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "3BDFPHVGMR9B4CCY",
+        "eventID": "f72a9d1d-80ad-4171-9c87-8bdf9cd9dd65",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 22,
+      "At": "2026-09-22T11:05:20.997505+00:00",
+      "Label": "filter-state-and",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=22]; request 5JHMTWHHAN36B4A2; AuditLookup Matches[EvidenceSequence=22], event 6f8b4008-88c1-405d-9f62-e914170fdb67",
+      "Service": "s3",
+      "Operation": "GetBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "Filter": {
+            "And": {
+              "Prefix": "logs/",
+              "Tags": [
+                {
+                  "Key": "team",
+                  "Value": "blue"
+                },
+                {
+                  "Key": "env",
+                  "Value": "prod"
+                }
+              ]
+            }
+          },
+          "StorageClassAnalysis": {}
+        }
+      },
+      "Absent": [
+        "AnalyticsConfiguration.StorageClassAnalysis.DataExport"
+      ],
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:21Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075121041,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075121053,
+          "x-amz-id-2": "LTrke1BUmiBMV+Eos47XqNiCzSZ0GZVeLI3/wSm1UdM4vUNFHAJFnqJRYURnGCnQUVRUl5H8llB2XvJnjmSQDT/Lajy5dyiF",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 328
+        },
+        "requestID": "5JHMTWHHAN36B4A2",
+        "eventID": "6f8b4008-88c1-405d-9f62-e914170fdb67",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 29,
+      "At": "2026-09-22T11:05:21.843624+00:00",
+      "Label": "filter-and-one-tag",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=29]; request 5JHJHR727BNCNWCE; AuditLookup Matches[EvidenceSequence=29], event d28599c1-c16c-4a85-b790-aee2156b023d",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "InvalidAnd",
+      "Status": 400,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state",
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {},
+          "Filter": {
+            "And": {
+              "Tags": [
+                {
+                  "Key": "team",
+                  "Value": "blue"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Output": {},
+      "ErrorDetails": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:21Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "InvalidAnd",
+        "errorMessage": "Number of Prefixes and Tags combined cannot be less than 2. And cannot contain less than 2 elements.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 208,
+          "startTime": 1790075121882,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075121894,
+          "x-amz-id-2": "TEU2lJ63f/h3gfaZIlvy9y/jKIGGNu1Myr2AiLzZdhwvuXq3es4TMcwlR37GwgtAVICn4hjXpcgeI/Knfd4cyXIdMm6VvUpM",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 348
+        },
+        "requestID": "5JHJHR727BNCNWCE",
+        "eventID": "d28599c1-c16c-4a85-b790-aee2156b023d",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 35,
+      "At": "2026-09-22T11:05:23.337050+00:00",
+      "Label": "filter-empty",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=35]; request RSDG5GEWF7H37AEK; AuditLookup Matches[EvidenceSequence=35], event 40ab5213-2bb3-4eb6-a1b4-113c0bab456d",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "MalformedXML",
+      "Status": 400,
+      "Raw": {
+        "Sequence": 35,
+        "Label": "filter-empty",
+        "Operation": "PutBucketAnalyticsConfiguration",
+        "Method": "PUT",
+        "Target": "/analytics-controls/?analytics&id=state",
+        "Headers": {},
+        "Body": "<AnalyticsConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Id>state</Id><StorageClassAnalysis /><Filter /></AnalyticsConfiguration>",
+        "Status": 400,
+        "Code": "MalformedXML",
+        "ErrorDetails": {}
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:23Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "MalformedXML",
+        "errorMessage": "The XML you provided was not well-formed or did not validate against our published schema",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 145,
+          "startTime": 1790075123380,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075123390,
+          "x-amz-id-2": "XZ0U1yV0Jd8oyqCOByhUzvVC+VvSxpixpU1XZkqTKHcl/rwy1ShkwI1Umqw7d9oLDG8EXUxfqw8=",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 319
+        },
+        "requestID": "RSDG5GEWF7H37AEK",
+        "eventID": "40ab5213-2bb3-4eb6-a1b4-113c0bab456d",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 45,
+      "At": "2026-09-22T11:05:24.795942+00:00",
+      "Label": "export-owner-prefix",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=45]; request CP2R50DE4N36WH39; AuditLookup Matches[EvidenceSequence=45], event 01e7057a-87b3-4c11-8c1a-01d33664d6c9",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state",
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {
+            "DataExport": {
+              "OutputSchemaVersion": "V_1",
+              "Destination": {
+                "S3BucketDestination": {
+                  "Format": "CSV",
+                  "Bucket": "arn:aws:s3:::analytics-controls-dest",
+                  "BucketAccountId": "${account}",
+                  "Prefix": "reports/"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Output": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:24Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 455,
+          "startTime": 1790075124838,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075124851,
+          "x-amz-id-2": "PWBsFQ+vHcwMszkLWXmjOpCfxo7D8RYVif2N4Da1YS860G2eHuUTuUcFeptuU9GziKIgb6u01sM=",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "CP2R50DE4N36WH39",
+        "eventID": "01e7057a-87b3-4c11-8c1a-01d33664d6c9",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 46,
+      "At": "2026-09-22T11:05:24.908205+00:00",
+      "Label": "export-state-owner-prefix",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=46]; request CP2WQCSCGK5F1FS4; AuditLookup Matches[EvidenceSequence=46], event 5bba22fc-7c73-493c-9e9a-2f6e87af131a",
+      "Service": "s3",
+      "Operation": "GetBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {
+            "DataExport": {
+              "OutputSchemaVersion": "V_1",
+              "Destination": {
+                "S3BucketDestination": {
+                  "Format": "CSV",
+                  "BucketAccountId": "${account}",
+                  "Bucket": "arn:aws:s3:::analytics-controls-dest",
+                  "Prefix": "reports/"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Absent": [
+        "AnalyticsConfiguration.Filter"
+      ],
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:24Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075124950,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075124959,
+          "x-amz-id-2": "f416A2yxNY9CU5+Fh8TXfa5rrtCBkmtqejI8JNrdmq5/Yikww2uB5fCgweLyUMtjhUbVn4URCtI=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 510
+        },
+        "requestID": "CP2WQCSCGK5F1FS4",
+        "eventID": "5bba22fc-7c73-493c-9e9a-2f6e87af131a",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 55,
+      "At": "2026-09-22T11:05:26.144294+00:00",
+      "Label": "export-invalid-bucket-arn",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=55]; request 30MKM4YN6D6W49QT; AuditLookup Matches[EvidenceSequence=55], event b60517b4-09cd-4c1d-a39f-93782a46fe03",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "InvalidDestination",
+      "Status": 400,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state",
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {
+            "DataExport": {
+              "OutputSchemaVersion": "V_1",
+              "Destination": {
+                "S3BucketDestination": {
+                  "Format": "CSV",
+                  "Bucket": "analytics-controls-dest"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Output": {},
+      "ErrorDetails": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:26Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "InvalidDestination",
+        "errorMessage": "Invalid bucket ARN.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 370,
+          "startTime": 1790075126185,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075126194,
+          "x-amz-id-2": "DGuB2gIkVgeq9Ov3Ol+prIr5XqbMTIjXTbafkFwR2Z8HNxk4kOOuK+PWvj9H8bAy0bFkcW3DvRo=",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 255
+        },
+        "requestID": "30MKM4YN6D6W49QT",
+        "eventID": "b60517b4-09cd-4c1d-a39f-93782a46fe03",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 57,
+      "At": "2026-09-22T11:05:26.589209+00:00",
+      "Label": "export-format-lower",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=57]; request 30MJ5EQSVJW7AM1R; AuditLookup Matches[EvidenceSequence=57], event cea9ee99-21d0-40a8-9a10-7b1717dae34b",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "MalformedXML",
+      "Status": 400,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state",
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {
+            "DataExport": {
+              "OutputSchemaVersion": "V_1",
+              "Destination": {
+                "S3BucketDestination": {
+                  "Format": "csv",
+                  "Bucket": "arn:aws:s3:::analytics-controls-dest"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Output": {},
+      "ErrorDetails": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:26Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "MalformedXML",
+        "errorMessage": "The XML you provided was not well-formed or did not validate against our published schema",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 383,
+          "startTime": 1790075126650,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075126659,
+          "x-amz-id-2": "fp4ieVHG0YCdc4mo4rZyT80eYtvuLikmgrcaKYSHssDFrO93PB+tziHcIsLs0nqfDkuvDEMOxiQ=",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 319
+        },
+        "requestID": "30MJ5EQSVJW7AM1R",
+        "eventID": "cea9ee99-21d0-40a8-9a10-7b1717dae34b",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 69,
+      "At": "2026-09-22T11:05:30.411315+00:00",
+      "Label": "raw-empty-body",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=69]; request 0VJ2B9EY2Z0VW22F; AuditLookup Matches[EvidenceSequence=69], event 826e22b1-b56b-4674-a2a2-8292c4cbdfb2",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "MalformedXML",
+      "Status": 400,
+      "Raw": {
+        "Sequence": 69,
+        "Label": "raw-empty-body",
+        "Operation": "PutBucketAnalyticsConfiguration",
+        "Method": "PUT",
+        "Target": "/analytics-controls?analytics&id=state",
+        "Headers": {
+          "Content-Type": "application/xml"
+        },
+        "Body": "",
+        "Status": 400,
+        "Code": "MalformedXML",
+        "RequestHost": "s3.us-east-1.amazonaws.com",
+        "ErrorDetails": {}
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:30Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "MalformedXML",
+        "errorMessage": "The XML you provided was not well-formed or did not validate against our published schema",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "s3.us-east-1.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075130300,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075130353,
+          "x-amz-id-2": "h6jppHMH/jQ+vLnT8Q84/vO2IwQ/RAHqu1tE9pykJOzU5ZEONUPMAkikm5PnD4+rliIHFihaEEGoIajYi5uqrzwxavCKtkzY",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 339
+        },
+        "requestID": "0VJ2B9EY2Z0VW22F",
+        "eventID": "826e22b1-b56b-4674-a2a2-8292c4cbdfb2",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 71,
+      "At": "2026-09-22T11:05:31.002072+00:00",
+      "Label": "raw-malformed",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=71]; request 0VJ0VDMQEVMZFTC2; AuditLookup Matches[EvidenceSequence=71], event be39f946-222b-4ae7-b836-485f39561bca",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "MalformedXML",
+      "Status": 400,
+      "Raw": {
+        "Sequence": 71,
+        "Label": "raw-malformed",
+        "Operation": "PutBucketAnalyticsConfiguration",
+        "Method": "PUT",
+        "Target": "/analytics-controls?analytics&id=state",
+        "Headers": {
+          "Content-Type": "application/xml"
+        },
+        "Body": "<bad",
+        "Status": 400,
+        "Code": "MalformedXML",
+        "RequestHost": "s3.us-east-1.amazonaws.com",
+        "ErrorDetails": {}
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:30Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "MalformedXML",
+        "errorMessage": "The XML you provided was not well-formed or did not validate against our published schema",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "s3.us-east-1.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 4,
+          "startTime": 1790075130889,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075130940,
+          "x-amz-id-2": "Aj+bRzVm75zcolmlDzPowkXabtHbT591v09u+njR9RQ+MFn8ARQPFqTUm+S1tZ48zNwlm5a9dNUvlUUM/7Uolr1RXX1etR+r",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 339
+        },
+        "requestID": "0VJ0VDMQEVMZFTC2",
+        "eventID": "be39f946-222b-4ae7-b836-485f39561bca",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 77,
+      "At": "2026-09-22T11:05:32.696707+00:00",
+      "Label": "raw-missing-analysis",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=77]; request 3BJQNTW60Y38QTPN; AuditLookup Matches[EvidenceSequence=77], event a02ea85b-d327-4878-9d0e-a777ed121bf7",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "MissingStorageClassAnalysis",
+      "Status": 400,
+      "Raw": {
+        "Sequence": 77,
+        "Label": "raw-missing-analysis",
+        "Operation": "PutBucketAnalyticsConfiguration",
+        "Method": "PUT",
+        "Target": "/analytics-controls?analytics&id=state",
+        "Headers": {
+          "Content-Type": "application/xml"
+        },
+        "Body": "<AnalyticsConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Id>state</Id></AnalyticsConfiguration>",
+        "Status": 400,
+        "Code": "MissingStorageClassAnalysis",
+        "RequestHost": "s3.us-east-1.amazonaws.com",
+        "ErrorDetails": {}
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:32Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "MissingStorageClassAnalysis",
+        "errorMessage": "Storage Class Analysis cannot be null.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "s3.us-east-1.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 111,
+          "startTime": 1790075132606,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075132638,
+          "x-amz-id-2": "XHtYi45ZOMw5wqNEZe9frjnVF1N+ZtFQGex072zz6QEVCke1xFnxrBLYHSHc+WjCYfOgS0lRueKk6GrjRr82fvgESFCVLFYs",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 303
+        },
+        "requestID": "3BJQNTW60Y38QTPN",
+        "eventID": "a02ea85b-d327-4878-9d0e-a777ed121bf7",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 93,
+      "At": "2026-09-22T11:05:37.160785+00:00",
+      "Label": "no-query-id",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=93]; request 91RC08J4BNZ8TJ30; AuditLookup Matches[EvidenceSequence=93], event a822c6f2-63de-4164-adcb-b307397d9112",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "InvalidConfigurationId",
+      "Status": 400,
+      "Raw": {
+        "Sequence": 93,
+        "Label": "no-query-id",
+        "Operation": "PutBucketAnalyticsConfiguration",
+        "Method": "PUT",
+        "Target": "/analytics-controls?analytics",
+        "Headers": {
+          "Content-Type": "application/xml"
+        },
+        "Body": "<AnalyticsConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Id>state</Id><StorageClassAnalysis/></AnalyticsConfiguration>",
+        "Status": 400,
+        "Code": "InvalidConfigurationId",
+        "RequestHost": "s3.us-east-1.amazonaws.com",
+        "ErrorDetails": {}
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:37Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "InvalidConfigurationId",
+        "errorMessage": "The specified configuration id is invalid.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "s3.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 134,
+          "startTime": 1790075137045,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075137102,
+          "x-amz-id-2": "LKpoF6XsIL/g10zH0itIApmgGo4qzslbtB1x+ij/pzwF3A75TkQnB6o1DdGytECG1WC1JJAcX/VcID0hW0mwrQ7f4iQ+Z/pV",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 302
+        },
+        "requestID": "91RC08J4BNZ8TJ30",
+        "eventID": "a822c6f2-63de-4164-adcb-b307397d9112",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 95,
+      "At": "2026-09-22T11:05:37.734028+00:00",
+      "Label": "empty-query-id",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=95]; request 91R88RMTPX1CWY25; AuditLookup Matches[EvidenceSequence=95], event 220cc20c-77c9-44f6-94a1-2c9b3f642b6b",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "InvalidConfigurationId",
+      "Status": 400,
+      "Raw": {
+        "Sequence": 95,
+        "Label": "empty-query-id",
+        "Operation": "PutBucketAnalyticsConfiguration",
+        "Method": "PUT",
+        "Target": "/analytics-controls?analytics&id=",
+        "Headers": {
+          "Content-Type": "application/xml"
+        },
+        "Body": "<AnalyticsConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Id>state</Id><StorageClassAnalysis/></AnalyticsConfiguration>",
+        "Status": 400,
+        "Code": "InvalidConfigurationId",
+        "RequestHost": "s3.us-east-1.amazonaws.com",
+        "ErrorDetails": {}
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:37Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "InvalidConfigurationId",
+        "errorMessage": "The specified configuration id is invalid.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "s3.us-east-1.amazonaws.com",
+          "id": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 134,
+          "startTime": 1790075137623,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075137681,
+          "x-amz-id-2": "OINFDTEaywh98ah2RuqJpXRjApNAtCT8b8kiNgjpOJu0y1wcMbJ8TDphujJ8W42+AphtfiYSXIuBC+YPp8RG4kB+zSGG5DM/",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 302
+        },
+        "requestID": "91R88RMTPX1CWY25",
+        "eventID": "220cc20c-77c9-44f6-94a1-2c9b3f642b6b",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 97,
+      "At": "2026-09-22T11:05:38.306131+00:00",
+      "Label": "duplicate-query-id",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=97]; request Q5TXHAMYHTVQHRX5; AuditLookup Matches[EvidenceSequence=97], event 1b548916-d6b7-4f4e-84ab-fa3ff4885c85",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Raw": {
+        "Sequence": 97,
+        "Label": "duplicate-query-id",
+        "Operation": "PutBucketAnalyticsConfiguration",
+        "Method": "PUT",
+        "Target": "/analytics-controls?analytics&id=state&id=other",
+        "Headers": {
+          "Content-Type": "application/xml"
+        },
+        "Body": "<AnalyticsConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Id>state</Id><StorageClassAnalysis/></AnalyticsConfiguration>",
+        "Status": 204,
+        "Code": "",
+        "RequestHost": "s3.us-east-1.amazonaws.com",
+        "ResponseBody": ""
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:38Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "s3.us-east-1.amazonaws.com",
+          "id": [
+            "state",
+            "other"
+          ]
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 134,
+          "startTime": 1790075138213,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075138248,
+          "x-amz-id-2": "b7o2hvMY/zuxIIZyWgsZKHQK6Z2Qi0auIgu7UYtBHOt5ES8Z3OQWYBmg2CMd2r8SzKjFMtHh2L8M1jSUaa8YHuBkbPEfPm+B",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "Q5TXHAMYHTVQHRX5",
+        "eventID": "1b548916-d6b7-4f4e-84ab-fa3ff4885c85",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 98,
+      "At": "2026-09-22T11:05:38.309743+00:00",
+      "Label": "duplicate-query-id-state",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=98]; request Q5TVB3TDQJ59BWA0; AuditLookup Matches[EvidenceSequence=98], event 4d5abe8f-976b-43c2-b8cb-93b43cba20f0",
+      "Service": "s3",
+      "Operation": "GetBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {}
+        }
+      },
+      "Absent": [
+        "AnalyticsConfiguration.Filter",
+        "AnalyticsConfiguration.StorageClassAnalysis.DataExport"
+      ],
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:38Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075138348,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075138357,
+          "x-amz-id-2": "3iNqIzeTuT2783Ml7R4J9xyOEqrY5YrSjT6s8i8V7Ys9VbfngEI4d10p/pL+HbnvHn/WXg0f0MWBBD3C8RKkjUIFgHAay0NP",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 189
+        },
+        "requestID": "Q5TVB3TDQJ59BWA0",
+        "eventID": "4d5abe8f-976b-43c2-b8cb-93b43cba20f0",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 124,
+      "At": "2026-09-22T11:05:44.325315+00:00",
+      "Label": "missing-get-None",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=124]; request M5C8HXAEVCVY9X9C; AuditLookup Matches[EvidenceSequence=124], event 3d37df5f-bcba-439e-b502-1a000f27bfab",
+      "Service": "s3",
+      "Operation": "GetBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchBucket",
+      "Status": 404,
+      "Input": {
+        "Bucket": "analytics-controls-absent",
+        "Id": "state"
+      },
+      "Output": {},
+      "ErrorDetails": {
+        "BucketName": "analytics-controls-absent"
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:44Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchBucket",
+        "errorMessage": "The specified bucket does not exist",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls-absent",
+          "Host": "analytics-controls-absent.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075144709,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075144719,
+          "x-amz-id-2": "NAnAfTg4/Pz6tRWVs1+6TUB2tqiXgv9gFpJg0wWkkoz0S7zC+TCwMCPMIdfiTGkThzD+FHIl/mynyn3fWzm7N7djy/U27lXP",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 348
+        },
+        "requestID": "M5C8HXAEVCVY9X9C",
+        "eventID": "3d37df5f-bcba-439e-b502-1a000f27bfab",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 125,
+      "At": "2026-09-22T11:05:44.780659+00:00",
+      "Label": "missing-list-None",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=125]; request M5C5MQRS4FZY816B; AuditLookup Matches[EvidenceSequence=125], event 2f47c892-e72e-4b3a-b983-4522d3c3c364",
+      "Service": "s3",
+      "Operation": "ListBucketAnalyticsConfigurations",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchBucket",
+      "Status": 404,
+      "Input": {
+        "Bucket": "analytics-controls-absent"
+      },
+      "Output": {},
+      "ErrorDetails": {
+        "BucketName": "analytics-controls-absent"
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:44Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchBucket",
+        "errorMessage": "The specified bucket does not exist",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls-absent",
+          "Host": "analytics-controls-absent.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075144823,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075144827,
+          "x-amz-id-2": "1ETZfnBkTqs5rsZ1JkQyZgpxn5tzKGnc+Jb2JR9PUfGF/mn4SfVaAouSBWg7gBbINi8LVfaj0TW837BUd3Cny42Z7na/Hkfa",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 348
+        },
+        "requestID": "M5C5MQRS4FZY816B",
+        "eventID": "2f47c892-e72e-4b3a-b983-4522d3c3c364",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 126,
+      "At": "2026-09-22T11:05:44.889301+00:00",
+      "Label": "missing-put-None",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=126]; request M5C2P6DY77F0K4F5; AuditLookup Matches[EvidenceSequence=126], event 3603aace-2d75-44cf-a248-17af6a374610",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchBucket",
+      "Status": 404,
+      "Input": {
+        "Bucket": "analytics-controls-absent",
+        "Id": "state",
+        "AnalyticsConfiguration": {
+          "Id": "state",
+          "StorageClassAnalysis": {}
+        }
+      },
+      "Output": {},
+      "ErrorDetails": {
+        "BucketName": "analytics-controls-absent"
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:44Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchBucket",
+        "errorMessage": "The specified bucket does not exist",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls-absent",
+          "Host": "analytics-controls-absent.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075144932,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075144936,
+          "x-amz-id-2": "ysjCSbFkko0J1fmPdM2Gg4++RCJseRUItjhWO121uGb9pKBZPfOMiw7FA3Rs6k/nFRa8oJBrtWNCHyZgazKqnpdFAZ8SyaZm",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 348
+        },
+        "requestID": "M5C2P6DY77F0K4F5",
+        "eventID": "3603aace-2d75-44cf-a248-17af6a374610",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 127,
+      "At": "2026-09-22T11:05:44.995452+00:00",
+      "Label": "missing-delete-None",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=127]; request SR193N3QRA7R9ZRP; AuditLookup Matches[EvidenceSequence=127], event 19e73f28-00b6-46ce-9a4b-3b020ae69c33",
+      "Service": "s3",
+      "Operation": "DeleteBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchBucket",
+      "Status": 404,
+      "Input": {
+        "Bucket": "analytics-controls-absent",
+        "Id": "state"
+      },
+      "Output": {},
+      "ErrorDetails": {
+        "BucketName": "analytics-controls-absent"
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:45Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchBucket",
+        "errorMessage": "The specified bucket does not exist",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls-absent",
+          "Host": "analytics-controls-absent.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075145249,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075145259,
+          "x-amz-id-2": "EdX58p1gJCTbUoJg5QO2tWmA0812AN3eH49WCP/x4In7xFcw/IFBeXebnpD2dbbrvxCrjgIOMLHiTty+CZ2FuL8vMRRCKX3A",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 348
+        },
+        "requestID": "SR193N3QRA7R9ZRP",
+        "eventID": "19e73f28-00b6-46ce-9a4b-3b020ae69c33",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 132,
+      "At": "2026-09-22T11:05:46.404036+00:00",
+      "Label": "missing-malformed",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=132]; request V2Z6XD20QXYQ3PT9; AuditLookup Matches[EvidenceSequence=132], event ef558b7f-577a-41da-b8d4-21a38d1a03de",
+      "Service": "s3",
+      "Operation": "PutBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchBucket",
+      "Status": 404,
+      "Raw": {
+        "Sequence": 132,
+        "Label": "missing-malformed",
+        "Operation": "PutBucketAnalyticsConfiguration",
+        "Method": "PUT",
+        "Target": "/analytics-controls-absent?analytics&id=state",
+        "Headers": {
+          "Content-Type": "application/xml"
+        },
+        "Body": "<bad",
+        "Status": 404,
+        "Code": "NoSuchBucket",
+        "RequestHost": "s3.us-east-1.amazonaws.com",
+        "ErrorDetails": {
+          "BucketName": "analytics-controls-absent"
+        }
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:05:46Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchBucket",
+        "errorMessage": "The specified bucket does not exist",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls-absent",
+          "Host": "s3.us-east-1.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075146337,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075146349,
+          "x-amz-id-2": "chDNR/dUE7Jd92Yt8tw3rknTvTgS6z32gIjwm5KONsKchzHBguMB4IrJDfDx7BdGQGjS71ezPptLhvuxgiT1XT7isPWq1/B5",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 348
+        },
+        "requestID": "V2Z6XD20QXYQ3PT9",
+        "eventID": "ef558b7f-577a-41da-b8d4-21a38d1a03de",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 169,
+      "At": "2026-09-22T11:06:10.510127+00:00",
+      "Label": "delete-state",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=169]; request D292ZA54VRDX6S41; AuditLookup Matches[EvidenceSequence=169], event e8246f20-42b6-4fe9-b3a7-0ac820fe7a9c",
+      "Service": "s3",
+      "Operation": "DeleteBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:06:10Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075170562,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075170579,
+          "x-amz-id-2": "J2OyPq+0C/VKLxigHkPZaB+ospaNY9RAjBqYAqwbNpQ74t3iuAFLc4tl6umd9P9dmAqny/eCZiQ=",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "D292ZA54VRDX6S41",
+        "eventID": "e8246f20-42b6-4fe9-b3a7-0ac820fe7a9c",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 170,
+      "At": "2026-09-22T11:06:10.644967+00:00",
+      "Label": "deleted-get",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=170]; request D29BM7HHR7303PSZ; AuditLookup Matches[EvidenceSequence=170], event dad33317-0d97-4ab5-b60f-d20edf2c98fe",
+      "Service": "s3",
+      "Operation": "GetBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {},
+      "ErrorDetails": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:06:10Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchConfiguration",
+        "errorMessage": "The specified configuration does not exist.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075170688,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075170700,
+          "x-amz-id-2": "XkSyqDFoR4zStdYI3RsbWuKLzI7YYU6o58MA8JSXnPyYFVB0QBH6Y5YSFCaXjb2+11eB7wm+0lk=",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 280
+        },
+        "requestID": "D29BM7HHR7303PSZ",
+        "eventID": "dad33317-0d97-4ab5-b60f-d20edf2c98fe",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 171,
+      "At": "2026-09-22T11:06:10.765727+00:00",
+      "Label": "delete-again",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=171]; request D29FGPVXJ3QRBZ6B; AuditLookup Matches[EvidenceSequence=171], event d3133e79-5eb0-48f4-962b-6c7055d415ef",
+      "Service": "s3",
+      "Operation": "DeleteBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {},
+      "ErrorDetails": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:06:10Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchConfiguration",
+        "errorMessage": "The specified configuration does not exist.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls",
+          "Host": "analytics-controls.s3.amazonaws.com",
+          "id": "state"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075170809,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075170831,
+          "x-amz-id-2": "G/1FVFsktjES+L06+Z743VkPuS0GFa2ePIK/p7BkhPNKGtILGQbsnF6ooVi1lt6+KJeuhyAuzdM=",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 280
+        },
+        "requestID": "D29FGPVXJ3QRBZ6B",
+        "eventID": "d3133e79-5eb0-48f4-962b-6c7055d415ef",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    },
+    {
+      "Sequence": 285,
+      "At": "2026-09-22T11:06:26.138109+00:00",
+      "Label": "pages-token-not-a-token",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=285]; request 9PT23F1024NE919M; AuditLookup Matches[EvidenceSequence=285], event 2c97082f-0cd7-46a9-b55c-f5ef2ade0a4b",
+      "Service": "s3",
+      "Operation": "ListBucketAnalyticsConfigurations",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "MalformedContinuationToken",
+      "Status": 400,
+      "Input": {
+        "Bucket": "analytics-controls-pages",
+        "ContinuationToken": "not-a-token"
+      },
+      "Output": {},
+      "ErrorDetails": {},
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-22T11:06:26Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAnalyticsConfiguration",
+        "awsRegion": "us-east-1",
+        "errorCode": "MalformedContinuationToken",
+        "errorMessage": "The continuation-token you provided invalid.",
+        "requestParameters": {
+          "analytics": "",
+          "bucketName": "analytics-controls-pages",
+          "continuation-token": "not-a-token",
+          "Host": "analytics-controls-pages.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790075186178,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790075186190,
+          "x-amz-id-2": "yI1vMLNj1E+SKu5ijcKkCp4Racfe1o7KJLlD3Tgo+hR9aPHUPNScRbqeeFjgyO8maOWxghI1BngInDBb0i5ToXQG6Q5/ewb1",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 308
+        },
+        "requestID": "9PT23F1024NE919M",
+        "eventID": "2c97082f-0cd7-46a9-b55c-f5ef2ade0a4b",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::analytics-controls-pages"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management"
+      }
+    }
+  ],
+  "Verify": [
+    {
+      "Sequence": 170,
+      "At": "2026-09-22T11:06:10.644967+00:00",
+      "Label": "deleted-get",
+      "Source": "s3/analytics_controls_evidence.json.gz#Rows[Sequence=170]; request D29BM7HHR7303PSZ",
+      "Service": "s3",
+      "Operation": "GetBucketAnalyticsConfiguration",
+      "Region": "us-east-1",
+      "Actor": "audit-user",
+      "Code": "NoSuchConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "analytics-controls",
+        "Id": "state"
+      },
+      "Output": {},
+      "ErrorDetails": {}
+    }
+  ]
+}

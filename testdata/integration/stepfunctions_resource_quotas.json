@@ -1,0 +1,55 @@
+{
+  "kind": "local-sdk-boundary-regression",
+  "evidence": {
+    "quota_catalogue": "stepfunctions/api_throttling.json",
+    "documentation": "https://docs.aws.amazon.com/step-functions/latest/dg/service-quotas.html",
+    "proof_boundary": "The captured Service Quotas catalogue supplies default ceilings only. These local SDK scenarios add a fixed occupied-count offset to each real scoped repository count; they do not exhaust native AWS quotas, capture native limit messages, or measure large-store performance. All real records, transactions, IAM decisions, scheduling and SDK calls remain unchanged."
+  },
+  "started_at": "2026-09-24T12:00:00Z",
+  "scopes": [
+    {"account": "111111111111", "region": "us-west-2"},
+    {"account": "222222222222", "region": "us-west-2"},
+    {"account": "111111111111", "region": "eu-west-1"}
+  ],
+  "wait_definition": {"StartAt": "Hold", "States": {"Hold": {"Type": "Wait", "Seconds": 120, "End": true}}},
+  "map_definition": {"StartAt": "Children", "States": {"Children": {"Type": "Map", "ItemsPath": "$.items", "MaxConcurrency": 2, "ItemProcessor": {"ProcessorConfig": {"Mode": "DISTRIBUTED", "ExecutionType": "STANDARD"}, "StartAt": "Hold", "States": {"Hold": {"Type": "Wait", "Seconds": 30, "End": true}}}, "End": true}}},
+  "denied_error": "AccessDeniedException",
+  "scenarios": [
+    {
+      "resource": "machines",
+      "quota_name": "Registered state machines",
+      "occupied_count": 99999,
+      "available_slots": 1,
+      "limit_error": "StateMachineLimitExceeded",
+      "http_status": 400,
+      "contract": "Idempotent creation and authorization precede count rejection; rejected creation leaves the list unchanged; DELETING retains the last slot until removal; real deletion releases capacity; other accounts and Regions remain independent."
+    },
+    {
+      "resource": "activities",
+      "quota_name": "Registered activities",
+      "occupied_count": 99999,
+      "available_slots": 1,
+      "limit_error": "ActivityLimitExceeded",
+      "http_status": 400,
+      "contract": "Idempotent creation and authorization precede count rejection; rejected creation leaves the list unchanged; real deletion releases capacity; other accounts and Regions remain independent."
+    },
+    {
+      "resource": "executions",
+      "quota_name": "Open executions",
+      "occupied_count": 999999,
+      "available_slots": 1,
+      "limit_error": "ExecutionLimitExceeded",
+      "http_status": 400,
+      "contract": "Only RUNNING Standard executions consume capacity. Idempotent starts and redrive tokens survive full capacity and reopening. Express and closed executions do not consume slots. Rejected starts and redrives leave retained execution/history unchanged; rejected redrive tokens remain reusable after a real stop releases capacity. Other accounts and Regions remain independent, and concurrent starts cannot both claim the last slot."
+    },
+    {
+      "resource": "map-backlog",
+      "quota_name": "Open executions",
+      "occupied_count": 999998,
+      "available_slots": 2,
+      "limit_error": "ExecutionLimitExceeded",
+      "http_status": 400,
+      "contract": "A Map parent and unrelated Standard execution occupy both available slots, so children remain PENDING. Stopping the unrelated execution permits exactly one child to start after local retained work wakes; the other pending child does not consume capacity, while the running child does."
+    }
+  ]
+}

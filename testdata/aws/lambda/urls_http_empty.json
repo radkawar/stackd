@@ -1,0 +1,1610 @@
+{
+  "source": "Native AWS HTTPS HTTP/1.1 over Python TLS socket; boto3 control plane",
+  "region": "us-east-1",
+  "prefix": "stackd-url-empty-15f7ac71819d",
+  "started_at": "2026-09-15T12:18:57.485816+00:00",
+  "sdk": {
+    "boto3": "1.43.94",
+    "botocore": "1.43.94"
+  },
+  "artifact": {
+    "source_utf8": "const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));\nfunction start(event, context) {\n  const token = event.headers?.['x-probe-token'] || event.token;\n  console.log('URL_EVENT', JSON.stringify({token, requestId:context.awsRequestId,event}));\n  return {token, requestId:context.awsRequestId};\n}\nexports.plain = async (event, context) => {\n  const info = start(event, context);\n  const mode = event.headers?.['x-probe-mode'] || 'echo';\n  let result;\n  switch (mode) {\n    case 'json': result={hello:'owned',nested:{number:7}};break;\n    case 'string': result='hello owned';break;\n    case 'null': result=null;break;\n    case 'number': result=42;break;\n    case 'explicit': result={statusCode:202,headers:{'Content-Type':'application/x-owned','X-Owned':'yes','Set-Cookie':'header=c'},cookies:['a=1; Path=/','b=2; HttpOnly'],body:'accepted\\n'};break;\n    case 'binary': result={statusCode:201,headers:{'Content-Type':'application/octet-stream'},cookies:['binary=yes'],body:Buffer.from([65,0,255,10]).toString('base64'),isBase64Encoded:true};break;\n    case 'bad_status': result={statusCode:700,body:'invalid-status'};break;\n    case 'bad_body': result={statusCode:200,body:{not:'string'}};break;\n    case 'bad_base64': result={statusCode:200,body:'!!!not-base64!!!',isBase64Encoded:true};break;\n    case 'bad_headers': result={statusCode:200,headers:{'x-owned':{bad:true}},body:'bad-headers'};break;\n    case 'throw': console.log('URL_THROW',JSON.stringify(info));throw new Error('owned-handler-error');\n    case 'cors': result={statusCode:203,headers:{'Content-Type':'text/plain','Access-Control-Allow-Origin':'https://handler.example','Access-Control-Allow-Credentials':'false','Access-Control-Expose-Headers':'x-handler','Access-Control-Allow-Methods':'DELETE','Access-Control-Allow-Headers':'x-handler','Access-Control-Max-Age':'17'},body:'handler-cors'};break;\n    default: result={event,...info};\n  }\n  console.log('URL_OUTPUT',JSON.stringify({...info,result}));\n  console.log('URL_COMPLETE',JSON.stringify(info));\n  return result;\n};\nexports.stream = awslambda.streamifyResponse(async (event, stream, context) => {\n  const info = start(event,context);\n  const mode = event.headers?.['x-probe-mode'] || 'metadata';\n  if (mode === 'throw_before') {console.log('URL_THROW',JSON.stringify(info));throw new Error('owned-stream-before');}\n  if (mode !== 'no_metadata') {\n    const metadata={statusCode:206,headers:{'Content-Type':'application/x-owned-stream','X-Owned':'stream'},cookies:['s=1; Path=/','t=2; HttpOnly']};\n    if(mode==='cors') metadata.headers['Access-Control-Allow-Origin']='https://handler.example';\n    console.log('URL_METADATA',JSON.stringify({...info,metadata}));\n    stream=awslambda.HttpResponseStream.from(stream,metadata);\n  } else { stream.setContentType('application/x-no-metadata'); }\n  if(mode==='empty') {stream.end();console.log('URL_COMPLETE',JSON.stringify(info));return;}\n  const prefix=Buffer.from([65,0,255,10]);\n  console.log('URL_WRITE',JSON.stringify({...info,body_base64:prefix.toString('base64')}));\n  stream.write(prefix);\n  await sleep(mode==='disconnect'?2500:120);\n  if(mode==='partial_error') {console.log('URL_THROW',JSON.stringify(info));throw new Error('owned-stream-after');}\n  const suffix=Buffer.from(JSON.stringify(info));\n  console.log('URL_WRITE',JSON.stringify({...info,body_base64:suffix.toString('base64')}));\n  stream.end(suffix);\n  console.log('URL_COMPLETE',JSON.stringify(info));\n});\n",
+    "zip_base64": "UEsDBBQAAAAIAFxqL11kr1FHhAQAAIQNAAAIAAAAZW50cnkuanOtV21v2zYQ/p5fwXyiDUiO4zUtIEEr0tRAOzR1kLjrgCwIaOkUa5FJlaRjG67++44iZcex1CVrPxi2qOeeu3t4L0ksuNJE5QAFichMkeh3wmFBLqSYZQo6EpTIH8AcK9DjbAZirutTDw263fAgnfNYZ4ITpZnUHXgArj0SC65hqbtkfUDMA/rR4h44+qkQvSmwBKR627umS7+QYgJ+BaA35Pt3h6kOQkcgcujl4q5Dv1x+uh3+Ofw8ph7542r0uae0zPhdlq4668rCIxK+zUHpj0ng4uixhbqsD72KvTTBE4TqueTkeZZleFAewLIQUqtekbPM5MPUisdkL3EUbZt7xlOB0EaJwg1qJhL4kUDmvdWHQjwV1FjmoDFoNc+1eVKLTMdT0jFIqz1yMwWE/qMEp4GDRusp5LkIqFhwSKjHMTtIgjWfzyYggzdlGU4ksPvwEYFVeUtBKwpiGfbhfJ7nW7B5asIYd1vUq8E+BtXOszjTj2JHFfVcnWGKwaA/8JxQwZqeGUW59serAmhAWWFMmSnOo6XvUqV/+aPqV0BXoPD5CrR/JsR9ZkwsVxTT0ourMxVcUxYdh+SC6Wl0hPhJNAjJB62LEc9X9MabiGSFvuIYCtTwb04btJtknMlVWwrHz0tBxBpDxWsANtuJz7JHJh0Xzrt5moLspdjHnevXJ17fG5yceMf9my721FV1kR06wdBev6JdL1Pvqp9DHmNASaDlHJqSYMmtjbs5kTf9vhMj4w8szxLfoVu4DLZNEse05kIHdeU1FWXFY/P4MRM9PDxEMt+C8YG+JG13P+0+thdYF1qwRkPLWboQ8MCvmRoc6akUC3SxN+zGHy5HX6n3ZNaZkYIjrLKqpvZQSiE7tqX9KeNJDtIHc0i7j/3Eoj2T39pL0cyqo2rmYROcYrkr5RuIFLl/ipNg4Y9kdodvsYuwO1RwdOSC6MGSzYoc2uzOJCToKGM5xkVT/GqADnHqKvA/1DeBQjv6Ntpz0FORGOj74afheNiGexblOVv6p3dGh+M3tL7QWuRK0Z0bTSBlqO5WZTvze72eubbSgMqmvTb6Mr74Mt6767Uz9CydW1171mej8wubaXOtbNddvTEwknqd2cFi9tlC5Ww2SZg7QoJLUAU6g87urrPvX7DzfmrlzUCzhGlWrb0stUuORFHkWud2AqmQQHHv/ZIWstn5NWtYPnZ7aNxycbsJarNtbVru+El7vX7Rsqpn/eOd1TD+1c560rvrqbT1mKVV2CiWbf/uJsJa9Osf9vRN1NrU4SbtHcXPh+PT96fj0/ZariNw1UxcOUXb+jNp1KV3Vb20K83VXU1QmZcEcG6QtWPp4R+sTmEjcOeJvlz425sLib3ajUQwK/TK3KjjAp50uuGL2832Wlhuir2QkGbLqH07N3b118uPDT42MppR5HZgYB007HinsctnITMNHQuuztmCZe4fgY0ISaYwFA6xpm8HJ/1+cDzod8NdoQpsbRzbt27L/NrGY6kG6frO6qdQuCf6tQ66n5HR+vlPGU1ZWOj/HMclfv4FUEsBAhQDFAAAAAgAXGovXWSvUUeEBAAAhA0AAAgAAAAAAAAAAAAAAIABAAAAAGVudHJ5LmpzUEsFBgAAAAABAAEANgAAAKoEAAAAAA==",
+    "zip_sha256": "0d7731074b1af0723e25feb0199b5d396be14675dd2306250f3619dae2b60473"
+  },
+  "observations": [
+    {
+      "label": "actor",
+      "service": "sts",
+      "operation": "get_caller_identity",
+      "input": {},
+      "started_at": "2026-09-15T12:18:57.485840+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated",
+          "ResponseMetadata": {
+            "RequestId": "6625a18a-8631-4b4a-8852-97482d1b8b4e",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "6625a18a-8631-4b4a-8852-97482d1b8b4e",
+              "x-amz-sts-extended-request-id": "MTp1cy1lYXN0LTE6UzoxNzg5NDc0NzM3ODM5OlI6WXdFM2dRQlY=",
+              "content-type": "text/xml",
+              "content-length": "406",
+              "date": "Tue, 15 Sep 2026 12:18:57 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "create_role",
+      "service": "iam",
+      "operation": "create_role",
+      "input": {
+        "RoleName": "stackd-url-empty-15f7ac71819d",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"lambda.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "started_at": "2026-09-15T12:18:57.906005+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-url-empty-15f7ac71819d",
+            "RoleId": "AROAQAAAAAAACYG5UREJB",
+            "Arn": "arn:aws:iam::000000000000:role/stackd-url-empty-15f7ac71819d",
+            "CreateDate": "2026-09-15T12:18:58+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "lambda.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          },
+          "ResponseMetadata": {
+            "RequestId": "077f2325-2890-42f3-800f-cf4c0657ae89",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:18:58 GMT",
+              "x-amzn-requestid": "077f2325-2890-42f3-800f-cf4c0657ae89",
+              "content-type": "text/xml",
+              "content-length": "812"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "create_log_group",
+      "service": "logs",
+      "operation": "create_log_group",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:18:58.418835+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "a522b263-2053-416b-bfcd-7e949b06c1ca",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "a522b263-2053-416b-bfcd-7e949b06c1ca",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "0",
+              "date": "Tue, 15 Sep 2026 12:18:58 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "put_logs_policy",
+      "service": "iam",
+      "operation": "put_role_policy",
+      "input": {
+        "RoleName": "stackd-url-empty-15f7ac71819d",
+        "PolicyName": "owned-logs",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": \"arn:aws:logs:us-east-1:000000000000:log-group:/aws/lambda/stackd-url-empty-15f7ac71819d:*\"}]}"
+      },
+      "started_at": "2026-09-15T12:18:58.944360+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "e1352c2b-9862-4651-bf7c-de8acefda768",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:18:59 GMT",
+              "x-amzn-requestid": "e1352c2b-9862-4651-bf7c-de8acefda768",
+              "content-type": "text/xml",
+              "content-length": "206"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "create_function_0",
+      "service": "lambda",
+      "operation": "create_function",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d",
+        "Runtime": "nodejs22.x",
+        "Role": "arn:aws:iam::000000000000:role/stackd-url-empty-15f7ac71819d",
+        "Handler": "entry.stream",
+        "Code": {
+          "ZipFile": {
+            "base64": "UEsDBBQAAAAIAFxqL11kr1FHhAQAAIQNAAAIAAAAZW50cnkuanOtV21v2zYQ/p5fwXyiDUiO4zUtIEEr0tRAOzR1kLjrgCwIaOkUa5FJlaRjG67++44iZcex1CVrPxi2qOeeu3t4L0ksuNJE5QAFichMkeh3wmFBLqSYZQo6EpTIH8AcK9DjbAZirutTDw263fAgnfNYZ4ITpZnUHXgArj0SC65hqbtkfUDMA/rR4h44+qkQvSmwBKR627umS7+QYgJ+BaA35Pt3h6kOQkcgcujl4q5Dv1x+uh3+Ofw8ph7542r0uae0zPhdlq4668rCIxK+zUHpj0ng4uixhbqsD72KvTTBE4TqueTkeZZleFAewLIQUqtekbPM5MPUisdkL3EUbZt7xlOB0EaJwg1qJhL4kUDmvdWHQjwV1FjmoDFoNc+1eVKLTMdT0jFIqz1yMwWE/qMEp4GDRusp5LkIqFhwSKjHMTtIgjWfzyYggzdlGU4ksPvwEYFVeUtBKwpiGfbhfJ7nW7B5asIYd1vUq8E+BtXOszjTj2JHFfVcnWGKwaA/8JxQwZqeGUW59serAmhAWWFMmSnOo6XvUqV/+aPqV0BXoPD5CrR/JsR9ZkwsVxTT0ourMxVcUxYdh+SC6Wl0hPhJNAjJB62LEc9X9MabiGSFvuIYCtTwb04btJtknMlVWwrHz0tBxBpDxWsANtuJz7JHJh0Xzrt5moLspdjHnevXJ17fG5yceMf9my721FV1kR06wdBev6JdL1Pvqp9DHmNASaDlHJqSYMmtjbs5kTf9vhMj4w8szxLfoVu4DLZNEse05kIHdeU1FWXFY/P4MRM9PDxEMt+C8YG+JG13P+0+thdYF1qwRkPLWboQ8MCvmRoc6akUC3SxN+zGHy5HX6n3ZNaZkYIjrLKqpvZQSiE7tqX9KeNJDtIHc0i7j/3Eoj2T39pL0cyqo2rmYROcYrkr5RuIFLl/ipNg4Y9kdodvsYuwO1RwdOSC6MGSzYoc2uzOJCToKGM5xkVT/GqADnHqKvA/1DeBQjv6Ntpz0FORGOj74afheNiGexblOVv6p3dGh+M3tL7QWuRK0Z0bTSBlqO5WZTvze72eubbSgMqmvTb6Mr74Mt6767Uz9CydW1171mej8wubaXOtbNddvTEwknqd2cFi9tlC5Ww2SZg7QoJLUAU6g87urrPvX7DzfmrlzUCzhGlWrb0stUuORFHkWud2AqmQQHHv/ZIWstn5NWtYPnZ7aNxycbsJarNtbVru+El7vX7Rsqpn/eOd1TD+1c560rvrqbT1mKVV2CiWbf/uJsJa9Osf9vRN1NrU4SbtHcXPh+PT96fj0/ZariNw1UxcOUXb+jNp1KV3Vb20K83VXU1QmZcEcG6QtWPp4R+sTmEjcOeJvlz425sLib3ajUQwK/TK3KjjAp50uuGL2832Wlhuir2QkGbLqH07N3b118uPDT42MppR5HZgYB007HinsctnITMNHQuuztmCZe4fgY0ISaYwFA6xpm8HJ/1+cDzod8NdoQpsbRzbt27L/NrGY6kG6frO6qdQuCf6tQ66n5HR+vlPGU1ZWOj/HMclfv4FUEsBAhQDFAAAAAgAXGovXWSvUUeEBAAAhA0AAAgAAAAAAAAAAAAAAIABAAAAAGVudHJ5LmpzUEsFBgAAAAABAAEANgAAAKoEAAAAAA==",
+            "length": 1270
+          }
+        },
+        "Timeout": 8,
+        "MemorySize": 128,
+        "Architectures": [
+          "x86_64"
+        ]
+      },
+      "started_at": "2026-09-15T12:20:04.096904+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "067d3401-215e-4ff8-b05f-6ed08ac7381d",
+            "HTTPStatusCode": 201,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:04 GMT",
+              "content-type": "application/json",
+              "content-length": "1437",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "067d3401-215e-4ff8-b05f-6ed08ac7381d"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionName": "stackd-url-empty-15f7ac71819d",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "Runtime": "nodejs22.x",
+          "Role": "arn:aws:iam::000000000000:role/stackd-url-empty-15f7ac71819d",
+          "Handler": "entry.stream",
+          "CodeSize": 1270,
+          "Description": "",
+          "Timeout": 8,
+          "MemorySize": 128,
+          "LastModified": "2026-09-15T12:20:04.596+0000",
+          "CodeSha256": "DXcxB0sa8HI+Jf6wGZtdOWvhRnXdIwYlDzYZ2uK2BHM=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "313c99d4-c27a-49ee-8335-bdddd2ebbbef",
+          "State": "Pending",
+          "StateReason": "The function is being created.",
+          "StateReasonCode": "Creating",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+          }
+        }
+      }
+    },
+    {
+      "label": "ready_initial_0",
+      "service": "lambda",
+      "operation": "get_function_configuration",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:20:04.932123+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "91f8fbce-726d-4682-83be-ab9c9c67285a",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:05 GMT",
+              "content-type": "application/json",
+              "content-length": "1437",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "91f8fbce-726d-4682-83be-ab9c9c67285a"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionName": "stackd-url-empty-15f7ac71819d",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "Runtime": "nodejs22.x",
+          "Role": "arn:aws:iam::000000000000:role/stackd-url-empty-15f7ac71819d",
+          "Handler": "entry.stream",
+          "CodeSize": 1270,
+          "Description": "",
+          "Timeout": 8,
+          "MemorySize": 128,
+          "LastModified": "2026-09-15T12:20:04.596+0000",
+          "CodeSha256": "DXcxB0sa8HI+Jf6wGZtdOWvhRnXdIwYlDzYZ2uK2BHM=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "313c99d4-c27a-49ee-8335-bdddd2ebbbef",
+          "State": "Pending",
+          "StateReason": "The function is being created.",
+          "StateReasonCode": "Creating",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+          }
+        }
+      }
+    },
+    {
+      "label": "ready_initial_1",
+      "service": "lambda",
+      "operation": "get_function_configuration",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:20:07.114902+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "13788c48-d21a-4fac-af4b-4d299597c208",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "1410",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "13788c48-d21a-4fac-af4b-4d299597c208"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionName": "stackd-url-empty-15f7ac71819d",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "Runtime": "nodejs22.x",
+          "Role": "arn:aws:iam::000000000000:role/stackd-url-empty-15f7ac71819d",
+          "Handler": "entry.stream",
+          "CodeSize": 1270,
+          "Description": "",
+          "Timeout": 8,
+          "MemorySize": 128,
+          "LastModified": "2026-09-15T12:20:04.596+0000",
+          "CodeSha256": "DXcxB0sa8HI+Jf6wGZtdOWvhRnXdIwYlDzYZ2uK2BHM=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "f417930a-585f-418e-bf28-4d57f0119a36",
+          "State": "Active",
+          "LastUpdateStatus": "Successful",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+          }
+        }
+      }
+    },
+    {
+      "label": "reserved_concurrency",
+      "service": "lambda",
+      "operation": "put_function_concurrency",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d",
+        "ReservedConcurrentExecutions": 2
+      },
+      "started_at": "2026-09-15T12:20:07.319769+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "69260af1-c2d4-4b86-ae02-790ca80b5c62",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "34",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "69260af1-c2d4-4b86-ae02-790ca80b5c62"
+            },
+            "RetryAttempts": 0
+          },
+          "ReservedConcurrentExecutions": 2
+        }
+      }
+    },
+    {
+      "label": "create_url",
+      "service": "lambda",
+      "operation": "create_function_url_config",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d",
+        "AuthType": "NONE",
+        "InvokeMode": "RESPONSE_STREAM"
+      },
+      "started_at": "2026-09-15T12:20:07.475985+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "9175060e-b15d-428d-b49f-f2418539a0e1",
+            "HTTPStatusCode": 201,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "289",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "9175060e-b15d-428d-b49f-f2418539a0e1"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionUrl": "https://eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws/",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "AuthType": "NONE",
+          "CreationTime": "2026-09-15T12:20:07.743483848Z",
+          "InvokeMode": "RESPONSE_STREAM"
+        }
+      }
+    },
+    {
+      "label": "public_url_grant",
+      "service": "lambda",
+      "operation": "add_permission",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d",
+        "StatementId": "owned-url",
+        "Action": "lambda:InvokeFunctionUrl",
+        "Principal": "*",
+        "FunctionUrlAuthType": "NONE"
+      },
+      "started_at": "2026-09-15T12:20:07.819922+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "4cd79ead-15a3-4f8e-9cb3-0c46913c6c37",
+            "HTTPStatusCode": 201,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "289",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "4cd79ead-15a3-4f8e-9cb3-0c46913c6c37"
+            },
+            "RetryAttempts": 0
+          },
+          "Statement": "{\"Sid\":\"owned-url\",\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"lambda:InvokeFunctionUrl\",\"Resource\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d\",\"Condition\":{\"StringEquals\":{\"lambda:FunctionUrlAuthType\":\"NONE\"}}}"
+        }
+      }
+    },
+    {
+      "label": "public_invoke_grant",
+      "service": "lambda",
+      "operation": "add_permission",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d",
+        "StatementId": "owned-invoke",
+        "Action": "lambda:InvokeFunction",
+        "Principal": "*",
+        "InvokedViaFunctionUrl": true
+      },
+      "started_at": "2026-09-15T12:20:08.040454+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "1847a1ce-5532-4612-bbb7-09b4feb47340",
+            "HTTPStatusCode": 201,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:08 GMT",
+              "content-type": "application/json",
+              "content-length": "283",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "1847a1ce-5532-4612-bbb7-09b4feb47340"
+            },
+            "RetryAttempts": 0
+          },
+          "Statement": "{\"Sid\":\"owned-invoke\",\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"lambda:InvokeFunction\",\"Resource\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d\",\"Condition\":{\"Bool\":{\"lambda:InvokedViaFunctionUrl\":\"true\"}}}"
+        }
+      }
+    },
+    {
+      "label": "public_policy",
+      "service": "lambda",
+      "operation": "get_policy",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:20:08.269231+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "dd71c1a0-7e3a-404f-82e5-1e4f4d7b411f",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:08 GMT",
+              "content-type": "application/json",
+              "content-length": "697",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "dd71c1a0-7e3a-404f-82e5-1e4f4d7b411f"
+            },
+            "RetryAttempts": 0
+          },
+          "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"default\",\"Statement\":[{\"Sid\":\"owned-url\",\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"lambda:InvokeFunctionUrl\",\"Resource\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d\",\"Condition\":{\"StringEquals\":{\"lambda:FunctionUrlAuthType\":\"NONE\"}}},{\"Sid\":\"owned-invoke\",\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"lambda:InvokeFunction\",\"Resource\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d\",\"Condition\":{\"Bool\":{\"lambda:InvokedViaFunctionUrl\":\"true\"}}}]}",
+          "RevisionId": "6b92c449-00a2-4919-b87e-248a9834376d"
+        }
+      }
+    },
+    {
+      "label": "logs_ready_0",
+      "service": "logs",
+      "operation": "filter_log_events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:20:12.693855+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": [],
+          "ResponseMetadata": {
+            "RequestId": "9d7cc70c-0dd0-4235-9acb-35d90c73ca6a",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "9d7cc70c-0dd0-4235-9acb-35d90c73ca6a",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "121",
+              "date": "Tue, 15 Sep 2026 12:20:13 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "logs_ready_1",
+      "service": "logs",
+      "operation": "filter_log_events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:20:19.039446+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": [],
+          "ResponseMetadata": {
+            "RequestId": "019f72b8-79f7-4de6-b6ba-a3a42a7af67e",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "019f72b8-79f7-4de6-b6ba-a3a42a7af67e",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "121",
+              "date": "Tue, 15 Sep 2026 12:20:20 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "logs_ready_2",
+      "service": "logs",
+      "operation": "filter_log_events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:20:25.090203+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "logStreamName": "2026/09/15/[$LATEST]92f82bf7ceb54ca4bb4b78082aa8ffe3",
+              "timestamp": 1789474812006,
+              "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+              "ingestionTime": 1789474820725,
+              "eventId": "39906621821734293995797004900406858259216589798319521792"
+            },
+            {
+              "logStreamName": "2026/09/15/[$LATEST]92f82bf7ceb54ca4bb4b78082aa8ffe3",
+              "timestamp": 1789474812143,
+              "message": "START RequestId: 398d8c90-a365-410f-86eb-22a693cf9561 Version: $LATEST\n",
+              "ingestionTime": 1789474820725,
+              "eventId": "39906621824789496087995700270797251662569415324638838785"
+            },
+            {
+              "logStreamName": "2026/09/15/[$LATEST]92f82bf7ceb54ca4bb4b78082aa8ffe3",
+              "timestamp": 1789474812222,
+              "message": "2026-09-15T12:20:12.222Z\t398d8c90-a365-410f-86eb-22a693cf9561\tINFO\tURL_EVENT {\"token\":\"stackd-url-empty-15f7ac71819d-warmup_0\",\"requestId\":\"398d8c90-a365-410f-86eb-22a693cf9561\",\"event\":{\"version\":\"2.0\",\"routeKey\":\"$default\",\"rawPath\":\"/\",\"rawQueryString\":\"\",\"headers\":{\"x-amzn-tls-cipher-suite\":\"TLS_AES_128_GCM_SHA256\",\"content-length\":\"0\",\"x-amzn-tls-version\":\"TLSv1.3\",\"x-amzn-trace-id\":\"Self=1-6aa937fb-63b12c4e3941671174e81ca6;Root=1-6aa937fb-0cceeea9479b73870cc8b618\",\"x-forwarded-proto\":\"https\",\"host\":\"eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws\",\"x-forwarded-port\":\"443\",\"x-probe-token\":\"stackd-url-empty-15f7ac71819d-warmup_0\",\"x-probe-mode\":\"metadata\",\"x-forwarded-for\":\"92.234.107.50\",\"user-agent\":\"stackd-owned-url-probe/1\"},\"requestContext\":{\"accountId\":\"anonymous\",\"apiId\":\"eyqztjn77zt3j7x4zhvumcemwu0ectyy\",\"domainName\":\"eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws\",\"domainPrefix\":\"eyqztjn77zt3j7x4zhvumcemwu0ectyy\",\"http\":{\"method\":\"GET\",\"path\":\"/\",\"protocol\":\"HTTP/1.1\",\"sourceIp\":\"92.234.107.50\",\"userAgent\":\"stackd-owned-url-probe/1\"},\"requestId\":\"398d8c90-a365-410f-86eb-22a693cf9561\",\"routeKey\":\"$default\",\"stage\":\"$default\",\"time\":\"15/Sep/2026:12:20:11 +0000\",\"timeEpoch\":1789474811879},\"isBase64Encoded\":false}}\n",
+              "ingestionTime": 1789474820725,
+              "eventId": "39906621826551254958679619498978573406108635883611291650"
+            },
+            {
+              "logStreamName": "2026/09/15/[$LATEST]92f82bf7ceb54ca4bb4b78082aa8ffe3",
+              "timestamp": 1789474812224,
+              "message": "2026-09-15T12:20:12.224Z\t398d8c90-a365-410f-86eb-22a693cf9561\tINFO\tURL_METADATA {\"token\":\"stackd-url-empty-15f7ac71819d-warmup_0\",\"requestId\":\"398d8c90-a365-410f-86eb-22a693cf9561\",\"metadata\":{\"statusCode\":206,\"headers\":{\"Content-Type\":\"application/x-owned-stream\",\"X-Owned\":\"stream\"},\"cookies\":[\"s=1; Path=/\",\"t=2; HttpOnly\"]}}\n",
+              "ingestionTime": 1789474820725,
+              "eventId": "39906621826595856449076680745261644842653932606623252483"
+            },
+            {
+              "logStreamName": "2026/09/15/[$LATEST]92f82bf7ceb54ca4bb4b78082aa8ffe3",
+              "timestamp": 1789474812225,
+              "message": "2026-09-15T12:20:12.225Z\t398d8c90-a365-410f-86eb-22a693cf9561\tINFO\tURL_WRITE {\"token\":\"stackd-url-empty-15f7ac71819d-warmup_0\",\"requestId\":\"398d8c90-a365-410f-86eb-22a693cf9561\",\"body_base64\":\"QQD/Cg==\"}\n",
+              "ingestionTime": 1789474820725,
+              "eventId": "39906621826618157194275211368403180560926580968129232900"
+            },
+            {
+              "logStreamName": "2026/09/15/[$LATEST]92f82bf7ceb54ca4bb4b78082aa8ffe3",
+              "timestamp": 1789474812382,
+              "message": "2026-09-15T12:20:12.382Z\t398d8c90-a365-410f-86eb-22a693cf9561\tINFO\tURL_WRITE {\"token\":\"stackd-url-empty-15f7ac71819d-warmup_0\",\"requestId\":\"398d8c90-a365-410f-86eb-22a693cf9561\",\"body_base64\":\"eyJ0b2tlbiI6InN0YWNrZC11cmwtZW1wdHktMTVmN2FjNzE4MTlkLXdhcm11cF8wIiwicmVxdWVzdElkIjoiMzk4ZDhjOTAtYTM2NS00MTBmLTg2ZWItMjJhNjkzY2Y5NTYxIn0=\"}\n",
+              "ingestionTime": 1789474820725,
+              "eventId": "39906621830119374190444519201624288329732373724568158213"
+            },
+            {
+              "logStreamName": "2026/09/15/[$LATEST]92f82bf7ceb54ca4bb4b78082aa8ffe3",
+              "timestamp": 1789474812383,
+              "message": "2026-09-15T12:20:12.383Z\t398d8c90-a365-410f-86eb-22a693cf9561\tINFO\tURL_COMPLETE {\"token\":\"stackd-url-empty-15f7ac71819d-warmup_0\",\"requestId\":\"398d8c90-a365-410f-86eb-22a693cf9561\"}\n",
+              "ingestionTime": 1789474820725,
+              "eventId": "39906621830141674935643049824765824048005022086074138630"
+            },
+            {
+              "logStreamName": "2026/09/15/[$LATEST]92f82bf7ceb54ca4bb4b78082aa8ffe3",
+              "timestamp": 1789474812443,
+              "message": "END RequestId: 398d8c90-a365-410f-86eb-22a693cf9561\n",
+              "ingestionTime": 1789474820725,
+              "eventId": "39906621831479719647554887213257967144363923776432963591"
+            },
+            {
+              "logStreamName": "2026/09/15/[$LATEST]92f82bf7ceb54ca4bb4b78082aa8ffe3",
+              "timestamp": 1789474812462,
+              "message": "REPORT RequestId: 398d8c90-a365-410f-86eb-22a693cf9561\tDuration: 299.32 ms\tBilled Duration: 433 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 133.02 ms\t\n",
+              "ingestionTime": 1789474820725,
+              "eventId": "39906621831903433806326969052947145791544242645046591496"
+            }
+          ],
+          "searchedLogStreams": [],
+          "nextToken": "Bxkq6kVGFtq2y_MoigeqscPOdhXVbhiVtLoAmXb5jCq_BVsGHKIdhcsxB5M-S3NCCCL-tMLzuN2cQdlrYBd-Vk6VMSbRn50E7BTCpDLkZhx1HWmQk8Wf0LbYGheIdjIbpcWAUVV5wf1cs_Z-rleVjEnTa1s00dimUtZudaRkFRoArgn3S0rFM9O7WIY6A78-IzCM5uNfNHZ9gGzxn5LR7YNLLKOFwFYuq-pl3WLNvuqvFxqhYz2mZrvVavbmInWYhPdKfdCYUizCwdPmydf0Xfbm0GH_2k1cJB5oogP_e5p0djheH35njYBzWrwO8tw4p-N8569sEGhrQTzQfGDW3A",
+          "ResponseMetadata": {
+            "RequestId": "bda6c2d3-697f-436e-94bd-615aac3bfd82",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "bda6c2d3-697f-436e-94bd-615aac3bfd82",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "5379",
+              "date": "Tue, 15 Sep 2026 12:20:25 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "runtime_logs",
+      "service": "logs",
+      "operation": "filter_log_events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:23:41.287026+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": [],
+          "nextToken": "Bxkq6kVGFtq2y_MoigeqscPOdhXVbhiVtLoAmXb5jCprhjuZJ6sZ2vKuzT7EJdcxLycchQfXsJ9W_xBxef3FIkgKpvcw_zeeyQvfsYRLceNBgJldTRAixay2FE-R3oZXjvVBl-ub-VkLDW8scOBpZo9RXGrJL0cYydrPzlld0zRMKtIMWJRbkpoPDniRogILvxLPzykFB7xYyv4Z3OdeCtWmhc61c0qNS4YuUzVZDLu0L7sIm07Mm_cmQcnLs9j2AVOs0zpRaDjGFVD4zx14ZLOleviqqrrc1gzOZXGUEVXVODmhl_5-oFyQTt_ym5zRGaiPiYcDJr3OxsibmkSCBg",
+          "ResponseMetadata": {
+            "RequestId": "083db2d3-922b-47bc-ba17-69f217ea4f54",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "083db2d3-922b-47bc-ba17-69f217ea4f54",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "478",
+              "date": "Tue, 15 Sep 2026 12:23:42 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "runtime_logs_before_cleanup",
+      "service": "logs",
+      "operation": "filter_log_events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:23:57.190573+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": [],
+          "nextToken": "Bxkq6kVGFtq2y_MoigeqscPOdhXVbhiVtLoAmXb5jCprhjuZJ6sZ2vKuzT7EJdcxLycchQfXsJ9W_xBxef3FIkgKpvcw_zeeyQvfsYRLceNBgJldTRAixay2FE-R3oZXjvVBl-ub-VkLDW8scOBpZo9RXGrJL0cYydrPzlld0zRMKtIMWJRbkpoPDniRogILvxLPzykFB7xYyv4Z3OdeCtWmhc61c0qNS4YuUzVZDLu0L7sIm07Mm_cmQcnLs9j2AVOs0zpRaDjGFVD4zx14ZLOleviqqrrc1gzOZXGUEVXVODmhl_5-oFyQTt_ym5zRGaiPiYcDJr3OxsibmkSCBg",
+          "ResponseMetadata": {
+            "RequestId": "45f479b2-0224-4806-83d8-495e9e2ba186",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "45f479b2-0224-4806-83d8-495e9e2ba186",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "478",
+              "date": "Tue, 15 Sep 2026 12:23:58 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    }
+  ],
+  "http_cases": [
+    {
+      "label": "warmup_0",
+      "token": "stackd-url-empty-15f7ac71819d-warmup_0",
+      "started_at": "2026-09-15T12:20:11.399518+00:00",
+      "configuration": {
+        "function": {
+          "ResponseMetadata": {
+            "RequestId": "13788c48-d21a-4fac-af4b-4d299597c208",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "1410",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "13788c48-d21a-4fac-af4b-4d299597c208"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionName": "stackd-url-empty-15f7ac71819d",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "Runtime": "nodejs22.x",
+          "Role": "arn:aws:iam::000000000000:role/stackd-url-empty-15f7ac71819d",
+          "Handler": "entry.stream",
+          "CodeSize": 1270,
+          "Description": "",
+          "Timeout": 8,
+          "MemorySize": 128,
+          "LastModified": "2026-09-15T12:20:04.596+0000",
+          "CodeSha256": "DXcxB0sa8HI+Jf6wGZtdOWvhRnXdIwYlDzYZ2uK2BHM=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "f417930a-585f-418e-bf28-4d57f0119a36",
+          "State": "Active",
+          "LastUpdateStatus": "Successful",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+          }
+        },
+        "url": {
+          "ResponseMetadata": {
+            "RequestId": "9175060e-b15d-428d-b49f-f2418539a0e1",
+            "HTTPStatusCode": 201,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "289",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "9175060e-b15d-428d-b49f-f2418539a0e1"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionUrl": "https://eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws/",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "AuthType": "NONE",
+          "CreationTime": "2026-09-15T12:20:07.743483848Z",
+          "InvokeMode": "RESPONSE_STREAM"
+        }
+      },
+      "request": {
+        "method": "GET",
+        "url": "https://eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws/",
+        "path_query": "/",
+        "headers": [
+          [
+            "Host",
+            "eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws"
+          ],
+          [
+            "User-Agent",
+            "stackd-owned-url-probe/1"
+          ],
+          [
+            "Connection",
+            "close"
+          ],
+          [
+            "X-Probe-Token",
+            "stackd-url-empty-15f7ac71819d-warmup_0"
+          ],
+          [
+            "X-Probe-Mode",
+            "metadata"
+          ]
+        ],
+        "body_present": false,
+        "body_base64": "",
+        "wire_base64": "R0VUIC8gSFRUUC8xLjENCkhvc3Q6IGV5cXp0am43N3p0M2o3eDR6aHZ1bWNlbXd1MGVjdHl5LmxhbWJkYS11cmwudXMtZWFzdC0xLm9uLmF3cw0KVXNlci1BZ2VudDogc3RhY2tkLW93bmVkLXVybC1wcm9iZS8xDQpDb25uZWN0aW9uOiBjbG9zZQ0KWC1Qcm9iZS1Ub2tlbjogc3RhY2tkLXVybC1lbXB0eS0xNWY3YWM3MTgxOWQtd2FybXVwXzANClgtUHJvYmUtTW9kZTogbWV0YWRhdGENCg0K"
+      },
+      "receive_fragments": [
+        {
+          "elapsed_seconds": 0.9836338320747018,
+          "length": 397
+        },
+        {
+          "elapsed_seconds": 0.9837054070085287,
+          "length": 9
+        },
+        {
+          "elapsed_seconds": 1.0433699544519186,
+          "length": 107
+        },
+        {
+          "elapsed_seconds": 1.0434146076440811,
+          "length": 5
+        }
+      ],
+      "eof": true,
+      "elapsed_seconds": 1.043481937609613,
+      "response": {
+        "status": 206,
+        "status_line": "HTTP/1.1 206 Partial Content",
+        "headers": [
+          [
+            "Date",
+            "Tue, 15 Sep 2026 12:20:12 GMT"
+          ],
+          [
+            "Content-Type",
+            "application/x-owned-stream"
+          ],
+          [
+            "Transfer-Encoding",
+            "chunked"
+          ],
+          [
+            "Connection",
+            "close"
+          ],
+          [
+            "x-amzn-RequestId",
+            "398d8c90-a365-410f-86eb-22a693cf9561"
+          ],
+          [
+            "Set-Cookie",
+            "s=1; Path=/"
+          ],
+          [
+            "Set-Cookie",
+            "t=2; HttpOnly"
+          ],
+          [
+            "x-owned",
+            "stream"
+          ],
+          [
+            "X-Amzn-Trace-Id",
+            "Root=1-6aa937fb-0cceeea9479b73870cc8b618;Parent=2374ec3add5cd468;Sampled=0;Lineage=1:dc0d7422:0"
+          ]
+        ],
+        "trailers": [],
+        "chunked_complete": true,
+        "wire_chunks": [
+          {
+            "declared_length": 4,
+            "received_length": 4,
+            "body_base64": "QQD/Cg=="
+          },
+          {
+            "declared_length": 101,
+            "received_length": 101,
+            "body_base64": "eyJ0b2tlbiI6InN0YWNrZC11cmwtZW1wdHktMTVmN2FjNzE4MTlkLXdhcm11cF8wIiwicmVxdWVzdElkIjoiMzk4ZDhjOTAtYTM2NS00MTBmLTg2ZWItMjJhNjkzY2Y5NTYxIn0="
+          }
+        ],
+        "body_base64": "QQD/CnsidG9rZW4iOiJzdGFja2QtdXJsLWVtcHR5LTE1ZjdhYzcxODE5ZC13YXJtdXBfMCIsInJlcXVlc3RJZCI6IjM5OGQ4YzkwLWEzNjUtNDEwZi04NmViLTIyYTY5M2NmOTU2MSJ9",
+        "body_length": 105,
+        "wire_base64": "SFRUUC8xLjEgMjA2IFBhcnRpYWwgQ29udGVudA0KRGF0ZTogVHVlLCAxNSBTZXAgMjAyNiAxMjoyMDoxMiBHTVQNCkNvbnRlbnQtVHlwZTogYXBwbGljYXRpb24veC1vd25lZC1zdHJlYW0NClRyYW5zZmVyLUVuY29kaW5nOiBjaHVua2VkDQpDb25uZWN0aW9uOiBjbG9zZQ0KeC1hbXpuLVJlcXVlc3RJZDogMzk4ZDhjOTAtYTM2NS00MTBmLTg2ZWItMjJhNjkzY2Y5NTYxDQpTZXQtQ29va2llOiBzPTE7IFBhdGg9Lw0KU2V0LUNvb2tpZTogdD0yOyBIdHRwT25seQ0KeC1vd25lZDogc3RyZWFtDQpYLUFtem4tVHJhY2UtSWQ6IFJvb3Q9MS02YWE5MzdmYi0wY2NlZWVhOTQ3OWI3Mzg3MGNjOGI2MTg7UGFyZW50PTIzNzRlYzNhZGQ1Y2Q0Njg7U2FtcGxlZD0wO0xpbmVhZ2U9MTpkYzBkNzQyMjowDQoNCjQNCkEA/woNCjY1DQp7InRva2VuIjoic3RhY2tkLXVybC1lbXB0eS0xNWY3YWM3MTgxOWQtd2FybXVwXzAiLCJyZXF1ZXN0SWQiOiIzOThkOGM5MC1hMzY1LTQxMGYtODZlYi0yMmE2OTNjZjk1NjEifQ0KMA0KDQo="
+      },
+      "runtime_evidence": [],
+      "execution_observed": false
+    },
+    {
+      "label": "bounded_empty",
+      "token": "stackd-url-empty-15f7ac71819d-bounded_empty",
+      "started_at": "2026-09-15T12:20:25.670464+00:00",
+      "configuration": {
+        "function": {
+          "ResponseMetadata": {
+            "RequestId": "13788c48-d21a-4fac-af4b-4d299597c208",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "1410",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "13788c48-d21a-4fac-af4b-4d299597c208"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionName": "stackd-url-empty-15f7ac71819d",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "Runtime": "nodejs22.x",
+          "Role": "arn:aws:iam::000000000000:role/stackd-url-empty-15f7ac71819d",
+          "Handler": "entry.stream",
+          "CodeSize": 1270,
+          "Description": "",
+          "Timeout": 8,
+          "MemorySize": 128,
+          "LastModified": "2026-09-15T12:20:04.596+0000",
+          "CodeSha256": "DXcxB0sa8HI+Jf6wGZtdOWvhRnXdIwYlDzYZ2uK2BHM=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "f417930a-585f-418e-bf28-4d57f0119a36",
+          "State": "Active",
+          "LastUpdateStatus": "Successful",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+          }
+        },
+        "url": {
+          "ResponseMetadata": {
+            "RequestId": "9175060e-b15d-428d-b49f-f2418539a0e1",
+            "HTTPStatusCode": 201,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "289",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "9175060e-b15d-428d-b49f-f2418539a0e1"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionUrl": "https://eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws/",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "AuthType": "NONE",
+          "CreationTime": "2026-09-15T12:20:07.743483848Z",
+          "InvokeMode": "RESPONSE_STREAM"
+        }
+      },
+      "request": {
+        "method": "GET",
+        "url": "https://eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws/",
+        "path_query": "/",
+        "headers": [
+          [
+            "Host",
+            "eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws"
+          ],
+          [
+            "User-Agent",
+            "stackd-owned-url-probe/1"
+          ],
+          [
+            "Connection",
+            "close"
+          ],
+          [
+            "X-Probe-Token",
+            "stackd-url-empty-15f7ac71819d-bounded_empty"
+          ],
+          [
+            "X-Probe-Mode",
+            "empty"
+          ]
+        ],
+        "body_present": false,
+        "body_base64": "",
+        "wire_base64": "R0VUIC8gSFRUUC8xLjENCkhvc3Q6IGV5cXp0am43N3p0M2o3eDR6aHZ1bWNlbXd1MGVjdHl5LmxhbWJkYS11cmwudXMtZWFzdC0xLm9uLmF3cw0KVXNlci1BZ2VudDogc3RhY2tkLW93bmVkLXVybC1wcm9iZS8xDQpDb25uZWN0aW9uOiBjbG9zZQ0KWC1Qcm9iZS1Ub2tlbjogc3RhY2tkLXVybC1lbXB0eS0xNWY3YWM3MTgxOWQtYm91bmRlZF9lbXB0eQ0KWC1Qcm9iZS1Nb2RlOiBlbXB0eQ0KDQo="
+      },
+      "receive_fragments": [
+        {
+          "elapsed_seconds": 0.4692276129499078,
+          "length": 313
+        }
+      ],
+      "transport_error": {
+        "type": "TimeoutError",
+        "message": "The read operation timed out"
+      },
+      "elapsed_seconds": 90.02357611898333,
+      "response": {
+        "status": 200,
+        "status_line": "HTTP/1.1 200 OK",
+        "headers": [
+          [
+            "Date",
+            "Tue, 15 Sep 2026 12:20:26 GMT"
+          ],
+          [
+            "Content-Type",
+            "application/octet-stream"
+          ],
+          [
+            "Transfer-Encoding",
+            "chunked"
+          ],
+          [
+            "Connection",
+            "close"
+          ],
+          [
+            "x-amzn-RequestId",
+            "a87d9b53-f839-4786-a48d-67e73f3c060f"
+          ],
+          [
+            "X-Amzn-Trace-Id",
+            "Root=1-6aa9380a-3c31c5a81ed3ab82789021fa;Parent=5be4b9a992032936;Sampled=0;Lineage=1:dc0d7422:0"
+          ]
+        ],
+        "trailers": [],
+        "wire_chunks": [],
+        "body_base64": "",
+        "body_length": 0,
+        "body_utf8": "",
+        "wire_base64": "SFRUUC8xLjEgMjAwIE9LDQpEYXRlOiBUdWUsIDE1IFNlcCAyMDI2IDEyOjIwOjI2IEdNVA0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0NClRyYW5zZmVyLUVuY29kaW5nOiBjaHVua2VkDQpDb25uZWN0aW9uOiBjbG9zZQ0KeC1hbXpuLVJlcXVlc3RJZDogYTg3ZDliNTMtZjgzOS00Nzg2LWE0OGQtNjdlNzNmM2MwNjBmDQpYLUFtem4tVHJhY2UtSWQ6IFJvb3Q9MS02YWE5MzgwYS0zYzMxYzVhODFlZDNhYjgyNzg5MDIxZmE7UGFyZW50PTViZTRiOWE5OTIwMzI5MzY7U2FtcGxlZD0wO0xpbmVhZ2U9MTpkYzBkNzQyMjowDQoNCg=="
+      },
+      "runtime_evidence": [],
+      "execution_observed": false
+    },
+    {
+      "label": "bounded_throw_before",
+      "token": "stackd-url-empty-15f7ac71819d-bounded_throw_before",
+      "started_at": "2026-09-15T12:21:55.945881+00:00",
+      "configuration": {
+        "function": {
+          "ResponseMetadata": {
+            "RequestId": "13788c48-d21a-4fac-af4b-4d299597c208",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "1410",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "13788c48-d21a-4fac-af4b-4d299597c208"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionName": "stackd-url-empty-15f7ac71819d",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "Runtime": "nodejs22.x",
+          "Role": "arn:aws:iam::000000000000:role/stackd-url-empty-15f7ac71819d",
+          "Handler": "entry.stream",
+          "CodeSize": 1270,
+          "Description": "",
+          "Timeout": 8,
+          "MemorySize": 128,
+          "LastModified": "2026-09-15T12:20:04.596+0000",
+          "CodeSha256": "DXcxB0sa8HI+Jf6wGZtdOWvhRnXdIwYlDzYZ2uK2BHM=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "f417930a-585f-418e-bf28-4d57f0119a36",
+          "State": "Active",
+          "LastUpdateStatus": "Successful",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+          }
+        },
+        "url": {
+          "ResponseMetadata": {
+            "RequestId": "9175060e-b15d-428d-b49f-f2418539a0e1",
+            "HTTPStatusCode": 201,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:20:07 GMT",
+              "content-type": "application/json",
+              "content-length": "289",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "9175060e-b15d-428d-b49f-f2418539a0e1"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionUrl": "https://eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws/",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+          "AuthType": "NONE",
+          "CreationTime": "2026-09-15T12:20:07.743483848Z",
+          "InvokeMode": "RESPONSE_STREAM"
+        }
+      },
+      "request": {
+        "method": "GET",
+        "url": "https://eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws/",
+        "path_query": "/",
+        "headers": [
+          [
+            "Host",
+            "eyqztjn77zt3j7x4zhvumcemwu0ectyy.lambda-url.us-east-1.on.aws"
+          ],
+          [
+            "User-Agent",
+            "stackd-owned-url-probe/1"
+          ],
+          [
+            "Connection",
+            "close"
+          ],
+          [
+            "X-Probe-Token",
+            "stackd-url-empty-15f7ac71819d-bounded_throw_before"
+          ],
+          [
+            "X-Probe-Mode",
+            "throw_before"
+          ]
+        ],
+        "body_present": false,
+        "body_base64": "",
+        "wire_base64": "R0VUIC8gSFRUUC8xLjENCkhvc3Q6IGV5cXp0am43N3p0M2o3eDR6aHZ1bWNlbXd1MGVjdHl5LmxhbWJkYS11cmwudXMtZWFzdC0xLm9uLmF3cw0KVXNlci1BZ2VudDogc3RhY2tkLW93bmVkLXVybC1wcm9iZS8xDQpDb25uZWN0aW9uOiBjbG9zZQ0KWC1Qcm9iZS1Ub2tlbjogc3RhY2tkLXVybC1lbXB0eS0xNWY3YWM3MTgxOWQtYm91bmRlZF90aHJvd19iZWZvcmUNClgtUHJvYmUtTW9kZTogdGhyb3dfYmVmb3JlDQoNCg=="
+      },
+      "receive_fragments": [
+        {
+          "elapsed_seconds": 0.5344250975176692,
+          "length": 313
+        }
+      ],
+      "transport_error": {
+        "type": "TimeoutError",
+        "message": "The read operation timed out"
+      },
+      "elapsed_seconds": 90.08970848098397,
+      "response": {
+        "status": 200,
+        "status_line": "HTTP/1.1 200 OK",
+        "headers": [
+          [
+            "Date",
+            "Tue, 15 Sep 2026 12:21:56 GMT"
+          ],
+          [
+            "Content-Type",
+            "application/octet-stream"
+          ],
+          [
+            "Transfer-Encoding",
+            "chunked"
+          ],
+          [
+            "Connection",
+            "close"
+          ],
+          [
+            "x-amzn-RequestId",
+            "7a587f75-b3e8-4efc-a497-043f6dccd121"
+          ],
+          [
+            "X-Amzn-Trace-Id",
+            "Root=1-6aa93864-5d3f14200c43d0fb6e7a4377;Parent=33cc184a67aa9edd;Sampled=0;Lineage=1:dc0d7422:0"
+          ]
+        ],
+        "trailers": [],
+        "wire_chunks": [],
+        "body_base64": "",
+        "body_length": 0,
+        "body_utf8": "",
+        "wire_base64": "SFRUUC8xLjEgMjAwIE9LDQpEYXRlOiBUdWUsIDE1IFNlcCAyMDI2IDEyOjIxOjU2IEdNVA0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0NClRyYW5zZmVyLUVuY29kaW5nOiBjaHVua2VkDQpDb25uZWN0aW9uOiBjbG9zZQ0KeC1hbXpuLVJlcXVlc3RJZDogN2E1ODdmNzUtYjNlOC00ZWZjLWE0OTctMDQzZjZkY2NkMTIxDQpYLUFtem4tVHJhY2UtSWQ6IFJvb3Q9MS02YWE5Mzg2NC01ZDNmMTQyMDBjNDNkMGZiNmU3YTQzNzc7UGFyZW50PTMzY2MxODRhNjdhYTllZGQ7U2FtcGxlZD0wO0xpbmVhZ2U9MTpkYzBkNzQyMjowDQoNCg=="
+      },
+      "runtime_evidence": [],
+      "execution_observed": false
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "delete_url",
+      "service": "lambda",
+      "operation": "delete_function_url_config",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:23:58.377150+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "5d6daaa6-9f24-4e7b-8967-b90d0bff05a7",
+            "HTTPStatusCode": 204,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:23:58 GMT",
+              "content-type": "application/json",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "5d6daaa6-9f24-4e7b-8967-b90d0bff05a7"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "absent_url",
+      "service": "lambda",
+      "operation": "get_function_url_config",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:23:58.627347+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Error": {
+            "Message": "The resource you requested does not exist.",
+            "Code": "ResourceNotFoundException"
+          },
+          "ResponseMetadata": {
+            "RequestId": "8aac0432-2b60-46d6-ad96-a6c2d2905819",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:23:58 GMT",
+              "content-type": "application/json",
+              "content-length": "70",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "8aac0432-2b60-46d6-ad96-a6c2d2905819",
+              "x-amzn-errortype": "ResourceNotFoundException"
+            },
+            "RetryAttempts": 0
+          },
+          "Type": "User",
+          "Message": "The resource you requested does not exist."
+        }
+      }
+    },
+    {
+      "label": "remove_owned-url",
+      "service": "lambda",
+      "operation": "remove_permission",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d",
+        "StatementId": "owned-url"
+      },
+      "started_at": "2026-09-15T12:23:58.866335+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "c7334171-7a32-4108-a412-8a31cdbbfd4a",
+            "HTTPStatusCode": 204,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:23:59 GMT",
+              "content-type": "application/json",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "c7334171-7a32-4108-a412-8a31cdbbfd4a"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "remove_owned-invoke",
+      "service": "lambda",
+      "operation": "remove_permission",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d",
+        "StatementId": "owned-invoke"
+      },
+      "started_at": "2026-09-15T12:23:59.088158+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "5b176dc0-f4ef-4c1a-8778-9c79eec5e44c",
+            "HTTPStatusCode": 204,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:23:59 GMT",
+              "content-type": "application/json",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "5b176dc0-f4ef-4c1a-8778-9c79eec5e44c"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "absent_function_policy",
+      "service": "lambda",
+      "operation": "get_policy",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:23:59.219528+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Error": {
+            "Message": "The resource you requested does not exist.",
+            "Code": "ResourceNotFoundException"
+          },
+          "ResponseMetadata": {
+            "RequestId": "83b4bb1d-bb6f-4aa5-8e0c-64d8d0c2d4bd",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:23:59 GMT",
+              "content-type": "application/json",
+              "content-length": "70",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "83b4bb1d-bb6f-4aa5-8e0c-64d8d0c2d4bd",
+              "x-amzn-errortype": "ResourceNotFoundException"
+            },
+            "RetryAttempts": 0
+          },
+          "Type": "User",
+          "Message": "The resource you requested does not exist."
+        }
+      }
+    },
+    {
+      "label": "delete_function",
+      "service": "lambda",
+      "operation": "delete_function",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:23:59.343634+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "66a1d16f-2d63-466f-8850-2836644222bf",
+            "HTTPStatusCode": 204,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:23:59 GMT",
+              "content-type": "application/json",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "66a1d16f-2d63-466f-8850-2836644222bf"
+            },
+            "RetryAttempts": 0
+          },
+          "StatusCode": 204
+        }
+      }
+    },
+    {
+      "label": "absent_function",
+      "service": "lambda",
+      "operation": "get_function_configuration",
+      "input": {
+        "FunctionName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:23:59.670140+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Error": {
+            "Message": "Function not found: arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d",
+            "Code": "ResourceNotFoundException"
+          },
+          "ResponseMetadata": {
+            "RequestId": "dd478088-0d7a-4c0c-a911-8a239bdab861",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:23:59 GMT",
+              "content-type": "application/json",
+              "content-length": "124",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "dd478088-0d7a-4c0c-a911-8a239bdab861",
+              "x-amzn-errortype": "ResourceNotFoundException"
+            },
+            "RetryAttempts": 0
+          },
+          "Type": "User",
+          "Message": "Function not found: arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d"
+        }
+      }
+    },
+    {
+      "label": "delete_log_policy",
+      "service": "iam",
+      "operation": "delete_role_policy",
+      "input": {
+        "RoleName": "stackd-url-empty-15f7ac71819d",
+        "PolicyName": "owned-logs"
+      },
+      "started_at": "2026-09-15T12:23:59.828829+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "c3c3de99-cdad-498a-bf80-8a6fe79a04aa",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:24:00 GMT",
+              "x-amzn-requestid": "c3c3de99-cdad-498a-bf80-8a6fe79a04aa",
+              "content-type": "text/xml",
+              "content-length": "212"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "absent_log_policy",
+      "service": "iam",
+      "operation": "get_role_policy",
+      "input": {
+        "RoleName": "stackd-url-empty-15f7ac71819d",
+        "PolicyName": "owned-logs"
+      },
+      "started_at": "2026-09-15T12:24:00.358996+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Error": {
+            "Type": "Sender",
+            "Code": "NoSuchEntity",
+            "Message": "The role policy with name owned-logs cannot be found."
+          },
+          "ResponseMetadata": {
+            "RequestId": "4637230a-63bf-4cf0-a740-6285c24714b1",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:24:00 GMT",
+              "x-amzn-requestid": "4637230a-63bf-4cf0-a740-6285c24714b1",
+              "content-type": "text/xml",
+              "content-length": "297"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "delete_role",
+      "service": "iam",
+      "operation": "delete_role",
+      "input": {
+        "RoleName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:24:00.492068+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "e1b37c60-0761-409b-aa1b-a9935c723bda",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:24:00 GMT",
+              "x-amzn-requestid": "e1b37c60-0761-409b-aa1b-a9935c723bda",
+              "content-type": "text/xml",
+              "content-length": "200"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "absent_role",
+      "service": "iam",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:24:00.669239+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Error": {
+            "Type": "Sender",
+            "Code": "NoSuchEntity",
+            "Message": "The role with name stackd-url-empty-15f7ac71819d cannot be found."
+          },
+          "ResponseMetadata": {
+            "RequestId": "5fe9712d-8e55-4930-8725-ae5a26bb672d",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 12:24:00 GMT",
+              "x-amzn-requestid": "5fe9712d-8e55-4930-8725-ae5a26bb672d",
+              "content-type": "text/xml",
+              "content-length": "309"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "delete_logs_after_settling",
+      "service": "logs",
+      "operation": "delete_log_group",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:24:20.791184+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "3ec77857-d1f4-4451-b9f2-7762573926ce",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "3ec77857-d1f4-4451-b9f2-7762573926ce",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "0",
+              "date": "Tue, 15 Sep 2026 12:24:21 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    },
+    {
+      "label": "absent_delayed_logs",
+      "service": "logs",
+      "operation": "describe_log_groups",
+      "input": {
+        "logGroupNamePrefix": "/aws/lambda/stackd-url-empty-15f7ac71819d"
+      },
+      "started_at": "2026-09-15T12:24:26.334205+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "logGroups": [],
+          "ResponseMetadata": {
+            "RequestId": "071304f8-7adb-4984-bbf1-8d0266a868c7",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "071304f8-7adb-4984-bbf1-8d0266a868c7",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "16",
+              "date": "Tue, 15 Sep 2026 12:24:26 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      }
+    }
+  ],
+  "workflow_complete": true,
+  "cleanup_verified": true,
+  "documentation": [
+    "https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/urls-invocation.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/urls-configuration.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/runtimes-custom.html#runtimes-custom-response-streaming"
+  ],
+  "uncertainties": [
+    "No extrapolation past the explicit 90-second total receive deadline; exact EOF and runtime joins retained per case."
+  ],
+  "actor": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated",
+    "ResponseMetadata": {
+      "RequestId": "6625a18a-8631-4b4a-8852-97482d1b8b4e",
+      "HTTPStatusCode": 200,
+      "HTTPHeaders": {
+        "x-amzn-requestid": "6625a18a-8631-4b4a-8852-97482d1b8b4e",
+        "x-amz-sts-extended-request-id": "MTp1cy1lYXN0LTE6UzoxNzg5NDc0NzM3ODM5OlI6WXdFM2dRQlY=",
+        "content-type": "text/xml",
+        "content-length": "406",
+        "date": "Tue, 15 Sep 2026 12:18:57 GMT"
+      },
+      "RetryAttempts": 0
+    }
+  },
+  "resource_policy": {
+    "ResponseMetadata": {
+      "RequestId": "dd71c1a0-7e3a-404f-82e5-1e4f4d7b411f",
+      "HTTPStatusCode": 200,
+      "HTTPHeaders": {
+        "date": "Tue, 15 Sep 2026 12:20:08 GMT",
+        "content-type": "application/json",
+        "content-length": "697",
+        "connection": "keep-alive",
+        "x-amzn-requestid": "dd71c1a0-7e3a-404f-82e5-1e4f4d7b411f"
+      },
+      "RetryAttempts": 0
+    },
+    "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"default\",\"Statement\":[{\"Sid\":\"owned-url\",\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"lambda:InvokeFunctionUrl\",\"Resource\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d\",\"Condition\":{\"StringEquals\":{\"lambda:FunctionUrlAuthType\":\"NONE\"}}},{\"Sid\":\"owned-invoke\",\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"lambda:InvokeFunction\",\"Resource\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-url-empty-15f7ac71819d\",\"Condition\":{\"Bool\":{\"lambda:InvokedViaFunctionUrl\":\"true\"}}}]}",
+    "RevisionId": "6b92c449-00a2-4919-b87e-248a9834376d"
+  },
+  "runtime_logs": [],
+  "bounded_deadline_seconds": 90,
+  "cleanup_errors": [],
+  "finished_at": "2026-09-15T12:24:26.444031+00:00"
+}

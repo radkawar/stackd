@@ -1,0 +1,92 @@
+{
+  "capturedAt": "2026-09-26",
+  "provenance": "Local race-enabled stackd executable and official signed SDK workflows; not native AWS Aurora conformance",
+  "baseline": "0086b25",
+  "schema": 214,
+  "inputs": {
+    "awsSDKModels": "113bc91bf12edc3af1d3aba1c70be28494d54c2a",
+    "coverageDocs": "14444d5e84c592efe294222ac87eb3fd0a869188",
+    "postgres": "postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652",
+    "postgresVersion": "17.11",
+    "mysql": "mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d",
+    "mysqlVersion": "8.4.11"
+  },
+  "persistentExecutable": {
+    "script": "scripts/aws/rds_executable_smoke.py",
+    "stateDirectory": "/tmp/stackd-rds-proof-20260926-c",
+    "controllerExitStatuses": [0, 0],
+    "postgresEndpoint": {"Address": "127.0.0.1", "Port": 42599},
+    "mysqlEndpoint": {"Address": "127.0.0.1", "Port": 42602},
+    "bothEngineDataAPI": {
+      "committedRowCount": 4,
+      "rolledBackRowCount": 3,
+      "decimal": "123456789012.3456",
+      "blobBase64": "AAH+/w==",
+      "nullAndFormattedJSON": true,
+      "batchExecution": true,
+      "nativeSQLErrors": true
+    },
+    "iam": {"secretDenial": "AccessDeniedException", "dataDenial": true, "allowAfterPolicy": true},
+    "accountAndRegionIsolation": true,
+    "controllerRestart": {"committedBytesRetained": true, "unfinishedTransactionRolledBack": true, "oldTransactionIDRejected": true},
+    "bothEngineStandaloneLifecycle": {"stopStart": true, "independentSnapshotRestore": true, "passwordRotation": true, "oldPasswordDenied": true, "deletionProtection": true},
+    "bothEngineClusterLifecycle": {"stopStart": true, "stoppedDataAPIDenied": true, "independentSnapshotRestoreWithWriter": true},
+    "cloudTrailS3Delivery": {
+      "dataOperations": ["BatchExecuteStatement", "BeginTransaction", "CommitTransaction", "ExecuteStatement", "RollbackTransaction"],
+      "dataRecords": 46,
+      "eventSource": "rdsdataapi.amazonaws.com",
+      "eventType": "Rds Data Service",
+      "category": "Data",
+      "persistedBeforeRestart": true,
+      "SQLAndValuesRedacted": true,
+      "managementDefaultStillAwsApiCall": true,
+      "nativeIdentityEvidence": "testdata/aws/rds/data_audit_documentation.json"
+    },
+    "eventBridgeSQSObservedIDs": ["RDS-EVENT-0005", "RDS-EVENT-0016", "RDS-EVENT-0042", "RDS-EVENT-0087", "RDS-EVENT-0088", "RDS-EVENT-0170"],
+    "cloudWatch": {"namespace": "AWS/RDS", "metric": "DatabaseConnections", "heldNativeTransactionMeasured": true},
+    "passwordAbsentFromSQLiteAndControllerLogs": true,
+    "raceDetectorReports": 0,
+    "cleanup": {"namespace": "stackd-rds-31630a3ae0bf39bdd5d81031", "failures": [], "containers": [], "volumes": []}
+  },
+  "ephemeralExecutable": {
+    "proof": "Separate throwaway signed SDK create plus returned native PostgreSQL SELECT 123, then SIGTERM without API deletion; script removed after proof",
+    "nativeResult": 123,
+    "controllerExitStatus": 0,
+    "automaticCleanup": {"namespace": "stackd-rds-d8631027-d31b-4340-8984-5e47415d2a0d", "containers": [], "volumes": []}
+  },
+  "nativeControlCalibration": {
+    "fixture": "testdata/aws/rds/controls.json",
+    "account": "000000000000",
+    "region": "us-east-1",
+    "observations": 35,
+    "ownedFreeParameterGroups": 4,
+    "ownedGroupsVerifiedGone": 4,
+    "billableDatabaseEngines": 0,
+    "localReplay": "scripts/aws/rds_controls_replay.py",
+    "matchedStableCases": 26,
+    "excludedCases": 9,
+    "exclusionReasons": ["Eight native Aurora MySQL 8.0 family cases are not upstream MySQL 8.4 equivalence", "One timing-dependent cloud cluster-group pending-change reset observation; unattached local groups publish atomically"],
+    "controllerExitStatus": 0,
+    "cleanupContainers": [],
+    "cleanupVolumes": []
+  },
+  "regressionsFoundAndFixed": [
+    "Matching a Data trail exposed generated event-source metadata disagreement with native documentation; fixed in existing model corrections rather than suppressing recording failure",
+    "Official SDK fixture replay exposed HTTP 400 instead of native 404 for missing RDS resources; all supported missing-resource mappings corrected",
+    "Native PostgreSQL zero-argument simple-protocol execution accepted multiple statements under altered string mode; native preparation now rejects it and a failing-before/passing-after regression is retained"
+  ],
+  "scopedVerification": [
+    "STACKD_RDS_DOCKER=1 go test -race -count=1 -v ./engine/rds",
+    "STACKD_RDSDATA_NATIVE=1 go test -race ./internal/services/rdsdata -count=1 -v",
+    "go test -race ./internal/services/rds ./storage/sqlite/rds ./internal/services/rdsdata",
+    "go test ./journal ./storage/sqlite/journal ./internal/apievents ./storage/sqlite",
+    "go vet and staticcheck on owned engine/service/storage/integration/journal/CLI packages",
+    "awsgen -check with pinned SDK checkout; make generate-sql-check; coveragegen -check with pinned coverage checkout"
+  ],
+  "limitations": [
+    "This is upstream PostgreSQL/MySQL execution, not Aurora distributed storage, replication or failover",
+    "VPC packet enforcement, cloud storage/encryption, managed authentication/rotation, automatic backups and other documented unsupported controls are not simulated",
+    "Native Aurora Data API audit identity is documentation-derived from an example dated 2019, not fresh native trail delivery",
+    "Native AWS calibration provisioned no database engines and no trails"
+  ]
+}

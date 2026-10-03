@@ -1,0 +1,4265 @@
+{
+  "source": "Local deterministic admission invariants using native error/mutation contracts. Pressure loops stop at observed rejection; no AWS private burst ordinal is asserted. Native evidence: testdata/aws/dynamodb/{read_throttling,write_throttling,throughput_boundaries,on_demand_limits,decrease_limits,billing_mode_limits}.json.",
+  "scenarios": [
+    {
+      "name": "table-batches-and-pending-metrics",
+      "tables": [
+        {
+          "TableName": "quota-base",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 1,
+            "WriteCapacityUnits": 1
+          },
+          "StreamSpecification": {
+            "StreamEnabled": true,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          }
+        },
+        {
+          "TableName": "quota-open",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "BillingMode": "PAY_PER_REQUEST"
+        }
+      ],
+      "steps": [
+        {
+          "name": "exhaust-writes",
+          "untilThrottled": true,
+          "operation": "PutItem",
+          "input": {
+            "TableName": "quota-base",
+            "Item": {
+              "pk": {
+                "S": "large"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableWriteProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reject-update-before-mutation",
+          "operation": "UpdateItem",
+          "input": {
+            "TableName": "quota-base",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "UpdateExpression": "SET bad=:v",
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "rejected"
+              }
+            }
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableWriteProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "partiql-write-verb",
+          "operation": "ExecuteStatement",
+          "input": {
+            "Statement": "UPDATE \"quota-base\" SET bad=? WHERE pk=?",
+            "Parameters": [
+              {
+                "S": "rejected"
+              },
+              {
+                "S": "large"
+              }
+            ]
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableWriteProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "partiql-write-operation-type",
+          "operation": "ExecuteTransaction",
+          "input": {
+            "TransactStatements": [
+              {
+                "Statement": "UPDATE \"quota-base\" SET bad=? WHERE pk=?",
+                "Parameters": [
+                  {
+                    "S": "rejected"
+                  },
+                  {
+                    "S": "large"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableWriteProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "partiql-partial-batch",
+          "operation": "BatchExecuteStatement",
+          "input": {
+            "Statements": [
+              {
+                "Statement": "UPDATE \"quota-base\" SET bad=? WHERE pk=?",
+                "Parameters": [
+                  {
+                    "S": "rejected"
+                  },
+                  {
+                    "S": "large"
+                  }
+                ]
+              },
+              {
+                "Statement": "INSERT INTO \"quota-open\" VALUE {'pk':?}",
+                "Parameters": [
+                  {
+                    "S": "partiql-accepted"
+                  }
+                ]
+              }
+            ]
+          },
+          "want": {
+            "Responses": [
+              {
+                "TableName": "quota-base",
+                "Error": {
+                  "Code": "ProvisionedThroughputExceeded"
+                }
+              },
+              {
+                "TableName": "quota-open"
+              }
+            ]
+          }
+        },
+        {
+          "name": "partiql-accepted-sibling-visible",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "quota-open",
+            "Key": {
+              "pk": {
+                "S": "partiql-accepted"
+              }
+            },
+            "ConsistentRead": true
+          },
+          "want": {
+            "Item": {
+              "pk": {
+                "S": "partiql-accepted"
+              }
+            }
+          }
+        },
+        {
+          "name": "validate-entire-mixed-batch",
+          "operation": "BatchWriteItem",
+          "input": {
+            "RequestItems": {
+              "quota-open": [
+                {
+                  "PutRequest": {
+                    "Item": {
+                      "pk": {
+                        "S": "invalid-sibling"
+                      }
+                    }
+                  }
+                }
+              ],
+              "quota-base": [
+                {
+                  "PutRequest": {
+                    "Item": {
+                      "pk": {
+                        "S": "invalid"
+                      },
+                      "ss": {
+                        "SS": []
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "invalid-batch-preserves-sibling",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "quota-open",
+            "Key": {
+              "pk": {
+                "S": "invalid-sibling"
+              }
+            },
+            "ConsistentRead": true
+          },
+          "want": {
+            "Item": null
+          }
+        },
+        {
+          "name": "retain-partial-write",
+          "operation": "BatchWriteItem",
+          "input": {
+            "RequestItems": {
+              "quota-base": [
+                {
+                  "PutRequest": {
+                    "Item": {
+                      "pk": {
+                        "S": "blocked"
+                      }
+                    }
+                  }
+                }
+              ],
+              "quota-open": [
+                {
+                  "PutRequest": {
+                    "Item": {
+                      "pk": {
+                        "S": "accepted"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "want": {
+            "UnprocessedItems": {
+              "quota-base": [
+                {
+                  "PutRequest": {
+                    "Item": {
+                      "pk": {
+                        "S": "blocked"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "all-throttled-batch-is-error",
+          "operation": "BatchWriteItem",
+          "input": {
+            "RequestItems": {
+              "quota-base": [
+                {
+                  "DeleteRequest": {
+                    "Key": {
+                      "pk": {
+                        "S": "large"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableWriteProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "atomic-transaction-rejection",
+          "operation": "TransactWriteItems",
+          "input": {
+            "TransactItems": [
+              {
+                "Update": {
+                  "TableName": "quota-base",
+                  "Key": {
+                    "pk": {
+                      "S": "large"
+                    }
+                  },
+                  "UpdateExpression": "SET bad=:v",
+                  "ExpressionAttributeValues": {
+                    ":v": {
+                      "S": "rejected"
+                    }
+                  }
+                }
+              },
+              {
+                "Put": {
+                  "TableName": "quota-open",
+                  "Item": {
+                    "pk": {
+                      "S": "transaction-sibling"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableWriteProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "transaction-sibling-absent",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "quota-open",
+            "Key": {
+              "pk": {
+                "S": "transaction-sibling"
+              }
+            },
+            "ConsistentRead": true
+          },
+          "want": {
+            "Item": null
+          }
+        },
+        {
+          "name": "rejected-mutations-and-delete-absent",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "quota-base",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk, bad"
+          },
+          "want": {
+            "Item": {
+              "pk": {
+                "S": "large"
+              }
+            }
+          }
+        },
+        {
+          "name": "exhaust-independent-reads",
+          "untilThrottled": true,
+          "operation": "GetItem",
+          "input": {
+            "TableName": "quota-base",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk"
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableReadProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "retain-partial-read",
+          "operation": "BatchGetItem",
+          "input": {
+            "RequestItems": {
+              "quota-base": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "large"
+                    }
+                  }
+                ],
+                "ConsistentRead": true,
+                "ProjectionExpression": "pk"
+              },
+              "quota-open": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "accepted"
+                    }
+                  }
+                ],
+                "ConsistentRead": true
+              }
+            }
+          },
+          "want": {
+            "Responses": {
+              "quota-open": [
+                {
+                  "pk": {
+                    "S": "accepted"
+                  }
+                }
+              ]
+            },
+            "UnprocessedKeys": {
+              "quota-base": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "large"
+                    }
+                  }
+                ],
+                "ConsistentRead": true,
+                "ProjectionExpression": "pk"
+              }
+            }
+          }
+        },
+        {
+          "name": "all-throttled-read-is-error",
+          "operation": "BatchGetItem",
+          "input": {
+            "RequestItems": {
+              "quota-base": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "large"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableReadProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "atomic-read-rejection",
+          "operation": "TransactGetItems",
+          "input": {
+            "TransactItems": [
+              {
+                "Get": {
+                  "TableName": "quota-base",
+                  "Key": {
+                    "pk": {
+                      "S": "large"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableReadProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "partiql-read-verb",
+          "operation": "ExecuteStatement",
+          "input": {
+            "Statement": "SELECT pk FROM \"quota-base\" WHERE pk=?",
+            "Parameters": [
+              {
+                "S": "large"
+              }
+            ]
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableReadProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "partiql-read-operation-type",
+          "operation": "ExecuteTransaction",
+          "input": {
+            "TransactStatements": [
+              {
+                "Statement": "SELECT pk FROM \"quota-base\" WHERE pk=?",
+                "Parameters": [
+                  {
+                    "S": "large"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "TableReadProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-base"
+              }
+            ]
+          }
+        },
+        {
+          "name": "retain-unpublished-operation-dimensions",
+          "reopen": true
+        },
+        {
+          "name": "publish-retained-minute",
+          "advance": "1m"
+        }
+      ],
+      "metrics": [
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "PutItem",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "UpdateItem",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "BatchWriteItem",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "TransactWriteItems",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "GetItem",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "BatchGetItem",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "TransactGetItems",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "ExecuteStatement",
+          "verb": "PartiQLUpdate",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "ExecuteStatement",
+          "verb": "PartiQLSelect",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "ExecuteTransaction",
+          "operationType": "Read",
+          "sum": 1
+        },
+        {
+          "table": "quota-base",
+          "name": "ThrottledRequests",
+          "operation": "ExecuteTransaction",
+          "operationType": "Write",
+          "sum": 1
+        }
+      ],
+      "streamForbidden": {
+        "quota-base": [
+          "bad"
+        ]
+      }
+    },
+    {
+      "name": "index-backpressure-and-recovery",
+      "tables": [
+        {
+          "TableName": "quota-index",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gpk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 32,
+            "WriteCapacityUnits": 32
+          },
+          "StreamSpecification": {
+            "StreamEnabled": true,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "pressure-index",
+              "KeySchema": [
+                {
+                  "AttributeName": "gpk",
+                  "KeyType": "HASH"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "INCLUDE",
+                "NonKeyAttributes": [
+                  "payload"
+                ]
+              },
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 1,
+                "WriteCapacityUnits": 1
+              }
+            }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "name": "exhaust-index-writes",
+          "untilThrottled": true,
+          "operation": "PutItem",
+          "input": {
+            "TableName": "quota-index",
+            "Item": {
+              "pk": {
+                "S": "large"
+              },
+              "gpk": {
+                "S": "indexed"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "IndexWriteProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-index/index/pressure-index"
+              }
+            ]
+          }
+        },
+        {
+          "name": "unchanged-projection-still-backpressures",
+          "operation": "UpdateItem",
+          "input": {
+            "TableName": "quota-index",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "UpdateExpression": "SET bad=:v",
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "rejected"
+              }
+            }
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "IndexWriteProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-index/index/pressure-index"
+              }
+            ]
+          }
+        },
+        {
+          "name": "independent-index-read-budget",
+          "untilThrottled": true,
+          "operation": "Query",
+          "input": {
+            "TableName": "quota-index",
+            "IndexName": "pressure-index",
+            "KeyConditionExpression": "gpk=:v",
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "indexed"
+              }
+            },
+            "ProjectionExpression": "pk"
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "IndexReadProvisionedThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/quota-index/index/pressure-index"
+              }
+            ]
+          }
+        },
+        {
+          "name": "base-read-remains-available",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "quota-index",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk, bad"
+          },
+          "want": {
+            "Item": {
+              "pk": {
+                "S": "large"
+              }
+            }
+          }
+        },
+        {
+          "name": "apply-index-scaling",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "quota-index",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "pressure-index",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 32,
+                    "WriteCapacityUnits": 32
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "recover-through-service-time",
+          "advance": "1m"
+        },
+        {
+          "name": "accept-after-index-recovery",
+          "operation": "UpdateItem",
+          "input": {
+            "TableName": "quota-index",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "UpdateExpression": "SET recovered=:v",
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "yes"
+              }
+            }
+          }
+        },
+        {
+          "name": "only-recovered-mutation-visible",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "quota-index",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk, bad, recovered"
+          },
+          "want": {
+            "Item": {
+              "pk": {
+                "S": "large"
+              },
+              "recovered": {
+                "S": "yes"
+              }
+            }
+          }
+        }
+      ],
+      "metrics": [
+        {
+          "table": "quota-index",
+          "index": "pressure-index",
+          "name": "WriteThrottleEvents",
+          "sum": 2
+        },
+        {
+          "table": "quota-index",
+          "index": "pressure-index",
+          "name": "ReadThrottleEvents",
+          "sum": 1
+        }
+      ],
+      "streamForbidden": {
+        "quota-index": [
+          "bad"
+        ]
+      }
+    },
+    {
+      "name": "same-table-projected-reads",
+      "tables": [
+        {
+          "TableName": "quota-partial-read",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 1,
+            "WriteCapacityUnits": 32
+          }
+        }
+      ],
+      "steps": [
+        {
+          "name": "seed-one",
+          "operation": "PutItem",
+          "input": {
+            "TableName": "quota-partial-read",
+            "Item": {
+              "pk": {
+                "S": "one"
+              },
+              "label": {
+                "S": "one"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          }
+        },
+        {
+          "name": "seed-two",
+          "operation": "PutItem",
+          "input": {
+            "TableName": "quota-partial-read",
+            "Item": {
+              "pk": {
+                "S": "two"
+              },
+              "label": {
+                "S": "two"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          }
+        },
+        {
+          "name": "seed-three",
+          "operation": "PutItem",
+          "input": {
+            "TableName": "quota-partial-read",
+            "Item": {
+              "pk": {
+                "S": "three"
+              },
+              "label": {
+                "S": "three"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          }
+        },
+        {
+          "name": "exhaust-read-credit",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "quota-partial-read",
+            "Key": {
+              "pk": {
+                "S": "one"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk"
+          },
+          "untilThrottled": true,
+          "code": "ProvisionedThroughputExceededException"
+        },
+        {
+          "name": "restore-limited-read-credit",
+          "advance": "90s"
+        },
+        {
+          "name": "partial-read-and-verbatim-retry",
+          "operation": "BatchGetItem",
+          "input": {
+            "RequestItems": {
+              "quota-partial-read": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "one"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "two"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "three"
+                    }
+                  }
+                ],
+                "ConsistentRead": true,
+                "ProjectionExpression": "#label",
+                "ExpressionAttributeNames": {
+                  "#label": "label"
+                }
+              }
+            },
+            "ReturnConsumedCapacity": "INDEXES"
+          },
+          "partialReadUnits": 88,
+          "want": {
+            "Responses": {
+              "quota-partial-read": [
+                {
+                  "label": {
+                    "S": "one"
+                  }
+                },
+                {
+                  "label": {
+                    "S": "two"
+                  }
+                },
+                {
+                  "label": {
+                    "S": "three"
+                  }
+                }
+              ]
+            },
+            "UnprocessedKeys": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "same-table-missing-reads",
+      "tables": [
+        {
+          "TableName": "quota-missing-read",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 1,
+            "WriteCapacityUnits": 32
+          }
+        }
+      ],
+      "steps": [
+        {
+          "name": "exhaust-read-credit",
+          "operation": "BatchGetItem",
+          "input": {
+            "RequestItems": {
+              "quota-missing-read": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "absent0"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent1"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent2"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent3"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent4"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent5"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent6"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent7"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent8"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent9"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent10"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent11"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent12"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent13"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent14"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent15"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent16"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent17"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent18"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent19"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "untilThrottled": true,
+          "code": "ProvisionedThroughputExceededException"
+        },
+        {
+          "name": "restore-limited-read-credit",
+          "advance": "1s"
+        },
+        {
+          "name": "partial-read-and-verbatim-retry",
+          "operation": "BatchGetItem",
+          "input": {
+            "RequestItems": {
+              "quota-missing-read": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "absent-a"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent-b"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent-c"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent-d"
+                    }
+                  }
+                ],
+                "ConsistentRead": false,
+                "ProjectionExpression": "#label",
+                "ExpressionAttributeNames": {
+                  "#label": "label"
+                }
+              }
+            },
+            "ReturnConsumedCapacity": "INDEXES"
+          },
+          "partialReadUnits": 0.5,
+          "want": {
+            "Responses": {
+              "quota-missing-read": []
+            },
+            "UnprocessedKeys": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "on-demand-control-transitions",
+      "tables": [
+        {
+          "TableName": "ondemand-controls",
+          "BillingMode": "PAY_PER_REQUEST",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gpk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "OnDemandThroughput": {
+            "MaxReadRequestUnits": 17
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "capped-index",
+              "KeySchema": [
+                {
+                  "AttributeName": "gpk",
+                  "KeyType": "HASH"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "OnDemandThroughput": {
+                "MaxWriteRequestUnits": 13
+              }
+            }
+          ]
+        },
+        {
+          "TableName": "ondemand-write-only",
+          "BillingMode": "PAY_PER_REQUEST",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "OnDemandThroughput": {
+            "MaxWriteRequestUnits": 29
+          }
+        },
+        {
+          "TableName": "ondemand-empty",
+          "BillingMode": "PAY_PER_REQUEST",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "OnDemandThroughput": {}
+        }
+      ],
+      "steps": [
+        {
+          "name": "read-only-create-and-independent-index",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "ondemand-controls"
+          },
+          "want": {
+            "Table.OnDemandThroughput": {
+              "MaxReadRequestUnits": 17
+            },
+            "Table.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+              "MaxWriteRequestUnits": 13
+            }
+          }
+        },
+        {
+          "name": "write-only-create",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "ondemand-write-only"
+          },
+          "want": {
+            "Table.OnDemandThroughput": {
+              "MaxWriteRequestUnits": 29
+            }
+          }
+        },
+        {
+          "name": "empty-create-omits-controls",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "ondemand-empty"
+          },
+          "want": {
+            "Table.OnDemandThroughput": null
+          }
+        },
+        {
+          "name": "add-write-retains-read",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {
+              "MaxWriteRequestUnits": 23
+            }
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.OnDemandThroughput": {
+              "MaxReadRequestUnits": 17,
+              "MaxWriteRequestUnits": 23
+            }
+          }
+        },
+        {
+          "name": "change-read-retains-write",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {
+              "MaxReadRequestUnits": 19
+            }
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.OnDemandThroughput": {
+              "MaxReadRequestUnits": 19,
+              "MaxWriteRequestUnits": 23
+            }
+          }
+        },
+        {
+          "name": "remove-read-retains-write",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {
+              "MaxReadRequestUnits": -1
+            }
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.OnDemandThroughput": {
+              "MaxReadRequestUnits": -1,
+              "MaxWriteRequestUnits": 23
+            }
+          }
+        },
+        {
+          "name": "remove-write-drops-previous-removal",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {
+              "MaxWriteRequestUnits": -1
+            }
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.OnDemandThroughput": {
+              "MaxWriteRequestUnits": -1
+            }
+          }
+        },
+        {
+          "name": "set-read-does-not-revive-write",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {
+              "MaxReadRequestUnits": 31
+            }
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.OnDemandThroughput": {
+              "MaxReadRequestUnits": 31
+            }
+          }
+        },
+        {
+          "name": "index-add-read-retains-write",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "capped-index",
+                  "OnDemandThroughput": {
+                    "MaxReadRequestUnits": 7
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+              "MaxReadRequestUnits": 7,
+              "MaxWriteRequestUnits": 13
+            }
+          }
+        },
+        {
+          "name": "index-remove-write-retains-read",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "capped-index",
+                  "OnDemandThroughput": {
+                    "MaxWriteRequestUnits": -1
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+              "MaxReadRequestUnits": 7,
+              "MaxWriteRequestUnits": -1
+            }
+          }
+        },
+        {
+          "name": "index-remove-read-drops-previous-removal",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "capped-index",
+                  "OnDemandThroughput": {
+                    "MaxReadRequestUnits": -1
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+              "MaxReadRequestUnits": -1
+            }
+          }
+        },
+        {
+          "name": "index-set-write-does-not-revive-read",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "capped-index",
+                  "OnDemandThroughput": {
+                    "MaxWriteRequestUnits": 11
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+              "MaxWriteRequestUnits": 11
+            }
+          }
+        },
+        {
+          "name": "unrelated-native-observation",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "StreamSpecification": {
+              "StreamEnabled": true,
+              "StreamViewType": "NEW_IMAGE"
+            }
+          }
+        },
+        {
+          "name": "observation-retains-go-owned-controls",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "ondemand-controls"
+          },
+          "want": {
+            "Table.OnDemandThroughput": {
+              "MaxReadRequestUnits": 31
+            },
+            "Table.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+              "MaxWriteRequestUnits": 11
+            }
+          }
+        },
+        {
+          "name": "create-index-with-one-limit",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-write-only",
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "gpk",
+                "AttributeType": "S"
+              }
+            ],
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Create": {
+                  "IndexName": "created-index",
+                  "KeySchema": [
+                    {
+                      "AttributeName": "gpk",
+                      "KeyType": "HASH"
+                    }
+                  ],
+                  "Projection": {
+                    "ProjectionType": "ALL"
+                  },
+                  "OnDemandThroughput": {
+                    "MaxReadRequestUnits": 5
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "created-index-does-not-inherit-table-limit",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "ondemand-write-only"
+          },
+          "want": {
+            "Table.OnDemandThroughput": {
+              "MaxWriteRequestUnits": 29
+            },
+            "Table.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+              "MaxReadRequestUnits": 5
+            }
+          }
+        },
+        {
+          "name": "zero-is-not-removal",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {
+              "MaxReadRequestUnits": 0
+            }
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "below-removal-sentinel-is-invalid",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {
+              "MaxReadRequestUnits": -2
+            }
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "create-cannot-remove-a-limit",
+          "operation": "CreateTable",
+          "input": {
+            "TableName": "ondemand-invalid-create",
+            "BillingMode": "PAY_PER_REQUEST",
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "pk",
+                "AttributeType": "S"
+              }
+            ],
+            "KeySchema": [
+              {
+                "AttributeName": "pk",
+                "KeyType": "HASH"
+              }
+            ],
+            "OnDemandThroughput": {
+              "MaxReadRequestUnits": -1
+            }
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "new-index-cannot-remove-a-limit",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-empty",
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "gpk",
+                "AttributeType": "S"
+              }
+            ],
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Create": {
+                  "IndexName": "sentinel-index",
+                  "KeySchema": [
+                    {
+                      "AttributeName": "gpk",
+                      "KeyType": "HASH"
+                    }
+                  ],
+                  "Projection": {
+                    "ProjectionType": "ALL"
+                  },
+                  "OnDemandThroughput": {
+                    "MaxReadRequestUnits": -1,
+                    "MaxWriteRequestUnits": 3
+                  }
+                }
+              }
+            ]
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "configured-maximum-quota",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {
+              "MaxWriteRequestUnits": 40001
+            }
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "empty-table-update-native-error",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {}
+          },
+          "code": "InternalFailure"
+        },
+        {
+          "name": "empty-index-update-native-error",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "capped-index",
+                  "OnDemandThroughput": {}
+                }
+              }
+            ]
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "retained-controls-and-rejected-updates",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "ondemand-controls"
+          },
+          "want": {
+            "Table.OnDemandThroughput": {
+              "MaxReadRequestUnits": 31
+            },
+            "Table.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+              "MaxWriteRequestUnits": 11
+            }
+          },
+          "reopen": true
+        },
+        {
+          "name": "switch-to-provisioned",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 3,
+              "WriteCapacityUnits": 4
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "capped-index",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 2,
+                    "WriteCapacityUnits": 2
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "provisioned-clears-all-maximums",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "ondemand-controls"
+          },
+          "want": {
+            "Table.OnDemandThroughput": null,
+            "Table.GlobalSecondaryIndexes.0.OnDemandThroughput": null,
+            "Table.BillingModeSummary.BillingMode": "PROVISIONED"
+          }
+        },
+        {
+          "name": "provisioned-cannot-configure-maximum",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "OnDemandThroughput": {
+              "MaxReadRequestUnits": 1
+            }
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "return-to-on-demand",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-controls",
+            "BillingMode": "PAY_PER_REQUEST"
+          }
+        },
+        {
+          "name": "mode-round-trip-does-not-restore-old-limits",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "ondemand-controls"
+          },
+          "want": {
+            "Table.OnDemandThroughput": null,
+            "Table.GlobalSecondaryIndexes.0.OnDemandThroughput": null,
+            "Table.BillingModeSummary.BillingMode": "PAY_PER_REQUEST"
+          }
+        }
+      ]
+    },
+    {
+      "name": "on-demand-table-admission",
+      "tables": [
+        {
+          "TableName": "ondemand-table",
+          "BillingMode": "PAY_PER_REQUEST",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "OnDemandThroughput": {
+            "MaxReadRequestUnits": 1,
+            "MaxWriteRequestUnits": 1
+          },
+          "StreamSpecification": {
+            "StreamEnabled": true,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          }
+        },
+        {
+          "TableName": "ondemand-free",
+          "BillingMode": "PAY_PER_REQUEST",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "name": "exhaust-table-writes",
+          "operation": "PutItem",
+          "input": {
+            "TableName": "ondemand-table",
+            "Item": {
+              "pk": {
+                "S": "large"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "TableWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-table"
+              }
+            ]
+          },
+          "code": "ThrottlingException",
+          "untilThrottled": true
+        },
+        {
+          "name": "scalar-write-remains-rejected",
+          "operation": "UpdateItem",
+          "input": {
+            "TableName": "ondemand-table",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "UpdateExpression": "SET #field=:v",
+            "ExpressionAttributeNames": {
+              "#field": "bad"
+            },
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "rejected"
+              }
+            }
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "TableWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-table"
+              }
+            ]
+          },
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "batch-write-keeps-accepted-sibling",
+          "operation": "BatchWriteItem",
+          "input": {
+            "RequestItems": {
+              "ondemand-table": [
+                {
+                  "PutRequest": {
+                    "Item": {
+                      "pk": {
+                        "S": "batch"
+                      },
+                      "bad": {
+                        "S": "rejected"
+                      }
+                    }
+                  }
+                }
+              ],
+              "ondemand-free": [
+                {
+                  "PutRequest": {
+                    "Item": {
+                      "pk": {
+                        "S": "accepted"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "want": {
+            "UnprocessedItems": {
+              "ondemand-table": [
+                {
+                  "PutRequest": {
+                    "Item": {
+                      "pk": {
+                        "S": "batch"
+                      },
+                      "bad": {
+                        "S": "rejected"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "wholly-rejected-write-batch",
+          "operation": "BatchWriteItem",
+          "input": {
+            "RequestItems": {
+              "ondemand-table": [
+                {
+                  "DeleteRequest": {
+                    "Key": {
+                      "pk": {
+                        "S": "large"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "TableWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-table"
+              }
+            ]
+          },
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "transaction-does-not-write-either-table",
+          "operation": "TransactWriteItems",
+          "input": {
+            "TransactItems": [
+              {
+                "Update": {
+                  "TableName": "ondemand-table",
+                  "Key": {
+                    "pk": {
+                      "S": "large"
+                    }
+                  },
+                  "UpdateExpression": "SET #field=:v",
+                  "ExpressionAttributeNames": {
+                    "#field": "txbad"
+                  },
+                  "ExpressionAttributeValues": {
+                    ":v": {
+                      "S": "rejected"
+                    }
+                  }
+                }
+              },
+              {
+                "Put": {
+                  "TableName": "ondemand-free",
+                  "Item": {
+                    "pk": {
+                      "S": "tx-sibling"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "TableWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-table"
+              }
+            ]
+          },
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "partiql-transaction-does-not-write-either-table",
+          "operation": "ExecuteTransaction",
+          "input": {
+            "TransactStatements": [
+              {
+                "Statement": "UPDATE \"ondemand-table\" SET \"execbad\"=? WHERE \"pk\"=?",
+                "Parameters": [
+                  {
+                    "S": "rejected"
+                  },
+                  {
+                    "S": "large"
+                  }
+                ]
+              },
+              {
+                "Statement": "INSERT INTO \"ondemand-free\" VALUE {'pk': ?}",
+                "Parameters": [
+                  {
+                    "S": "exec-sibling"
+                  }
+                ]
+              }
+            ]
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "TableWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-table"
+              }
+            ]
+          },
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "statement-batch-keeps-individual-errors",
+          "operation": "BatchExecuteStatement",
+          "input": {
+            "Statements": [
+              {
+                "Statement": "UPDATE \"ondemand-table\" SET \"stmtbad\"=? WHERE \"pk\"=?",
+                "Parameters": [
+                  {
+                    "S": "rejected"
+                  },
+                  {
+                    "S": "large"
+                  }
+                ]
+              },
+              {
+                "Statement": "UPDATE \"ondemand-table\" SET \"stmtbad\"=? WHERE \"pk\"=?",
+                "Parameters": [
+                  {
+                    "S": "rejected"
+                  },
+                  {
+                    "S": "not-created"
+                  }
+                ]
+              }
+            ]
+          },
+          "want": {
+            "Responses": [
+              {
+                "TableName": "ondemand-table",
+                "Error": {
+                  "Code": "ThrottlingError"
+                }
+              },
+              {
+                "TableName": "ondemand-table",
+                "Error": {
+                  "Code": "ThrottlingError"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "exhaust-table-reads",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-table",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk"
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "TableReadMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-table"
+              }
+            ]
+          },
+          "code": "ThrottlingException",
+          "untilThrottled": true
+        },
+        {
+          "name": "batch-read-keeps-accepted-sibling",
+          "operation": "BatchGetItem",
+          "input": {
+            "RequestItems": {
+              "ondemand-table": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "large"
+                    }
+                  }
+                ],
+                "ConsistentRead": true,
+                "ProjectionExpression": "pk"
+              },
+              "ondemand-free": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "accepted"
+                    }
+                  }
+                ],
+                "ConsistentRead": true
+              }
+            }
+          },
+          "want": {
+            "Responses": {
+              "ondemand-free": [
+                {
+                  "pk": {
+                    "S": "accepted"
+                  }
+                }
+              ]
+            },
+            "UnprocessedKeys": {
+              "ondemand-table": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "large"
+                    }
+                  }
+                ],
+                "ConsistentRead": true,
+                "ProjectionExpression": "pk"
+              }
+            }
+          }
+        },
+        {
+          "name": "wholly-rejected-read-batch",
+          "operation": "BatchGetItem",
+          "input": {
+            "RequestItems": {
+              "ondemand-table": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "large"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "absent"
+                    }
+                  }
+                ],
+                "ConsistentRead": true
+              }
+            }
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "TableReadMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-table"
+              }
+            ]
+          },
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "read-transaction-is-rejected",
+          "operation": "TransactGetItems",
+          "input": {
+            "TransactItems": [
+              {
+                "Get": {
+                  "TableName": "ondemand-table",
+                  "Key": {
+                    "pk": {
+                      "S": "large"
+                    }
+                  },
+                  "ProjectionExpression": "pk"
+                }
+              },
+              {
+                "Get": {
+                  "TableName": "ondemand-free",
+                  "Key": {
+                    "pk": {
+                      "S": "accepted"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "TableReadMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-table"
+              }
+            ]
+          },
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "transaction-sibling-absent",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-free",
+            "Key": {
+              "pk": {
+                "S": "tx-sibling"
+              }
+            },
+            "ConsistentRead": true
+          },
+          "want": {
+            "Item": null
+          }
+        },
+        {
+          "name": "partiql-transaction-sibling-absent",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-free",
+            "Key": {
+              "pk": {
+                "S": "exec-sibling"
+              }
+            },
+            "ConsistentRead": true
+          },
+          "want": {
+            "Item": null
+          }
+        },
+        {
+          "name": "remove-read-limit-without-resetting-write-debt",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-table",
+            "OnDemandThroughput": {
+              "MaxReadRequestUnits": -1
+            }
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.OnDemandThroughput": {
+              "MaxReadRequestUnits": -1,
+              "MaxWriteRequestUnits": 1
+            }
+          }
+        },
+        {
+          "name": "removed-read-limit-recovers",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-table",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk, bad, txbad, execbad, stmtbad"
+          },
+          "want": {
+            "Item": {
+              "pk": {
+                "S": "large"
+              }
+            }
+          }
+        },
+        {
+          "name": "other-direction-remains-throttled",
+          "operation": "UpdateItem",
+          "input": {
+            "TableName": "ondemand-table",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "UpdateExpression": "SET #field=:v",
+            "ExpressionAttributeNames": {
+              "#field": "bad"
+            },
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "rejected"
+              }
+            }
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "TableWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-table"
+              }
+            ]
+          },
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "remove-write-limit",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-table",
+            "OnDemandThroughput": {
+              "MaxWriteRequestUnits": -1
+            }
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE",
+            "TableDescription.OnDemandThroughput": {
+              "MaxWriteRequestUnits": -1
+            }
+          }
+        },
+        {
+          "name": "removed-write-limit-recovers",
+          "operation": "UpdateItem",
+          "input": {
+            "TableName": "ondemand-table",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "UpdateExpression": "SET recovered=:v",
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "yes"
+              }
+            }
+          }
+        },
+        {
+          "name": "only-accepted-effects-visible",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-table",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk, bad, txbad, execbad, stmtbad, recovered"
+          },
+          "want": {
+            "Item": {
+              "pk": {
+                "S": "large"
+              },
+              "recovered": {
+                "S": "yes"
+              }
+            }
+          }
+        },
+        {
+          "name": "retain-and-publish-reason-metrics",
+          "reopen": true,
+          "advance": "1m"
+        }
+      ],
+      "metrics": [
+        {
+          "table": "ondemand-table",
+          "name": "WriteMaxOnDemandThroughputThrottleEvents",
+          "sum": 9
+        },
+        {
+          "table": "ondemand-table",
+          "name": "ReadMaxOnDemandThroughputThrottleEvents",
+          "sum": 5
+        },
+        {
+          "table": "ondemand-table",
+          "name": "OnDemandMaxReadRequestUnits",
+          "sum": 1
+        },
+        {
+          "table": "ondemand-table",
+          "name": "OnDemandMaxWriteRequestUnits",
+          "sum": 1
+        }
+      ],
+      "streamForbidden": {
+        "ondemand-table": [
+          "bad",
+          "txbad",
+          "execbad",
+          "stmtbad"
+        ]
+      }
+    },
+    {
+      "name": "on-demand-index-admission",
+      "tables": [
+        {
+          "TableName": "ondemand-index",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gpk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "StreamSpecification": {
+            "StreamEnabled": true,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "pressure-index",
+              "KeySchema": [
+                {
+                  "AttributeName": "gpk",
+                  "KeyType": "HASH"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "INCLUDE",
+                "NonKeyAttributes": [
+                  "payload"
+                ]
+              },
+              "OnDemandThroughput": {
+                "MaxReadRequestUnits": 1,
+                "MaxWriteRequestUnits": 1
+              }
+            },
+            {
+              "IndexName": "uncapped-index",
+              "KeySchema": [
+                {
+                  "AttributeName": "gpk",
+                  "KeyType": "HASH"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "KEYS_ONLY"
+              }
+            }
+          ],
+          "BillingMode": "PAY_PER_REQUEST"
+        }
+      ],
+      "steps": [
+        {
+          "name": "exhaust-index-writes",
+          "untilThrottled": true,
+          "operation": "PutItem",
+          "input": {
+            "TableName": "ondemand-index",
+            "Item": {
+              "pk": {
+                "S": "large"
+              },
+              "gpk": {
+                "S": "indexed"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "IndexWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-index/index/pressure-index"
+              }
+            ]
+          }
+        },
+        {
+          "name": "unchanged-projection-still-backpressures",
+          "operation": "UpdateItem",
+          "input": {
+            "TableName": "ondemand-index",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "UpdateExpression": "SET bad=:v",
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "rejected"
+              }
+            }
+          },
+          "code": "ProvisionedThroughputExceededException",
+          "want": {
+            "ThrottlingReasons": [
+              {
+                "reason": "IndexWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-index/index/pressure-index"
+              }
+            ]
+          }
+        },
+        {
+          "name": "index-limited-transaction-is-not-scalar-ptee",
+          "operation": "TransactWriteItems",
+          "input": {
+            "TransactItems": [
+              {
+                "Update": {
+                  "TableName": "ondemand-index",
+                  "Key": {
+                    "pk": {
+                      "S": "large"
+                    }
+                  },
+                  "UpdateExpression": "SET #field=:v",
+                  "ExpressionAttributeNames": {
+                    "#field": "txbad"
+                  },
+                  "ExpressionAttributeValues": {
+                    ":v": {
+                      "S": "rejected"
+                    }
+                  }
+                }
+              },
+              {
+                "Put": {
+                  "TableName": "ondemand-index",
+                  "Item": {
+                    "pk": {
+                      "S": "tx-sibling"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "IndexWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-index/index/pressure-index"
+              }
+            ]
+          },
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "index-limited-partiql-transaction-is-not-scalar-ptee",
+          "operation": "ExecuteTransaction",
+          "input": {
+            "TransactStatements": [
+              {
+                "Statement": "UPDATE \"ondemand-index\" SET \"execbad\"=? WHERE \"pk\"=?",
+                "Parameters": [
+                  {
+                    "S": "rejected"
+                  },
+                  {
+                    "S": "large"
+                  }
+                ]
+              },
+              {
+                "Statement": "INSERT INTO \"ondemand-index\" VALUE {'pk': ?}",
+                "Parameters": [
+                  {
+                    "S": "exec-sibling"
+                  }
+                ]
+              }
+            ]
+          },
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "IndexWriteMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-index/index/pressure-index"
+              }
+            ]
+          },
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "index-limited-statement-error-is-throttling",
+          "operation": "BatchExecuteStatement",
+          "input": {
+            "Statements": [
+              {
+                "Statement": "UPDATE \"ondemand-index\" SET \"stmtbad\"=? WHERE \"pk\"=?",
+                "Parameters": [
+                  {
+                    "S": "rejected"
+                  },
+                  {
+                    "S": "large"
+                  }
+                ]
+              }
+            ]
+          },
+          "want": {
+            "Responses": [
+              {
+                "TableName": "ondemand-index",
+                "Error": {
+                  "Code": "ThrottlingError"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "index-transaction-sibling-absent",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-index",
+            "Key": {
+              "pk": {
+                "S": "tx-sibling"
+              }
+            },
+            "ConsistentRead": true
+          },
+          "want": {
+            "Item": null
+          }
+        },
+        {
+          "name": "index-partiql-sibling-absent",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-index",
+            "Key": {
+              "pk": {
+                "S": "exec-sibling"
+              }
+            },
+            "ConsistentRead": true
+          },
+          "want": {
+            "Item": null
+          }
+        },
+        {
+          "name": "independent-index-read-budget",
+          "untilThrottled": true,
+          "operation": "Query",
+          "input": {
+            "TableName": "ondemand-index",
+            "IndexName": "pressure-index",
+            "KeyConditionExpression": "gpk=:v",
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "indexed"
+              }
+            },
+            "ProjectionExpression": "pk"
+          },
+          "code": "ThrottlingException",
+          "want": {
+            "throttlingReasons": [
+              {
+                "reason": "IndexReadMaxOnDemandThroughputExceeded",
+                "resource": "arn:aws:dynamodb:us-east-1:000000000000:table/ondemand-index/index/pressure-index"
+              }
+            ]
+          }
+        },
+        {
+          "name": "uncapped-index-is-independent",
+          "operation": "Query",
+          "input": {
+            "TableName": "ondemand-index",
+            "IndexName": "uncapped-index",
+            "KeyConditionExpression": "gpk=:v",
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "indexed"
+              }
+            },
+            "ProjectionExpression": "pk"
+          },
+          "want": {
+            "Items": [
+              {
+                "pk": {
+                  "S": "large"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "base-read-remains-available",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-index",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk, bad"
+          },
+          "want": {
+            "Item": {
+              "pk": {
+                "S": "large"
+              }
+            }
+          }
+        },
+        {
+          "name": "apply-index-scaling",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "ondemand-index",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "pressure-index",
+                  "OnDemandThroughput": {
+                    "MaxReadRequestUnits": 32,
+                    "MaxWriteRequestUnits": 32
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "TableDescription.TableStatus": "ACTIVE"
+          }
+        },
+        {
+          "name": "recover-through-service-time",
+          "advance": "1m"
+        },
+        {
+          "name": "accept-after-index-recovery",
+          "operation": "UpdateItem",
+          "input": {
+            "TableName": "ondemand-index",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "UpdateExpression": "SET recovered=:v",
+            "ExpressionAttributeValues": {
+              ":v": {
+                "S": "yes"
+              }
+            }
+          }
+        },
+        {
+          "name": "only-recovered-mutation-visible",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-index",
+            "Key": {
+              "pk": {
+                "S": "large"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk, bad, recovered"
+          },
+          "want": {
+            "Item": {
+              "pk": {
+                "S": "large"
+              },
+              "recovered": {
+                "S": "yes"
+              }
+            }
+          }
+        }
+      ],
+      "metrics": [
+        {
+          "table": "ondemand-index",
+          "index": "pressure-index",
+          "name": "WriteMaxOnDemandThroughputThrottleEvents",
+          "sum": 5
+        },
+        {
+          "table": "ondemand-index",
+          "index": "pressure-index",
+          "name": "ReadMaxOnDemandThroughputThrottleEvents",
+          "sum": 1
+        },
+        {
+          "table": "ondemand-index",
+          "index": "pressure-index",
+          "name": "OnDemandMaxReadRequestUnits",
+          "sum": 1
+        },
+        {
+          "table": "ondemand-index",
+          "index": "pressure-index",
+          "name": "OnDemandMaxWriteRequestUnits",
+          "sum": 1
+        }
+      ],
+      "streamForbidden": {
+        "ondemand-index": [
+          "bad",
+          "txbad",
+          "execbad",
+          "stmtbad"
+        ]
+      }
+    },
+    {
+      "name": "on-demand-projected-partial-reads",
+      "tables": [
+        {
+          "TableName": "ondemand-partial-read",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "BillingMode": "PAY_PER_REQUEST",
+          "OnDemandThroughput": {
+            "MaxReadRequestUnits": 1
+          }
+        }
+      ],
+      "steps": [
+        {
+          "name": "seed-one",
+          "operation": "PutItem",
+          "input": {
+            "TableName": "ondemand-partial-read",
+            "Item": {
+              "pk": {
+                "S": "one"
+              },
+              "label": {
+                "S": "one"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          }
+        },
+        {
+          "name": "seed-two",
+          "operation": "PutItem",
+          "input": {
+            "TableName": "ondemand-partial-read",
+            "Item": {
+              "pk": {
+                "S": "two"
+              },
+              "label": {
+                "S": "two"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          }
+        },
+        {
+          "name": "seed-three",
+          "operation": "PutItem",
+          "input": {
+            "TableName": "ondemand-partial-read",
+            "Item": {
+              "pk": {
+                "S": "three"
+              },
+              "label": {
+                "S": "three"
+              },
+              "payload": {
+                "S": "$large"
+              }
+            }
+          }
+        },
+        {
+          "name": "exhaust-read-credit",
+          "operation": "GetItem",
+          "input": {
+            "TableName": "ondemand-partial-read",
+            "Key": {
+              "pk": {
+                "S": "one"
+              }
+            },
+            "ConsistentRead": true,
+            "ProjectionExpression": "pk"
+          },
+          "untilThrottled": true,
+          "code": "ThrottlingException"
+        },
+        {
+          "name": "restore-limited-read-credit",
+          "advance": "90s"
+        },
+        {
+          "name": "partial-read-and-verbatim-retry",
+          "operation": "BatchGetItem",
+          "input": {
+            "RequestItems": {
+              "ondemand-partial-read": {
+                "Keys": [
+                  {
+                    "pk": {
+                      "S": "one"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "two"
+                    }
+                  },
+                  {
+                    "pk": {
+                      "S": "three"
+                    }
+                  }
+                ],
+                "ConsistentRead": true,
+                "ProjectionExpression": "#label",
+                "ExpressionAttributeNames": {
+                  "#label": "label"
+                }
+              }
+            },
+            "ReturnConsumedCapacity": "INDEXES"
+          },
+          "partialReadUnits": 88,
+          "want": {
+            "Responses": {
+              "ondemand-partial-read": [
+                {
+                  "label": {
+                    "S": "one"
+                  }
+                },
+                {
+                  "label": {
+                    "S": "two"
+                  }
+                },
+                {
+                  "label": {
+                    "S": "three"
+                  }
+                }
+              ]
+            },
+            "UnprocessedKeys": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "provisioned-decrease-limits",
+      "tables": [
+        {
+          "TableName": "decrease-quota",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gpk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 16,
+            "WriteCapacityUnits": 16
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-g",
+              "KeySchema": [
+                {
+                  "AttributeName": "gpk",
+                  "KeyType": "HASH"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "KEYS_ONLY"
+              },
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 16,
+                "WriteCapacityUnits": 16
+              }
+            }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "name": "unchanged-table-is-rejected",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 16,
+              "WriteCapacityUnits": 16
+            }
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "table-decrease-1",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 15,
+              "WriteCapacityUnits": 16
+            }
+          },
+          "want": {
+            "TableDescription.ProvisionedThroughput.NumberOfDecreasesToday": 0
+          }
+        },
+        {
+          "name": "table-decrease-2",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 15,
+              "WriteCapacityUnits": 15
+            }
+          },
+          "want": {
+            "TableDescription.ProvisionedThroughput.NumberOfDecreasesToday": 1
+          }
+        },
+        {
+          "name": "table-decrease-3",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 14,
+              "WriteCapacityUnits": 14
+            }
+          },
+          "want": {
+            "TableDescription.ProvisionedThroughput.NumberOfDecreasesToday": 2
+          }
+        },
+        {
+          "name": "table-decrease-4",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 13,
+              "WriteCapacityUnits": 15
+            }
+          },
+          "want": {
+            "TableDescription.ProvisionedThroughput.NumberOfDecreasesToday": 3
+          }
+        },
+        {
+          "name": "mixed-change-counts-once",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "decrease-quota"
+          },
+          "want": {
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 13,
+            "Table.ProvisionedThroughput.WriteCapacityUnits": 15,
+            "Table.ProvisionedThroughput.NumberOfDecreasesToday": 4,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 0
+          }
+        },
+        {
+          "name": "fifth-table-decrease-rejected",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 12,
+              "WriteCapacityUnits": 15
+            }
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "reopen-keeps-decrease-quota",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 12,
+              "WriteCapacityUnits": 15
+            }
+          },
+          "code": "LimitExceededException",
+          "reopen": true
+        },
+        {
+          "name": "blocked-table-does-not-decrease-index",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 12,
+              "WriteCapacityUnits": 15
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 15,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "blocked-combined-update-is-atomic",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "decrease-quota"
+          },
+          "want": {
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 13,
+            "Table.ProvisionedThroughput.WriteCapacityUnits": 15,
+            "Table.ProvisionedThroughput.NumberOfDecreasesToday": 4,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 0
+          }
+        },
+        {
+          "name": "unchanged-index-rejects-changing-table",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 17,
+              "WriteCapacityUnits": 17
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 16,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "unchanged-member-rejects-whole-request",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "decrease-quota"
+          },
+          "want": {
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 13,
+            "Table.ProvisionedThroughput.WriteCapacityUnits": 15,
+            "Table.ProvisionedThroughput.NumberOfDecreasesToday": 4,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 0
+          }
+        },
+        {
+          "name": "index-decrease-1",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 15,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 0
+          }
+        },
+        {
+          "name": "index-decrease-2",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 14,
+                    "WriteCapacityUnits": 17
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 1
+          }
+        },
+        {
+          "name": "index-decrease-3",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 13,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 2
+          }
+        },
+        {
+          "name": "index-decrease-4",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 12,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "want": {
+            "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 3
+          }
+        },
+        {
+          "name": "fifth-index-decrease-rejected",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 11,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "exhausted-quota-still-allows-increase",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 17,
+              "WriteCapacityUnits": 17
+            }
+          }
+        },
+        {
+          "name": "blocked-index-does-not-increase-table",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 18,
+              "WriteCapacityUnits": 18
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 11,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "independent-resource-counts",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "decrease-quota"
+          },
+          "want": {
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 17,
+            "Table.ProvisionedThroughput.WriteCapacityUnits": 17,
+            "Table.ProvisionedThroughput.NumberOfDecreasesToday": 4,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 12,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 4
+          }
+        },
+        {
+          "name": "billing-switch-bypasses-index-decrease-quota",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "3s",
+          "want": {
+            "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 0,
+            "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.LastDecreaseDateTime": 1789732800.0,
+            "TableDescription.ProvisionedThroughput.LastDecreaseDateTime": 1789732803.0
+          }
+        },
+        {
+          "name": "on-demand-retains-throughput-history",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "decrease-quota"
+          },
+          "want": {
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 0,
+            "Table.ProvisionedThroughput.WriteCapacityUnits": 0,
+            "Table.ProvisionedThroughput.NumberOfDecreasesToday": 4,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 0,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 0,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 5
+          }
+        },
+        {
+          "name": "restore-previous-provisioned-units",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 17,
+              "WriteCapacityUnits": 17
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 12,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ],
+            "BillingMode": "PROVISIONED"
+          },
+          "advance": "4s",
+          "want": {
+            "TableDescription.ProvisionedThroughput.LastIncreaseDateTime": 1789732807.0,
+            "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.LastDecreaseDateTime": 1789732803.0
+          }
+        },
+        {
+          "name": "provisioned-restore-retains-decrease-counts",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "decrease-quota"
+          },
+          "want": {
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 17,
+            "Table.ProvisionedThroughput.WriteCapacityUnits": 17,
+            "Table.ProvisionedThroughput.NumberOfDecreasesToday": 4,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 12,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 5,
+            "Table.ProvisionedThroughput.LastIncreaseDateTime": 1789732800.0,
+            "Table.ProvisionedThroughput.LastDecreaseDateTime": 1789732800.0,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.LastIncreaseDateTime": 1789732807.0,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.LastDecreaseDateTime": 1789732803.0
+          }
+        },
+        {
+          "name": "billing-roundtrip-cannot-evade-decrease-quota",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 16,
+              "WriteCapacityUnits": 17
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 11,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "hour-not-yet-elapsed",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 16,
+              "WriteCapacityUnits": 17
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 11,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "code": "LimitExceededException",
+          "advance": "59m52s"
+        },
+        {
+          "name": "index-deadline-still-blocks-eligible-table",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 16,
+              "WriteCapacityUnits": 17
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 11,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "advance": "1s",
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "latest-resource-deadline-recovers-combined-update",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 16,
+              "WriteCapacityUnits": 17
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 11,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "advance": "3s"
+        },
+        {
+          "name": "recovered-decreases-counted-independently",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "decrease-quota"
+          },
+          "want": {
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 16,
+            "Table.ProvisionedThroughput.WriteCapacityUnits": 17,
+            "Table.ProvisionedThroughput.NumberOfDecreasesToday": 5,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 11,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 6
+          }
+        },
+        {
+          "name": "hour-does-not-refill-four-decreases",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 15,
+              "WriteCapacityUnits": 17
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 10,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "utc-midnight-resets-visible-counts",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "decrease-quota"
+          },
+          "want": {
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 16,
+            "Table.ProvisionedThroughput.WriteCapacityUnits": 17,
+            "Table.ProvisionedThroughput.NumberOfDecreasesToday": 0,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 11,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 0
+          },
+          "advance": "10h59m57s"
+        },
+        {
+          "name": "utc-day-restores-initial-allowance",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "decrease-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 15,
+              "WriteCapacityUnits": 17
+            },
+            "GlobalSecondaryIndexUpdates": [
+              {
+                "Update": {
+                  "IndexName": "by-g",
+                  "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 10,
+                    "WriteCapacityUnits": 16
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "new-day-first-decrease",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "decrease-quota"
+          },
+          "want": {
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 15,
+            "Table.ProvisionedThroughput.WriteCapacityUnits": 17,
+            "Table.ProvisionedThroughput.NumberOfDecreasesToday": 1,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 10,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 16,
+            "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "rolling-billing-switch-limits",
+      "tables": [
+        {
+          "TableName": "billing-quota",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 2,
+            "WriteCapacityUnits": 2
+          }
+        }
+      ],
+      "steps": [
+        {
+          "name": "explicit-provisioned-requires-throughput",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED"
+          },
+          "code": "ValidationException"
+        },
+        {
+          "name": "switch-1",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "want": {
+            "TableDescription.BillingModeSummary.BillingMode": "PAY_PER_REQUEST",
+            "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 0
+          }
+        },
+        {
+          "name": "unchanged-mode-1",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "5s",
+          "want": {
+            "TableDescription.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789732800.0
+          }
+        },
+        {
+          "name": "unchanged-mode-keeps-history-1",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "billing-quota"
+          },
+          "want": {
+            "Table.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789732800.0
+          }
+        },
+        {
+          "name": "restore-1",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          },
+          "want": {
+            "TableDescription.BillingModeSummary.BillingMode": "PROVISIONED",
+            "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 2
+          }
+        },
+        {
+          "name": "switch-2",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "59m55s",
+          "want": {
+            "TableDescription.BillingModeSummary.BillingMode": "PAY_PER_REQUEST",
+            "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 0
+          }
+        },
+        {
+          "name": "unchanged-mode-2",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "5s",
+          "want": {
+            "TableDescription.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789736400.0
+          }
+        },
+        {
+          "name": "unchanged-mode-keeps-history-2",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "billing-quota"
+          },
+          "want": {
+            "Table.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789736400.0
+          }
+        },
+        {
+          "name": "restore-2",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          },
+          "want": {
+            "TableDescription.BillingModeSummary.BillingMode": "PROVISIONED",
+            "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 2
+          }
+        },
+        {
+          "name": "switch-3",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "59m55s",
+          "want": {
+            "TableDescription.BillingModeSummary.BillingMode": "PAY_PER_REQUEST",
+            "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 0
+          }
+        },
+        {
+          "name": "unchanged-mode-3",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "5s",
+          "want": {
+            "TableDescription.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789740000.0
+          }
+        },
+        {
+          "name": "unchanged-mode-keeps-history-3",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "billing-quota"
+          },
+          "want": {
+            "Table.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789740000.0
+          }
+        },
+        {
+          "name": "restore-3",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          },
+          "want": {
+            "TableDescription.BillingModeSummary.BillingMode": "PROVISIONED",
+            "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 2
+          }
+        },
+        {
+          "name": "switch-4",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "59m55s",
+          "want": {
+            "TableDescription.BillingModeSummary.BillingMode": "PAY_PER_REQUEST",
+            "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 0
+          }
+        },
+        {
+          "name": "unchanged-mode-4",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "5s",
+          "want": {
+            "TableDescription.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789743600.0
+          }
+        },
+        {
+          "name": "unchanged-mode-keeps-history-4",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "billing-quota"
+          },
+          "want": {
+            "Table.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789743600.0
+          }
+        },
+        {
+          "name": "restore-4",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          },
+          "want": {
+            "TableDescription.BillingModeSummary.BillingMode": "PROVISIONED",
+            "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 2
+          }
+        },
+        {
+          "name": "fifth-switch-rejected",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "failed-switch-keeps-provisioned-state",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "billing-quota"
+          },
+          "want": {
+            "Table.BillingModeSummary.BillingMode": "PROVISIONED",
+            "Table.ProvisionedThroughput.ReadCapacityUnits": 2,
+            "Table.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789743600.0
+          }
+        },
+        {
+          "name": "midnight-and-reopen-do-not-reset",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "8h59m55s",
+          "code": "LimitExceededException",
+          "reopen": true
+        },
+        {
+          "name": "one-second-before-expiry",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "11h59m59s",
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "first-switch-expires-at-24-hours",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "1s"
+        },
+        {
+          "name": "restore-after-recovery",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          }
+        },
+        {
+          "name": "recovery-does-not-reset-window",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "next-slot-recovers-after-reopen",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "1h",
+          "reopen": true
+        }
+      ]
+    },
+    {
+      "name": "on-demand-creation-quota",
+      "tables": [
+        {
+          "TableName": "billing-quota",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "BillingMode": "PAY_PER_REQUEST"
+        },
+        {
+          "TableName": "independent-quota",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 2,
+            "WriteCapacityUnits": 2
+          }
+        }
+      ],
+      "steps": [
+        {
+          "name": "unchanged-created-mode",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "5s"
+        },
+        {
+          "name": "noop-keeps-creation-history",
+          "operation": "DescribeTable",
+          "input": {
+            "TableName": "billing-quota"
+          },
+          "want": {
+            "Table.BillingModeSummary.LastUpdateToPayPerRequestDateTime": 1789732800.0
+          }
+        },
+        {
+          "name": "initial-provisioned-mode",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          }
+        },
+        {
+          "name": "switch-1",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "59m55s"
+        },
+        {
+          "name": "unchanged-mode-1",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "5s"
+        },
+        {
+          "name": "restore-1",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          }
+        },
+        {
+          "name": "switch-2",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "59m55s"
+        },
+        {
+          "name": "unchanged-mode-2",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "5s"
+        },
+        {
+          "name": "restore-2",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          }
+        },
+        {
+          "name": "switch-3",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "59m55s"
+        },
+        {
+          "name": "unchanged-mode-3",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "5s"
+        },
+        {
+          "name": "restore-3",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          }
+        },
+        {
+          "name": "creation-consumes-fourth-slot",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "code": "LimitExceededException",
+          "reopen": true
+        },
+        {
+          "name": "exhaustion-does-not-block-capacity-increase",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 3,
+              "WriteCapacityUnits": 3
+            }
+          }
+        },
+        {
+          "name": "other-table-keeps-independent-quota",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "independent-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          }
+        },
+        {
+          "name": "creation-slot-expires-at-24-hours",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "20h59m55s"
+        },
+        {
+          "name": "restore-after-creation-slot-recovery",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PROVISIONED",
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          }
+        },
+        {
+          "name": "later-switches-remain-counted",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "code": "LimitExceededException"
+        },
+        {
+          "name": "first-switch-slot-expires-later",
+          "operation": "UpdateTable",
+          "input": {
+            "TableName": "billing-quota",
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "advance": "1h"
+        }
+      ]
+    }
+  ]
+}

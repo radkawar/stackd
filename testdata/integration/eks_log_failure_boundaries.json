@@ -1,0 +1,477 @@
+{
+  "evidenceType": "actual executable, native k3d audit webhook/spool, real CloudWatch Logs API and filesystem failure",
+  "account": "314159265381",
+  "cluster": "eks-log-failure-boundaries",
+  "port": 48581,
+  "binary": "/tmp/stackd-eks-role-cleanup-bin",
+  "k3d": "/tmp/stackd-eks-k3d-v5.8.3",
+  "commands": [
+    "/tmp/stackd-eks-role-cleanup-bin -listen 127.0.0.1:48581 -account-id 314159265381 -database /tmp/stackd-eks-log-boundaries-vzkd7wxa/state.db -clock-start 2026-09-27T22:07:17.099997+00:00 -docker-host unix:///var/run/docker.sock -compute-endpoint http://host.docker.internal:48581 -eks-state-directory /tmp/stackd-eks-log-boundaries-vzkd7wxa/kubernetes -eks-k3d /tmp/stackd-eks-k3d-v5.8.3",
+    "/tmp/stackd-eks-role-cleanup-bin -listen 127.0.0.1:48581 -account-id 314159265381 -database /tmp/stackd-eks-log-boundaries-vzkd7wxa/state.db -clock-start 2026-09-27T22:12:37.490420+00:00 -docker-host unix:///var/run/docker.sock -compute-endpoint http://host.docker.internal:48581 -eks-state-directory /tmp/stackd-eks-log-boundaries-vzkd7wxa/kubernetes -eks-k3d /tmp/stackd-eks-k3d-v5.8.3",
+    "aws --endpoint-url http://127.0.0.1:48581 --region us-east-1 eks create-cluster --name eks-log-failure-boundaries --role-arn arn:aws:iam::314159265381:role/eks-log-boundaries --resources-vpc-config {\"subnetIds\": [\"subnet-c64dadd2c35577013\", \"subnet-a88e34c201fc48a15\"]} --access-config authenticationMode=CONFIG_MAP --kubernetes-version 1.32 --logging {\"clusterLogging\": [{\"types\": [\"api\", \"audit\", \"authenticator\", \"controllerManager\", \"scheduler\"], \"enabled\": true}]} --output json",
+    "aws --endpoint-url http://127.0.0.1:48581 --region us-east-1 eks update-cluster-config --name eks-log-failure-boundaries --logging {\"clusterLogging\": [{\"types\": [\"audit\", \"authenticator\"], \"enabled\": false}]} --output json",
+    "kubectl --request-timeout=90s create configmap after-failed-disable -n log-boundary --from-literal=state=committed-enabled",
+    "kubectl --request-timeout=90s create configmap successful-disable -n log-boundary --from-literal=state=disabled",
+    "aws --endpoint-url http://127.0.0.1:48581 --region us-east-1 eks update-cluster-config --name eks-log-failure-boundaries --logging {\"clusterLogging\": [{\"types\": [\"audit\", \"authenticator\"], \"enabled\": true}]} --output json",
+    "kubectl --request-timeout=90s create configmap native-old-boundary -n log-boundary --from-literal=source=native-before-cutoff",
+    "kubectl --request-timeout=90s create configmap native-accepted-boundary -n log-boundary --from-literal=source=native-after-cutoff",
+    "docker restart --time 30 k3d-stackd-291d556ec0360995f3bd047a-server-0",
+    "kubectl --request-timeout=90s create deployment native-after-rejection -n log-boundary --image=busybox:1.37.0 -- sh -c \"echo actual-native-logging-boundary; sleep 3600\"",
+    "kubectl --request-timeout=90s rollout status deployment/native-after-rejection -n log-boundary --timeout=180s",
+    "kubectl --request-timeout=90s logs -n log-boundary deployment/native-after-rejection",
+    "kubectl --request-timeout=90s create configmap after-controller-restart -n log-boundary --from-literal=state=durable-checkpoint",
+    "aws --endpoint-url http://127.0.0.1:48581 --region us-east-1 eks delete-cluster --name eks-log-failure-boundaries --output json",
+    "docker ps -a --filter label=stackd.eks.id=9e7d5fd1-d97c-4ec3-bd81-83427dafff80 --format {{.ID}}",
+    "docker network ls --filter label=stackd.eks.id=9e7d5fd1-d97c-4ec3-bd81-83427dafff80 --format {{.Name}}",
+    "docker volume ls --filter label=stackd.eks.id=9e7d5fd1-d97c-4ec3-bd81-83427dafff80 --format {{.Name}}"
+  ],
+  "native": {
+    "id": "9e7d5fd1-d97c-4ec3-bd81-83427dafff80",
+    "server": "k3d-stackd-291d556ec0360995f3bd047a-server-0",
+    "network": "stackd-291d556ec0360995f3bd047a",
+    "version": "1.32",
+    "status": "ACTIVE"
+  },
+  "failedLoggingChange": {
+    "failureMechanism": "SIGSTOP owned controller; rename committed log-cursor.json to exact-owned backup; mkdir at its destination; SIGCONT. Real atomic rename fails with file exists. Restore original regular file after terminal failure.",
+    "attemptedDisable": [
+      "audit",
+      "authenticator"
+    ],
+    "priorDescribeLogging": {
+      "clusterLogging": [
+        {
+          "types": [
+            "api",
+            "audit",
+            "authenticator",
+            "controllerManager",
+            "scheduler"
+          ],
+          "enabled": true
+        }
+      ]
+    },
+    "priorCursor": {
+      "Timestamp": "2026-09-27T22:08:30.539133457Z",
+      "Ordinal": 1,
+      "AuthOffset": 680,
+      "AuditOffset": 1283774,
+      "EnabledSince": {
+        "api": "0001-01-01T00:00:00Z",
+        "audit": "0001-01-01T00:00:00Z",
+        "authenticator": "0001-01-01T00:00:00Z",
+        "controllerManager": "0001-01-01T00:00:00Z",
+        "scheduler": "0001-01-01T00:00:00Z"
+      }
+    },
+    "update": {
+      "id": "bded13cc-2d50-4384-a04e-e79600a3f877",
+      "status": "Failed",
+      "type": "LoggingUpdate",
+      "params": [
+        {
+          "type": "ClusterLogging",
+          "value": "{\"clusterLogging\":[{\"enabled\":true,\"types\":[\"api\",\"controllerManager\",\"scheduler\"]},{\"enabled\":false,\"types\":[\"audit\",\"authenticator\"]}]}"
+        }
+      ],
+      "createdAt": "2026-09-27T23:07:17.099997+01:00",
+      "errors": [
+        {
+          "errorCode": "ClusterUnreachable",
+          "errorMessage": "rename /tmp/stackd-eks-log-boundaries-vzkd7wxa/kubernetes/c3b7b4d2bdbf0d12d1a65fbb6e4db5a13ca68b90480522bb1fbfe36ae6e4d8ae/.pending-2214395044 /tmp/stackd-eks-log-boundaries-vzkd7wxa/kubernetes/c3b7b4d2bdbf0d12d1a65fbb6e4db5a13ca68b90480522bb1fbfe36ae6e4d8ae/log-cursor.json: file exists"
+        }
+      ]
+    },
+    "describeAfterFailure": {
+      "status": "ACTIVE",
+      "logging": {
+        "clusterLogging": [
+          {
+            "types": [
+              "api",
+              "audit",
+              "authenticator",
+              "controllerManager",
+              "scheduler"
+            ],
+            "enabled": true
+          }
+        ]
+      }
+    },
+    "committedCheckpointFileUnchanged": true,
+    "recoveredCursor": {
+      "Timestamp": "2026-09-27T22:08:41.845834757Z",
+      "Ordinal": 1,
+      "AuthOffset": 1020,
+      "AuditOffset": 1291828,
+      "EnabledSince": {
+        "api": "0001-01-01T00:00:00Z",
+        "audit": "0001-01-01T00:00:00Z",
+        "authenticator": "0001-01-01T00:00:00Z",
+        "controllerManager": "0001-01-01T00:00:00Z",
+        "scheduler": "0001-01-01T00:00:00Z"
+      }
+    },
+    "nativeAuditStillDelivered": {
+      "logStreamName": "kube-apiserver-audit-291d556ec0360995f3bd047a00ad7c70",
+      "timestamp": 1790546921847,
+      "message": "{\"level\":\"Metadata\",\"auditID\":\"8b947267-6aae-4bae-8ddb-b3337664ad33\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"after-failed-disable\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:08:41.845313Z\",\"stageTimestamp\":\"2026-09-27T22:08:41.847525Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}",
+      "ingestionTime": 1790546837099,
+      "eventId": "e73d0bff-3b75-417d-ad7a-c1953faae0d6"
+    },
+    "laterValidUpdate": {
+      "update": {
+        "id": "4336e71c-954c-43b4-9eb8-9a7b41c61d76",
+        "status": "Successful",
+        "type": "LoggingUpdate",
+        "params": [
+          {
+            "type": "ClusterLogging",
+            "value": "{\"clusterLogging\":[{\"enabled\":true,\"types\":[\"api\",\"controllerManager\",\"scheduler\"]},{\"enabled\":false,\"types\":[\"audit\",\"authenticator\"]}]}"
+          }
+        ],
+        "createdAt": "2026-09-27T23:07:17.099997+01:00",
+        "errors": []
+      },
+      "describeLogging": {
+        "clusterLogging": [
+          {
+            "types": [
+              "api",
+              "controllerManager",
+              "scheduler"
+            ],
+            "enabled": true
+          },
+          {
+            "types": [
+              "audit",
+              "authenticator"
+            ],
+            "enabled": false
+          }
+        ]
+      },
+      "disabledCursor": {
+        "Timestamp": "2026-09-27T22:09:03.651943582Z",
+        "Ordinal": 1,
+        "AuthOffset": 1020,
+        "AuditOffset": 1310452,
+        "EnabledSince": {
+          "api": "0001-01-01T00:00:00Z",
+          "controllerManager": "0001-01-01T00:00:00Z",
+          "scheduler": "0001-01-01T00:00:00Z"
+        }
+      },
+      "nativeDisabledAuditCapturedInSpool": true,
+      "disabledMarkerAbsentFromLogs": true,
+      "reenableUpdate": {
+        "id": "860b37d1-cbcc-40de-9c74-db99490018e1",
+        "status": "Successful",
+        "type": "LoggingUpdate",
+        "params": [
+          {
+            "type": "ClusterLogging",
+            "value": "{\"clusterLogging\":[{\"enabled\":true,\"types\":[\"api\",\"audit\",\"authenticator\",\"controllerManager\",\"scheduler\"]}]}"
+          }
+        ],
+        "createdAt": "2026-09-27T23:07:17.099997+01:00",
+        "errors": []
+      },
+      "reenabledAudit": {
+        "logStreamName": "kube-apiserver-audit-291d556ec0360995f3bd047a00ad7c70",
+        "timestamp": 1790546951600,
+        "message": "{\"level\":\"Metadata\",\"auditID\":\"fc317f25-6bb0-4394-9ed4-95a2e1bd01e0\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"successful-reenable\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:09:11.599021Z\",\"stageTimestamp\":\"2026-09-27T22:09:11.600800Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}",
+        "ingestionTime": 1790546837099,
+        "eventId": "f86de0ed-5497-42b8-956a-35ca8881872d"
+      },
+      "reenabledCursor": {
+        "Timestamp": "2026-09-27T22:09:11.599536106Z",
+        "Ordinal": 1,
+        "AuthOffset": 1360,
+        "AuditOffset": 1317269,
+        "EnabledSince": {
+          "api": "0001-01-01T00:00:00Z",
+          "audit": "2026-09-27T22:09:10.715859748Z",
+          "authenticator": "2026-09-27T22:09:10.715860271Z",
+          "controllerManager": "0001-01-01T00:00:00Z",
+          "scheduler": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    "nativeAuthenticatorStillDelivered": {
+      "logStreamName": "authenticator-291d556ec0360995f3bd047a00ad7c70",
+      "timestamp": 1790546921837,
+      "message": "{\"time\":\"2026-09-27T22:08:41.837397335Z\",\"msg\":\"access granted\",\"arn\":\"arn:aws:iam::314159265381:root\",\"username\":\"arn:aws:iam::314159265381:root\",\"groups\":[\"system:masters\"]}",
+      "ingestionTime": 1790546837099,
+      "eventId": "87bec1b1-38b0-4b02-bc49-06ab05622f76"
+    },
+    "authenticatorBytesAndTimestampMatchNativeSource": true
+  },
+  "partialRejection": {
+    "scenario": "Unmodified real native audit events captured across two kubectl creates; service clock advanced fourteen days plus their midpoint. The first timestamp is too old and the second is accepted. Original native audit stream cleared before explicit real bridge replay to isolate replay counts. No native event timestamp or message bytes changed.",
+    "serviceClock": {
+      "time": "2026-10-11T22:10:07.174Z"
+    },
+    "sourceMessages": [
+      {
+        "message": "{\"level\":\"Metadata\",\"auditID\":\"8e305662-e577-4989-96cc-384415b1401f\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"native-old-boundary\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:10:03.977772Z\",\"stageTimestamp\":\"2026-09-27T22:10:03.979855Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}",
+        "timestamp": 1790547003979,
+        "accepted": false
+      },
+      {
+        "message": "{\"level\":\"Metadata\",\"auditID\":\"59ca770c-6b36-4604-9c8e-d9b39c2708b1\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"native-accepted-boundary\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:10:10.367856Z\",\"stageTimestamp\":\"2026-09-27T22:10:10.369582Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}",
+        "timestamp": 1790547010369,
+        "accepted": true
+      }
+    ],
+    "realPutLogEventsResponse": {
+      "nextSequenceToken": "1426",
+      "rejectedLogEventsInfo": {
+        "tooOldLogEventEndIndex": 1
+      }
+    },
+    "realGetLogEventsDiagnostic": [
+      {
+        "timestamp": 1790547010369,
+        "message": "{\"level\":\"Metadata\",\"auditID\":\"59ca770c-6b36-4604-9c8e-d9b39c2708b1\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"native-accepted-boundary\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:10:10.367856Z\",\"stageTimestamp\":\"2026-09-27T22:10:10.369582Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}",
+        "ingestionTime": 1791756607174
+      }
+    ],
+    "bridgeHTTPStatus": 200,
+    "frame": {
+      "frameStart": 1385085,
+      "frameEnd": 1387417
+    },
+    "acknowledgedCursor": {
+      "Timestamp": "2026-09-27T22:10:58.99604784Z",
+      "Ordinal": 1,
+      "AuthOffset": 2040,
+      "AuditOffset": 1387417,
+      "EnabledSince": {
+        "api": "0001-01-01T00:00:00Z",
+        "audit": "2026-09-27T22:09:10.715859748Z",
+        "authenticator": "2026-09-27T22:09:10.715860271Z",
+        "controllerManager": "0001-01-01T00:00:00Z",
+        "scheduler": "0001-01-01T00:00:00Z"
+      }
+    },
+    "nativeBoundaryRows": {
+      "rejected": [],
+      "accepted": [
+        {
+          "timestamp": 1790547010369,
+          "message": "{\"level\":\"Metadata\",\"auditID\":\"59ca770c-6b36-4604-9c8e-d9b39c2708b1\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"native-accepted-boundary\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:10:10.367856Z\",\"stageTimestamp\":\"2026-09-27T22:10:10.369582Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}",
+          "ingestionTime": 1791756607174
+        }
+      ]
+    },
+    "continuedNativeAudit": {
+      "logStreamName": "kube-apiserver-audit-291d556ec0360995f3bd047a00ad7c70",
+      "timestamp": 1790547107946,
+      "message": "{\"level\":\"Metadata\",\"auditID\":\"ab9edd7d-38ad-41ad-bfd5-3c981b2c0f01\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"after-partial-rejection\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:11:47.944149Z\",\"stageTimestamp\":\"2026-09-27T22:11:47.946372Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}",
+      "ingestionTime": 1791756607174,
+      "eventId": "4b9023dd-b132-410f-8d0e-96d97a1aba6b"
+    },
+    "allFiveStreamsAfterPartialRejection": {
+      "api": {
+        "logStreamName": "kube-apiserver-291d556ec0360995f3bd047a00ad7c70",
+        "timestamp": 1790547110777,
+        "message": "time=\"2026-09-27T22:11:50Z\" level=info msg=\"Running kube-apiserver --advertise-port=6443 --allow-privileged=true --anonymous-auth=false --api-audiences=https://kubernetes.default.svc.cluster.local,k3s --audit-policy-file=/etc/stackd/audit-policy.yaml --audit-webhook-batch-max-wait=1s --audit-webhook-config-file=/etc/stackd/audit-webhook.kubeconfig --authorization-mode=Node,RBAC --bind-address=127.0.0.1 --cert-dir=/var/lib/rancher/k3s/server/tls/temporary-certs --client-ca-file=/var/lib/rancher/k3s/server/tls/client-ca.crt --egress-selector-config-file=/var/lib/rancher/k3s/server/etc/egress-selector-config.yaml --enable-admission-plugins=NodeRestriction --enable-aggregator-routing=true --enable-bootstrap-token-auth=true --etcd-servers=unix://kine.sock --kubelet-certificate-authority=/var/lib/rancher/k3s/server/tls/server-ca.crt --kubelet-client-certificate=/var/lib/rancher/k3s/server/tls/client-kube-apiserver.crt --kubelet-client-key=/var/lib/rancher/k3s/server/tls/client-kube-apiserver.key --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname --profiling=false --proxy-client-cert-file=/var/lib/rancher/k3s/server/tls/client-auth-proxy.crt --proxy-client-key-file=/var/lib/rancher/k3s/server/tls/client-auth-proxy.key --requestheader-allowed-names=system:auth-proxy --requestheader-client-ca-file=/var/lib/rancher/k3s/server/tls/request-header-ca.crt --requestheader-extra-headers-prefix=X-Remote-Extra- --requestheader-group-headers=X-Remote-Group --requestheader-username-headers=X-Remote-User --secure-port=6444 --service-account-issuer=https://kubernetes.default.svc.cluster.local --service-account-key-file=/var/lib/rancher/k3s/server/tls/service.key --service-account-signing-key-file=/var/lib/rancher/k3s/server/tls/service.current.key --service-cluster-ip-range=10.43.0.0/16 --service-node-port-range=30000-32767 --storage-backend=etcd3 --tls-cert-file=/var/lib/rancher/k3s/server/tls/serving-kube-apiserver.crt --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305 --tls-private-key-file=/var/lib/rancher/k3s/server/tls/serving-kube-apiserver.key --v=2\"",
+        "ingestionTime": 1791756607174,
+        "eventId": "42615237-377b-4b9d-a6f1-08516abdad6f"
+      },
+      "audit": {
+        "logStreamName": "kube-apiserver-audit-291d556ec0360995f3bd047a00ad7c70",
+        "timestamp": 1790547111186,
+        "message": "{\"level\":\"Metadata\",\"auditID\":\"9b897f9c-509c-4a53-8357-f9f43368c194\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/apis/storage.k8s.io/v1/volumeattachments?limit=500\\u0026resourceVersion=0\",\"verb\":\"list\",\"user\":{\"username\":\"system:apiserver\",\"uid\":\"f30da2e8-04a8-40cb-92bd-04953c4f0759\",\"groups\":[\"system:authenticated\",\"system:masters\"]},\"sourceIPs\":[\"127.0.0.1\"],\"userAgent\":\"k3s/v1.32.8+k3s1 (linux/amd64) kubernetes/fe896f7\",\"objectRef\":{\"resource\":\"volumeattachments\",\"apiGroup\":\"storage.k8s.io\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":200},\"requestReceivedTimestamp\":\"2026-09-27T22:11:51.186080Z\",\"stageTimestamp\":\"2026-09-27T22:11:51.186391Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}",
+        "ingestionTime": 1791756607174,
+        "eventId": "c19a5132-52d1-4d83-a032-cbbde31bdd56"
+      },
+      "authenticator": {
+        "logStreamName": "authenticator-291d556ec0360995f3bd047a00ad7c70",
+        "timestamp": 1790547110522,
+        "message": "{\"time\":\"2026-09-27T22:11:50.522031284Z\",\"msg\":\"access granted\",\"arn\":\"arn:aws:iam::314159265381:root\",\"username\":\"arn:aws:iam::314159265381:root\",\"groups\":[\"system:masters\"]}",
+        "ingestionTime": 1791756607174,
+        "eventId": "0e1102e7-7045-4fa8-aa0f-67cf048f2275"
+      },
+      "controllerManager": {
+        "logStreamName": "kube-controller-manager-291d556ec0360995f3bd047a00ad7c70",
+        "timestamp": 1790547110778,
+        "message": "time=\"2026-09-27T22:11:50Z\" level=info msg=\"Running kube-controller-manager --allocate-node-cidrs=true --authentication-kubeconfig=/var/lib/rancher/k3s/server/cred/controller.kubeconfig --authorization-kubeconfig=/var/lib/rancher/k3s/server/cred/controller.kubeconfig --bind-address=127.0.0.1 --cluster-cidr=10.42.0.0/16 --cluster-signing-kube-apiserver-client-cert-file=/var/lib/rancher/k3s/server/tls/client-ca.nochain.crt --cluster-signing-kube-apiserver-client-key-file=/var/lib/rancher/k3s/server/tls/client-ca.key --cluster-signing-kubelet-client-cert-file=/var/lib/rancher/k3s/server/tls/client-ca.nochain.crt --cluster-signing-kubelet-client-key-file=/var/lib/rancher/k3s/server/tls/client-ca.key --cluster-signing-kubelet-serving-cert-file=/var/lib/rancher/k3s/server/tls/server-ca.nochain.crt --cluster-signing-kubelet-serving-key-file=/var/lib/rancher/k3s/server/tls/server-ca.key --cluster-signing-legacy-unknown-cert-file=/var/lib/rancher/k3s/server/tls/server-ca.nochain.crt --cluster-signing-legacy-unknown-key-file=/var/lib/rancher/k3s/server/tls/server-ca.key --configure-cloud-routes=false --controllers=*,tokencleaner,-service,-route,-cloud-node-lifecycle --kubeconfig=/var/lib/rancher/k3s/server/cred/controller.kubeconfig --leader-elect=false --profiling=false --root-ca-file=/var/lib/rancher/k3s/server/tls/server-ca.crt --secure-port=10257 --service-account-private-key-file=/var/lib/rancher/k3s/server/tls/service.current.key --service-cluster-ip-range=10.43.0.0/16 --tls-cert-file=/var/lib/rancher/k3s/server/tls/kube-controller-manager/kube-controller-manager.crt --tls-private-key-file=/var/lib/rancher/k3s/server/tls/kube-controller-manager/kube-controller-manager.key --use-service-account-credentials=true --v=2\"",
+        "ingestionTime": 1791756607174,
+        "eventId": "db0c2d47-26e8-46e7-bf62-787b08179e3e"
+      },
+      "scheduler": {
+        "logStreamName": "kube-scheduler-291d556ec0360995f3bd047a00ad7c70",
+        "timestamp": 1790547110778,
+        "message": "time=\"2026-09-27T22:11:50Z\" level=info msg=\"Running kube-scheduler --authentication-kubeconfig=/var/lib/rancher/k3s/server/cred/scheduler.kubeconfig --authorization-kubeconfig=/var/lib/rancher/k3s/server/cred/scheduler.kubeconfig --bind-address=127.0.0.1 --kubeconfig=/var/lib/rancher/k3s/server/cred/scheduler.kubeconfig --leader-elect=false --profiling=false --secure-port=10259 --tls-cert-file=/var/lib/rancher/k3s/server/tls/kube-scheduler/kube-scheduler.crt --tls-private-key-file=/var/lib/rancher/k3s/server/tls/kube-scheduler/kube-scheduler.key --v=2\"",
+        "ingestionTime": 1791756607174,
+        "eventId": "1c8d406b-df34-48f2-8966-7e024cbcbfcb"
+      }
+    },
+    "nativeWorkload": {
+      "podUID": "41b82a73-a675-448c-b28d-98b8ae170c5d",
+      "node": "k3d-stackd-291d556ec0360995f3bd047a-agent-0",
+      "phase": "Running",
+      "output": "actual-native-logging-boundary"
+    },
+    "afterThreeCollectorIntervals": {
+      "acceptedCount": 1,
+      "rejectedCount": 0,
+      "cursor": {
+        "Timestamp": "2026-09-27T22:12:11.282809694Z",
+        "Ordinal": 1,
+        "AuthOffset": 7134,
+        "AuditOffset": 2148329,
+        "EnabledSince": {
+          "api": "0001-01-01T00:00:00Z",
+          "audit": "2026-09-27T22:09:10.715859748Z",
+          "authenticator": "2026-09-27T22:09:10.715860271Z",
+          "controllerManager": "0001-01-01T00:00:00Z",
+          "scheduler": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    "controllerRestart": {
+      "cursorBefore": {
+        "Timestamp": "2026-09-27T22:12:32.107404103Z",
+        "Ordinal": 1,
+        "AuthOffset": 7134,
+        "AuditOffset": 2162779,
+        "EnabledSince": {
+          "api": "0001-01-01T00:00:00Z",
+          "audit": "2026-09-27T22:09:10.715859748Z",
+          "authenticator": "2026-09-27T22:09:10.715860271Z",
+          "controllerManager": "0001-01-01T00:00:00Z",
+          "scheduler": "0001-01-01T00:00:00Z"
+        }
+      },
+      "cursorAfter": {
+        "Timestamp": "2026-09-27T22:12:51.306410377Z",
+        "Ordinal": 1,
+        "AuthOffset": 7814,
+        "AuditOffset": 2174226,
+        "EnabledSince": {
+          "api": "0001-01-01T00:00:00Z",
+          "audit": "2026-09-27T22:09:10.715859748Z",
+          "authenticator": "2026-09-27T22:09:10.715860271Z",
+          "controllerManager": "0001-01-01T00:00:00Z",
+          "scheduler": "0001-01-01T00:00:00Z"
+        }
+      },
+      "acceptedCount": 1,
+      "rejectedCount": 0,
+      "continuedAudit": {
+        "logStreamName": "kube-apiserver-audit-291d556ec0360995f3bd047a00ad7c70",
+        "timestamp": 1790547169648,
+        "message": "{\"level\":\"Metadata\",\"auditID\":\"7ae39f8c-3125-4a46-9b73-ce69d83bb93d\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"after-controller-restart\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:12:49.645968Z\",\"stageTimestamp\":\"2026-09-27T22:12:49.648294Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}",
+        "ingestionTime": 1791756607174,
+        "eventId": "baaa329f-5ddf-4da6-87b1-446ad32937fa"
+      },
+      "committedLogging": {
+        "clusterLogging": [
+          {
+            "types": [
+              "api",
+              "audit",
+              "authenticator",
+              "controllerManager",
+              "scheduler"
+            ],
+            "enabled": true
+          }
+        ]
+      },
+      "nativePodUIDUnchanged": "41b82a73-a675-448c-b28d-98b8ae170c5d"
+    },
+    "realPutLogEventsHTTP": {
+      "status": 200,
+      "response": {
+        "nextSequenceToken": "2393",
+        "rejectedLogEventsInfo": {
+          "tooOldLogEventEndIndex": 1
+        }
+      },
+      "diagnosticStream": "actual-http-rejection-boundary"
+    },
+    "originalNativeWebhookFrames": [
+      {
+        "source": "rejectedNativeEvent",
+        "frameStart": 1346921,
+        "frameEnd": 1348132
+      },
+      {
+        "source": "acceptedNativeEvent",
+        "frameStart": 1349288,
+        "frameEnd": 1352026
+      }
+    ],
+    "rawBytesAndTimestampsUnchanged": true,
+    "bridgeRequest": {
+      "method": "POST",
+      "transport": "TLS verified using exact-owned bridge CA; actual audit capability privately loaded from owned kubeconfig and not retained",
+      "apiVersion": "audit.k8s.io/v1",
+      "kind": "EventList",
+      "itemsFrom": "sourceMessages, verbatim native JSON bytes"
+    },
+    "realPutLogEventsRequest": {
+      "logGroupName": "/aws/eks/eks-log-failure-boundaries/cluster",
+      "logStreamName": "actual-rejection-api-boundary",
+      "logEvents": [
+        {
+          "timestamp": 1790547003979,
+          "message": "{\"level\":\"Metadata\",\"auditID\":\"8e305662-e577-4989-96cc-384415b1401f\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"native-old-boundary\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:10:03.977772Z\",\"stageTimestamp\":\"2026-09-27T22:10:03.979855Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}"
+        },
+        {
+          "timestamp": 1790547010369,
+          "message": "{\"level\":\"Metadata\",\"auditID\":\"59ca770c-6b36-4604-9c8e-d9b39c2708b1\",\"stage\":\"ResponseComplete\",\"requestURI\":\"/api/v1/namespaces/log-boundary/configmaps?fieldManager=kubectl-create\\u0026fieldValidation=Strict\\u0026timeout=1m30s\",\"verb\":\"create\",\"user\":{\"username\":\"system:admin\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"authentication.kubernetes.io/credential-id\":[\"X509SHA256=bdb9bf27ae823303defd8272f93740299adbbd269ee176313c85991a6929d3d5\"]}},\"impersonatedUser\":{\"username\":\"arn:aws:iam::314159265381:root\",\"uid\":\"aws-iam-authenticator:314159265381:314159265381\",\"groups\":[\"system:masters\",\"system:authenticated\"],\"extra\":{\"arn\":[\"arn:aws:iam::314159265381:root\"]}},\"sourceIPs\":[\"192.168.48.1\"],\"userAgent\":\"kubectl/v1.36.3 (linux/amd64) kubernetes/0f29094\",\"objectRef\":{\"resource\":\"configmaps\",\"namespace\":\"log-boundary\",\"name\":\"native-accepted-boundary\",\"apiVersion\":\"v1\"},\"responseStatus\":{\"metadata\":{},\"code\":201},\"requestReceivedTimestamp\":\"2026-09-27T22:10:10.367856Z\",\"stageTimestamp\":\"2026-09-27T22:10:10.369582Z\",\"annotations\":{\"authorization.k8s.io/decision\":\"allow\",\"authorization.k8s.io/reason\":\"\"}}"
+        }
+      ]
+    }
+  },
+  "cleanup": {
+    "clusterAbsent": true,
+    "ownedContainers": [],
+    "ownedNetworks": [],
+    "ownedVolumes": [],
+    "nativeStateDirectoryAbsent": true,
+    "serviceSessionsNaturallyExpiredAt": "2026-10-12T00:10:07.174Z",
+    "serviceRoleDeletion": [
+      {
+        "role": "AWSServiceRoleForAmazonEKS",
+        "result": {
+          "Status": "SUCCEEDED"
+        }
+      }
+    ],
+    "roles": [],
+    "vpcs": [],
+    "logGroups": [],
+    "temporaryStateDirectoryAbsent": true,
+    "controllerStopped": true
+  },
+  "commandsAreChronological": false,
+  "controllerDiagnostics": {
+    "cleanShutdownExitCode": 0,
+    "racePanicOrFatalDiagnostics": false,
+    "expectedFilesystemFailureLogs": 3
+  },
+  "exercisedBoundaries": [
+    "native timestamp before fourteen-day CloudWatch window is rejected while later raw timestamp in same batch is accepted",
+    "HTTP 200 PutLogEvents with rejectedLogEventsInfo",
+    "real authenticated TLS audit webhook and framed fsynced spool acknowledge partially accepted source",
+    "no accepted-entry replay after repeated collector intervals or executable restart",
+    "all five native streams continue after partial rejection",
+    "real atomic checkpoint rename failure causes terminal Failed LoggingUpdate",
+    "DescribeCluster and committed native logging mask retain prior configuration after failure",
+    "restored filesystem permits later successful disable and reenable with native delivery matching committed mask"
+  ],
+  "scopeNotes": [
+    "Timestamp rejection proof uses the fourteen-day too-old boundary; the separate more-than-two-hours-future boundary was not exercised in this native run.",
+    "This is not a mock publisher or fake Logs response. The replay envelope combines two unmodified audit events produced by the owned Kubernetes API; each raw original source event and timestamp is retained.",
+    "No Go source changes, unit tests, builds, linters or formatters were run by this proof owner."
+  ]
+}

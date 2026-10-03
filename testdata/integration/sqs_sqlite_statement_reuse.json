@@ -1,0 +1,115 @@
+{
+  "scope": "Local signed HTTP SQS workload; not native AWS throughput or a controlled benchmark",
+  "source_fixtures": [
+    "testdata/aws/xray/sampling.json",
+    "testdata/aws/xray/trace_queries.json",
+    "testdata/aws/xray/telemetry.json"
+  ],
+  "selection": "243 distinct captured request IDs, wrapped as EventBridge audit payloads; 302223 total UTF-8 payload bytes",
+  "procedure": "Race-enabled actual CLI, fresh SQLite, fixed manual service time. SendMessageBatch groups of ten; ReceiveMessage batches of ten; individually DeleteMessage every returned receipt. Assert exact payload multiset equality, delete queue and stop controller.",
+  "before": {
+    "binary": "/tmp/stackd-scheduler-pipes-integrated",
+    "payloads": 243,
+    "payload_bytes": 302223,
+    "delete_batches_seconds": [
+      4.713022836484015,
+      4.628207098692656,
+      4.591870910488069,
+      4.586448539048433,
+      4.543890320695937,
+      4.45452484022826,
+      4.458097353577614,
+      4.413283493369818,
+      4.3661329578608274,
+      4.299209454096854,
+      4.291552350856364,
+      4.101031499914825,
+      4.170441064983606,
+      4.14100137911737,
+      4.035449712537229,
+      3.998236261308193,
+      3.983308395370841,
+      3.8759420048445463,
+      3.8523112004622817,
+      3.802707562223077,
+      3.747564065270126,
+      3.6658013174310327,
+      3.6064229123294353,
+      3.639560933224857,
+      1.063107518479228
+    ],
+    "controllers": [
+      {
+        "start": 1,
+        "exit": 0,
+        "forced": false
+      }
+    ],
+    "send_seconds": 9.765001062303782,
+    "drain_seconds": 111.99404573999345,
+    "all_exact_payloads_received_once": true,
+    "owned_queue_deleted": true
+  },
+  "after": {
+    "binary": "/tmp/stackd-sqs-statements",
+    "payloads": 243,
+    "payload_bytes": 302223,
+    "delete_batches_seconds": [
+      3.7271092208102345,
+      3.41142422799021,
+      2.842930273152888,
+      2.8348497562110424,
+      2.840075463987887,
+      2.7677436964586377,
+      2.756819528527558,
+      2.7259112652391195,
+      2.7305706962943077,
+      2.6911721425130963,
+      2.670953813008964,
+      2.638825276866555,
+      2.6448518745601177,
+      2.603209026157856,
+      2.5926537085324526,
+      2.591494812630117,
+      2.559593176469207,
+      2.534534747712314,
+      2.5106272604316473,
+      2.4971791645511985,
+      2.4767462080344558,
+      2.4718626914545894,
+      2.45263684168458,
+      2.4194269878789783,
+      0.7140647685155272
+    ],
+    "controllers": [
+      {
+        "start": 1,
+        "exit": 0,
+        "forced": false
+      }
+    ],
+    "send_seconds": 7.691499838605523,
+    "drain_seconds": 72.80716633982956,
+    "all_exact_payloads_received_once": true,
+    "owned_queue_deleted": true
+  },
+  "verification": {
+    "queue_packages": "go test -race ./storage/sqlite/sqs ./internal/services/sqs",
+    "audit_fixture": "go test -race -timeout 10m ./integration -run '^TestXRayNativeConsumerAuditDelivery$'",
+    "audit_fixture_seconds": 322.475,
+    "static_analysis": "go vet ./storage/sqlite/sqs ./internal/services/sqs && go tool staticcheck ./storage/sqlite/sqs ./internal/services/sqs",
+    "exit_status": 0,
+    "final_error_path_smoke": {
+      "invalid_receipt": "ReceiptHandleIsInvalid",
+      "valid_receipt_after_rejection": true,
+      "queue_empty": true,
+      "owned_queue_deleted": true,
+      "controller_exit_status": 0
+    }
+  },
+  "boundaries": [
+    "The earlier ten-minute integration-package timeout sampled InsertReceipt native SQL preparation during this queue-drain path. It did not establish a deadlock.",
+    "The change reuses SQLC native statements within each SQS write transaction. Aggregate row rewriting is unchanged.",
+    "These are individual observations on a shared workstation, not a universal performance guarantee."
+  ]
+}

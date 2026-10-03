@@ -1,0 +1,79 @@
+{
+  "source": "Native CodePipeline S3 polling calibration summary",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "capture_command": "python3 scripts/aws/codepipeline_polling_probe.py --output testdata/aws/codepipeline/polling_native.json --source-errors",
+  "reproduction_note": "The retained primary run began before supplemental controls were consolidated into the script. The final script includes the separately measured identity, enablement, effective-flag, multi-source and error-projection controls; the entire consolidated sequence was not rerun.",
+  "source_urls": [
+    "https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-S3.html",
+    "https://docs.aws.amazon.com/codepipeline/latest/APIReference/API_PipelineMetadata.html",
+    "https://docs.aws.amazon.com/codepipeline/latest/userguide/pipeline-requirements.html#metadata.pollingDisabledAt",
+    "https://docs.aws.amazon.com/codepipeline/latest/APIReference/API_ExecutionTrigger.html"
+  ],
+  "evidence_files": [
+    "polling_native.json",
+    "polling_native_action_identity.json",
+    "polling_native_missing_create.json",
+    "polling_native_enable_unchanged.json",
+    "polling_native_controls.json"
+  ],
+  "observations": {
+    "admission": {
+      "omitted_true_false": "Accepted",
+      "nonempty_accepted": [
+        "True",
+        "TRUE",
+        "False",
+        "FALSE",
+        "1",
+        "0",
+        "yes",
+        " true ",
+        "null"
+      ],
+      "empty": "ValidationException: configuration map values have minimum length 1"
+    },
+    "effective_mode_positive_attribution": {
+      "true": "PollForSourceChanges",
+      "omitted": "PollForSourceChanges",
+      "True": "PollForSourceChanges",
+      "false": "CreatePipeline",
+      "False": "CreatePipeline",
+      "yes": "CreatePipeline",
+      "1": "CreatePipeline"
+    },
+    "initial_enabled": "One initial execution for one source, attributed PollForSourceChanges with action name as triggerDetail; no separate CreatePipeline execution observed.",
+    "initial_disabled": "CreatePipeline trigger with caller ARN, real initial source VersionId binding.",
+    "version_comparison": "Uploading identical bytes retained ETag but changed VersionId and triggered both enabled watchers.",
+    "attribution": "Stage Source/action S3Input produced triggerDetail S3Input, not stage name.",
+    "source_binding": "GetPipelineExecution artifactRevisions and ListPipelineExecutions sourceRevisions match actual S3 PutObject/HeadObject VersionIds.",
+    "disabled_change": "Enabled independent control triggered while false watcher did not; reenable admitted the changed current revision.",
+    "first_enable_unchanged": "False-created source baseline followed by true update admitted another execution at the SAME VersionId.",
+    "previously_enabled_toggle_unchanged": {
+      "later_history_seconds_after_reenable": 395.622,
+      "new_executions_observed_before_fresh_upload": 0,
+      "subsequent_fresh_version_triggered": true
+    },
+    "unchanged_enabled_update": "No additional executions observed in a 90-second window; not a universal absence proof.",
+    "changed_source_key": "Updating polling source key to an already-existing alternate.zip admitted its existing VersionId without another upload.",
+    "two_source_create": "Two enabled source actions produced TWO initial executions, one attributed to each action; BOTH executions bound BOTH source revisions.",
+    "initial_missing_source": "Create succeeded; seven histories over 60 seconds empty while source action latestExecution reported Failed ConfigurationError, no currentRevision/actionExecutionId or stage latestExecution.",
+    "denied_source": "Poll failure projected action Failed PermissionError with no currentRevision/actionExecutionId; stage latestExecution preserved prior succeeded execution. Restoring access admitted the same VersionId uploaded during denial, without another upload.",
+    "unrelated_key": "No additional main execution observed in the 60-second unrelated-key window; bounded observation only."
+  },
+  "documented_not_native_exercised": {
+    "omitted_polling": "Equivalent to true",
+    "inactive_disable": "After 30 days of no executions, polling is disabled; metadata.pollingDisabledAt reports the timestamp",
+    "inactive_disable_native_observed": false
+  },
+  "limitations": [
+    "AWS exact polling cadence is not established; no fixed interval inferred from observed latencies.",
+    "Short negative windows do not establish indefinite absence.",
+    "Thirty-day inactivity disabling and reactivation are not native-exercised; official documentation says no executions for 30 days and exposes metadata.pollingDisabledAt.",
+    "Effective runtime semantics were not separately isolated for TRUE/FALSE/0/space-padded true/null; their admission was measured.",
+    "One supplemental pre-update GetPipeline output was aliased and modified; the invalid output is omitted with a capture limitation, request metadata retained.",
+    "Supplemental missing-create first DeletePipeline empty-body response was not retained due to decoder error; subsequent GetPipeline PipelineNotFoundException proves deletion."
+  ],
+  "cleanup_verified": true,
+  "cleanup": "Primary: three pipelines deleted/GetPipelineNotFound; every owned S3 version/delete marker removed, bucket deleted/HeadBucket404; IAM inline policy and role deleted/GetRoleNoSuchEntity. Transient missing, enable, four sequential flag and multi-source pipelines deleted/GetPipelineNotFound. No credentials retained."
+}

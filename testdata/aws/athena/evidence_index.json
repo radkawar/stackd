@@ -1,0 +1,71 @@
+{
+  "captured_on": "2026-09-26",
+  "scope": "Actual owned Glue Python-shell -> S3 -> Glue catalog -> Athena SQL -> consumed S3 result bytes, plus cancellation; not full service conformance",
+  "canonical_fixtures": {
+    "application_verified.json": {
+      "probe": "scripts/aws/athena_application_probe.py",
+      "consumer_kind": "application",
+      "recorded_calls": 156,
+      "elapsed_seconds": 232.403,
+      "owned_resources": {"s3_buckets": 1, "iam_roles": 2, "glue_jobs": 1, "glue_job_runs": 2, "glue_databases": 1, "glue_tables": 1, "athena_workgroups": 2, "distinct_query_executions": 4, "eventbridge_rules": 3, "sqs_queues": 1},
+      "observed_bytes": {"produced_csv": "north,4\nsouth,14\nnorth,6\n", "query_result_csv": "\"category\",\"total\"\n\"north\",\"10\"\n\"south\",\"14\"\n"},
+      "observed": ["Real producer success and deliberate runtime failure", "Catalog-backed aggregation of actual S3 bytes", "Enforced workgroup output overrides client output; field removal and disabled workgroup behavior", "Idempotent token identity including table-denied reader; mismatched token rejection", "NULL/empty distinction, decimal/char/numeric/date/timestamp/array/map/row metadata and values", "Header counted in MaxResults, continuation after final data row and final empty page", "Prepared-statement duplicate/missing/update semantics and workgroup scope", "Missing Glue metadata translates to Athena MetadataException", "Athena API deny leaves independent S3 access usable; current S3 deny blocks Athena result access", "Column failure category 2/type 1006 and actual native event fields", "Stop after already-completed query succeeds and retains SUCCEEDED; not evidence of active cancellation"]
+    },
+    "cancellation_verified.json": {
+      "probe": "scripts/aws/athena_cancel_probe.py",
+      "consumer_kind": "cancellation",
+      "recorded_calls": 15,
+      "elapsed_seconds": 9.691,
+      "observed": ["Signed AWS JSON1.1 submit/immediate stop reaches CANCELLED", "Repeated StopQueryExecution succeeds", "Cancelled GetQueryResults returns InvalidRequestException"],
+      "owned_resources": {"s3_buckets": 1, "workgroups": 1, "query_executions": 1},
+      "bounds": "Generated scalar SQL only, no customer-data scan; 10MiB scan cutoff; immediate stop; 60s terminal polling bound; maximum 100,000,000 generated join pairs if cancellation races"
+    },
+    "s3_transport.json": {
+      "observed": "Actual byte-for-byte PutObject/GetObject consumer using AWS CLI custom GetObject without unsupported --cli-input-json",
+      "cleanup_proof": "s3_transport_cleanup.json",
+      "note": "Immediate HeadBucket briefly succeeded after successful DeleteBucket. Later exact-name HeadBucket returned 404; both observations retained."
+    }
+  },
+  "consumer_commands": [
+    "PYTHONPATH=scripts/aws python3 -P scripts/aws/athena_fixture_consumer.py --reference testdata/aws/athena/application_verified.json --actual LOCAL_CAPTURE.json",
+    "PYTHONPATH=scripts/aws python3 -P scripts/aws/athena_fixture_consumer.py --kind cancellation --reference testdata/aws/athena/cancellation_verified.json --actual LOCAL_CANCEL_CAPTURE.json"
+  ],
+  "replay_commands": [
+    "PYTHONPATH=scripts/aws python3 -P scripts/aws/athena_application_probe.py --endpoint-url http://127.0.0.1:PORT --output LOCAL_CAPTURE.json",
+    "PYTHONPATH=scripts/aws python3 -P scripts/aws/athena_cancel_probe.py --endpoint-url http://127.0.0.1:PORT --output LOCAL_CANCEL_CAPTURE.json"
+  ],
+  "runtime_replay_requirement": "testdata/aws/glue/producer.py is the actual native Python-shell specimen. The local runtime must isolate/route its botocore S3 client to the emulator; native Glue shell botocore 1.23 does not implement modern AWS_ENDPOINT_URL environment support. Never permit an ambient AWS fallback.",
+  "verification_exercised": "Both Athena fixture-consumer modes executed against canonical native captures. No local emulator replay or project build/test/lint/formatting executed by this owner.",
+  "preserved_failed_captures": {
+    "application.json": "CLI transport/setup failure before any job; prior owned bucket cleanup proven in application_cleanup.json. Initial PutObject Body JSON was a literal path string, not customer input bytes; not data-plane proof.",
+    "application_cleanup.json": "Exact prior bucket objects deleted and HeadBucket returned 404.",
+    "application_complete.json": "Real producer SUCCEEDED, immediate next StartJobRun rejected due to concurrency-slot release lag. No Athena query reached. Cleanup verified.",
+    "application_s3.json": "Real producer SUCCEEDED; custom GetObject required explicit --bucket/--key flags. CLI ParamValidation retained; cleanup verified.",
+    "application_native.json": "Real producer SUCCEEDED; custom GetObject does not accept --cli-input-json. CLI error retained; cleanup verified.",
+    "cancellation.json": "Shared JSON1.0 observer could not parse Athena response; protocol corrected to modeled JSON1.1 in cancellation_verified.json. Original HTTP status/body unavailable from that failed decoder. Owned workgroup/bucket cleanup verified."
+  },
+  "event_observations": {
+    "fixture": "application_verified.json/native_events",
+    "count": 16,
+    "glue_job_resources": [],
+    "glue_catalog_resources": "CreateDatabase used database ARN; CreateTable used table ARN, not the anomalous database/table form in a documentation example.",
+    "athena_resources": [],
+    "athena_states": "QUEUED omits previousState; RUNNING follows QUEUED; SUCCEEDED/FAILED follows RUNNING; sequenceNumber is a string. FAILED adds athenaError.",
+    "delivery_boundary": "Actual order and timestamps preserved; no guaranteed ordering/completeness/timing claim. Queue receipt handles excluded before persistence."
+  },
+  "campaign_bounds_and_cost": {
+    "recorded_probe_calls_across_all_glue_athena_captures": 760,
+    "additional_read_only_diagnostic_calls_not_in_fixtures": 2,
+    "accepted_native_python_shell_runs_across_all_attempts": 5,
+    "distinct_athena_query_ids_observed_across_all_attempts": 5,
+    "per_job_dpu": 0.0625,
+    "per_job_timeout_minutes": 2,
+    "job_retries": 0,
+    "spark_or_crawler_or_ec2_runs": 0,
+    "job_compute_estimate_usd_from_configured_timeouts": 0.004584,
+    "conservative_aggregate_planned_cost_usd": 0.10,
+    "billing_note": "Cost figures are planning estimates, not observed billing. Sources https://aws.amazon.com/glue/pricing/ ($0.44/DPU-hour), https://aws.amazon.com/athena/pricing/ ($5/TB), and Python-shell 0.0625-DPU documentation. Actual job execution times and scanned bytes are retained. API/local CLI validation failures count as recorded calls, not necessarily billable AWS requests."
+  },
+  "owned_cleanup_complete": true,
+  "remaining_boundaries": ["No paid Spark, CTAS/UNLOAD/federated data source or complete SQL compatibility claim", "No native runtime log delivery proof: job role had no default log-group modification permissions", "Glue Python-shell metrics discovery returned empty in exact scoped reads; no fabricated metric emission", "Deleted native query/job history is service-retained and has no purge API; all observed executions reached terminal states and their owned workgroups/jobs/storage were deleted. The first cancellation capture failed before decoding a query ID; its workgroup/bucket absence is verified but its HTTP response is unavailable."]
+}

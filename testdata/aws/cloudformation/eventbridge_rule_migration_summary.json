@@ -1,0 +1,126 @@
+{
+  "source": "Derived from recorded native public AWS responses; no inferred private CloudFormation calls",
+  "capture": "testdata/aws/cloudformation/eventbridge_rule_migration.json",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "actor": "arn:aws:iam::000000000000:user/Delegated",
+  "prefix": "stackd-cfn-rule-cee0647e0583",
+  "workflow_complete": true,
+  "cleanup_complete": true,
+  "execution": {
+    "workflow_command": "python3 scripts/aws/cloudformation_eventbridge_rule_migration_probe.py",
+    "cleanup_recovery_command": "python3 scripts/aws/cloudformation_eventbridge_rule_migration_probe.py --cleanup-only",
+    "workflow_exit_status": 0,
+    "cleanup_recovery_exit_status": 0,
+    "ethics_review": "allow before native operations",
+    "writes": "Two unique custom buses, one exact-source-ARN-scoped SQS queue, one stack containing one explicitly named AWS::Events::Rule, and one same-name native collision sentinel on the second owned bus",
+    "default_bus": "Neither mutated nor used for event publishing; reverse custom-bus migration was chosen instead"
+  },
+  "documentation_facts": [
+    {
+      "source": "https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-events-rule.html",
+      "facts": [
+        "EventBusName update is documented as Some interruptions; omission selects default bus.",
+        "Name update is documented as Replacement.",
+        "Ref is documented as event rule ID; example names do not establish the custom-bus physical-ID format.",
+        "Arn is a documented GetAtt attribute."
+      ]
+    },
+    {
+      "source": "https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutRule.html",
+      "facts": [
+        "PutRule creates or updates the named rule on the specified event bus.",
+        "For an existing rule, unspecified arguments replace previous values with null rather than retaining them.",
+        "PutRule ignores supplied tags for existing rules; tags are updated through TagResource/UntagResource.",
+        "Rule changes may require a short period before incoming events match."
+      ]
+    }
+  ],
+  "public_registry_schema": {
+    "evidence": "findings.schema_contract and calls[label=rule-public-registry-schema] in the capture",
+    "primaryIdentifier": ["/properties/Arn"],
+    "createOnlyProperties": ["/properties/Name"],
+    "readOnlyProperties": ["/properties/Arn", "/properties/RuleName"],
+    "interpretation_limit": "EventBusName is not in createOnlyProperties, but this does not establish native update identity or private handler sequencing."
+  },
+  "identity": {
+    "rule_name": "stackd-cfn-rule-cee0647e0583-rule",
+    "initial_ref_and_physical_id": "stackd-cfn-rule-cee0647e0583-first|stackd-cfn-rule-cee0647e0583-rule",
+    "migrated_ref_and_physical_id": "stackd-cfn-rule-cee0647e0583-second|stackd-cfn-rule-cee0647e0583-rule",
+    "initial_arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-cfn-rule-cee0647e0583-first/stackd-cfn-rule-cee0647e0583-rule",
+    "migrated_arn": "arn:aws:events:us-east-1:000000000000:rule/stackd-cfn-rule-cee0647e0583-second/stackd-cfn-rule-cee0647e0583-rule",
+    "name_stable": true,
+    "ref_stable": false,
+    "arn_stable": false,
+    "public_stack_events": [
+      "UPDATE_IN_PROGRESS on old bus|name",
+      "UPDATE_IN_PROGRESS: Requested update requires the creation of a new physical resource; hence creating one.",
+      "UPDATE_IN_PROGRESS on new bus|name: Resource creation Initiated",
+      "UPDATE_COMPLETE on new bus|name",
+      "DELETE_IN_PROGRESS on old bus|name",
+      "DELETE_COMPLETE on old bus|name"
+    ]
+  },
+  "transitions": [
+    {
+      "label": "initial-first",
+      "stack_status": "CREATE_COMPLETE",
+      "first_rule": "Present, ENABLED, stack-target attached",
+      "second_rule": "ResourceNotFoundException",
+      "observed_event_delivery_buses": ["first"]
+    },
+    {
+      "label": "migrate-second",
+      "stack_status": "UPDATE_COMPLETE",
+      "first_rule": "ResourceNotFoundException",
+      "second_rule": "Present, ENABLED, stack-target attached with the same queue ARN and retry policy",
+      "observed_event_delivery_buses": ["second"]
+    },
+    {
+      "label": "reverse-first",
+      "stack_status": "UPDATE_COMPLETE",
+      "first_rule": "Present, ENABLED, stack-target attached",
+      "second_rule": "ResourceNotFoundException",
+      "observed_event_delivery_buses": ["first"]
+    },
+    {
+      "label": "missing-destination",
+      "stack_status": "UPDATE_ROLLBACK_COMPLETE",
+      "handler_error_code": "NotFound",
+      "failure_message": "Event bus stackd-cfn-rule-cee0647e0583-missing does not exist.",
+      "first_rule": "Original rule, targets, Ref, Arn and tags preserved",
+      "second_rule": "ResourceNotFoundException",
+      "observed_event_delivery_buses": ["first"]
+    },
+    {
+      "label": "owned-destination-collision",
+      "stack_status": "UPDATE_ROLLBACK_COMPLETE",
+      "handler_error_code": "AlreadyExists",
+      "failure_message": "Resource of type 'AWS::Events::Rule' with identifier 'stackd-cfn-rule-cee0647e0583-rule' already exists.",
+      "first_rule": "Original rule, targets, Ref, Arn and tags preserved",
+      "second_rule": "Probe-owned native sentinel preserved: DISABLED, collision source pattern, native-sentinel target and collision-sentinel tag unchanged",
+      "observed_event_delivery_buses": ["first"]
+    }
+  ],
+  "routing": {
+    "method": "One unique-marker PutEvents entry to each owned custom bus after each transition; actual ReceiveMessage bodies and message deletions retained",
+    "configured_receive_window_seconds_per_transition": 30,
+    "queue_target": "arn:aws:sqs:us-east-1:000000000000:stackd-cfn-rule-cee0647e0583-queue",
+    "queue_policy": "events.amazonaws.com may SendMessage only with SourceArn equal to the exact two owned rule ARNs and SourceAccount 000000000000",
+    "limit": "Positive delivery was observed for every active-bus sample. No inactive-bus sample was received within the bounded window; this is not a proof of permanent non-delivery."
+  },
+  "cleanup": {
+    "stack": "DELETE_COMPLETE by exact ARN; stack name absence verified",
+    "rules": "Stack-owned source rule absent after stack deletion; exact destination collision targets removed, sentinel deleted, absence verified",
+    "queue": "Deleted; GetQueueUrl returned AWS.SimpleQueueService.NonExistentQueue",
+    "custom_buses": "Both empty custom buses deleted; DescribeEventBus returned ResourceNotFoundException for each",
+    "cleanup_only_recovery": "Successfully re-read the deleted stack history and confirmed absence of rules, queue and both buses without recreating resources",
+    "history_limit": "Deleted stack ARN and CloudFormation event history persist in AWS and are not claimed absent"
+  },
+  "limits": [
+    "Native results establish custom-bus Ref as busName|ruleName, not the local engine's previously assumed rule-name-only identity.",
+    "Public stack events describe physical-resource creation/deletion; direct native PutRule/PutTargets/RemoveTargets/DeleteRule ordering inside CloudFormation was not captured.",
+    "The collision was strictly probe-owned. The result does not authorize touching unrelated same-name rules.",
+    "No default-bus migration, cross-account resources, scheduled rules, foreign ownership-token behavior or mid-flight crash recovery is calibrated."
+  ]
+}

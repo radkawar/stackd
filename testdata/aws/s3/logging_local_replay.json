@@ -1,0 +1,193 @@
+{
+  "Documentation": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html",
+  "Notes": [
+    "Local scheduling and authorization regression: the enable-server-access-logging guide requires LogDelivery WRITE plus READ_ACP and warns that policy Deny prevents delivery. Native legacy ownership, grants and projection are replayed separately from access_logging_acl_evidence.json.gz; native best-effort silence is not used to prove a denied-delivery interval.",
+    "CopyObject is an actual public SDK command. Its REST.COPY.OBJECT_GET source record retains authenticated parent transport, but native URI, referer, user agent, byte transfer and timing fields are unavailable. Copied bytes and delivered logs/ACLs are read through public SDK APIs only.",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#aclrequired-s3 specifies REST.PUT.ACL with aclRequired=Yes for successful ACL mutations. Same-account reads without ACL dependency omit that attribution.",
+    "Six-minute advances cross the local five-minute delivery/retry boundary, including midnight and retainedCloud reopen; they are not AWS delivery guarantees. The same pending source read must survive both denials and deliver after policy removal without a new source request. No native evidence indices are assigned."
+  ],
+  "Scenarios": [
+    {
+      "Name": "legacy-acl-deny-recovery-retains-internal-copy-read",
+      "Start": "2026-09-20T23:48:00Z",
+      "Source": "local-logging-source",
+      "Destinations": ["local-logging-legacy"],
+      "Setup": [
+        {
+          "Label": "create source", "Actor": "caller", "Service": "s3", "Operation": "CreateBucket", "Code": "Success",
+          "Input": {"Bucket": "local-logging-source"}
+        },
+        {
+          "Label": "create legacy destination", "Actor": "caller", "Service": "s3", "Operation": "CreateBucket", "Code": "Success",
+          "Input": {"Bucket": "local-logging-legacy", "ObjectOwnership": "ObjectWriter"}
+        },
+        {
+          "Label": "create copy destination", "Actor": "caller", "Service": "s3", "Operation": "CreateBucket", "Code": "Success",
+          "Input": {"Bucket": "local-logging-copy"}
+        },
+        {
+          "Label": "bind bucket owner", "Actor": "caller", "Service": "s3", "Operation": "GetBucketAcl", "Code": "Success",
+          "Input": {"Bucket": "local-logging-legacy"}, "Bind": {"owner": "Owner.ID"}
+        },
+        {
+          "Label": "grant only WRITE to LogDelivery", "Actor": "caller", "Service": "s3", "Operation": "PutBucketAcl", "Code": "Success",
+          "Input": {"Bucket": "local-logging-legacy", "GrantFullControl": "id=\"${owner}\"", "GrantWrite": "uri=\"http://acs.amazonaws.com/groups/s3/LogDelivery\""}
+        },
+        {
+          "Label": "seed copy source before enabling logging", "Actor": "caller", "Service": "s3", "Operation": "PutObject", "Code": "Success",
+          "Input": {"Bucket": "local-logging-source", "Key": "copy-source.txt"}, "Body": "YWJj"
+        },
+        {
+          "Label": "enable source logging without a destination policy", "Actor": "caller", "Service": "s3", "Operation": "PutBucketLogging", "Code": "Success",
+          "Input": {"Bucket": "local-logging-source", "BucketLoggingStatus": {"LoggingEnabled": {"TargetBucket": "local-logging-legacy", "TargetPrefix": "legacy/", "TargetObjectKeyFormat": {"SimplePrefix": {}}}}}
+        }
+      ],
+      "Steps": [
+        {
+          "Label": "write-alone-cannot-deliver-internal-copy-read",
+          "Calls": [
+            {
+              "Label": "copy through public SDK", "Actor": "signed", "Service": "s3", "Operation": "CopyObject", "Code": "Success",
+              "Input": {"Bucket": "local-logging-copy", "Key": "copy.txt", "CopySource": "local-logging-source/copy-source.txt"}
+            },
+            {
+              "Label": "read actual copied bytes", "Actor": "caller", "Service": "s3", "Operation": "GetObject", "Code": "Success",
+              "Input": {"Bucket": "local-logging-copy", "Key": "copy.txt"}, "Plaintext": "YWJj"
+            }
+          ],
+          "Advance": "6m", "Denied": true
+        },
+        {
+          "Label": "read-acp-does-not-bypass-explicit-service-deny-after-reopen",
+          "Reopen": true,
+          "Calls": [
+            {
+              "Label": "complete LogDelivery ACL", "Actor": "caller", "Service": "s3", "Operation": "PutBucketAcl", "Code": "Success",
+              "Input": {"Bucket": "local-logging-legacy", "GrantFullControl": "id=\"${owner}\"", "GrantWrite": "uri=\"http://acs.amazonaws.com/groups/s3/LogDelivery\"", "GrantReadACP": "uri=\"http://acs.amazonaws.com/groups/s3/LogDelivery\""}
+            },
+            {
+              "Label": "deny logging service despite both ACL grants", "Actor": "caller", "Service": "s3", "Operation": "PutBucketPolicy", "Code": "Success",
+              "Input": {"Bucket": "local-logging-legacy", "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"Service\":\"logging.s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::local-logging-legacy/*\"}]}"}
+            }
+          ],
+          "Advance": "6m", "Denied": true
+        },
+        {
+          "Label": "removing-deny-permits-retained-acl-only-delivery",
+          "Reopen": true,
+          "Calls": [
+            {
+              "Label": "remove only the explicit deny", "Actor": "caller", "Service": "s3", "Operation": "DeleteBucketPolicy", "Code": "Success",
+              "Input": {"Bucket": "local-logging-legacy"}
+            }
+          ],
+          "Advance": "6m", "Verify": true,
+          "LocalRecords": [
+            {
+              "Destination": "local-logging-legacy", "Bucket": "local-logging-source", "Operation": "REST.COPY.OBJECT_GET", "Key": "copy-source.txt",
+              "Fields": {"2": "[20/Sep/2026:23:48:00 +0000]", "8": "-", "9": "200", "10": "-", "11": "-", "12": "3", "13": "-", "14": "-", "15": "-", "16": "-", "19": "SigV4", "20": "-", "21": "AuthHeader", "23": "-"}
+            }
+          ]
+        },
+        {
+          "Label": "source-acl-attribution-reaches-delivered-records",
+          "Calls": [
+            {
+              "Label": "enable source ACLs", "Actor": "caller", "Service": "s3", "Operation": "PutBucketOwnershipControls", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "OwnershipControls": {"Rules": [{"ObjectOwnership": "ObjectWriter"}]}}
+            },
+            {
+              "Label": "set source object ACL", "Actor": "caller", "Service": "s3", "Operation": "PutObjectAcl", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "Key": "copy-source.txt", "ACL": "private"}
+            },
+            {
+              "Label": "set source bucket ACL", "Actor": "caller", "Service": "s3", "Operation": "PutBucketAcl", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "ACL": "private"}
+            },
+            {
+              "Label": "read as same-account owner", "Actor": "caller", "Service": "s3", "Operation": "GetObject", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "Key": "copy-source.txt"}, "Plaintext": "YWJj"
+            }
+          ],
+          "Advance": "6m", "Verify": true,
+          "LocalRecords": [
+            {
+              "Destination": "local-logging-legacy", "Bucket": "local-logging-source", "Operation": "REST.PUT.ACL", "Key": "copy-source.txt",
+              "Fields": {"9": "200", "10": "-", "25": "Yes"}
+            },
+            {
+              "Destination": "local-logging-legacy", "Bucket": "local-logging-source", "Operation": "REST.PUT.ACL", "Key": "-",
+              "Fields": {"9": "200", "10": "-", "25": "Yes"}
+            },
+            {
+              "Destination": "local-logging-legacy", "Bucket": "local-logging-source", "Operation": "REST.GET.OBJECT", "Key": "copy-source.txt",
+              "Fields": {"9": "200", "10": "-", "12": "3", "25": "-"}
+            }
+          ]
+        },
+        {
+          "Label": "shared-iam-decision-distinguishes-acl-from-policy-authority",
+          "Calls": [
+            {
+              "Label": "create foreign canonical identity", "Actor": "other", "Service": "s3", "Operation": "CreateBucket", "Code": "Success",
+              "Input": {"Bucket": "local-logging-foreign"}
+            },
+            {
+              "Label": "bind foreign canonical identity", "Actor": "other", "Service": "s3", "Operation": "GetBucketAcl", "Code": "Success",
+              "Input": {"Bucket": "local-logging-foreign"}, "Bind": {"foreignOwner": "Owner.ID"}
+            },
+            {
+              "Label": "create ACL-dependent object", "Actor": "caller", "Service": "s3", "Operation": "PutObject", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "Key": "acl-dependent"}, "Body": "YWJj"
+            },
+            {
+              "Label": "create policy-independent object", "Actor": "caller", "Service": "s3", "Operation": "PutObject", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "Key": "policy-independent"}, "Body": "YWJj"
+            },
+            {
+              "Label": "grant foreign ACL-dependent read", "Actor": "caller", "Service": "s3", "Operation": "PutObjectAcl", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "Key": "acl-dependent", "GrantFullControl": "id=\"${owner}\"", "GrantRead": "id=\"${foreignOwner}\""}
+            },
+            {
+              "Label": "grant foreign policy-independent ACL read", "Actor": "caller", "Service": "s3", "Operation": "PutObjectAcl", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "Key": "policy-independent", "GrantFullControl": "id=\"${owner}\"", "GrantRead": "id=\"${foreignOwner}\""}
+            },
+            {
+              "Label": "independently authorize only policy object", "Actor": "caller", "Service": "s3", "Operation": "PutBucketPolicy", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${otherAccount}:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::local-logging-source/policy-independent\"}]}"}
+            },
+            {
+              "Label": "consume ACL-dependent object", "Actor": "other", "Service": "s3", "Operation": "GetObject", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "Key": "acl-dependent"}, "Plaintext": "YWJj"
+            },
+            {
+              "Label": "consume independently allowed object", "Actor": "other", "Service": "s3", "Operation": "GetObject", "Code": "Success",
+              "Input": {"Bucket": "local-logging-source", "Key": "policy-independent"}, "Plaintext": "YWJj"
+            }
+          ],
+          "Advance": "6m", "Verify": true,
+          "LocalRecords": [
+            {
+              "Destination": "local-logging-legacy", "Bucket": "local-logging-source", "Operation": "REST.GET.OBJECT", "Key": "acl-dependent",
+              "Fields": {"9": "200", "10": "-", "12": "3", "25": "Yes"}
+            },
+            {
+              "Destination": "local-logging-legacy", "Bucket": "local-logging-source", "Operation": "REST.GET.OBJECT", "Key": "policy-independent",
+              "Fields": {"9": "200", "10": "-", "12": "3", "25": "-"}
+            }
+          ]
+        },
+        {
+          "Label": "legacy-service-owner-and-bucket-owner-control-survive-reopen",
+          "Reopen": true, "Verify": true,
+          "LocalRecords": [
+            {
+              "Destination": "local-logging-legacy", "Bucket": "local-logging-source", "Operation": "REST.COPY.OBJECT_GET", "Key": "copy-source.txt",
+              "Fields": {"2": "[20/Sep/2026:23:48:00 +0000]", "8": "-", "9": "200", "10": "-", "11": "-", "12": "3", "13": "-", "14": "-", "15": "-", "16": "-", "19": "SigV4", "20": "-", "21": "AuthHeader", "23": "-"}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

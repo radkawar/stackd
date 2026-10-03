@@ -1,0 +1,537 @@
+{
+  "Source": "requester_payment_evidence.json.gz",
+  "Normalization": "Exact native XML/checksum input bytes and native status/error/charged-header absence. Each retained after-read is actual adjacent native observation. No signature, request ID, date or host ID expectations.",
+  "Scenarios": [
+    {
+      "Name": "payment-xml-integrity-and-atomic-state",
+      "Setup": [
+        {
+          "Label": "create stackd-requester-0fc164c26bcd48a8",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "set Requester",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 22,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native",
+            "RequestPaymentConfiguration": {
+              "Payer": "Requester"
+            }
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "payment missing checksum",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 62,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {},
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Requester</Payer></RequestPaymentConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "missing checksum retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 63,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment correct MD5",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 64,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "stiwwZodlx5hsnK0pEYn+Q=="
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Requester</Payer></RequestPaymentConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "correct MD5 retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 65,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment bad MD5",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 66,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "MDAwMDAwMDAwMDAwMDAwMA=="
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Requester</Payer></RequestPaymentConfiguration>",
+          "Status": 400,
+          "Code": "BadDigest",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "bad MD5 retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 67,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment malformed MD5",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 68,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "broken"
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Requester</Payer></RequestPaymentConfiguration>",
+          "Status": 400,
+          "Code": "InvalidDigest",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "malformed MD5 retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 69,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment checksum SHA256",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 70,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "x-amz-sdk-checksum-algorithm": "SHA256",
+            "x-amz-checksum-sha256": "qtAkObkIy60N7VsNSkGPSyueikUV1hNOKxJL3quC8z4="
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Requester</Payer></RequestPaymentConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "checksum SHA256 retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 71,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment checksum algorithm without checksum",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 72,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "x-amz-sdk-checksum-algorithm": "SHA256"
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Requester</Payer></RequestPaymentConfiguration>",
+          "Status": 400,
+          "Code": "InvalidRequest",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "checksum algorithm without checksum retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 73,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment invalid payer",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 74,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "WCqw2tvWrpZly/++5CZ84w=="
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Owner</Payer></RequestPaymentConfiguration>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "invalid payer retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 75,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment missing payer",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 76,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "bWfzJyQxzJFDJxievYfBqg=="
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"></RequestPaymentConfiguration>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "missing payer retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 77,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment empty payer",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 78,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "E6Z5593tSLB5Nhy1mlpjjQ=="
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer></Payer></RequestPaymentConfiguration>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "empty payer retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 79,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment duplicate payer",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 80,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "6SaZmOggRTeWhLo6cboTGQ=="
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Requester</Payer><Payer>BucketOwner</Payer></RequestPaymentConfiguration>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "duplicate payer retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 81,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment unknown child",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 82,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "w8t9bmo4era72zfwpTmPQQ=="
+          },
+          "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>Requester</Payer><Other>x</Other></RequestPaymentConfiguration>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "unknown child retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 83,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment wrong root",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 84,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "g0Iy+DM1l0U+kw48A43Snw=="
+          },
+          "Body": "<Other><Payer>Requester</Payer></Other>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "wrong root retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 85,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "payment malformed XML",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 86,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "Content-MD5": "4M6ZY8qiXsR+jrDE9RhbaQ=="
+          },
+          "Body": "<RequestPaymentConfiguration><Payer>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "malformed XML retained",
+              "Source": "requester_payment_evidence.json.gz",
+              "Sequence": 87,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              },
+              "Reopen": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

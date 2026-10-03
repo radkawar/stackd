@@ -1,0 +1,29 @@
+{
+  "source": "https://docs.aws.amazon.com/eks/latest/userguide/fargate-profile.html#fargate-profile-wildcards",
+  "evidenceType": "documented selector semantics, not a native capture",
+  "cases": [
+    {"name":"namespace-without-labels","selector":{"namespace":"default"},"namespace":"default","labels":{"app":"anything"},"matches":true},
+    {"name":"wrong-namespace","selector":{"namespace":"default"},"namespace":"other","labels":{},"matches":false},
+    {"name":"all-labels-required","selector":{"namespace":"prod","labels":{"app":"api","tier":"web"}},"namespace":"prod","labels":{"app":"api"},"matches":false},
+    {"name":"extra-pod-labels-allowed","selector":{"namespace":"prod","labels":{"app":"api"}},"namespace":"prod","labels":{"app":"api","tier":"web"},"matches":true},
+    {"name":"star-matches-empty","selector":{"namespace":"prod*"},"namespace":"prod","labels":{},"matches":true},
+    {"name":"question-matches-one","selector":{"namespace":"prod?"},"namespace":"proda","labels":{},"matches":true},
+    {"name":"question-not-empty","selector":{"namespace":"prod?"},"namespace":"prod","labels":{},"matches":false},
+    {"name":"question-not-many","selector":{"namespace":"prod?"},"namespace":"prod-east","labels":{},"matches":false},
+    {"name":"wildcard-label-key-and-value","selector":{"namespace":"*prod*","labels":{"example.com/tier?":"job*"}},"namespace":"east-prod-a","labels":{"example.com/tier1":"job-run"},"matches":true},
+    {"name":"wildcard-label-conjunction","selector":{"namespace":"*","labels":{"tier?":"job*","release":"stable"}},"namespace":"prod","labels":{"tier1":"job-run","release":"canary"},"matches":false}
+  ],
+  "admission": {
+    "profiles": [
+      {"name":"a-creating","id":"creating-incarnation","admissionDenied":true,"selectors":[{"namespace":"default"}]},
+      {"name":"b-deleting","id":"deleting-incarnation","delete":true,"selectors":[{"namespace":"default"}]},
+      {"name":"z-active","id":"active-incarnation","selectors":[{"namespace":"default"}]}
+    ],
+    "stages": [
+      {"name":"inactive-profiles-do-not-hide-active","wantName":"z-active","wantID":"active-incarnation"},
+      {"name":"explicit-inactive-profile-cannot-fall-back","requested":"a-creating","denied":true},
+      {"name":"current-activation-is-observed","activate":"a-creating","wantName":"a-creating","wantID":"creating-incarnation"},
+      {"name":"current-deletion-falls-back-to-active","delete":"a-creating","wantName":"z-active","wantID":"active-incarnation"}
+    ]
+  }
+}

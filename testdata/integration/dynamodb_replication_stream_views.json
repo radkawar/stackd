@@ -1,0 +1,456 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Native AWS testdata/aws/dynamodb/global_tables_stream_views.json. One nondefault enabled view represents inherited view/unchanged source ARN behavior shared by all four probed views; default NEW_AND_OLD_IMAGES creation is covered by dynamodb_replication.json. Public DynamoDB Streams GetRecords shape, not Lambda event envelopes.",
+  "steps": [
+    {
+      "name": "create-source-existing-new-image-stream",
+      "operation": "CreateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_IMAGE"
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "source-ready-before-replica",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_IMAGE"
+        }
+      },
+      "waitWant": true,
+      "bind": {
+        "$SOURCE_STREAM": "Table.LatestStreamArn"
+      }
+    },
+    {
+      "name": "original-stream-before-replica",
+      "operation": "DescribeStream",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "StreamArn": "$SOURCE_STREAM"
+      },
+      "want": {
+        "StreamDescription.StreamStatus": "ENABLED",
+        "StreamDescription.StreamViewType": "NEW_IMAGE"
+      },
+      "bind": {
+        "$SOURCE_SHARD": "StreamDescription.Shards.0.ShardId"
+      }
+    },
+    {
+      "name": "original-consumer-before-replica",
+      "operation": "GetShardIterator",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "StreamArn": "$SOURCE_STREAM",
+        "ShardId": "$SOURCE_SHARD",
+        "ShardIteratorType": "TRIM_HORIZON"
+      },
+      "want": {},
+      "bind": {
+        "$SOURCE_ITERATOR": "ShardIterator"
+      }
+    },
+    {
+      "name": "add-replica-to-existing-stream",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "source-retains-stream-identity-and-view",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_IMAGE"
+        },
+        "Table.LatestStreamArn": "$SOURCE_STREAM"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "replica-inherits-existing-view",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_IMAGE"
+        }
+      },
+      "waitWant": true,
+      "bind": {
+        "$PEER_STREAM": "Table.LatestStreamArn"
+      }
+    },
+    {
+      "name": "original-stream-remains-enabled",
+      "operation": "DescribeStream",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "StreamArn": "$SOURCE_STREAM"
+      },
+      "want": {
+        "StreamDescription.StreamStatus": "ENABLED",
+        "StreamDescription.StreamViewType": "NEW_IMAGE",
+        "StreamDescription.StreamArn": "$SOURCE_STREAM"
+      }
+    },
+    {
+      "name": "replica-stream-exposes-inherited-view",
+      "operation": "DescribeStream",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "StreamArn": "$PEER_STREAM"
+      },
+      "want": {
+        "StreamDescription.StreamStatus": "ENABLED",
+        "StreamDescription.StreamViewType": "NEW_IMAGE"
+      },
+      "bind": {
+        "$PEER_SHARD": "StreamDescription.Shards.0.ShardId"
+      }
+    },
+    {
+      "name": "replica-stream-consumer",
+      "operation": "GetShardIterator",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "StreamArn": "$PEER_STREAM",
+        "ShardId": "$PEER_SHARD",
+        "ShardIteratorType": "TRIM_HORIZON"
+      },
+      "want": {},
+      "bind": {
+        "$PEER_ITERATOR": "ShardIterator"
+      }
+    },
+    {
+      "name": "ordinary-global-view-change-is-rejected",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream",
+        "StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "KEYS_ONLY"
+        }
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "insert-after-replica",
+      "operation": "PutItem",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream",
+        "Item": {
+          "pk": {
+            "S": "record"
+          },
+          "payload": {
+            "S": "one"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "insert-record-source",
+      "operation": "GetRecords",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "ShardIterator": "$SOURCE_ITERATOR"
+      },
+      "want": {
+        "Records.0.eventName": "INSERT",
+        "Records.0.eventSource": "aws:dynamodb",
+        "Records.0.awsRegion": "us-east-1",
+        "Records.0.dynamodb.Keys": {
+          "pk": {
+            "S": "record"
+          }
+        },
+        "Records.0.dynamodb.StreamViewType": "NEW_IMAGE",
+        "Records.0.dynamodb.NewImage": {
+          "pk": {
+            "S": "record"
+          },
+          "payload": {
+            "S": "one"
+          }
+        },
+        "Records.0.dynamodb.OldImage": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "insert-record-peer",
+      "operation": "GetRecords",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "ShardIterator": "$PEER_ITERATOR"
+      },
+      "want": {
+        "Records.0.eventName": "INSERT",
+        "Records.0.eventSource": "aws:dynamodb",
+        "Records.0.awsRegion": "us-east-2",
+        "Records.0.dynamodb.Keys": {
+          "pk": {
+            "S": "record"
+          }
+        },
+        "Records.0.dynamodb.StreamViewType": "NEW_IMAGE",
+        "Records.0.dynamodb.NewImage": {
+          "pk": {
+            "S": "record"
+          },
+          "payload": {
+            "S": "one"
+          }
+        },
+        "Records.0.dynamodb.OldImage": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "modify-after-replica",
+      "operation": "UpdateItem",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream",
+        "Key": {
+          "pk": {
+            "S": "record"
+          }
+        },
+        "UpdateExpression": "SET payload = :v",
+        "ExpressionAttributeValues": {
+          ":v": {
+            "S": "two"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "modify-record-source",
+      "operation": "GetRecords",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "ShardIterator": "$SOURCE_ITERATOR"
+      },
+      "want": {
+        "Records.1.eventName": "MODIFY",
+        "Records.1.eventSource": "aws:dynamodb",
+        "Records.1.awsRegion": "us-east-1",
+        "Records.1.dynamodb.Keys": {
+          "pk": {
+            "S": "record"
+          }
+        },
+        "Records.1.dynamodb.StreamViewType": "NEW_IMAGE",
+        "Records.1.dynamodb.NewImage": {
+          "pk": {
+            "S": "record"
+          },
+          "payload": {
+            "S": "two"
+          }
+        },
+        "Records.1.dynamodb.OldImage": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "modify-record-peer",
+      "operation": "GetRecords",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "ShardIterator": "$PEER_ITERATOR"
+      },
+      "want": {
+        "Records.1.eventName": "MODIFY",
+        "Records.1.eventSource": "aws:dynamodb",
+        "Records.1.awsRegion": "us-east-2",
+        "Records.1.dynamodb.Keys": {
+          "pk": {
+            "S": "record"
+          }
+        },
+        "Records.1.dynamodb.StreamViewType": "NEW_IMAGE",
+        "Records.1.dynamodb.NewImage": {
+          "pk": {
+            "S": "record"
+          },
+          "payload": {
+            "S": "two"
+          }
+        },
+        "Records.1.dynamodb.OldImage": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "retained-view-and-identity-source",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream"
+      },
+      "want": {
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_IMAGE"
+        },
+        "Table.LatestStreamArn": "$SOURCE_STREAM"
+      },
+      "reopen": true
+    },
+    {
+      "name": "retained-view-and-identity-peer",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream"
+      },
+      "want": {
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_IMAGE"
+        },
+        "Table.LatestStreamArn": "$PEER_STREAM"
+      }
+    },
+    {
+      "name": "remove-replica-before-source",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "replica-absent",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "source-ready-after-peer-removal",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-owned-source",
+      "operation": "DeleteTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream"
+      },
+      "want": {}
+    },
+    {
+      "name": "source-absent",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-existing-stream"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    }
+  ]
+}

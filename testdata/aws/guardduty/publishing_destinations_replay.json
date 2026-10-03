@@ -1,0 +1,3434 @@
+{
+  "captured_at": "2026-09-29T15:53:52.726969+00:00",
+  "sources": [
+    "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_exportfindings.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_CreatePublishingDestination.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_DescribePublishingDestination.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListPublishingDestinations.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdatePublishingDestination.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_DeletePublishingDestination.html"
+  ],
+  "sdk": {
+    "boto3": "1.43.99",
+    "botocore": "1.43.99",
+    "api_version": "2017-11-28",
+    "go_model_sha256": "4675cc38456fc0bdb85bd612cae1c7e3a24feed05ca19ecdb8eb71d35312270b",
+    "go_model_revision": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "scope": "Exact-owned enabled detector, private S3 bucket and KMS key; all optional features disabled; at most one explicit AWS sample type; no synthetic traffic; no explicit IAM changes.",
+  "sanitization": "Account and caller identity replaced consistently. AWS-provided fictional sample threat details, IDs, timestamps, and request IDs retained. No credentials or authorization headers captured.",
+  "observations": [
+    {
+      "case": "authorized-identity",
+      "service": "sts",
+      "region": "us-east-1",
+      "operation": "get_caller_identity",
+      "input": {},
+      "at": "2026-09-29T15:53:52.729535+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "623386ea-f372-4afd-8cf7-cbbb1f3f7e27",
+      "output": {
+        "UserId": "NATIVEPROBEIDENTITY",
+        "Account": "123456789012",
+        "Arn": "arn:aws:iam::123456789012:user/native-probe"
+      }
+    },
+    {
+      "case": "service-role-before",
+      "service": "iam",
+      "region": "us-east-1",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "AWSServiceRoleForAmazonGuardDuty"
+      },
+      "at": "2026-09-29T15:53:53.211048+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "47522c7f-2365-42ed-97d1-6af20d2e58fe",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/guardduty.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForAmazonGuardDuty",
+          "RoleId": "AROAQAAAAAAAO7HY7DXBH",
+          "Arn": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+          "CreateDate": "2026-09-29 10:17:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "A service-linked role required for Amazon GuardDuty to access your resources. ",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {
+            "LastUsedDate": "2026-09-29 14:41:53+00:00",
+            "Region": "us-west-2"
+          }
+        }
+      }
+    },
+    {
+      "case": "detectors-before-us-west-2",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_detectors",
+      "input": {},
+      "at": "2026-09-29T15:53:53.708782+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c20b0c1f-e096-4cc1-8bd6-2c9397384be6",
+      "output": {
+        "DetectorIds": []
+      },
+      "wire_output": {
+        "detectorIds": []
+      }
+    },
+    {
+      "case": "event-rules-before-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "list_rules",
+      "input": {
+        "Limit": 100
+      },
+      "at": "2026-09-29T15:53:54.296350+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "177ab100-b319-49fd-93b7-de8d842d89c4",
+      "output": {
+        "Rules": [
+          {
+            "Name": "5z6z7q-local-eb-rule-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/5z6z7q-local-eb-rule-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "ForwardToCustomBus",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/ForwardToCustomBus",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "Description": "Forward all CloudTrail events to the primary event bus",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "deceptiq-cloned-forward-to-primary",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/deceptiq-cloned-forward-to-primary",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED",
+            "Description": "Forward breach events from default bus to primary bus",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "ecr",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/ecr",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "Description": "Capture events on default bus in us-west-2",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "ml3c1d-bedrock-eb-rule-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/ml3c1d-bedrock-eb-rule-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "qop95h-ebkit-eb-rule-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/qop95h-ebkit-eb-rule-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "zluz073m-regional-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/zluz073m-regional-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          }
+        ]
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-5z6z7q-local-eb-rule-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"e11b62be-5fdb-496b-905d-23d7faf42bdd\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T15:53:55Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T15:53:55.064980+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "473c6ffc-2678-44cb-998b-969138c16a30",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-ForwardToCustomBus",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"e11b62be-5fdb-496b-905d-23d7faf42bdd\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T15:53:55Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T15:53:55.237278+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "995111c2-be43-42b3-a9c6-fa7cc4655766",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-deceptiq-cloned-forward-to-primary",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"e11b62be-5fdb-496b-905d-23d7faf42bdd\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T15:53:55Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T15:53:55.405227+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "7959ae44-7e09-49ce-ad37-372000d21574",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-ecr",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"e11b62be-5fdb-496b-905d-23d7faf42bdd\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T15:53:55Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T15:53:55.573149+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "04b6580e-6fa2-4746-8e0a-ab7264acbf24",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-ml3c1d-bedrock-eb-rule-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"e11b62be-5fdb-496b-905d-23d7faf42bdd\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T15:53:55Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T15:53:55.742673+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "267c39c2-aff2-4b49-93b9-2deb78f786c6",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-qop95h-ebkit-eb-rule-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"e11b62be-5fdb-496b-905d-23d7faf42bdd\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T15:53:55Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T15:53:55.911691+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "abf72378-0952-4b6c-b4bd-d7c9dabc08ab",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-zluz073m-regional-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"e11b62be-5fdb-496b-905d-23d7faf42bdd\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T15:53:55Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T15:53:56.080867+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6ac37815-83fc-46ff-8d7d-3831384d1b31",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "empty-boundary-recheck",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_detectors",
+      "input": {},
+      "at": "2026-09-29T15:53:56.259523+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "8980f587-6787-42db-97b1-89ff98c47c0e",
+      "output": {
+        "DetectorIds": []
+      },
+      "wire_output": {
+        "detectorIds": []
+      }
+    },
+    {
+      "case": "service-role-immediate-before",
+      "service": "iam",
+      "region": "us-west-2",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "AWSServiceRoleForAmazonGuardDuty"
+      },
+      "at": "2026-09-29T15:53:56.465406+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f1dc39a9-fcf1-4c6a-94c7-525f24594f32",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/guardduty.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForAmazonGuardDuty",
+          "RoleId": "AROAQAAAAAAAO7HY7DXBH",
+          "Arn": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+          "CreateDate": "2026-09-29 10:17:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "A service-linked role required for Amazon GuardDuty to access your resources. ",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {
+            "LastUsedDate": "2026-09-29 14:41:53+00:00",
+            "Region": "us-west-2"
+          }
+        }
+      }
+    },
+    {
+      "case": "create-enabled-detector",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_detector",
+      "input": {
+        "Enable": true,
+        "ClientToken": "636b8b48df9d4936a4734de261c75a59",
+        "Features": [
+          {
+            "Name": "S3_DATA_EVENTS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "EKS_AUDIT_LOGS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "EBS_MALWARE_PROTECTION",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "RDS_LOGIN_EVENTS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "LAMBDA_NETWORK_LOGS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "AI_PROTECTION",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "AI_ANALYST",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "RUNTIME_MONITORING",
+            "Status": "DISABLED",
+            "AdditionalConfiguration": [
+              {
+                "Name": "EKS_ADDON_MANAGEMENT",
+                "Status": "DISABLED"
+              },
+              {
+                "Name": "ECS_FARGATE_AGENT_MANAGEMENT",
+                "Status": "DISABLED"
+              },
+              {
+                "Name": "EC2_AGENT_MANAGEMENT",
+                "Status": "DISABLED"
+              }
+            ]
+          }
+        ],
+        "Tags": {
+          "stackd-probe": "636b8b48df9d4936a4734de261c75a59"
+        }
+      },
+      "at": "2026-09-29T15:53:56.895826+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "75b8fb8c-a8a3-44ba-b051-2ae3096da0ae",
+      "output": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d"
+      },
+      "wire_output": {
+        "detectorId": "99b163e6f41741759ef6533d4f5d694d"
+      }
+    },
+    {
+      "case": "service-role-after-create",
+      "service": "iam",
+      "region": "us-west-2",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "AWSServiceRoleForAmazonGuardDuty"
+      },
+      "at": "2026-09-29T15:53:57.371911+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "11919a49-71a6-4f71-b0ee-4ef249cd6efe",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/guardduty.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForAmazonGuardDuty",
+          "RoleId": "AROAQAAAAAAAO7HY7DXBH",
+          "Arn": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+          "CreateDate": "2026-09-29 10:17:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "A service-linked role required for Amazon GuardDuty to access your resources. ",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {
+            "LastUsedDate": "2026-09-29 14:41:53+00:00",
+            "Region": "us-west-2"
+          }
+        }
+      }
+    },
+    {
+      "case": "detector-created",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_detector",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d"
+      },
+      "at": "2026-09-29T15:53:57.513601+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d6515360-f550-473a-9c58-efb76f33dba6",
+      "output": {
+        "CreatedAt": "2026-09-29T15:53:57.190Z",
+        "FindingPublishingFrequency": "SIX_HOURS",
+        "ServiceRole": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+        "Status": "ENABLED",
+        "UpdatedAt": "2026-09-29T15:53:57.190Z",
+        "DataSources": {
+          "CloudTrail": {
+            "Status": "ENABLED"
+          },
+          "DNSLogs": {
+            "Status": "ENABLED"
+          },
+          "FlowLogs": {
+            "Status": "ENABLED"
+          },
+          "S3Logs": {
+            "Status": "DISABLED"
+          },
+          "Kubernetes": {
+            "AuditLogs": {
+              "Status": "DISABLED"
+            }
+          },
+          "MalwareProtection": {
+            "ScanEc2InstanceWithFindings": {
+              "EbsVolumes": {
+                "Status": "DISABLED"
+              }
+            }
+          }
+        },
+        "Tags": {
+          "stackd-probe": "636b8b48df9d4936a4734de261c75a59"
+        },
+        "Features": [
+          {
+            "Name": "CLOUD_TRAIL",
+            "Status": "ENABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00"
+          },
+          {
+            "Name": "DNS_LOGS",
+            "Status": "ENABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00"
+          },
+          {
+            "Name": "FLOW_LOGS",
+            "Status": "ENABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00"
+          },
+          {
+            "Name": "S3_DATA_EVENTS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00"
+          },
+          {
+            "Name": "EKS_AUDIT_LOGS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00"
+          },
+          {
+            "Name": "EBS_MALWARE_PROTECTION",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00"
+          },
+          {
+            "Name": "RDS_LOGIN_EVENTS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00",
+            "AdditionalConfiguration": []
+          },
+          {
+            "Name": "AI_PROTECTION",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00"
+          },
+          {
+            "Name": "AI_ANALYST",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00"
+          },
+          {
+            "Name": "EKS_RUNTIME_MONITORING",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00",
+            "AdditionalConfiguration": [
+              {
+                "Name": "EKS_ADDON_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-29 16:53:57+01:00"
+              }
+            ]
+          },
+          {
+            "Name": "LAMBDA_NETWORK_LOGS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00"
+          },
+          {
+            "Name": "RUNTIME_MONITORING",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 16:53:57+01:00",
+            "AdditionalConfiguration": [
+              {
+                "Name": "EKS_ADDON_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-29 16:53:57+01:00"
+              },
+              {
+                "Name": "ECS_FARGATE_AGENT_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-29 16:53:57+01:00"
+              },
+              {
+                "Name": "EC2_AGENT_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-29 16:53:57+01:00"
+              }
+            ]
+          }
+        ]
+      },
+      "wire_output": {
+        "status": "ENABLED",
+        "createdAt": "2026-09-29T15:53:57.190Z",
+        "updatedAt": "2026-09-29T15:53:57.190Z",
+        "findingPublishingFrequency": "SIX_HOURS",
+        "dataSources": {
+          "cloudTrail": {
+            "status": "ENABLED",
+            "updatedAt": "2026-09-29T15:53:57.677Z"
+          },
+          "dnsLogs": {
+            "status": "ENABLED",
+            "updatedAt": "2026-09-29T15:53:57.681Z"
+          },
+          "flowLogs": {
+            "status": "ENABLED",
+            "updatedAt": "2026-09-29T15:53:57.687Z"
+          },
+          "s3Logs": {
+            "status": "DISABLED",
+            "updatedAt": "2026-09-29T15:53:57.196Z"
+          },
+          "kubernetes": {
+            "auditLogs": {
+              "status": "DISABLED",
+              "updatedAt": "2026-09-29T15:53:57.202Z"
+            }
+          },
+          "malwareProtection": {
+            "scanEc2InstanceWithFindings": {
+              "ebsVolumes": {
+                "status": "DISABLED",
+                "updatedAt": "2026-09-29T15:53:57.207Z"
+              }
+            }
+          },
+          "database": {
+            "rds": {
+              "databaseEvents": {
+                "status": "DISABLED",
+                "updatedAt": "2026-09-29T15:53:57.213Z"
+              }
+            }
+          }
+        },
+        "features": [
+          {
+            "name": "CLOUD_TRAIL",
+            "status": "ENABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "DNS_LOGS",
+            "status": "ENABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "FLOW_LOGS",
+            "status": "ENABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "S3_DATA_EVENTS",
+            "status": "DISABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "EKS_AUDIT_LOGS",
+            "status": "DISABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "EBS_MALWARE_PROTECTION",
+            "status": "DISABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "RDS_LOGIN_EVENTS",
+            "status": "DISABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": []
+          },
+          {
+            "name": "AI_PROTECTION",
+            "status": "DISABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "AI_ANALYST",
+            "status": "DISABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "EKS_RUNTIME_MONITORING",
+            "status": "DISABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": [
+              {
+                "name": "EKS_ADDON_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790697237
+              }
+            ]
+          },
+          {
+            "name": "LAMBDA_NETWORK_LOGS",
+            "status": "DISABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "RUNTIME_MONITORING",
+            "status": "DISABLED",
+            "updatedAt": 1790697237,
+            "additionalConfiguration": [
+              {
+                "name": "EKS_ADDON_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790697237
+              },
+              {
+                "name": "ECS_FARGATE_AGENT_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790697237
+              },
+              {
+                "name": "EC2_AGENT_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790697237
+              }
+            ]
+          }
+        ],
+        "tags": {
+          "stackd-probe": "636b8b48df9d4936a4734de261c75a59"
+        },
+        "serviceRole": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty"
+      }
+    },
+    {
+      "case": "bucket-create",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "create_bucket",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "CreateBucketConfiguration": {
+          "LocationConstraint": "us-west-2"
+        }
+      },
+      "at": "2026-09-29T15:53:57.892082+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "FH51VK87HTE78ZF4",
+      "output": {
+        "Location": "http://stackd-gd-dest-8ce3899a4ea54750.s3.amazonaws.com/",
+        "BucketArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750"
+      }
+    },
+    {
+      "case": "bucket-private",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_public_access_block",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        }
+      },
+      "at": "2026-09-29T15:53:58.960666+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "2XHW8K7YMM7EQ9MA",
+      "output": {}
+    },
+    {
+      "case": "bucket-tag",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_bucket_tagging",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Tagging": {
+          "TagSet": [
+            {
+              "Key": "stackd-probe",
+              "Value": "stackd-gd-dest-8ce3899a4ea54750"
+            }
+          ]
+        }
+      },
+      "at": "2026-09-29T15:53:59.214903+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "2XHVVDPEGNB0W8J6",
+      "output": {}
+    },
+    {
+      "case": "key-create",
+      "service": "kms",
+      "region": "us-west-2",
+      "operation": "create_key",
+      "input": {
+        "Description": "stackd-gd-dest-8ce3899a4ea54750",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "Tags": [
+          {
+            "TagKey": "stackd-probe",
+            "TagValue": "stackd-gd-dest-8ce3899a4ea54750"
+          }
+        ]
+      },
+      "at": "2026-09-29T15:53:59.959093+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d573402b-f9d0-4bfd-a02b-26310452118f",
+      "output": {
+        "KeyMetadata": {
+          "AWSAccountId": "123456789012",
+          "KeyId": "60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "Arn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "CreationDate": "2026-09-29 16:54:00.474000+01:00",
+          "Enabled": true,
+          "Description": "stackd-gd-dest-8ce3899a4ea54750",
+          "KeyUsage": "ENCRYPT_DECRYPT",
+          "KeyState": "Enabled",
+          "Origin": "AWS_KMS",
+          "KeyManager": "CUSTOMER",
+          "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+          "KeySpec": "SYMMETRIC_DEFAULT",
+          "EncryptionAlgorithms": [
+            "SYMMETRIC_DEFAULT"
+          ],
+          "MultiRegion": false,
+          "CurrentKeyMaterialId": "30b9a73ba137d62e233ceeff4feffbbfc878a351634cc220b1a9af01e8de32fb"
+        }
+      }
+    },
+    {
+      "case": "missing-destination-describe",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "b6628c00e0df43db9392e9c61b01d452"
+      },
+      "at": "2026-09-29T15:54:00.703136+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "c7813ff0-be75-4c69-9b25-4eaf30e04d10",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the one or more input parameters have invalid values.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the one or more input parameters have invalid values.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the one or more input parameters have invalid values.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "missing-destination-update",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "b6628c00e0df43db9392e9c61b01d452"
+      },
+      "at": "2026-09-29T15:54:00.964921+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "5d51d123-ff28-4956-9fd3-32582de611cc",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "missing-destination-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "b6628c00e0df43db9392e9c61b01d452"
+      },
+      "at": "2026-09-29T15:54:01.183955+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "3dd71d5d-7f67-4f26-a167-df33fe9dee28",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the one or more input parameters have invalid values.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the one or more input parameters have invalid values.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the one or more input parameters have invalid values.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "empty-list",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_publishing_destinations",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d"
+      },
+      "at": "2026-09-29T15:54:01.482312+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ec56b235-d820-430e-875b-a43ea570d645",
+      "output": {
+        "Destinations": []
+      },
+      "wire_output": {
+        "destinations": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "list-zero-limit",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_publishing_destinations",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "MaxResults": 0
+      },
+      "at": "2026-09-29T15:54:01.723658+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "adf3863f-5815-4943-bd54-4c8854b3ffcf",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "list-large-limit",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_publishing_destinations",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "MaxResults": 51
+      },
+      "at": "2026-09-29T15:54:01.998234+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "dabbe30d-761d-4cfa-8b81-de33b75f8e9d",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "list-invalid-token",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_publishing_destinations",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "NextToken": "not-a-native-token"
+      },
+      "at": "2026-09-29T15:54:02.230814+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "51649509-abc2-45d6-88e8-a7a791760379",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid next token is specified",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because an invalid next token is specified",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid next token is specified",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-invalid-type",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "INVALID",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "448a63a0e820438c8b9311f5236c21e2",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:02.505473+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "9e920b78-0eba-4c86-afe3-659d28d2ad4b",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the JSON could not be processed.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the JSON could not be processed.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the JSON could not be processed.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-empty-properties",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {},
+        "ClientToken": "5a737fe1c3f94554a4e417936b543e75",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:02.815400+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "c90d9214-dd82-4e9c-9bce-50c152d797da",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the value specified for the destinationArn parameter is not valid.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the value specified for the destinationArn parameter is not valid.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the value specified for the destinationArn parameter is not valid.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-missing-key",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750"
+        },
+        "ClientToken": "2dfa47fd4da445b9882e02fb156c36e4",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:03.137741+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "76351e48-022a-4292-81e5-033077bfb891",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the value specified for the kmsKeyArn parameter is not valid.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the value specified for the kmsKeyArn parameter is not valid.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the value specified for the kmsKeyArn parameter is not valid.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-missing-bucket",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "d1e9be798d484b31b05ebe8b602247ed",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:03.433954+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "d526ab41-4552-436b-a65c-3e8bb758786f",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the value specified for the destinationArn parameter is not valid.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the value specified for the destinationArn parameter is not valid.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the value specified for the destinationArn parameter is not valid.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-malformed-bucket",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "not-an-arn",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "43a988a481c04026b9f942ad0d59935b",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:03.734121+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "78e2f22c-0791-4430-8763-5be0daa8cab8",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the value specified for the destinationArn parameter is not valid.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the value specified for the destinationArn parameter is not valid.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the value specified for the destinationArn parameter is not valid.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-malformed-key",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "not-an-arn"
+        },
+        "ClientToken": "10f66cb541374147bd67ac78aab37b73",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:04.040889+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "a05a315c-0cab-48c0-922a-e8c06ed97787",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the value specified for the kmsKeyArn parameter is not valid.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the value specified for the kmsKeyArn parameter is not valid.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the value specified for the kmsKeyArn parameter is not valid.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-nonexistent-bucket",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750-missing",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "0adb5302e9eb47cf84aa3364f69703ff",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:04.345634+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "2fba07f1-2860-44ff-8848-eda1d977ec46",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the resource specified in the destinationArn parameter does not exist.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the resource specified in the destinationArn parameter does not exist.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the resource specified in the destinationArn parameter does not exist.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-nonexistent-key",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/69658c50-7830-4a23-b0b3-b5647553aad9"
+        },
+        "ClientToken": "8990beb68f5042abaca78a32ddeb6967",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:04.748149+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "b87ae251-f9ea-4cab-8efa-13b2711fc80b",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the GuardDuty service principal does not have permission to the KMS key or the resource specified by the destinationArn parameter. Refer to https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_exportfindings.html",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the GuardDuty service principal does not have permission to the KMS key or the resource specified by the destinationArn parameter. Refer to https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_exportfindings.html",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the GuardDuty service principal does not have permission to the KMS key or the resource specified by the destinationArn parameter. Refer to https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_exportfindings.html",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-omitted-DestinationProperties",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "ClientToken": "75615a1027104e6887141f8abb8330ad"
+      },
+      "at": "2026-09-29T15:54:05.147255+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "df6ecfd8-e40c-495f-b1bd-0ed1d00f44e8",
+      "output": {
+        "Error": {
+          "Message": "The request failed because no destinationProperties parameter was included in the request.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because no destinationProperties parameter was included in the request.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because no destinationProperties parameter was included in the request.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-omitted-DestinationType",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "3ace8b735eb44562a3c8e943fbf4d179"
+      },
+      "at": "2026-09-29T15:54:05.403047+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "977c9c20-e48b-47b5-a813-9f925c5292da",
+      "output": {
+        "Error": {
+          "Message": "The request failed because no destinationType parameter was included in the request.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because no destinationType parameter was included in the request.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because no destinationType parameter was included in the request.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "create-without-service-policies",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "9871377c0fd245168380a028b0944e4b",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:05.599214+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "83aa0563-ae9f-437d-bf05-2b2d952bc3ee",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the GuardDuty service principal does not have permission to the KMS key or the resource specified by the destinationArn parameter. Refer to https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_exportfindings.html",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the GuardDuty service principal does not have permission to the KMS key or the resource specified by the destinationArn parameter. Refer to https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_exportfindings.html",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the GuardDuty service principal does not have permission to the KMS key or the resource specified by the destinationArn parameter. Refer to https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_exportfindings.html",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "key-policy",
+      "service": "kms",
+      "region": "us-west-2",
+      "operation": "put_key_policy",
+      "input": {
+        "KeyId": "60acb337-e9b2-41ff-aba1-95da1c136a27",
+        "PolicyName": "default",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"EnableOwnedAccountPermissions\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"AllowGuardDutyKey\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"kms:GenerateDataKey\", \"Resource\": \"arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27\", \"Condition\": {\"StringEquals\": {\"aws:SourceAccount\": \"123456789012\", \"aws:SourceArn\": \"arn:aws:guardduty:us-west-2:123456789012:detector/99b163e6f41741759ef6533d4f5d694d\"}}}]}"
+      },
+      "at": "2026-09-29T15:54:06.022441+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "e3bb5d1b-b36b-4c02-b1d9-fd037ae3e160",
+      "output": {}
+    },
+    {
+      "case": "bucket-policy",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_bucket_policy",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AllowGetBucketLocation\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"s3:GetBucketLocation\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750\", \"Condition\": {\"StringEquals\": {\"aws:SourceAccount\": \"123456789012\", \"aws:SourceArn\": \"arn:aws:guardduty:us-west-2:123456789012:detector/99b163e6f41741759ef6533d4f5d694d\"}}}, {\"Sid\": \"AllowPutObject\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceAccount\": \"123456789012\", \"aws:SourceArn\": \"arn:aws:guardduty:us-west-2:123456789012:detector/99b163e6f41741759ef6533d4f5d694d\"}}}, {\"Sid\": \"DenyUnencryptedUploads\", \"Effect\": \"Deny\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/*\", \"Condition\": {\"StringNotEquals\": {\"s3:x-amz-server-side-encryption\": \"aws:kms\"}}}, {\"Sid\": \"DenyIncorrectKey\", \"Effect\": \"Deny\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/*\", \"Condition\": {\"StringNotEquals\": {\"s3:x-amz-server-side-encryption-aws-kms-key-id\": \"arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27\"}}}, {\"Sid\": \"DenyInsecureTransport\", \"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:*\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/*\", \"Condition\": {\"Bool\": {\"aws:SecureTransport\": \"false\"}}}]}",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:06.218297+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "1MCRANY0BDH8T8GX",
+      "output": {}
+    },
+    {
+      "case": "create-valid-encrypted-root",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "01ac55b2fee84f54b24f4b38652a1727",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:07.070238+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "4161cd51-657d-4f5a-b15e-514d9d03894e",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      }
+    },
+    {
+      "case": "token-replay",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "01ac55b2fee84f54b24f4b38652a1727",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:07.565472+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "b6fe42c5-141a-4d52-ad56-c9e2a4d382d4",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      }
+    },
+    {
+      "case": "token-mismatch-properties",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/changed",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "01ac55b2fee84f54b24f4b38652a1727",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:08.027034+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "8474442f-dc65-4271-afe2-ca50b44a93e3",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the resource folder specified in the destinationArn parameter does not exist.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the resource folder specified in the destinationArn parameter does not exist.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the resource folder specified in the destinationArn parameter does not exist.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "token-mismatch-tags",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "01ac55b2fee84f54b24f4b38652a1727",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750",
+          "Changed": "yes"
+        }
+      },
+      "at": "2026-09-29T15:54:08.374978+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "2785f108-687b-4d57-9a31-4ff92c719bb3",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      }
+    },
+    {
+      "case": "describe-created",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:08.948761+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f4e6060e-4dfc-430e-ab11-a582623424f7",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "list-created",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_publishing_destinations",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "MaxResults": 1
+      },
+      "at": "2026-09-29T15:54:09.198323+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "00f249ac-8d54-40e2-bf76-6c8e73630cfd",
+      "output": {
+        "Destinations": [
+          {
+            "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+            "DestinationType": "S3",
+            "Status": "PUBLISHING"
+          }
+        ],
+        "NextToken": "38bf8fcd57254e8bb8a8f78c0bd383dd/S3"
+      },
+      "wire_output": {
+        "destinations": [
+          {
+            "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+            "destinationType": "S3",
+            "status": "PUBLISHING"
+          }
+        ],
+        "nextToken": "38bf8fcd57254e8bb8a8f78c0bd383dd/S3"
+      }
+    },
+    {
+      "case": "list-created-next-page",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_publishing_destinations",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "MaxResults": 1,
+        "NextToken": "38bf8fcd57254e8bb8a8f78c0bd383dd/S3"
+      },
+      "at": "2026-09-29T15:54:09.428513+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "21e26b66-7c7c-4786-a314-4ff00cd879c0",
+      "output": {
+        "Destinations": []
+      },
+      "wire_output": {
+        "destinations": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "quota-second-destination",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "343d643065e94e4bbdd72a40b3dcf069",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:09.668451+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "c5b38665-99d5-4200-b012-f4215b4cb385",
+      "output": {
+        "Error": {
+          "Message": "The request failed because a publishingDestination already exists with the destinationType value provided in the request.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because a publishingDestination already exists with the destinationType value provided in the request.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because a publishingDestination already exists with the destinationType value provided in the request.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "destination-arn-tags",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_tags_for_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/99b163e6f41741759ef6533d4f5d694d/publishingdestination/38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:10.155878+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f1e407d2-3399-4849-8b02-26ba0c0aba44",
+      "output": {
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "destination-tag-merge",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "tag_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/99b163e6f41741759ef6533d4f5d694d/publishingdestination/38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "Tags": {
+          "Extra": "one"
+        }
+      },
+      "at": "2026-09-29T15:54:10.379136+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "c1c00484-1751-4fd4-957b-214365748542",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "destination-tags-merged",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_tags_for_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/99b163e6f41741759ef6533d4f5d694d/publishingdestination/38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:10.640567+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c75fbde6-d06d-458a-b125-af756ce0ff08",
+      "output": {
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750",
+          "Extra": "one"
+        }
+      },
+      "wire_output": {
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750",
+          "Extra": "one"
+        }
+      }
+    },
+    {
+      "case": "destination-untag",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "untag_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/99b163e6f41741759ef6533d4f5d694d/publishingdestination/38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "TagKeys": [
+          "Extra"
+        ]
+      },
+      "at": "2026-09-29T15:54:10.874585+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "14119b77-a498-4930-a735-e630e2e9c17c",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "objects-after-root-create",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:11.124772+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ZN7MS40NZEWGN9SC",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "AWSLogs/",
+            "LastModified": "2026-09-29 15:54:10+00:00",
+            "ETag": "\"f8ff51be4d57b0e4d4fd5ec16cfcb1bd\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-gd-dest-8ce3899a4ea54750",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "case": "object-fetch-after-root-create",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "get_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Key": "AWSLogs/",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:11.309918+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ZN7JXV3KDB2BYH0B",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:10+00:00",
+        "ContentLength": 0,
+        "ETag": "\"f8ff51be4d57b0e4d4fd5ec16cfcb1bd\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      }
+    },
+    {
+      "case": "update-omitted-properties",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:11.519491+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "525f752f-9e70-4fbf-ab11-dd76a3f8b96f",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "after-update-omitted-properties",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:11.717077+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "189b21a3-9fbb-49f0-bfbb-d2713a6485fb",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "update-empty-properties",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationProperties": {},
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:11.963844+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "654eec0e-cf9d-4876-813b-e5bda347afa3",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "after-update-empty-properties",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:12.188899+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "066803af-6457-4965-8729-8441e07611ba",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "update-key-only",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationProperties": {
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:12.437128+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "90eb9351-9ea8-4834-b94d-05ba030781a8",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "after-update-key-only",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:12.920731+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d4ef74c7-6105-4365-96b5-8b66164f13d2",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "update-bucket-only",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750"
+        },
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:13.184691+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "fd2ff37f-5aff-4088-8161-3d3b94416c26",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "after-update-bucket-only",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:13.617500+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "efd3e973-2bc2-4c81-846f-71cee2fc6e6e",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "update-invalid-key",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "invalid"
+        },
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:13.863995+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "66cd3ed9-9c93-41fb-b628-262488c42707",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the value specified for the kmsKeyArn parameter is not valid.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the value specified for the kmsKeyArn parameter is not valid.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the value specified for the kmsKeyArn parameter is not valid.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "after-update-invalid-key",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:14.108005+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "2153cb21-e0c6-41bc-85f3-1133dcba3acf",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "update-nonexistent-prefix",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/explicit-prefix",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:14.360548+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "2238ca23-980a-4662-8249-2b9c75afc5dd",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the resource folder specified in the destinationArn parameter does not exist.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the resource folder specified in the destinationArn parameter does not exist.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the resource folder specified in the destinationArn parameter does not exist.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "after-update-nonexistent-prefix",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:14.644157+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6d5ab10d-3d5b-418f-943a-c05528881894",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "owned-folder-explicit-prefix/",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Key": "explicit-prefix/",
+        "Body": "b''",
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:14.906232+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "DC73BDC2CRKZ2PBC",
+      "output": {
+        "ETag": "\"fa769c54262a1fe9892270acf9df9a75\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      }
+    },
+    {
+      "case": "owned-folder-explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+        "Body": "b''",
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:15.317265+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "HZ5Y2K697FZ330K0",
+      "output": {
+        "ETag": "\"c25a7362f16fcf5872b44d56332d9c1b\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      }
+    },
+    {
+      "case": "token-mismatch-valid-prefix",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/explicit-prefix",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "ClientToken": "01ac55b2fee84f54b24f4b38652a1727",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "at": "2026-09-29T15:54:15.684621+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c71b8015-b0ad-4366-9928-ebd1d4dd155d",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      }
+    },
+    {
+      "case": "after-token-mismatch-valid-prefix",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:16.242765+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d44431d2-7bb5-47ce-a339-64acfb68c01f",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "update-existing-prefix",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/explicit-prefix",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:16.510142+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d90afff9-2343-4d70-b56e-091d179035b5",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "before-sample",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:16.922068+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "b956669d-3de7-4d80-ab3d-4a2e2b5039db",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/explicit-prefix",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/explicit-prefix",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "objects-after-prefix-update",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:17.170070+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "QDXT38NVET7QDPPH",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "AWSLogs/",
+            "LastModified": "2026-09-29 15:54:14+00:00",
+            "ETag": "\"d8afed4fa6b5bc9f3bcef1f6e88c8af7\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/",
+            "LastModified": "2026-09-29 15:54:15+00:00",
+            "ETag": "\"fa769c54262a1fe9892270acf9df9a75\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/",
+            "LastModified": "2026-09-29 15:54:17+00:00",
+            "ETag": "\"634bc00db0d564ec1edfb0cfd9c1ef08\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+            "LastModified": "2026-09-29 15:54:16+00:00",
+            "ETag": "\"c25a7362f16fcf5872b44d56332d9c1b\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-gd-dest-8ce3899a4ea54750",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 4
+      }
+    },
+    {
+      "case": "object-fetch-after-prefix-update",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "get_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Key": "AWSLogs/",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:17.352615+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "QDXZRH82H7Q3GJJW",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:14+00:00",
+        "ContentLength": 0,
+        "ETag": "\"d8afed4fa6b5bc9f3bcef1f6e88c8af7\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      }
+    },
+    {
+      "case": "object-fetch-after-prefix-update",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "get_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Key": "explicit-prefix/",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:17.561713+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "QDXHQFKDZHWQE7MD",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:15+00:00",
+        "ContentLength": 0,
+        "ETag": "\"fa769c54262a1fe9892270acf9df9a75\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      }
+    },
+    {
+      "case": "object-fetch-after-prefix-update",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "get_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Key": "explicit-prefix/AWSLogs/",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:17.759232+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "QDXNGV8B42E78J5F",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:17+00:00",
+        "ContentLength": 0,
+        "ETag": "\"634bc00db0d564ec1edfb0cfd9c1ef08\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      }
+    },
+    {
+      "case": "object-fetch-after-prefix-update",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "get_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:17.958784+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "EVTSPBPDM9DNJNF3",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:16+00:00",
+        "ContentLength": 0,
+        "ETag": "\"c25a7362f16fcf5872b44d56332d9c1b\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      }
+    },
+    {
+      "case": "explicit-owned-sample",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_sample_findings",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "FindingTypes": [
+          "Recon:EC2/PortProbeUnprotectedPort"
+        ]
+      },
+      "at": "2026-09-29T15:54:18.160759+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "5980b16a-4cbe-46da-a042-82b3e42d989b",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "observe-destination-0",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:19.573833+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "b354abf4-ec1c-43b6-bb2b-8f911ecae76d",
+      "output": {
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/explicit-prefix",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      },
+      "wire_output": {
+        "destinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-8ce3899a4ea54750/explicit-prefix",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-8ce3899a4ea54750"
+        }
+      }
+    },
+    {
+      "case": "objects-observe-0",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:19.829833+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "H7X79ZXRB42H5NHH",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "AWSLogs/",
+            "LastModified": "2026-09-29 15:54:14+00:00",
+            "ETag": "\"d8afed4fa6b5bc9f3bcef1f6e88c8af7\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/",
+            "LastModified": "2026-09-29 15:54:15+00:00",
+            "ETag": "\"fa769c54262a1fe9892270acf9df9a75\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/",
+            "LastModified": "2026-09-29 15:54:17+00:00",
+            "ETag": "\"634bc00db0d564ec1edfb0cfd9c1ef08\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+            "LastModified": "2026-09-29 15:54:16+00:00",
+            "ETag": "\"c25a7362f16fcf5872b44d56332d9c1b\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-gd-dest-8ce3899a4ea54750",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 4
+      }
+    },
+    {
+      "case": "findings-at-bound",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_findings",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d"
+      },
+      "at": "2026-09-29T15:54:20.011816+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "1e77feed-a359-4e31-956f-ea9e01ac25df",
+      "output": {
+        "FindingIds": [],
+        "NextToken": ""
+      },
+      "wire_output": {
+        "findingIds": [],
+        "nextToken": ""
+      }
+    },
+    {
+      "case": "delete-primary",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:20.286384+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d08f53eb-da96-4d9d-ab64-1a008ee09665",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "describe-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:20.614066+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "d71cae09-70d3-417f-97e6-133c5f4a30e7",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the one or more input parameters have invalid values.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the one or more input parameters have invalid values.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the one or more input parameters have invalid values.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "delete-primary-again",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:20.854848+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "457a5c86-6ca7-4c33-b6d5-eeb1d2f7982b",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the one or more input parameters have invalid values.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the one or more input parameters have invalid values.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the one or more input parameters have invalid values.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "list-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_publishing_destinations",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d"
+      },
+      "at": "2026-09-29T15:54:21.146070+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ffab0119-2134-43e2-be20-8bdc183e77f8",
+      "output": {
+        "Destinations": []
+      },
+      "wire_output": {
+        "destinations": [],
+        "nextToken": null
+      }
+    }
+  ],
+  "cleanup": [
+    {
+      "case": "cleanup-destination",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_publishing_destination",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "DestinationId": "38bf8fcd57254e8bb8a8f78c0bd383dd"
+      },
+      "at": "2026-09-29T15:54:21.383906+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "77f3e555-d96a-48c9-845e-e0a629698b7d",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the one or more input parameters have invalid values.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the one or more input parameters have invalid values.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the one or more input parameters have invalid values.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "cleanup-destinations-list",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_publishing_destinations",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d"
+      },
+      "at": "2026-09-29T15:54:21.671721+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d56ae6d1-ea52-4ed9-b591-16808f5e6ac0",
+      "output": {
+        "Destinations": []
+      },
+      "wire_output": {
+        "destinations": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "cleanup-detector-suspend",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_detector",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d",
+        "Enable": false
+      },
+      "at": "2026-09-29T15:54:21.933078+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "eeaf3d60-222b-4370-ab87-585057b32819",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "cleanup-detector-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_detector",
+      "input": {
+        "DetectorId": "99b163e6f41741759ef6533d4f5d694d"
+      },
+      "at": "2026-09-29T15:54:22.308304+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f81de885-36d7-4015-875e-f56471f94b75",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "cleanup-detectors-list",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_detectors",
+      "input": {},
+      "at": "2026-09-29T15:54:22.897347+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "1e5cad1f-9c02-473c-a95c-4fc0a96b4952",
+      "output": {
+        "DetectorIds": []
+      },
+      "wire_output": {
+        "detectorIds": []
+      }
+    },
+    {
+      "case": "objects-cleanup-final",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:23.092452+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "39JQF9JRZ6TJ1AN2",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "AWSLogs/",
+            "LastModified": "2026-09-29 15:54:14+00:00",
+            "ETag": "\"d8afed4fa6b5bc9f3bcef1f6e88c8af7\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/",
+            "LastModified": "2026-09-29 15:54:15+00:00",
+            "ETag": "\"fa769c54262a1fe9892270acf9df9a75\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/",
+            "LastModified": "2026-09-29 15:54:17+00:00",
+            "ETag": "\"634bc00db0d564ec1edfb0cfd9c1ef08\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+            "LastModified": "2026-09-29 15:54:16+00:00",
+            "ETag": "\"c25a7362f16fcf5872b44d56332d9c1b\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-gd-dest-8ce3899a4ea54750",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 4
+      }
+    },
+    {
+      "case": "cleanup-objects-list",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:23.281007+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "39JSDARF07FKS2YH",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "AWSLogs/",
+            "LastModified": "2026-09-29 15:54:14+00:00",
+            "ETag": "\"d8afed4fa6b5bc9f3bcef1f6e88c8af7\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/",
+            "LastModified": "2026-09-29 15:54:15+00:00",
+            "ETag": "\"fa769c54262a1fe9892270acf9df9a75\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/",
+            "LastModified": "2026-09-29 15:54:17+00:00",
+            "ETag": "\"634bc00db0d564ec1edfb0cfd9c1ef08\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+            "LastModified": "2026-09-29 15:54:16+00:00",
+            "ETag": "\"c25a7362f16fcf5872b44d56332d9c1b\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-gd-dest-8ce3899a4ea54750",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 4
+      }
+    },
+    {
+      "case": "cleanup-objects-delete",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "delete_objects",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "Delete": {
+          "Objects": [
+            {
+              "Key": "AWSLogs/"
+            },
+            {
+              "Key": "explicit-prefix/"
+            },
+            {
+              "Key": "explicit-prefix/AWSLogs/"
+            },
+            {
+              "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/"
+            }
+          ]
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:23.459734+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "39JYVZSD9CP7XE21",
+      "output": {
+        "Deleted": [
+          {
+            "Key": "explicit-prefix/"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/"
+          },
+          {
+            "Key": "AWSLogs/"
+          }
+        ]
+      }
+    },
+    {
+      "case": "cleanup-objects-list",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:23.687757+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "XNHX0EZWFEGFZJH8",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-gd-dest-8ce3899a4ea54750",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "case": "cleanup-bucket-delete",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "delete_bucket",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:24.329852+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "XNHSCCJZ8VV5TEBE",
+      "output": {}
+    },
+    {
+      "case": "cleanup-bucket-absence",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "head_bucket",
+      "input": {
+        "Bucket": "stackd-gd-dest-8ce3899a4ea54750",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T15:54:24.756182+00:00",
+      "code": "404",
+      "http_status": 404,
+      "request_id": "XNHN94G5FPPK6P5K",
+      "output": {
+        "Error": {
+          "Code": "404",
+          "Message": "Not Found"
+        }
+      }
+    },
+    {
+      "case": "cleanup-key-schedule",
+      "service": "kms",
+      "region": "us-west-2",
+      "operation": "schedule_key_deletion",
+      "input": {
+        "KeyId": "60acb337-e9b2-41ff-aba1-95da1c136a27",
+        "PendingWindowInDays": 7
+      },
+      "at": "2026-09-29T15:54:24.923617+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "75341f62-5623-4a42-8c16-0875ed405295",
+      "output": {
+        "KeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+        "DeletionDate": "2026-10-06 16:54:25.431000+01:00",
+        "KeyState": "PendingDeletion",
+        "PendingWindowInDays": 7
+      }
+    },
+    {
+      "case": "cleanup-key-status",
+      "service": "kms",
+      "region": "us-west-2",
+      "operation": "describe_key",
+      "input": {
+        "KeyId": "60acb337-e9b2-41ff-aba1-95da1c136a27"
+      },
+      "at": "2026-09-29T15:54:25.523208+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9c5598ef-cd83-44df-8161-8777f8169a78",
+      "output": {
+        "KeyMetadata": {
+          "AWSAccountId": "123456789012",
+          "KeyId": "60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "Arn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+          "CreationDate": "2026-09-29 16:54:00.474000+01:00",
+          "Enabled": false,
+          "Description": "stackd-gd-dest-8ce3899a4ea54750",
+          "KeyUsage": "ENCRYPT_DECRYPT",
+          "KeyState": "PendingDeletion",
+          "DeletionDate": "2026-10-06 16:54:25.431000+01:00",
+          "Origin": "AWS_KMS",
+          "KeyManager": "CUSTOMER",
+          "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+          "KeySpec": "SYMMETRIC_DEFAULT",
+          "EncryptionAlgorithms": [
+            "SYMMETRIC_DEFAULT"
+          ],
+          "MultiRegion": false,
+          "CurrentKeyMaterialId": "30b9a73ba137d62e233ceeff4feffbbfc878a351634cc220b1a9af01e8de32fb"
+        }
+      }
+    }
+  ],
+  "owned": {
+    "prefix": "stackd-gd-dest-8ce3899a4ea54750",
+    "destination_ids": [
+      "38bf8fcd57254e8bb8a8f78c0bd383dd"
+    ],
+    "object_keys": [
+      "explicit-prefix/",
+      "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/"
+    ],
+    "detector_id": "99b163e6f41741759ef6533d4f5d694d",
+    "client_token": "636b8b48df9d4936a4734de261c75a59",
+    "bucket": "stackd-gd-dest-8ce3899a4ea54750",
+    "kms_key": {
+      "AWSAccountId": "123456789012",
+      "KeyId": "60acb337-e9b2-41ff-aba1-95da1c136a27",
+      "Arn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+      "CreationDate": "2026-09-29 16:54:00.474000+01:00",
+      "Enabled": true,
+      "Description": "stackd-gd-dest-8ce3899a4ea54750",
+      "KeyUsage": "ENCRYPT_DECRYPT",
+      "KeyState": "Enabled",
+      "Origin": "AWS_KMS",
+      "KeyManager": "CUSTOMER",
+      "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+      "KeySpec": "SYMMETRIC_DEFAULT",
+      "EncryptionAlgorithms": [
+        "SYMMETRIC_DEFAULT"
+      ],
+      "MultiRegion": false,
+      "CurrentKeyMaterialId": "30b9a73ba137d62e233ceeff4feffbbfc878a351634cc220b1a9af01e8de32fb"
+    },
+    "detector_arn": "arn:aws:guardduty:us-west-2:123456789012:detector/99b163e6f41741759ef6533d4f5d694d"
+  },
+  "limitations": [
+    "Lifecycle admission and validation markers do not establish finding export format or timing.",
+    "Zero findings exports in the bounded window is inconclusive; documented initial delivery is about five minutes.",
+    "Existing service-linked role is never explicitly changed or deleted, including prior cleanup blockers.",
+    "Decoded text is account-sanitized; byte lengths and SHA256 describe actual fetched bytes. Binary bodies are retained only for non-finding markers."
+  ],
+  "bounds": {
+    "observation_seconds": 0,
+    "poll_seconds": 10,
+    "sdk_total_max_attempts": 1,
+    "object_capture_max_bytes": 2097152
+  },
+  "execution": {
+    "python": "/home/r/dev/minor/stackd/.stackd/probes/inventory-physical-c5d910ae618f44e7/venv/bin/python",
+    "profile": "default"
+  },
+  "objects": [
+    {
+      "key": "AWSLogs/",
+      "case": "after-root-create",
+      "metadata": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:10+00:00",
+        "ContentLength": 0,
+        "ETag": "\"f8ff51be4d57b0e4d4fd5ec16cfcb1bd\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      },
+      "fetched_bytes": 0,
+      "owned_folder": false,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip": false,
+      "decoded_utf8": ""
+    },
+    {
+      "key": "AWSLogs/",
+      "case": "after-prefix-update",
+      "metadata": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:14+00:00",
+        "ContentLength": 0,
+        "ETag": "\"d8afed4fa6b5bc9f3bcef1f6e88c8af7\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      },
+      "fetched_bytes": 0,
+      "owned_folder": false,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip": false,
+      "decoded_utf8": ""
+    },
+    {
+      "key": "explicit-prefix/",
+      "case": "after-prefix-update",
+      "metadata": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:15+00:00",
+        "ContentLength": 0,
+        "ETag": "\"fa769c54262a1fe9892270acf9df9a75\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      },
+      "fetched_bytes": 0,
+      "owned_folder": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip": false,
+      "decoded_utf8": ""
+    },
+    {
+      "key": "explicit-prefix/AWSLogs/",
+      "case": "after-prefix-update",
+      "metadata": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:17+00:00",
+        "ContentLength": 0,
+        "ETag": "\"634bc00db0d564ec1edfb0cfd9c1ef08\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      },
+      "fetched_bytes": 0,
+      "owned_folder": false,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip": false,
+      "decoded_utf8": ""
+    },
+    {
+      "key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+      "case": "after-prefix-update",
+      "metadata": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-29 15:54:16+00:00",
+        "ContentLength": 0,
+        "ETag": "\"c25a7362f16fcf5872b44d56332d9c1b\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27"
+      },
+      "fetched_bytes": 0,
+      "owned_folder": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip": false,
+      "decoded_utf8": ""
+    }
+  ],
+  "service_role_preexisting": true,
+  "region": "us-west-2",
+  "empty_boundary_verified": true,
+  "enabled_at": "2026-09-29T15:53:56.895826+00:00",
+  "requested_features": [
+    {
+      "Name": "S3_DATA_EVENTS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "EKS_AUDIT_LOGS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "EBS_MALWARE_PROTECTION",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "RDS_LOGIN_EVENTS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "LAMBDA_NETWORK_LOGS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "AI_PROTECTION",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "AI_ANALYST",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "RUNTIME_MONITORING",
+      "Status": "DISABLED",
+      "AdditionalConfiguration": [
+        {
+          "Name": "EKS_ADDON_MANAGEMENT",
+          "Status": "DISABLED"
+        },
+        {
+          "Name": "ECS_FARGATE_AGENT_MANAGEMENT",
+          "Status": "DISABLED"
+        },
+        {
+          "Name": "EC2_AGENT_MANAGEMENT",
+          "Status": "DISABLED"
+        }
+      ]
+    }
+  ],
+  "create_tags_supported": true,
+  "destination_resource_arn": "arn:aws:guardduty:us-west-2:123456789012:detector/99b163e6f41741759ef6533d4f5d694d/publishingdestination/38bf8fcd57254e8bb8a8f78c0bd383dd",
+  "export_observation_started_at": "2026-09-29T15:54:19.573820+00:00",
+  "export_observation_elapsed_seconds": 0.438,
+  "export_observation_result": "Bounded inconclusive: no decoded finding export observed",
+  "destinations_cleanup_verified": true,
+  "detector_cleanup_verified": true,
+  "bucket_cleanup_verified": true,
+  "kms_deletion_scheduled_verified": true,
+  "remaining_kms_key": {
+    "AWSAccountId": "123456789012",
+    "KeyId": "60acb337-e9b2-41ff-aba1-95da1c136a27",
+    "Arn": "arn:aws:kms:us-west-2:123456789012:key/60acb337-e9b2-41ff-aba1-95da1c136a27",
+    "CreationDate": "2026-09-29 16:54:00.474000+01:00",
+    "Enabled": false,
+    "Description": "stackd-gd-dest-8ce3899a4ea54750",
+    "KeyUsage": "ENCRYPT_DECRYPT",
+    "KeyState": "PendingDeletion",
+    "DeletionDate": "2026-10-06 16:54:25.431000+01:00",
+    "Origin": "AWS_KMS",
+    "KeyManager": "CUSTOMER",
+    "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+    "KeySpec": "SYMMETRIC_DEFAULT",
+    "EncryptionAlgorithms": [
+      "SYMMETRIC_DEFAULT"
+    ],
+    "MultiRegion": false,
+    "CurrentKeyMaterialId": "30b9a73ba137d62e233ceeff4feffbbfc878a351634cc220b1a9af01e8de32fb"
+  },
+  "preexisting_service_role_not_explicitly_changed": true,
+  "cleanup_problems": [],
+  "finished_at": "2026-09-29T15:54:25.700295+00:00"
+}

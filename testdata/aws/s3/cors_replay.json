@@ -1,0 +1,5324 @@
+{
+  "Source": "cors_evidence.json.gz",
+  "Notes": [
+    "SDK projections of measured raw management calls; native SDK decoder failures and >int32 max-age are evidence-only.",
+    "Reopened reads preserve ordered duplicate rules/list values and optional empty/zero fields."
+  ],
+  "Scenarios": [
+    {
+      "Name": "typed-control-replacement-and-admission",
+      "Calls": [
+        {
+          "Label": "create-bucket",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "missing-config",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 2,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "NoSuchCORSConfiguration",
+          "Status": 404
+        },
+        {
+          "Label": "delete-missing-config",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 3,
+          "Service": "s3",
+          "Operation": "DeleteBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 204
+        },
+        {
+          "Label": "still-missing-config",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 4,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "NoSuchCORSConfiguration",
+          "Status": 404
+        },
+        {
+          "Label": "ordered-retained-config",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 11,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "first",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD",
+                    "PUT"
+                  ],
+                  "AllowedHeaders": [
+                    "x-probe-*",
+                    "Content-Type"
+                  ],
+                  "ExposeHeaders": [
+                    "ETag",
+                    "x-amz-request-id"
+                  ],
+                  "MaxAgeSeconds": 17
+                },
+                {
+                  "ID": "fallback",
+                  "AllowedOrigins": [
+                    "*"
+                  ],
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD",
+                    "PUT",
+                    "POST",
+                    "DELETE"
+                  ],
+                  "AllowedHeaders": [
+                    "*"
+                  ],
+                  "ExposeHeaders": [
+                    "x-amz-version-id"
+                  ],
+                  "MaxAgeSeconds": 41
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "ordered-retained-config.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 12,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "first",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT"
+                ],
+                "MaxAgeSeconds": 17,
+                "ExposeHeaders": [
+                  "ETag",
+                  "x-amz-request-id"
+                ],
+                "AllowedHeaders": [
+                  "x-probe-*",
+                  "Content-Type"
+                ]
+              },
+              {
+                "ID": "fallback",
+                "AllowedOrigins": [
+                  "*"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT",
+                  "POST",
+                  "DELETE"
+                ],
+                "MaxAgeSeconds": 41,
+                "ExposeHeaders": [
+                  "x-amz-version-id"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-method-options",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 13,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "OPTIONS"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "InvalidRequest",
+          "Status": 400
+        },
+        {
+          "Label": "admission-method-options.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 14,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "first",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT"
+                ],
+                "MaxAgeSeconds": 17,
+                "ExposeHeaders": [
+                  "ETag",
+                  "x-amz-request-id"
+                ],
+                "AllowedHeaders": [
+                  "x-probe-*",
+                  "Content-Type"
+                ]
+              },
+              {
+                "ID": "fallback",
+                "AllowedOrigins": [
+                  "*"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT",
+                  "POST",
+                  "DELETE"
+                ],
+                "MaxAgeSeconds": 41,
+                "ExposeHeaders": [
+                  "x-amz-version-id"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-method-lowercase",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 15,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "get"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "InvalidRequest",
+          "Status": 400
+        },
+        {
+          "Label": "admission-method-lowercase.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 16,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "first",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT"
+                ],
+                "MaxAgeSeconds": 17,
+                "ExposeHeaders": [
+                  "ETag",
+                  "x-amz-request-id"
+                ],
+                "AllowedHeaders": [
+                  "x-probe-*",
+                  "Content-Type"
+                ]
+              },
+              {
+                "ID": "fallback",
+                "AllowedOrigins": [
+                  "*"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT",
+                  "POST",
+                  "DELETE"
+                ],
+                "MaxAgeSeconds": 41,
+                "ExposeHeaders": [
+                  "x-amz-version-id"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-method-empty",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 17,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    ""
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "InvalidRequest",
+          "Status": 400
+        },
+        {
+          "Label": "admission-method-empty.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 18,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "first",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT"
+                ],
+                "MaxAgeSeconds": 17,
+                "ExposeHeaders": [
+                  "ETag",
+                  "x-amz-request-id"
+                ],
+                "AllowedHeaders": [
+                  "x-probe-*",
+                  "Content-Type"
+                ]
+              },
+              {
+                "ID": "fallback",
+                "AllowedOrigins": [
+                  "*"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT",
+                  "POST",
+                  "DELETE"
+                ],
+                "MaxAgeSeconds": 41,
+                "ExposeHeaders": [
+                  "x-amz-version-id"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-origin-empty",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 23,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    ""
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-origin-empty.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 24,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  ""
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-origin-two-wildcards",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 25,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "https://*.*.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "InvalidRequest",
+          "Status": 400
+        },
+        {
+          "Label": "admission-origin-two-wildcards.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 26,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  ""
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-origin-not-url",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 27,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "not-an-origin"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-origin-not-url.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 28,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  "not-an-origin"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-origin-null",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 29,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "null"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-origin-null.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 30,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  "null"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-header-two-wildcards",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 31,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ],
+                  "AllowedHeaders": [
+                    "x-*-*"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "InvalidRequest",
+          "Status": 400
+        },
+        {
+          "Label": "admission-header-two-wildcards.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 32,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  "null"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-header-empty",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 33,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ],
+                  "AllowedHeaders": [
+                    ""
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-header-empty.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 34,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ],
+                "AllowedHeaders": [
+                  ""
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-header-spaces",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 35,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ],
+                  "AllowedHeaders": [
+                    "not a header"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "InvalidRequest",
+          "Status": 400
+        },
+        {
+          "Label": "admission-header-spaces.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 36,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ],
+                "AllowedHeaders": [
+                  ""
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-expose-wildcard",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 37,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ],
+                  "ExposeHeaders": [
+                    "*"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "InvalidRequest",
+          "Status": 400
+        },
+        {
+          "Label": "admission-expose-wildcard.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 38,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ],
+                "AllowedHeaders": [
+                  ""
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-duplicate-id",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 43,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "same",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "same",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-duplicate-id.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 44,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "same",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "same",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-duplicate-values",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 45,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "",
+                  "AllowedOrigins": [
+                    "https://app.example",
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET",
+                    "GET"
+                  ],
+                  "AllowedHeaders": [
+                    "X-Probe",
+                    "X-Probe"
+                  ],
+                  "ExposeHeaders": [
+                    "ETag",
+                    "ETag"
+                  ],
+                  "MaxAgeSeconds": 0
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-duplicate-values.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 46,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "",
+                "AllowedOrigins": [
+                  "https://app.example",
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "GET"
+                ],
+                "MaxAgeSeconds": 0,
+                "ExposeHeaders": [
+                  "ETag",
+                  "ETag"
+                ],
+                "AllowedHeaders": [
+                  "X-Probe",
+                  "X-Probe"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-negative-max-age",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 51,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ],
+                  "MaxAgeSeconds": -1
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-negative-max-age.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 52,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ],
+                "MaxAgeSeconds": -1
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-id-255",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 57,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-id-255.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 58,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-id-256",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 59,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-id-256.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 60,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-rules-100",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 61,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "0",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "1",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "2",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "3",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "4",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "5",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "6",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "7",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "8",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "9",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "10",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "11",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "12",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "13",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "14",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "15",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "16",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "17",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "18",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "19",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "20",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "21",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "22",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "23",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "24",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "25",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "26",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "27",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "28",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "29",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "30",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "31",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "32",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "33",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "34",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "35",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "36",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "37",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "38",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "39",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "40",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "41",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "42",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "43",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "44",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "45",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "46",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "47",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "48",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "49",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "50",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "51",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "52",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "53",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "54",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "55",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "56",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "57",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "58",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "59",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "60",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "61",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "62",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "63",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "64",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "65",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "66",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "67",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "68",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "69",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "70",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "71",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "72",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "73",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "74",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "75",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "76",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "77",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "78",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "79",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "80",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "81",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "82",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "83",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "84",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "85",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "86",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "87",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "88",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "89",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "90",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "91",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "92",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "93",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "94",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "95",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "96",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "97",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "98",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "99",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "admission-rules-100.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 62,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "0",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "1",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "2",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "3",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "4",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "5",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "6",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "7",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "8",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "9",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "10",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "11",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "12",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "13",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "14",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "15",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "16",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "17",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "18",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "19",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "20",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "21",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "22",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "23",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "24",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "25",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "26",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "27",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "28",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "29",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "30",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "31",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "32",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "33",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "34",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "35",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "36",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "37",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "38",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "39",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "40",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "41",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "42",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "43",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "44",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "45",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "46",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "47",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "48",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "49",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "50",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "51",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "52",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "53",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "54",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "55",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "56",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "57",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "58",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "59",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "60",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "61",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "62",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "63",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "64",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "65",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "66",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "67",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "68",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "69",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "70",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "71",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "72",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "73",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "74",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "75",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "76",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "77",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "78",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "79",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "80",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "81",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "82",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "83",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "84",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "85",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "86",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "87",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "88",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "89",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "90",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "91",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "92",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "93",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "94",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "95",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "96",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "97",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "98",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "99",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "admission-rules-101",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 63,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "0",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "1",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "2",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "3",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "4",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "5",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "6",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "7",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "8",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "9",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "10",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "11",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "12",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "13",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "14",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "15",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "16",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "17",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "18",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "19",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "20",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "21",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "22",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "23",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "24",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "25",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "26",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "27",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "28",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "29",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "30",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "31",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "32",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "33",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "34",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "35",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "36",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "37",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "38",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "39",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "40",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "41",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "42",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "43",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "44",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "45",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "46",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "47",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "48",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "49",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "50",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "51",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "52",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "53",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "54",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "55",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "56",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "57",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "58",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "59",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "60",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "61",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "62",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "63",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "64",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "65",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "66",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "67",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "68",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "69",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "70",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "71",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "72",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "73",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "74",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "75",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "76",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "77",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "78",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "79",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "80",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "81",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "82",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "83",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "84",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "85",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "86",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "87",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "88",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "89",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "90",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "91",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "92",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "93",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "94",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "95",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "96",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "97",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "98",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "99",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                },
+                {
+                  "ID": "100",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "InvalidRequest",
+          "Status": 400
+        },
+        {
+          "Label": "admission-rules-101.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 64,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "0",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "1",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "2",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "3",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "4",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "5",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "6",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "7",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "8",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "9",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "10",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "11",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "12",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "13",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "14",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "15",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "16",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "17",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "18",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "19",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "20",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "21",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "22",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "23",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "24",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "25",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "26",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "27",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "28",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "29",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "30",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "31",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "32",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "33",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "34",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "35",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "36",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "37",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "38",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "39",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "40",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "41",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "42",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "43",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "44",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "45",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "46",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "47",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "48",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "49",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "50",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "51",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "52",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "53",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "54",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "55",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "56",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "57",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "58",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "59",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "60",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "61",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "62",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "63",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "64",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "65",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "66",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "67",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "68",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "69",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "70",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "71",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "72",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "73",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "74",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "75",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "76",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "77",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "78",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "79",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "80",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "81",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "82",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "83",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "84",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "85",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "86",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "87",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "88",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "89",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "90",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "91",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "92",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "93",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "94",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "95",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "96",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "97",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "98",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              },
+              {
+                "ID": "99",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "restore-before-owner",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 83,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "first",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD",
+                    "PUT"
+                  ],
+                  "AllowedHeaders": [
+                    "x-probe-*",
+                    "Content-Type"
+                  ],
+                  "ExposeHeaders": [
+                    "ETag",
+                    "x-amz-request-id"
+                  ],
+                  "MaxAgeSeconds": 17
+                },
+                {
+                  "ID": "fallback",
+                  "AllowedOrigins": [
+                    "*"
+                  ],
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD",
+                    "PUT",
+                    "POST",
+                    "DELETE"
+                  ],
+                  "AllowedHeaders": [
+                    "*"
+                  ],
+                  "ExposeHeaders": [
+                    "x-amz-version-id"
+                  ],
+                  "MaxAgeSeconds": 41
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "restore-before-owner.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 84,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "first",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT"
+                ],
+                "MaxAgeSeconds": 17,
+                "ExposeHeaders": [
+                  "ETag",
+                  "x-amz-request-id"
+                ],
+                "AllowedHeaders": [
+                  "x-probe-*",
+                  "Content-Type"
+                ]
+              },
+              {
+                "ID": "fallback",
+                "AllowedOrigins": [
+                  "*"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT",
+                  "POST",
+                  "DELETE"
+                ],
+                "MaxAgeSeconds": 41,
+                "ExposeHeaders": [
+                  "x-amz-version-id"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "put-wrong-expected-owner",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 85,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "ExpectedBucketOwner": "111111111111",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "replacement",
+                  "AllowedOrigins": [
+                    "https://replacement.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ]
+                }
+              ]
+            }
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "put-wrong-expected-owner.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 86,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "first",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT"
+                ],
+                "MaxAgeSeconds": 17,
+                "ExposeHeaders": [
+                  "ETag",
+                  "x-amz-request-id"
+                ],
+                "AllowedHeaders": [
+                  "x-probe-*",
+                  "Content-Type"
+                ]
+              },
+              {
+                "ID": "fallback",
+                "AllowedOrigins": [
+                  "*"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT",
+                  "POST",
+                  "DELETE"
+                ],
+                "MaxAgeSeconds": 41,
+                "ExposeHeaders": [
+                  "x-amz-version-id"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "get-wrong-expected-owner",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 87,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "ExpectedBucketOwner": "111111111111"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "delete-wrong-expected-owner",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 88,
+          "Service": "s3",
+          "Operation": "DeleteBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "ExpectedBucketOwner": "111111111111"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "state-after-delete-wrong-owner",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 89,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "first",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT"
+                ],
+                "MaxAgeSeconds": 17,
+                "ExposeHeaders": [
+                  "ETag",
+                  "x-amz-request-id"
+                ],
+                "AllowedHeaders": [
+                  "x-probe-*",
+                  "Content-Type"
+                ]
+              },
+              {
+                "ID": "fallback",
+                "AllowedOrigins": [
+                  "*"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT",
+                  "POST",
+                  "DELETE"
+                ],
+                "MaxAgeSeconds": 41,
+                "ExposeHeaders": [
+                  "x-amz-version-id"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "get-correct-expected-owner",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 90,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "ExpectedBucketOwner": "123456789012"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "first",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT"
+                ],
+                "MaxAgeSeconds": 17,
+                "ExposeHeaders": [
+                  "ETag",
+                  "x-amz-request-id"
+                ],
+                "AllowedHeaders": [
+                  "x-probe-*",
+                  "Content-Type"
+                ]
+              },
+              {
+                "ID": "fallback",
+                "AllowedOrigins": [
+                  "*"
+                ],
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "PUT",
+                  "POST",
+                  "DELETE"
+                ],
+                "MaxAgeSeconds": 41,
+                "ExposeHeaders": [
+                  "x-amz-version-id"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "wildcard-first-config",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 151,
+          "Service": "s3",
+          "Operation": "PutBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay",
+            "CORSConfiguration": {
+              "CORSRules": [
+                {
+                  "ID": "wild-first",
+                  "AllowedOrigins": [
+                    "*"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ],
+                  "AllowedHeaders": [
+                    "*"
+                  ],
+                  "ExposeHeaders": [
+                    "ETag"
+                  ],
+                  "MaxAgeSeconds": 99
+                },
+                {
+                  "ID": "exact-second",
+                  "AllowedOrigins": [
+                    "https://app.example"
+                  ],
+                  "AllowedMethods": [
+                    "GET"
+                  ],
+                  "AllowedHeaders": [
+                    "*"
+                  ],
+                  "ExposeHeaders": [
+                    "x-amz-request-id"
+                  ],
+                  "MaxAgeSeconds": 12
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "wildcard-first-config.state-after",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 152,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CORSRules": [
+              {
+                "ID": "wild-first",
+                "AllowedOrigins": [
+                  "*"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ],
+                "MaxAgeSeconds": 99,
+                "ExposeHeaders": [
+                  "ETag"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              },
+              {
+                "ID": "exact-second",
+                "AllowedOrigins": [
+                  "https://app.example"
+                ],
+                "AllowedMethods": [
+                  "GET"
+                ],
+                "MaxAgeSeconds": 12,
+                "ExposeHeaders": [
+                  "x-amz-request-id"
+                ],
+                "AllowedHeaders": [
+                  "*"
+                ]
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "delete-existing-config",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 155,
+          "Service": "s3",
+          "Operation": "DeleteBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 204
+        },
+        {
+          "Label": "get-after-delete",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 156,
+          "Service": "s3",
+          "Operation": "GetBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "NoSuchCORSConfiguration",
+          "Status": 404
+        },
+        {
+          "Label": "delete-config-again",
+          "Source": "cors_evidence.json.gz",
+          "Sequence": 157,
+          "Service": "s3",
+          "Operation": "DeleteBucketCors",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "cors-replay"
+          },
+          "Code": "Success",
+          "Status": 204
+        }
+      ]
+    }
+  ]
+}

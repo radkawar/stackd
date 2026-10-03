@@ -1,0 +1,139 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-17T23:59:00Z",
+  "auditFixture": "recovery_audit",
+  "auditBindings": {
+    "stackd-ddb-pitr-precision-1c5d4b5cc874-source": "stackd-recovery-audit",
+    "stackd-ddb-pitr-controls-810ea6f236f8e8-missing": "stackd-recovery-audit-missing",
+    "stackd-ddb-pitr-controls-810ea6f236f8e8": "stackd-recovery-audit",
+    "stackd-ddb-pitr-restore-8fc6e637ef44-source": "stackd-recovery-audit",
+    "stackd-ddb-pitr-restore-8fc6e637ef44-latest": "stackd-recovery-audit-latest",
+    "stackd-ddb-pitr-restore-8fc6e637ef44-past": "stackd-recovery-audit-past",
+    "2026-09-18T15:07:34Z": "2026-09-18T00:00:01Z"
+  },
+  "steps": [
+    {
+      "name": "create-source",
+      "advance": "0s",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-recovery-audit",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "describe-default",
+      "advance": "1m",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-audit"
+      },
+      "want": {},
+      "audit": "describe"
+    },
+    {
+      "name": "missing-table-audit",
+      "advance": "0s",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-audit-missing"
+      },
+      "want": {},
+      "code": "TableNotFoundException",
+      "audit": "describe-missing"
+    },
+    {
+      "name": "enable",
+      "advance": "0s",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-audit",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true,
+          "RecoveryPeriodInDays": 1
+        }
+      },
+      "want": {},
+      "audit": "enable"
+    },
+    {
+      "name": "invalid-retention",
+      "advance": "0s",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-audit",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true,
+          "RecoveryPeriodInDays": 0
+        }
+      },
+      "want": {},
+      "code": "ValidationException",
+      "audit": "invalid-retention"
+    },
+    {
+      "name": "restore-latest",
+      "advance": "2s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-audit",
+        "TargetTableName": "stackd-recovery-audit-latest",
+        "UseLatestRestorableTime": true
+      },
+      "want": {},
+      "audit": "restore-latest"
+    },
+    {
+      "name": "restore-explicit",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-audit",
+        "TargetTableName": "stackd-recovery-audit-past",
+        "RestoreDateTime": 1789689601
+      },
+      "want": {},
+      "audit": "restore-explicit"
+    },
+    {
+      "name": "restore-conflict",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-audit",
+        "TargetTableName": "stackd-recovery-audit-latest",
+        "RestoreDateTime": 1789689601,
+        "UseLatestRestorableTime": true
+      },
+      "want": {},
+      "code": "ValidationException",
+      "audit": "restore-conflict"
+    },
+    {
+      "name": "disable",
+      "advance": "0s",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-audit",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": false
+        }
+      },
+      "want": {},
+      "audit": "disable"
+    }
+  ]
+}

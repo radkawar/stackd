@@ -1,0 +1,1244 @@
+{
+  "Schema": "native-s3-customer-encryption-boundaries-v1",
+  "Normalization": "Native CLI captures preserve distinct full/ranged/part read admission and fractional retention headers. Replay uses public trusted TLS and existing SDK/raw drivers. Setup reproduces successful native create/encryption calls embedded in source; cleanup is evidence-only. Account ARN is rebound; volatile IDs/ETags/timestamps are not compared. Successful reads project captured headers; native response payload files were not retained. Retention header/document values retain measured milliseconds across a local SQLite reopen. Consumer payload expectations derive from the exact submitted byte recipe and requested native range, not a claim that response-body hashes were captured.",
+  "Payloads": {
+    "body": [
+      {
+        "Base64": "Y3VzdG9tZXIgYm91bmRhcnkgcGF5bG9hZAo=",
+        "Repeat": 1
+      }
+    ]
+  },
+  "Scenarios": [
+    {
+      "Name": "range-admission-and-retention-precision",
+      "TLS": true,
+      "Calls": [
+        {
+          "SDK": {
+            "Sequence": 0,
+            "Label": "owned bucket prerequisite",
+            "Operation": "CreateBucket",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "ObjectLockEnabledForBucket": true
+            },
+            "Code": "Success",
+            "Status": 200
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 0,
+            "Label": "allow customer encryption prerequisite",
+            "Operation": "PutBucketEncryption",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "ServerSideEncryptionConfiguration": {
+                "Rules": [
+                  {
+                    "ApplyServerSideEncryptionByDefault": {
+                      "SSEAlgorithm": "AES256"
+                    },
+                    "BlockedEncryptionTypes": {
+                      "EncryptionType": [
+                        "NONE"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "Code": "Success",
+            "Status": 200
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 1,
+            "Label": "write-plain-STANDARD",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "plain-STANDARD",
+              "StorageClass": "STANDARD"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "ServerSideEncryption": "AES256"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[0]",
+            "Payload": "body"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 2,
+            "Label": "plain-STANDARD-absent-bytes=0-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "plain-STANDARD",
+              "Range": "bytes=0-2"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Output": {
+              "ContentLength": 3,
+              "ContentRange": "bytes 0-2/26",
+              "ServerSideEncryption": "AES256"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[1]",
+            "Digest": {
+              "Length": 3,
+              "SHA256": "eba1eba4c8656319ca46f67e4cd9e5718de6177d83deffa2efc9b08b9db9819c"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 3,
+            "Label": "plain-STANDARD-absent-bytes=9999-",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "plain-STANDARD",
+              "Range": "bytes=9999-"
+            },
+            "Code": "InvalidRange",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[2]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 4,
+            "Label": "write-plain-GLACIER",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "plain-GLACIER",
+              "StorageClass": "GLACIER"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "ServerSideEncryption": "AES256"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[3]",
+            "Payload": "body"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 5,
+            "Label": "plain-GLACIER-absent-bytes=0-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "plain-GLACIER",
+              "Range": "bytes=0-2"
+            },
+            "Code": "InvalidObjectState",
+            "Status": 403,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[4]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 6,
+            "Label": "plain-GLACIER-absent-bytes=9999-",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "plain-GLACIER",
+              "Range": "bytes=9999-"
+            },
+            "Code": "InvalidRange",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[5]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 7,
+            "Label": "write-customer-STANDARD",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-STANDARD",
+              "StorageClass": "STANDARD",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[6]",
+            "Payload": "body"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 8,
+            "Label": "customer-STANDARD-absent-bytes=0-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-STANDARD",
+              "Range": "bytes=0-2"
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[7]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 9,
+            "Label": "customer-STANDARD-absent-bytes=9999-",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-STANDARD",
+              "Range": "bytes=9999-"
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[8]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 10,
+            "Label": "customer-STANDARD-correct-bytes=0-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-STANDARD",
+              "Range": "bytes=0-2",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Output": {
+              "ContentLength": 3,
+              "ContentRange": "bytes 0-2/26",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[9]",
+            "Digest": {
+              "Length": 3,
+              "SHA256": "eba1eba4c8656319ca46f67e4cd9e5718de6177d83deffa2efc9b08b9db9819c"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 11,
+            "Label": "customer-STANDARD-correct-bytes=9999-",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-STANDARD",
+              "Range": "bytes=9999-",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Code": "InvalidRange",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[10]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 12,
+            "Label": "customer-STANDARD-wrong-bytes=0-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-STANDARD",
+              "Range": "bytes=0-2",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "SSECustomerKeyMD5": "i0+eoW3kvPW7/A/x6iN5NA=="
+            },
+            "Code": "AccessDenied",
+            "Status": 403,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[11]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 13,
+            "Label": "customer-STANDARD-wrong-bytes=9999-",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-STANDARD",
+              "Range": "bytes=9999-",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "SSECustomerKeyMD5": "i0+eoW3kvPW7/A/x6iN5NA=="
+            },
+            "Code": "InvalidRange",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[12]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 14,
+            "Label": "write-customer-GLACIER",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-GLACIER",
+              "StorageClass": "GLACIER",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[13]",
+            "Payload": "body"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 15,
+            "Label": "customer-GLACIER-absent-bytes=0-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-GLACIER",
+              "Range": "bytes=0-2"
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[14]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 16,
+            "Label": "customer-GLACIER-absent-bytes=9999-",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-GLACIER",
+              "Range": "bytes=9999-"
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[15]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 17,
+            "Label": "customer-GLACIER-correct-bytes=0-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-GLACIER",
+              "Range": "bytes=0-2",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Code": "InvalidObjectState",
+            "Status": 403,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[16]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 18,
+            "Label": "customer-GLACIER-correct-bytes=9999-",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-GLACIER",
+              "Range": "bytes=9999-",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Code": "InvalidRange",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[17]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 19,
+            "Label": "customer-GLACIER-wrong-bytes=0-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-GLACIER",
+              "Range": "bytes=0-2",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "SSECustomerKeyMD5": "i0+eoW3kvPW7/A/x6iN5NA=="
+            },
+            "Code": "AccessDenied",
+            "Status": 403,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[18]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 20,
+            "Label": "customer-GLACIER-wrong-bytes=9999-",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "customer-GLACIER",
+              "Range": "bytes=9999-",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "SSECustomerKeyMD5": "i0+eoW3kvPW7/A/x6iN5NA=="
+            },
+            "Code": "InvalidRange",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[19]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 21,
+            "Label": "fractional-retention",
+            "Operation": "PutObjectRetention",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "plain-STANDARD",
+              "Retention": {
+                "Mode": "GOVERNANCE",
+                "RetainUntilDate": "2026-09-22T19:27:53.756000Z"
+              }
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[20]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 22,
+            "Label": "retention-header",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "plain-STANDARD"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "ContentLength": 26,
+              "ServerSideEncryption": "AES256",
+              "ObjectLockMode": "GOVERNANCE",
+              "ObjectLockRetainUntilDate": "2026-09-22T19:27:53.756Z"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[21]",
+            "Reopen": true
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 23,
+            "Label": "retention-document",
+            "Operation": "GetObjectRetention",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Key": "plain-STANDARD"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "Retention": {
+                "Mode": "GOVERNANCE",
+                "RetainUntilDate": "2026-09-22T19:27:53.756Z"
+              }
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[22]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 24,
+            "Label": "s3:ExistingObjectTag/project",
+            "Operation": "PutBucketPolicy",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"s3:*\", \"Resource\": \"arn:aws:s3:::stackd-ssec-boundaries-3f65bf0bff864b23/*\", \"Condition\": {\"StringEquals\": {\"s3:ExistingObjectTag/project\": \"approved\"}}}]}"
+            },
+            "Code": "Success",
+            "Status": 204,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[23]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 25,
+            "Label": "s3:RequestObjectTag/project",
+            "Operation": "PutBucketPolicy",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-3f65bf0bff864b23",
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"s3:*\", \"Resource\": \"arn:aws:s3:::stackd-ssec-boundaries-3f65bf0bff864b23/*\", \"Condition\": {\"StringEquals\": {\"s3:RequestObjectTag/project\": \"approved\"}}}]}"
+            },
+            "Code": "Success",
+            "Status": 204,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[0].observations[24]"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "part-and-head-admission",
+      "TLS": true,
+      "Calls": [
+        {
+          "SDK": {
+            "Sequence": 0,
+            "Label": "owned bucket prerequisite",
+            "Operation": "CreateBucket",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "ObjectLockEnabledForBucket": true
+            },
+            "Code": "Success",
+            "Status": 200
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 0,
+            "Label": "allow customer encryption prerequisite",
+            "Operation": "PutBucketEncryption",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "ServerSideEncryptionConfiguration": {
+                "Rules": [
+                  {
+                    "ApplyServerSideEncryptionByDefault": {
+                      "SSEAlgorithm": "AES256"
+                    },
+                    "BlockedEncryptionTypes": {
+                      "EncryptionType": [
+                        "NONE"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "Code": "Success",
+            "Status": 200
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 1,
+            "Label": "write-plain-STANDARD",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "plain-STANDARD",
+              "StorageClass": "STANDARD"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "ServerSideEncryption": "AES256"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[0]",
+            "Payload": "body"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 2,
+            "Label": "plain-STANDARD-absent-part-1",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "plain-STANDARD",
+              "PartNumber": 1
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Output": {
+              "ContentLength": 26,
+              "ContentRange": "bytes 0-25/26",
+              "ServerSideEncryption": "AES256"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[1]",
+            "Digest": {
+              "Length": 26,
+              "SHA256": "54ffe34853d0b3001231b9ba2f6f67aa6bde3aebc440e85a8abffe4abaa97771"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 3,
+            "Label": "plain-STANDARD-absent-part-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "plain-STANDARD",
+              "PartNumber": 2
+            },
+            "Code": "InvalidPartNumber",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[2]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 4,
+            "Label": "plain-STANDARD-absent-head-bytes=0-2",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "plain-STANDARD",
+              "Range": "bytes=0-2"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Output": {
+              "ContentLength": 3,
+              "ContentRange": "bytes 0-2/26",
+              "ServerSideEncryption": "AES256"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[3]"
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[4]",
+          "Raw": {
+            "Sequence": 5,
+            "Label": "plain-STANDARD-absent-head-bytes=9999-",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/plain-STANDARD",
+            "Headers": {
+              "Range": "bytes=9999-"
+            },
+            "Status": 416,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 6,
+            "Label": "write-plain-GLACIER",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "plain-GLACIER",
+              "StorageClass": "GLACIER"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "ServerSideEncryption": "AES256"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[5]",
+            "Payload": "body"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 7,
+            "Label": "plain-GLACIER-absent-part-1",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "plain-GLACIER",
+              "PartNumber": 1
+            },
+            "Code": "InvalidObjectState",
+            "Status": 403,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[6]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 8,
+            "Label": "plain-GLACIER-absent-part-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "plain-GLACIER",
+              "PartNumber": 2
+            },
+            "Code": "InvalidPartNumber",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[7]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 9,
+            "Label": "plain-GLACIER-absent-head-bytes=0-2",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "plain-GLACIER",
+              "Range": "bytes=0-2"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Output": {
+              "ContentLength": 3,
+              "ContentRange": "bytes 0-2/26",
+              "ServerSideEncryption": "AES256",
+              "StorageClass": "GLACIER"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[8]"
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[9]",
+          "Raw": {
+            "Sequence": 10,
+            "Label": "plain-GLACIER-absent-head-bytes=9999-",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/plain-GLACIER",
+            "Headers": {
+              "Range": "bytes=9999-"
+            },
+            "Status": 416,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 11,
+            "Label": "write-customer-STANDARD",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-STANDARD",
+              "StorageClass": "STANDARD",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[10]",
+            "Payload": "body"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 12,
+            "Label": "customer-STANDARD-absent-part-1",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-STANDARD",
+              "PartNumber": 1
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[11]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 13,
+            "Label": "customer-STANDARD-absent-part-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-STANDARD",
+              "PartNumber": 2
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[12]"
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[13]",
+          "Raw": {
+            "Sequence": 14,
+            "Label": "customer-STANDARD-absent-head-bytes=0-2",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-STANDARD",
+            "Headers": {
+              "Range": "bytes=0-2"
+            },
+            "Status": 400,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[14]",
+          "Raw": {
+            "Sequence": 15,
+            "Label": "customer-STANDARD-absent-head-bytes=9999-",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-STANDARD",
+            "Headers": {
+              "Range": "bytes=9999-"
+            },
+            "Status": 400,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 16,
+            "Label": "customer-STANDARD-correct-part-1",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-STANDARD",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w==",
+              "PartNumber": 1
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Output": {
+              "ContentLength": 26,
+              "ContentRange": "bytes 0-25/26",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[15]",
+            "Digest": {
+              "Length": 26,
+              "SHA256": "54ffe34853d0b3001231b9ba2f6f67aa6bde3aebc440e85a8abffe4abaa97771"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 17,
+            "Label": "customer-STANDARD-correct-part-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-STANDARD",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w==",
+              "PartNumber": 2
+            },
+            "Code": "InvalidPartNumber",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[16]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 18,
+            "Label": "customer-STANDARD-correct-head-bytes=0-2",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-STANDARD",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w==",
+              "Range": "bytes=0-2"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Output": {
+              "ContentLength": 3,
+              "ContentRange": "bytes 0-2/26",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[17]"
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[18]",
+          "Raw": {
+            "Sequence": 19,
+            "Label": "customer-STANDARD-correct-head-bytes=9999-",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-STANDARD",
+            "Headers": {
+              "x-amz-server-side-encryption-customer-algorithm": "AES256",
+              "x-amz-server-side-encryption-customer-key": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "x-amz-server-side-encryption-customer-key-MD5": "Xsqb0+sHwAbNQ65I395/0w==",
+              "Range": "bytes=9999-"
+            },
+            "Status": 416,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 20,
+            "Label": "customer-STANDARD-wrong-part-1",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-STANDARD",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "SSECustomerKeyMD5": "i0+eoW3kvPW7/A/x6iN5NA==",
+              "PartNumber": 1
+            },
+            "Code": "AccessDenied",
+            "Status": 403,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[19]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 21,
+            "Label": "customer-STANDARD-wrong-part-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-STANDARD",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "SSECustomerKeyMD5": "i0+eoW3kvPW7/A/x6iN5NA==",
+              "PartNumber": 2
+            },
+            "Code": "InvalidPartNumber",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[20]"
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[21]",
+          "Raw": {
+            "Sequence": 22,
+            "Label": "customer-STANDARD-wrong-head-bytes=0-2",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-STANDARD",
+            "Headers": {
+              "x-amz-server-side-encryption-customer-algorithm": "AES256",
+              "x-amz-server-side-encryption-customer-key": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "x-amz-server-side-encryption-customer-key-MD5": "i0+eoW3kvPW7/A/x6iN5NA==",
+              "Range": "bytes=0-2"
+            },
+            "Status": 403,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[22]",
+          "Raw": {
+            "Sequence": 23,
+            "Label": "customer-STANDARD-wrong-head-bytes=9999-",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-STANDARD",
+            "Headers": {
+              "x-amz-server-side-encryption-customer-algorithm": "AES256",
+              "x-amz-server-side-encryption-customer-key": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "x-amz-server-side-encryption-customer-key-MD5": "i0+eoW3kvPW7/A/x6iN5NA==",
+              "Range": "bytes=9999-"
+            },
+            "Status": 416,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 24,
+            "Label": "write-customer-GLACIER",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-GLACIER",
+              "StorageClass": "GLACIER",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Output": {
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w=="
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[23]",
+            "Payload": "body"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 25,
+            "Label": "customer-GLACIER-absent-part-1",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-GLACIER",
+              "PartNumber": 1
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[24]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 26,
+            "Label": "customer-GLACIER-absent-part-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-GLACIER",
+              "PartNumber": 2
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[25]"
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[26]",
+          "Raw": {
+            "Sequence": 27,
+            "Label": "customer-GLACIER-absent-head-bytes=0-2",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-GLACIER",
+            "Headers": {
+              "Range": "bytes=0-2"
+            },
+            "Status": 400,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[27]",
+          "Raw": {
+            "Sequence": 28,
+            "Label": "customer-GLACIER-absent-head-bytes=9999-",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-GLACIER",
+            "Headers": {
+              "Range": "bytes=9999-"
+            },
+            "Status": 400,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 29,
+            "Label": "customer-GLACIER-correct-part-1",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-GLACIER",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w==",
+              "PartNumber": 1
+            },
+            "Code": "InvalidObjectState",
+            "Status": 403,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[28]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 30,
+            "Label": "customer-GLACIER-correct-part-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-GLACIER",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w==",
+              "PartNumber": 2
+            },
+            "Code": "InvalidPartNumber",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[29]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 31,
+            "Label": "customer-GLACIER-correct-head-bytes=0-2",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-GLACIER",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w==",
+              "Range": "bytes=0-2"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Output": {
+              "ContentLength": 3,
+              "ContentRange": "bytes 0-2/26",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "Xsqb0+sHwAbNQ65I395/0w==",
+              "StorageClass": "GLACIER"
+            },
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[30]"
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[31]",
+          "Raw": {
+            "Sequence": 32,
+            "Label": "customer-GLACIER-correct-head-bytes=9999-",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-GLACIER",
+            "Headers": {
+              "x-amz-server-side-encryption-customer-algorithm": "AES256",
+              "x-amz-server-side-encryption-customer-key": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+              "x-amz-server-side-encryption-customer-key-MD5": "Xsqb0+sHwAbNQ65I395/0w==",
+              "Range": "bytes=9999-"
+            },
+            "Status": 416,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 33,
+            "Label": "customer-GLACIER-wrong-part-1",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-GLACIER",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "SSECustomerKeyMD5": "i0+eoW3kvPW7/A/x6iN5NA==",
+              "PartNumber": 1
+            },
+            "Code": "AccessDenied",
+            "Status": 403,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[32]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 34,
+            "Label": "customer-GLACIER-wrong-part-2",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-ssec-boundaries-b897c66c014d4ae1",
+              "Key": "customer-GLACIER",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "SSECustomerKeyMD5": "i0+eoW3kvPW7/A/x6iN5NA==",
+              "PartNumber": 2
+            },
+            "Code": "InvalidPartNumber",
+            "Status": 416,
+            "Output": {},
+            "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[33]"
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[34]",
+          "Raw": {
+            "Sequence": 35,
+            "Label": "customer-GLACIER-wrong-head-bytes=0-2",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-GLACIER",
+            "Headers": {
+              "x-amz-server-side-encryption-customer-algorithm": "AES256",
+              "x-amz-server-side-encryption-customer-key": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "x-amz-server-side-encryption-customer-key-MD5": "i0+eoW3kvPW7/A/x6iN5NA==",
+              "Range": "bytes=0-2"
+            },
+            "Status": 403,
+            "ResponseBody": ""
+          }
+        },
+        {
+          "Source": "customer_encryption_boundaries_evidence.json.gz:captures[1].observations[35]",
+          "Raw": {
+            "Sequence": 36,
+            "Label": "customer-GLACIER-wrong-head-bytes=9999-",
+            "Operation": "HeadObject",
+            "Method": "HEAD",
+            "Target": "/stackd-ssec-boundaries-b897c66c014d4ae1/customer-GLACIER",
+            "Headers": {
+              "x-amz-server-side-encryption-customer-algorithm": "AES256",
+              "x-amz-server-side-encryption-customer-key": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+              "x-amz-server-side-encryption-customer-key-MD5": "i0+eoW3kvPW7/A/x6iN5NA==",
+              "Range": "bytes=9999-"
+            },
+            "Status": 416,
+            "ResponseBody": ""
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,581 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Native bounded no-op outcomes: testdata/aws/dynamodb/global_tables_conflicts.json findings. Competing writes run at frozen local service time, with incoming SLR writes to A denied by a real destination resource policy. This defends local no-op and convergence behavior, not general AWS conflict ordering or timestamp fidelity. The actual-delete control has no competing B write.",
+  "steps": [
+    {
+      "name": "create-stackd-replication-conflicts",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "source-ready-stackd-replication-conflicts",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "seed-same-value",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Item": {
+          "pk": {
+            "S": "same-value"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "seed-delete-control",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Item": {
+          "pk": {
+            "S": "delete-control"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "create-peer",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "pair-ready-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "pair-ready-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "peer-baseline-ready",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "same-value"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "same-value"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "peer-delete-control-ready",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "delete-control"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "delete-control"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "block-only-incoming-to-a",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutResourcePolicy",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-replication-conflicts",
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"arn:aws:iam::000000000000:role/aws-service-role/replication.dynamodb.amazonaws.com/AWSServiceRoleForDynamoDBReplication\"},\"Action\":[\"dynamodb:PutItem\",\"dynamodb:DeleteItem\"],\"Resource\":\"arn:aws:dynamodb:us-east-1:000000000000:table/stackd-replication-conflicts\"}]}"
+      },
+      "want": {}
+    },
+    {
+      "name": "b-distinct-write",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Item": {
+          "pk": {
+            "S": "same-value"
+          },
+          "mark": {
+            "S": "b-wins"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "b-insert-before-missing-delete",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Item": {
+          "pk": {
+            "S": "missing-delete"
+          },
+          "mark": {
+            "S": "b-insert"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "a-replication-publicly-blocked",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "REPLICATION_NOT_AUTHORIZED"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "a-same-value-put-is-a-local-noop",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Item": {
+          "pk": {
+            "S": "same-value"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": {
+          "pk": {
+            "S": "same-value"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "a-missing-delete-is-a-local-noop",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "missing-delete"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": null
+      }
+    },
+    {
+      "name": "a-actual-delete-control",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "delete-control"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": {
+          "pk": {
+            "S": "delete-control"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "repair-a-resource-policy",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteResourcePolicy",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-replication-conflicts"
+      },
+      "want": {}
+    },
+    {
+      "name": "same-value-noop-preserves-b-write-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "same-value"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "same-value"
+          },
+          "mark": {
+            "S": "b-wins"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "missing-delete-noop-preserves-b-insert-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "missing-delete"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "missing-delete"
+          },
+          "mark": {
+            "S": "b-insert"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "actual-delete-converges-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "delete-control"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "same-value-noop-preserves-b-write-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "same-value"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "same-value"
+          },
+          "mark": {
+            "S": "b-wins"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "missing-delete-noop-preserves-b-insert-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "missing-delete"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "missing-delete"
+          },
+          "mark": {
+            "S": "b-insert"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "actual-delete-converges-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "Key": {
+          "pk": {
+            "S": "delete-control"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "recovered-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "recovered-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "restore-caller-policy-before-cleanup",
+      "advance": "0s",
+      "region": "us-east-1",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "name": "remove-peer",
+      "advance": "25h",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "peer-removed",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException",
+      "waitTableAbsent": true
+    },
+    {
+      "name": "source-retained",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {}
+    },
+    {
+      "name": "source-removed",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-conflicts"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException",
+      "waitTableAbsent": true
+    }
+  ]
+}

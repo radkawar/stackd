@@ -1,0 +1,175 @@
+{
+  "Description": "Local shared-evaluator composition cases for production S3 ACL attribution, not native capture records. Native S3 requests and delivered logs are replayed by integration fixtures.",
+  "Request": {
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::source/key"
+  },
+  "Cases": [
+    {
+      "Name": "same-account identity is independent",
+      "Authorization": {
+        "ResourceAccountID": "111111111111",
+        "Principal": {
+          "ARN": "arn:aws:iam::111111111111:user/app",
+          "AccountID": "111111111111",
+          "Partition": "aws"
+        },
+        "Identity": [
+          {
+            "Document": "{\"Statement\":{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}}"
+          }
+        ],
+        "ResourceAccountGrant": true
+      },
+      "ServiceGrantRequired": false
+    },
+    {
+      "Name": "cross-account identity needs account grant",
+      "Authorization": {
+        "ResourceAccountID": "222222222222",
+        "Principal": {
+          "ARN": "arn:aws:iam::111111111111:user/app",
+          "AccountID": "111111111111",
+          "Partition": "aws"
+        },
+        "Identity": [
+          {
+            "Document": "{\"Statement\":{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}}"
+          }
+        ],
+        "ResourceAccountGrant": true
+      },
+      "ServiceGrantRequired": true
+    },
+    {
+      "Name": "cross-account resource policy replaces account grant",
+      "Authorization": {
+        "ResourceAccountID": "222222222222",
+        "Principal": {
+          "ARN": "arn:aws:iam::111111111111:user/app",
+          "AccountID": "111111111111",
+          "Partition": "aws"
+        },
+        "Identity": [
+          {
+            "Document": "{\"Statement\":{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}}"
+          }
+        ],
+        "Resource": [
+          {
+            "Document": "{\"Statement\":{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\"}}"
+          }
+        ],
+        "ResourceAccountGrant": true
+      },
+      "ServiceGrantRequired": false
+    },
+    {
+      "Name": "public grant supplies missing same-account identity",
+      "Authorization": {
+        "ResourceAccountID": "111111111111",
+        "Principal": {
+          "ARN": "arn:aws:iam::111111111111:user/app",
+          "AccountID": "111111111111",
+          "Partition": "aws"
+        },
+        "ResourcePublicGrant": true
+      },
+      "ServiceGrantRequired": true
+    },
+    {
+      "Name": "role policy cannot replace public grant across implicit boundary",
+      "Authorization": {
+        "ResourceAccountID": "111111111111",
+        "Principal": {
+          "ARN": "arn:aws:sts::111111111111:assumed-role/app/session",
+          "IssuerARN": "arn:aws:iam::111111111111:role/app",
+          "AccountID": "111111111111",
+          "Partition": "aws",
+          "HasBoundary": true
+        },
+        "Resource": [
+          {
+            "Document": "{\"Statement\":{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::111111111111:role/app\"},\"Action\":\"*\",\"Resource\":\"*\"}}"
+          }
+        ],
+        "ResourcePublicGrant": true
+      },
+      "ServiceGrantRequired": true
+    },
+    {
+      "Name": "session-direct resource policy replaces public grant across implicit boundary",
+      "Authorization": {
+        "ResourceAccountID": "111111111111",
+        "Principal": {
+          "ARN": "arn:aws:sts::111111111111:assumed-role/app/session",
+          "IssuerARN": "arn:aws:iam::111111111111:role/app",
+          "AccountID": "111111111111",
+          "Partition": "aws",
+          "HasBoundary": true
+        },
+        "Resource": [
+          {
+            "Document": "{\"Statement\":{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\"}}"
+          }
+        ],
+        "ResourcePublicGrant": true
+      },
+      "ServiceGrantRequired": false
+    },
+    {
+      "Name": "anonymous public grant",
+      "Authorization": {
+        "ResourceAccountID": "111111111111",
+        "Principal": {
+          "AccountID": "anonymous",
+          "Partition": "aws"
+        },
+        "ResourcePublicGrant": true
+      },
+      "ServiceGrantRequired": true
+    },
+    {
+      "Name": "anonymous resource policy replaces public grant",
+      "Authorization": {
+        "ResourceAccountID": "111111111111",
+        "Principal": {
+          "AccountID": "anonymous",
+          "Partition": "aws"
+        },
+        "Resource": [
+          {
+            "Document": "{\"Statement\":{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\"}}"
+          }
+        ],
+        "ResourcePublicGrant": true
+      },
+      "ServiceGrantRequired": false
+    },
+    {
+      "Name": "foreign-object policy allow cannot replace required account grant",
+      "Authorization": {
+        "ResourceAccountID": "111111111111",
+        "Principal": {
+          "ARN": "arn:aws:iam::111111111111:user/app",
+          "AccountID": "111111111111",
+          "Partition": "aws"
+        },
+        "Identity": [
+          {
+            "Document": "{\"Statement\":{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}}"
+          }
+        ],
+        "Resource": [
+          {
+            "Document": "{\"Statement\":{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\"}}"
+          }
+        ],
+        "ResourcePolicyDenyOnly": true,
+        "RequireResourcePolicy": true,
+        "ResourceAccountGrant": true
+      },
+      "ServiceGrantRequired": true
+    }
+  ]
+}

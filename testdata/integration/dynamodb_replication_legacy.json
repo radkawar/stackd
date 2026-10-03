@@ -1,0 +1,524 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-19T02:00:00Z",
+  "source": "Native legacy_global_controls.json and legacy_global_data.json. New legacy groups are retired on AWS; current-version regional replication remains separate and unchanged.",
+  "auditFixture": "legacy_global_audit",
+  "auditBindings": {
+    "stackd-ddb-legacy-ctl-20260919003610-5ce231-current": "stackd-global-retired"
+  },
+  "steps": [
+    {
+      "name": "missing-legacy-group",
+      "operation": "DescribeGlobalTable",
+      "input": {
+        "GlobalTableName": "stackd-global-retired"
+      },
+      "code": "GlobalTableNotFoundException"
+    },
+    {
+      "name": "create-needs-each-regional-permission",
+      "operation": "CreateGlobalTable",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": [
+              "arn:aws:dynamodb::000000000000:global-table/stackd-global-retired",
+              "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-global-retired"
+            ]
+          }
+        ]
+      },
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicationGroup": [
+          {
+            "RegionName": "us-east-1"
+          },
+          {
+            "RegionName": "us-east-2"
+          }
+        ]
+      },
+      "code": "AccessDeniedException"
+    },
+    {
+      "name": "authorized-create-is-retired",
+      "operation": "CreateGlobalTable",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": [
+              "arn:aws:dynamodb::000000000000:global-table/stackd-global-retired",
+              "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-global-retired",
+              "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-global-retired"
+            ]
+          }
+        ]
+      },
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicationGroup": [
+          {
+            "RegionName": "us-east-1"
+          },
+          {
+            "RegionName": "us-east-2"
+          }
+        ]
+      },
+      "code": "ValidationException"
+    },
+    {
+      "name": "empty-group-requires-global-permission",
+      "operation": "CreateGlobalTable",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": [
+              "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-global-retired"
+            ]
+          }
+        ]
+      },
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicationGroup": []
+      },
+      "code": "AccessDeniedException"
+    },
+    {
+      "name": "authorized-empty-group-is-invalid",
+      "operation": "CreateGlobalTable",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": [
+              "arn:aws:dynamodb::000000000000:global-table/stackd-global-retired"
+            ]
+          }
+        ]
+      },
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicationGroup": []
+      },
+      "code": "ValidationException"
+    },
+    {
+      "name": "removal-requires-mentioned-peer-permission",
+      "operation": "UpdateGlobalTable",
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "code": "AccessDeniedException"
+    },
+    {
+      "name": "authorized-removal-needs-legacy-group",
+      "operation": "UpdateGlobalTable",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": [
+              "arn:aws:dynamodb::000000000000:global-table/stackd-global-retired",
+              "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-global-retired"
+            ]
+          }
+        ]
+      },
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "code": "GlobalTableNotFoundException"
+    },
+    {
+      "name": "addition-does-not-authorize-unmentioned-source",
+      "operation": "UpdateGlobalTable",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:UpdateGlobalTable",
+            "Resource": [
+              "arn:aws:dynamodb::000000000000:global-table/stackd-global-retired",
+              "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-global-retired"
+            ]
+          },
+          {
+            "Effect": "Deny",
+            "Action": "dynamodb:UpdateGlobalTable",
+            "Resource": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-global-retired"
+          }
+        ]
+      },
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "code": "ValidationException"
+    },
+    {
+      "name": "describe-requires-global-not-regional-arn",
+      "operation": "DescribeGlobalTable",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": [
+              "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-global-retired"
+            ]
+          }
+        ]
+      },
+      "input": {
+        "GlobalTableName": "stackd-global-retired"
+      },
+      "code": "AccessDeniedException"
+    },
+    {
+      "name": "named-global-permission-does-not-list",
+      "operation": "ListGlobalTables",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": [
+              "arn:aws:dynamodb::000000000000:global-table/stackd-global-retired"
+            ]
+          }
+        ]
+      },
+      "input": {},
+      "code": "AccessDeniedException"
+    },
+    {
+      "name": "wildcard-global-permission-can-list",
+      "operation": "ListGlobalTables",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": [
+              "arn:aws:dynamodb::000000000000:global-table/*"
+            ]
+          }
+        ]
+      },
+      "input": {},
+      "want": {
+        "GlobalTables": []
+      }
+    },
+    {
+      "name": "empty-updates-do-not-become-lookup",
+      "operation": "UpdateGlobalTable",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          }
+        ]
+      },
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicaUpdates": []
+      },
+      "code": "ValidationException"
+    },
+    {
+      "name": "one-member-cannot-create-and-delete",
+      "operation": "UpdateGlobalTable",
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            },
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "code": "ValidationException"
+    },
+    {
+      "name": "create-current-source",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-global-retired",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING"
+      }
+    },
+    {
+      "name": "source-active",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-retired"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      }
+    },
+    {
+      "name": "create-current-peer",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-global-retired",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {
+        "TableDescription.TableStatus": "UPDATING"
+      }
+    },
+    {
+      "name": "current-source-settled",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-retired"
+      },
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE"
+      }
+    },
+    {
+      "name": "current-peer-settled",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "input": {
+        "TableName": "stackd-global-retired"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21"
+      }
+    },
+    {
+      "name": "current-group-cannot-become-legacy",
+      "operation": "CreateGlobalTable",
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicationGroup": [
+          {
+            "RegionName": "us-east-1"
+          },
+          {
+            "RegionName": "us-east-2"
+          }
+        ]
+      },
+      "code": "ValidationException",
+      "audit": "CreateGlobalTable"
+    },
+    {
+      "name": "legacy-removal-cannot-delete-current-peer",
+      "operation": "UpdateGlobalTable",
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "code": "GlobalTableNotFoundException",
+      "audit": "UpdateGlobalTable"
+    },
+    {
+      "name": "current-group-is-not-a-legacy-description",
+      "operation": "DescribeGlobalTable",
+      "input": {
+        "GlobalTableName": "stackd-global-retired"
+      },
+      "code": "GlobalTableNotFoundException",
+      "audit": "DescribeGlobalTable"
+    },
+    {
+      "name": "current-group-does-not-enter-legacy-pagination",
+      "operation": "ListGlobalTables",
+      "input": {
+        "ExclusiveStartGlobalTableName": "stackd-global-retired",
+        "Limit": 1
+      },
+      "want": {
+        "GlobalTables": [],
+        "LastEvaluatedGlobalTableName": null
+      },
+      "audit": "ListGlobalTables"
+    },
+    {
+      "name": "current-source-remains-writable",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-global-retired",
+        "Item": {
+          "pk": {
+            "S": "survives-legacy-calls"
+          },
+          "value": {
+            "N": "7"
+          }
+        }
+      }
+    },
+    {
+      "name": "current-peer-still-replicates",
+      "operation": "GetItem",
+      "region": "us-east-2",
+      "input": {
+        "TableName": "stackd-global-retired",
+        "Key": {
+          "pk": {
+            "S": "survives-legacy-calls"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "waitWant": true,
+      "want": {
+        "Item.value.N": "7"
+      }
+    },
+    {
+      "name": "reopen-retained-current-group",
+      "reopen": true
+    },
+    {
+      "name": "legacy-removal-after-reopen-is-not-a-detach",
+      "operation": "UpdateGlobalTable",
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "code": "GlobalTableNotFoundException"
+    },
+    {
+      "name": "retained-peer-is-still-current",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "input": {
+        "TableName": "stackd-global-retired"
+      },
+      "want": {
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1"
+      }
+    },
+    {
+      "name": "known-noncommercial-list-filter-is-accepted",
+      "operation": "ListGlobalTables",
+      "input": {
+        "RegionName": "us-gov-west-1",
+        "Limit": 1000
+      },
+      "want": {
+        "GlobalTables": []
+      }
+    },
+    {
+      "name": "unknown-list-region-has-native-server-error",
+      "operation": "ListGlobalTables",
+      "input": {
+        "RegionName": "bad-region"
+      },
+      "code": "InternalServerError"
+    },
+    {
+      "name": "legacy-removal-region-is-not-current-availability",
+      "operation": "UpdateGlobalTable",
+      "input": {
+        "GlobalTableName": "stackd-global-retired",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "eu-north-1"
+            }
+          }
+        ]
+      },
+      "code": "ValidationException"
+    }
+  ]
+}

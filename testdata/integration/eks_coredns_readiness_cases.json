@@ -1,0 +1,59 @@
+{
+  "source": "Reduced local Kubernetes snapshots for the retained CoreDNS rollback race; not raw native AWS responses",
+  "deployment": {
+    "metadata": {"uid": "current-deployment", "generation": 6, "annotations": {"deployment.kubernetes.io/revision": "4"}},
+    "spec": {"template": {"spec": {"containers": [{"name": "coredns", "image": "coredns/coredns:1.12.3"}]}}},
+    "status": {"observedGeneration": 6, "availableReplicas": 1, "updatedReplicas": 2}
+  },
+  "replicaSets": {
+    "items": [
+      {"metadata": {"uid": "replaced-deployment-revision", "annotations": {"deployment.kubernetes.io/revision": "4"}, "ownerReferences": [{"kind": "Deployment", "uid": "replaced-deployment", "controller": true}]}},
+      {"metadata": {"uid": "failed-revision", "annotations": {"deployment.kubernetes.io/revision": "3"}, "ownerReferences": [{"kind": "Deployment", "uid": "current-deployment", "controller": true}]}},
+      {"metadata": {"uid": "restored-revision", "annotations": {"deployment.kubernetes.io/revision": "4"}, "ownerReferences": [{"kind": "Deployment", "uid": "current-deployment", "controller": true}]}}
+    ]
+  },
+  "cases": [
+    {
+      "name": "rollback-generation-not-observed",
+      "observedGeneration": 5,
+      "availableReplicas": 1,
+      "pods": {"items": [{"metadata": {"ownerReferences": [{"kind": "ReplicaSet", "uid": "failed-revision", "controller": true}]}, "status": {"conditions": [{"type": "PodScheduled", "status": "False", "reason": "Unschedulable", "message": "previous selector has no matching node"}]}}]},
+      "want": "pending"
+    },
+    {
+      "name": "observed-rollback-ignores-old-revision",
+      "observedGeneration": 6,
+      "availableReplicas": 1,
+      "pods": {"items": [{"metadata": {"ownerReferences": [{"kind": "ReplicaSet", "uid": "failed-revision", "controller": true}]}, "status": {"conditions": [{"type": "PodScheduled", "status": "False", "reason": "Unschedulable", "message": "previous selector has no matching node"}]}}]},
+      "want": "pending"
+    },
+    {
+      "name": "current-revision-scheduling-failure",
+      "observedGeneration": 6,
+      "availableReplicas": 1,
+      "pods": {"items": [{"metadata": {"ownerReferences": [{"kind": "ReplicaSet", "uid": "restored-revision", "controller": true}]}, "status": {"conditions": [{"type": "PodScheduled", "status": "False", "reason": "Unschedulable", "message": "current selector has no matching node"}]}}]},
+      "want": "InsufficientNumberOfReplicas"
+    },
+    {
+      "name": "deleting-current-pod-is-not-a-current-failure",
+      "observedGeneration": 6,
+      "availableReplicas": 1,
+      "pods": {"items": [{"metadata": {"deletionTimestamp": "2026-09-28T06:41:58Z", "ownerReferences": [{"kind": "ReplicaSet", "uid": "restored-revision", "controller": true}]}, "status": {"conditions": [{"type": "PodScheduled", "status": "False", "reason": "Unschedulable", "message": "retiring pod cannot schedule"}]}}]},
+      "want": "pending"
+    },
+    {
+      "name": "same-revision-from-replaced-deployment-is-not-owned",
+      "observedGeneration": 6,
+      "availableReplicas": 1,
+      "pods": {"items": [{"metadata": {"ownerReferences": [{"kind": "ReplicaSet", "uid": "replaced-deployment-revision", "controller": true}]}, "status": {"conditions": [{"type": "PodScheduled", "status": "False", "reason": "Unschedulable", "message": "deleted deployment's pod cannot schedule"}]}}]},
+      "want": "pending"
+    },
+    {
+      "name": "restored-replicas-are-ready",
+      "observedGeneration": 6,
+      "availableReplicas": 2,
+      "pods": {"items": []},
+      "want": "ready"
+    }
+  ]
+}

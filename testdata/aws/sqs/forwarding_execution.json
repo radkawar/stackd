@@ -1,0 +1,460 @@
+{
+  "observed_at": "2026-09-12T13:13:00.120437+00:00",
+  "region": "us-east-1",
+  "source": "Native AWS SQS/KMS; owned queue and key policies, existing authenticated IAM caller",
+  "comparison": "Direct versus forwarded authorization, redrive acceptance/completion and encrypted delivery",
+  "limitations": "Commercial public endpoints; finite policy cases, no VPC endpoint or policy-propagation timing guarantees",
+  "observations": [
+    {
+      "case": "last_start",
+      "service": "sqs",
+      "operation": "start-message-move-task",
+      "output": {}
+    },
+    {
+      "case": "last_direct_receive",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:receivemessage on resource: <arn:last-dead> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "last_direct_send",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:sendmessage on resource: <arn:last-destination> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "last_before_release",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "RUNNING",
+            "SourceArn": "<arn:last-dead>",
+            "DestinationArn": "<arn:last-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218788637
+          }
+        ]
+      }
+    },
+    {
+      "case": "last_progress",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "COMPLETED",
+            "SourceArn": "<arn:last-dead>",
+            "DestinationArn": "<arn:last-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218788637
+          }
+        ]
+      }
+    },
+    {
+      "case": "last_destination",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "fe953bfd-4898-4974-8bb0-a7c2c328f5a2",
+            "MD5OfBody": "c6c0b278ff28dd083f0484d4d2fd5b6a",
+            "Body": "redriven",
+            "Attributes": {
+              "SenderId": "AIDAQAAAAAAAMEZHRHAHY",
+              "ApproximateFirstReceiveTimestamp": "1789218799303",
+              "ApproximateReceiveCount": "1",
+              "SentTimestamp": "1789218797894"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "first_start",
+      "service": "sqs",
+      "operation": "start-message-move-task",
+      "output": {}
+    },
+    {
+      "case": "first_direct_receive",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:receivemessage on resource: <arn:first-dead> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "first_direct_send",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:sendmessage on resource: <arn:first-destination> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "first_before_release",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "RUNNING",
+            "SourceArn": "<arn:first-dead>",
+            "DestinationArn": "<arn:first-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218805661
+          }
+        ]
+      }
+    },
+    {
+      "case": "first_progress",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "RUNNING",
+            "SourceArn": "<arn:first-dead>",
+            "DestinationArn": "<arn:first-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218805661
+          }
+        ]
+      }
+    },
+    {
+      "case": "first_progress",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "COMPLETED",
+            "SourceArn": "<arn:first-dead>",
+            "DestinationArn": "<arn:first-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 1,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218805661
+          }
+        ]
+      }
+    },
+    {
+      "case": "first_destination",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "0663c2bd-b5b6-4bb8-92b4-32ba491e3732",
+            "MD5OfBody": "c6c0b278ff28dd083f0484d4d2fd5b6a",
+            "Body": "redriven",
+            "Attributes": {
+              "SenderId": "AIDAQAAAAAAAMEZHRHAHY",
+              "ApproximateFirstReceiveTimestamp": "1789218819209",
+              "ApproximateReceiveCount": "1",
+              "SentTimestamp": "1789218815007"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "chain_start",
+      "service": "sqs",
+      "operation": "start-message-move-task",
+      "output": {}
+    },
+    {
+      "case": "chain_direct_receive",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:receivemessage on resource: <arn:chain-dead> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "chain_direct_send",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:sendmessage on resource: <arn:chain-destination> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "chain_before_release",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "RUNNING",
+            "SourceArn": "<arn:chain-dead>",
+            "DestinationArn": "<arn:chain-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218825761
+          }
+        ]
+      }
+    },
+    {
+      "case": "chain_progress",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "COMPLETED",
+            "SourceArn": "<arn:chain-dead>",
+            "DestinationArn": "<arn:chain-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218825761
+          }
+        ]
+      }
+    },
+    {
+      "case": "chain_destination",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "d8b8bea9-97b0-4d07-b90f-5c956c61e6e2",
+            "MD5OfBody": "c6c0b278ff28dd083f0484d4d2fd5b6a",
+            "Body": "redriven",
+            "Attributes": {
+              "SenderId": "AIDAQAAAAAAAMEZHRHAHY",
+              "ApproximateFirstReceiveTimestamp": "1789218836469",
+              "ApproximateReceiveCount": "1",
+              "SentTimestamp": "1789218835118"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "via_start",
+      "service": "sqs",
+      "operation": "start-message-move-task",
+      "output": {}
+    },
+    {
+      "case": "via_direct_receive",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:receivemessage on resource: <arn:via-dead> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "via_direct_send",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:sendmessage on resource: <arn:via-destination> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "via_before_release",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "RUNNING",
+            "SourceArn": "<arn:via-dead>",
+            "DestinationArn": "<arn:via-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218843074
+          }
+        ]
+      }
+    },
+    {
+      "case": "via_progress",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "COMPLETED",
+            "SourceArn": "<arn:via-dead>",
+            "DestinationArn": "<arn:via-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218843074
+          }
+        ]
+      }
+    },
+    {
+      "case": "via_destination",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "f7d2eb6a-c668-4d8b-9565-070e6a31b1a0",
+            "MD5OfBody": "c6c0b278ff28dd083f0484d4d2fd5b6a",
+            "Body": "redriven",
+            "Attributes": {
+              "SenderId": "AIDAQAAAAAAAMEZHRHAHY",
+              "ApproximateFirstReceiveTimestamp": "1789218853922",
+              "ApproximateReceiveCount": "1",
+              "SentTimestamp": "1789218852500"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "principal_start",
+      "service": "sqs",
+      "operation": "start-message-move-task",
+      "output": {}
+    },
+    {
+      "case": "principal_direct_receive",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:receivemessage on resource: <arn:principal-dead> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "principal_direct_send",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:iam::111111111111:user/Delegated is not authorized to perform: sqs:sendmessage on resource: <arn:principal-destination> with an explicit deny in a resource-based policy",
+        "Code": "AccessDenied"
+      }
+    },
+    {
+      "case": "principal_before_release",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "RUNNING",
+            "SourceArn": "<arn:principal-dead>",
+            "DestinationArn": "<arn:principal-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "StartedTimestamp": 1789218860338
+          }
+        ]
+      }
+    },
+    {
+      "case": "principal_progress",
+      "service": "sqs",
+      "operation": "list-message-move-tasks",
+      "output": {
+        "Results": [
+          {
+            "Status": "FAILED",
+            "SourceArn": "<arn:principal-dead>",
+            "DestinationArn": "<arn:principal-destination>",
+            "MaxNumberOfMessagesPerSecond": 10,
+            "ApproximateNumberOfMessagesMoved": 0,
+            "ApproximateNumberOfMessagesToMove": 1,
+            "FailureReason": "AccessDenied",
+            "StartedTimestamp": 1789218860338
+          }
+        ]
+      }
+    },
+    {
+      "case": "principal_destination",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {}
+    }
+  ],
+  "owned_queues": {},
+  "cleanup": {
+    "last-dead": "AWS.SimpleQueueService.NonExistentQueue",
+    "last-source": "AWS.SimpleQueueService.NonExistentQueue",
+    "last-destination": "AWS.SimpleQueueService.NonExistentQueue",
+    "first-dead": "AWS.SimpleQueueService.NonExistentQueue",
+    "first-source": "AWS.SimpleQueueService.NonExistentQueue",
+    "first-destination": "AWS.SimpleQueueService.NonExistentQueue",
+    "chain-dead": "AWS.SimpleQueueService.NonExistentQueue",
+    "chain-source": "AWS.SimpleQueueService.NonExistentQueue",
+    "chain-destination": "AWS.SimpleQueueService.NonExistentQueue",
+    "via-dead": "AWS.SimpleQueueService.NonExistentQueue",
+    "via-source": "AWS.SimpleQueueService.NonExistentQueue",
+    "via-destination": "AWS.SimpleQueueService.NonExistentQueue",
+    "principal-dead": "AWS.SimpleQueueService.NonExistentQueue",
+    "principal-source": "AWS.SimpleQueueService.NonExistentQueue",
+    "principal-destination": "AWS.SimpleQueueService.NonExistentQueue"
+  },
+  "deny_conditions": {
+    "last": {
+      "StringNotEqualsIfExists": {
+        "aws:CalledViaLast": "sqs.amazonaws.com"
+      }
+    },
+    "first": {
+      "StringNotEqualsIfExists": {
+        "aws:CalledViaFirst": "sqs.amazonaws.com"
+      }
+    },
+    "chain": {
+      "ForAllValues:StringNotEquals": {
+        "aws:CalledVia": "sqs.amazonaws.com"
+      }
+    },
+    "via": {
+      "Bool": {
+        "aws:ViaAWSService": "false"
+      }
+    },
+    "principal": {
+      "Bool": {
+        "aws:PrincipalIsAWSService": "false"
+      }
+    }
+  },
+  "completed": true
+}

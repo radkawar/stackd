@@ -1,0 +1,170 @@
+{
+  "source": "native AWS",
+  "retrieved_at": "2026-09-26T14:39:02.582906+00:00",
+  "region": "us-east-1",
+  "run_suffix": "42282f5bedaf47da",
+  "source_revisions": {
+    "aws_sdk_go_v2": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "primary_references": [
+    "https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateJob.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_GetJobRun.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_StartQueryExecution.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_GetQueryResults.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_StopQueryExecution.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_UpdateWorkGroup.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_DeleteWorkGroup.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_CreatePreparedStatement.html",
+    "https://aws.amazon.com/glue/pricing/",
+    "https://aws.amazon.com/athena/pricing/"
+  ],
+  "bounds": {
+    "max_calls": 230,
+    "wall_seconds": 1200,
+    "cli_timeout_seconds": 30,
+    "max_buckets": 1,
+    "max_total_object_bytes": 1048576,
+    "max_iam_roles": 2,
+    "max_databases": 1,
+    "max_tables": 1,
+    "max_workgroups": 2,
+    "max_jobs": 1,
+    "max_job_runs": 2,
+    "job_dpu": 0.0625,
+    "job_timeout_minutes": 2,
+    "job_retries": 0,
+    "max_query_submissions": 8,
+    "query_bytes_scanned_cutoff": 10485760,
+    "query_poll_deadline_seconds": 90,
+    "job_poll_deadline_seconds": 240,
+    "cost_usd_upper_estimate": 0.1,
+    "cost_basis": "Glue <=2*0.0625 DPU*2/60h*$0.44=$0.001834; Athena <=8*10MiB at $5/TB (<$0.001). Remaining conservative allowance covers <1MiB S3, catalog/API requests. No Spark/crawler/capacity reservation/EC2."
+  },
+  "normalization": "Owned names, account/caller/role/query/run IDs and pagination tokens replaced consistently; timestamps, field presence, list order, errors and data bytes retained. Credentials/debug output never persisted.",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_ms": 1790433542583,
+      "finished_ms": 1790433546098,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "OWNEDCALLERID",
+          "Account": "123456789012",
+          "Arn": "arn:aws:iam::123456789012:user/owned-caller"
+        }
+      }
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-analytics-owned"
+      },
+      "started_ms": 1790433546099,
+      "finished_ms": 1790433558144,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-analytics-owned",
+          "BucketArn": "arn:aws:s3:::stackd-analytics-owned"
+        }
+      }
+    },
+    {
+      "label": "put-input",
+      "service": "s3api",
+      "operation": "put-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "input/source.csv",
+        "Body": "OWNED_TEMP/put-input.data"
+      },
+      "started_ms": 1790433558144,
+      "finished_ms": 1790433559244,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ETag": "\"0a8894f6cb75eb495cff9c1080f6bc34\"",
+          "ChecksumCRC64NVME": "jH6SzajLmQY=",
+          "ChecksumType": "FULL_OBJECT",
+          "ServerSideEncryption": "AES256"
+        }
+      }
+    },
+    {
+      "label": "put-producer",
+      "service": "s3api",
+      "operation": "put-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "scripts/producer.py",
+        "Body": "OWNED_TEMP/put-producer.data"
+      },
+      "started_ms": 1790433559244,
+      "finished_ms": 1790433559672,
+      "result": {
+        "code": "CLIError",
+        "message": "CLI/transport failure; raw diagnostics discarded"
+      }
+    }
+  ],
+  "cleanup": {
+    "verified": false,
+    "observations": [
+      {
+        "label": "cleanup-list-owned-objects",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "MaxKeys": 100
+        },
+        "started_ms": 1790433559672,
+        "finished_ms": 1790433565213,
+        "result": {
+          "code": "CLIError",
+          "message": "CLI/transport failure; raw diagnostics discarded"
+        }
+      },
+      {
+        "label": "verify-bucket-absent",
+        "service": "s3api",
+        "operation": "head-bucket",
+        "input": {
+          "Bucket": "stackd-analytics-owned"
+        },
+        "started_ms": 1790433565214,
+        "finished_ms": 1790433571340,
+        "result": {
+          "code": "CLIError",
+          "message": "CLI/transport failure; raw diagnostics discarded"
+        }
+      }
+    ],
+    "remaining_owned": [
+      "stackd-analytics-owned"
+    ]
+  },
+  "completed": false,
+  "cli_calls": 6,
+  "elapsed_seconds": 28.759,
+  "account": "123456789012",
+  "uncertainty": [
+    "One account and region, Python shell 3.9 only; no Glue Spark or Athena Spark conformance claimed.",
+    "IAM role propagation observations are retained; their durations are not contractual.",
+    "Athena cancellation races execution; native terminal state is retained, never overwritten as CANCELLED.",
+    "Query history and deleted Glue job run history have no native purge API; resource deletion/terminal runs prevent ongoing compute.",
+    "No CloudWatch default log groups are created, modified or granted to job role; this run does not prove runtime log delivery.",
+    "No Lake Formation grants/defaults, global catalog lists, standing workgroups or IAM policies modified."
+  ],
+  "failure": {
+    "type": "RuntimeError",
+    "message": "Required native operation failed: CLIError"
+  }
+}

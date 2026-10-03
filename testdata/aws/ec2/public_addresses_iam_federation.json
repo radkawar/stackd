@@ -1,0 +1,1524 @@
+{
+  "account": "000000000000",
+  "region": "us-east-1",
+  "prefix": "stackd-public-iam-971b123396",
+  "captured_at": "2026-09-27T01:50:16.233948+00:00",
+  "identity": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated"
+  },
+  "documentation": [
+    "https://docs.aws.amazon.com/service-authorization/latest/reference/list_ec2.html",
+    "https://docs.aws.amazon.com/eks/latest/userguide/auto-controls.html#_associate_public_ip_address"
+  ],
+  "sdk": {
+    "boto3": "1.43.98"
+  },
+  "scope": "One exact-owned EIP, VPC and subnet, with scoped STS federation sessions. RunInstances is always DryRun=true; no instances, roles, volumes, gateway, standing-resource or account changes.",
+  "owned": {
+    "allocation_id": "eipalloc-0f9f48429391f23a7",
+    "public_ip": "52.22.57.81",
+    "vpc_id": "vpc-0b022a23d565152bc",
+    "subnet_id": "subnet-09775427cce5757bd"
+  },
+  "calls": [
+    {
+      "label": "allocate-owned-address",
+      "service": "ec2",
+      "operation": "AllocateAddress",
+      "input": {
+        "Domain": "vpc",
+        "TagSpecifications": [
+          {
+            "ResourceType": "elastic-ip",
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-public-iam-971b123396"
+              }
+            ]
+          }
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:16.242998+00:00",
+      "code": "Success",
+      "output": {
+        "AllocationId": "eipalloc-0f9f48429391f23a7",
+        "PublicIpv4Pool": "amazon",
+        "NetworkBorderGroup": "us-east-1",
+        "Domain": "vpc",
+        "PublicIp": "52.22.57.81"
+      },
+      "http_status": 200,
+      "request_id": "97c2ab08-61f4-470e-9d79-c57dae94d09d",
+      "finished_at": "2026-09-27T01:50:18.144906+00:00"
+    },
+    {
+      "label": "federate-baseline",
+      "service": "sts",
+      "operation": "GetFederationToken",
+      "input": {
+        "Name": "baseline",
+        "DurationSeconds": 900,
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\"},{\"Effect\":\"Allow\",\"Action\":\"ec2:RunInstances\",\"Resource\":\"*\"}]}"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:18.145228+00:00",
+      "code": "Success",
+      "output": {
+        "Credentials": {
+          "AccessKeyId": "<redacted>",
+          "SecretAccessKey": "<redacted>",
+          "SessionToken": "<redacted>",
+          "Expiration": "2026-09-27T02:05:18+00:00"
+        },
+        "FederatedUser": {
+          "FederatedUserId": "000000000000:baseline",
+          "Arn": "arn:aws:sts::000000000000:federated-user/baseline"
+        },
+        "PackedPolicySize": 21,
+        "SessionTokenUtilization": 21,
+        "SessionTokenSize": 876
+      },
+      "http_status": 200,
+      "request_id": "e174cd8a-8cc8-4d1d-9f84-eeac223026ae",
+      "finished_at": "2026-09-27T01:50:18.579581+00:00"
+    },
+    {
+      "label": "baseline-address-authority",
+      "service": "ec2",
+      "operation": "ReleaseAddress",
+      "input": {
+        "AllocationId": "eipalloc-0f9f48429391f23a7",
+        "DryRun": true
+      },
+      "caller": "baseline",
+      "started_at": "2026-09-27T01:50:18.662090+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "a3c51c2d-1b7b-4e5a-9277-07eb73e38d00",
+      "finished_at": "2026-09-27T01:50:19.155440+00:00"
+    },
+    {
+      "label": "federate-AllocationId-matching",
+      "service": "sts",
+      "operation": "GetFederationToken",
+      "input": {
+        "Name": "AllocationId-matching",
+        "DurationSeconds": 900,
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\"},{\"Effect\":\"Allow\",\"Action\":\"ec2:RunInstances\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\",\"Condition\":{\"StringEquals\":{\"ec2:AllocationId\":\"eipalloc-0f9f48429391f23a7\"}}}]}"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:19.155705+00:00",
+      "code": "Success",
+      "output": {
+        "Credentials": {
+          "AccessKeyId": "<redacted>",
+          "SecretAccessKey": "<redacted>",
+          "SessionToken": "<redacted>",
+          "Expiration": "2026-09-27T02:05:19+00:00"
+        },
+        "FederatedUser": {
+          "FederatedUserId": "000000000000:AllocationId-matching",
+          "Arn": "arn:aws:sts::000000000000:federated-user/AllocationId-matching"
+        },
+        "PackedPolicySize": 23,
+        "SessionTokenUtilization": 23,
+        "SessionTokenSize": 944
+      },
+      "http_status": 200,
+      "request_id": "9cbc0fbc-0369-4e01-ad1b-1d6a9830a1a2",
+      "finished_at": "2026-09-27T01:50:19.258692+00:00"
+    },
+    {
+      "label": "AllocationId-matching",
+      "service": "ec2",
+      "operation": "ReleaseAddress",
+      "input": {
+        "AllocationId": "eipalloc-0f9f48429391f23a7",
+        "DryRun": true
+      },
+      "caller": "AllocationId-matching",
+      "started_at": "2026-09-27T01:50:19.262856+00:00",
+      "code": "UnauthorizedOperation",
+      "error": {
+        "Code": "UnauthorizedOperation",
+        "Message": "You are not authorized to perform this operation. User: arn:aws:sts::000000000000:federated-user/AllocationId-matching is not authorized to perform: ec2:ReleaseAddress on resource: arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7 with an explicit deny in a session policy. Encoded authorization failure message: Koq4fZ_vdDpRFc0ZQLUuXTLmquAuhuQY9ggaCbYv_eFwonKSN4I5Sko3GmHHka1EwAjW1gnlj7fxxRScklikM9hwe7eXmXgUzO-7sXzvry_A5pDlaPyQg4NqL4-W-HslPgtG-i9LkNH2_tSQu0tVumWtYZ_P26CmDSTsOnU8KM88-yWhVhbGmEFiI23Tl5I3z2uDHIksRvckfcF84zV-usu7IkL2Uo_Jcv2wYm4SU6arHPgcwaCxaxvvo10NkO6pFvWwfNVu7TmSGKwPifBneX_2Lgl1YG8N0oAEvVSS-rQUFKDmaPDfFYXh7O6X5miVg9g3BmAihtgEUm_1xysgvCc0K-LP3ytY0Xrdnld1--ZsfL13FhulEhu7lLbOdqTMaLRV36snyMAqv3IFEeIgKxak1cxBYl6gS2Z37-B_EdszDTOYMRKexTi87O8MmgtDRb3zeCHAWKSwwu3pvjuWuARLhimXeo-33kv7vyLsQZNdnHlSKXRz21sDCWC5NK3hY62wslotY6JY6FD5t1kVnrSCF8_TxLfZbti8WlYl4-6VB1EGUgf7ACzkZom1uLrvptJx867RBLPjTzo5QJToo-2AsujcT0t5ReSr1Gbdwa6-nWLv4EJDkJefQM57zS5xHegUmk8De74t4dOjixYPn6hYkT9mpxsDk-IxUaoP1QiVDRXoKD9VSY74RVYAl4uEOzSMKyCmXCpiCUL9HzuSNw"
+      },
+      "http_status": 403,
+      "request_id": "1e2592f4-0abb-4012-88c7-a4b3a43e3d24",
+      "finished_at": "2026-09-27T01:50:19.753387+00:00"
+    },
+    {
+      "label": "federate-AllocationId-nonmatching",
+      "service": "sts",
+      "operation": "GetFederationToken",
+      "input": {
+        "Name": "AllocationId-nonmatching",
+        "DurationSeconds": 900,
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\"},{\"Effect\":\"Allow\",\"Action\":\"ec2:RunInstances\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\",\"Condition\":{\"StringEquals\":{\"ec2:AllocationId\":\"eipalloc-00000000000000000\"}}}]}"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:19.753695+00:00",
+      "code": "Success",
+      "output": {
+        "Credentials": {
+          "AccessKeyId": "<redacted>",
+          "SecretAccessKey": "<redacted>",
+          "SessionToken": "<redacted>",
+          "Expiration": "2026-09-27T02:05:19+00:00"
+        },
+        "FederatedUser": {
+          "FederatedUserId": "000000000000:AllocationId-nonmatching",
+          "Arn": "arn:aws:sts::000000000000:federated-user/AllocationId-nonmatching"
+        },
+        "PackedPolicySize": 23,
+        "SessionTokenUtilization": 23,
+        "SessionTokenSize": 952
+      },
+      "http_status": 200,
+      "request_id": "6103216e-857a-404e-8df1-acc20f35a6c7",
+      "finished_at": "2026-09-27T01:50:19.856898+00:00"
+    },
+    {
+      "label": "AllocationId-nonmatching",
+      "service": "ec2",
+      "operation": "ReleaseAddress",
+      "input": {
+        "AllocationId": "eipalloc-0f9f48429391f23a7",
+        "DryRun": true
+      },
+      "caller": "AllocationId-nonmatching",
+      "started_at": "2026-09-27T01:50:19.861664+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "79f4f5d5-0e8f-4346-a6e1-2406a29207f9",
+      "finished_at": "2026-09-27T01:50:20.333439+00:00"
+    },
+    {
+      "label": "federate-PublicIpAddress-matching",
+      "service": "sts",
+      "operation": "GetFederationToken",
+      "input": {
+        "Name": "PublicIpAddress-matching",
+        "DurationSeconds": 900,
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\"},{\"Effect\":\"Allow\",\"Action\":\"ec2:RunInstances\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\",\"Condition\":{\"StringEquals\":{\"ec2:PublicIpAddress\":\"52.22.57.81\"}}}]}"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:20.333817+00:00",
+      "code": "Success",
+      "output": {
+        "Credentials": {
+          "AccessKeyId": "<redacted>",
+          "SecretAccessKey": "<redacted>",
+          "SessionToken": "<redacted>",
+          "Expiration": "2026-09-27T02:05:20+00:00"
+        },
+        "FederatedUser": {
+          "FederatedUserId": "000000000000:PublicIpAddress-matching",
+          "Arn": "arn:aws:sts::000000000000:federated-user/PublicIpAddress-matching"
+        },
+        "PackedPolicySize": 23,
+        "SessionTokenUtilization": 23,
+        "SessionTokenSize": 960
+      },
+      "http_status": 200,
+      "request_id": "e2584a67-084b-4228-905d-8cbdcc029e05",
+      "finished_at": "2026-09-27T01:50:20.437114+00:00"
+    },
+    {
+      "label": "PublicIpAddress-matching",
+      "service": "ec2",
+      "operation": "ReleaseAddress",
+      "input": {
+        "AllocationId": "eipalloc-0f9f48429391f23a7",
+        "DryRun": true
+      },
+      "caller": "PublicIpAddress-matching",
+      "started_at": "2026-09-27T01:50:20.445450+00:00",
+      "code": "UnauthorizedOperation",
+      "error": {
+        "Code": "UnauthorizedOperation",
+        "Message": "You are not authorized to perform this operation. User: arn:aws:sts::000000000000:federated-user/PublicIpAddress-matching is not authorized to perform: ec2:ReleaseAddress on resource: arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7 with an explicit deny in a session policy. Encoded authorization failure message: rsSvbMlgZ30PHwxkkTdfhKgP_ngd7OdCRB4lGwfex98r0L4uQgvPZKx9iTnakjnTNMUSL1LIYmN4FN2c6-w0l02wFeqwFXVUrtnrBsACu0h6FGMCwEjH4YH61zEreBgWgj536tMtj9hQ1lQ1cwn35PZvCmfyLUzqgtyvSrSxaKEyh7dsQfqHhPEdATtVesiPKFR9UePP8CO9WFSdlywmGa1ZO9whEvzZ0zvQ6zADQBGnyJ_nrYTQAL6uD5UhqKp1ePQr-jmxUWz_ByzY417ngzfLVGPs4T9ZKDDUltOZCMbRmuiQjFmxMtmpJme-VCJmGCQAaVvCXhhFWLSPm_OdNJ-Dw6zPQFBrrKKnRcrwUoyb5bCtk1U16pX2hrrg4Qz9T52TTPt91zQgHq1hKIwv_WiI0uhWlr3j45ETZyJl6ve80YX3salF1pqrGP6NcLEnEWTQC--WZeCGKS9Kws1pWqPkJaKwFVa1KqkQNJx2E-HkVZe5jKU948EWVNjMj3R33p8-0VoiarRXW0WfVndqL3IQnkLQ_5mRMHosPpscYLgvbGyGqHaGH6y_KeK1n6pTnAukOzLRcK23gXuHmcoxrShLnV5r8UzqsoDCzbMDcPC6CQH8kVuPLq5CUZarphDzeVM13rxppvsUTfmWa91Tt9u8Mw0TFdan84tXTDzIUMJUc3TRWDbM4RkIxdlDG2lnYdjORhOiLlovSdm0mBlVz2GnyDQ"
+      },
+      "http_status": 403,
+      "request_id": "74c57058-6024-475c-8e4c-8ca2ccd5f6fb",
+      "finished_at": "2026-09-27T01:50:20.927232+00:00"
+    },
+    {
+      "label": "federate-PublicIpAddress-nonmatching",
+      "service": "sts",
+      "operation": "GetFederationToken",
+      "input": {
+        "Name": "PublicIpAddress-nonmatching",
+        "DurationSeconds": 900,
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\"},{\"Effect\":\"Allow\",\"Action\":\"ec2:RunInstances\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\",\"Condition\":{\"StringEquals\":{\"ec2:PublicIpAddress\":\"192.0.2.99\"}}}]}"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:20.927622+00:00",
+      "code": "Success",
+      "output": {
+        "Credentials": {
+          "AccessKeyId": "<redacted>",
+          "SecretAccessKey": "<redacted>",
+          "SessionToken": "<redacted>",
+          "Expiration": "2026-09-27T02:05:20+00:00"
+        },
+        "FederatedUser": {
+          "FederatedUserId": "000000000000:PublicIpAddress-nonmatching",
+          "Arn": "arn:aws:sts::000000000000:federated-user/PublicIpAddress-nonmatching"
+        },
+        "PackedPolicySize": 23,
+        "SessionTokenUtilization": 23,
+        "SessionTokenSize": 960
+      },
+      "http_status": 200,
+      "request_id": "a74714f8-b684-4148-8807-69088117b1b4",
+      "finished_at": "2026-09-27T01:50:21.031347+00:00"
+    },
+    {
+      "label": "PublicIpAddress-nonmatching",
+      "service": "ec2",
+      "operation": "ReleaseAddress",
+      "input": {
+        "AllocationId": "eipalloc-0f9f48429391f23a7",
+        "DryRun": true
+      },
+      "caller": "PublicIpAddress-nonmatching",
+      "started_at": "2026-09-27T01:50:21.035972+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "c629cb2c-c29b-406a-8c5b-1a5b3b872443",
+      "finished_at": "2026-09-27T01:50:21.525259+00:00"
+    },
+    {
+      "label": "create-owned-vpc",
+      "service": "ec2",
+      "operation": "CreateVpc",
+      "input": {
+        "CidrBlock": "10.237.0.0/16",
+        "TagSpecifications": [
+          {
+            "ResourceType": "vpc",
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-public-iam-971b123396"
+              }
+            ]
+          }
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:21.525686+00:00",
+      "code": "Success",
+      "output": {
+        "Vpc": {
+          "OwnerId": "000000000000",
+          "InstanceTenancy": "default",
+          "Ipv6CidrBlockAssociationSet": [],
+          "CidrBlockAssociationSet": [
+            {
+              "AssociationId": "vpc-cidr-assoc-0dccabc2089b091d3",
+              "CidrBlock": "10.237.0.0/16",
+              "CidrBlockState": {
+                "State": "associated"
+              }
+            }
+          ],
+          "IsDefault": false,
+          "Tags": [
+            {
+              "Key": "stackd-probe",
+              "Value": "stackd-public-iam-971b123396"
+            }
+          ],
+          "VpcId": "vpc-0b022a23d565152bc",
+          "State": "pending",
+          "CidrBlock": "10.237.0.0/16",
+          "DhcpOptionsId": "dopt-0f7ace7ebae95c51e"
+        }
+      },
+      "http_status": 200,
+      "request_id": "7e876603-85cc-4193-ab4d-b8aaac043262",
+      "finished_at": "2026-09-27T01:50:22.076315+00:00"
+    },
+    {
+      "label": "create-owned-subnet",
+      "service": "ec2",
+      "operation": "CreateSubnet",
+      "input": {
+        "VpcId": "vpc-0b022a23d565152bc",
+        "CidrBlock": "10.237.1.0/24",
+        "TagSpecifications": [
+          {
+            "ResourceType": "subnet",
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-public-iam-971b123396"
+              }
+            ]
+          }
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:22.077085+00:00",
+      "code": "Success",
+      "output": {
+        "Subnet": {
+          "AvailabilityZoneId": "use1-az6",
+          "MapCustomerOwnedIpOnLaunch": false,
+          "OwnerId": "000000000000",
+          "AssignIpv6AddressOnCreation": false,
+          "Ipv6CidrBlockAssociationSet": [],
+          "Tags": [
+            {
+              "Key": "stackd-probe",
+              "Value": "stackd-public-iam-971b123396"
+            }
+          ],
+          "SubnetArn": "arn:aws:ec2:us-east-1:000000000000:subnet/subnet-09775427cce5757bd",
+          "EnableDns64": false,
+          "Ipv6Native": false,
+          "PrivateDnsNameOptionsOnLaunch": {
+            "HostnameType": "ip-name",
+            "EnableResourceNameDnsARecord": false,
+            "EnableResourceNameDnsAAAARecord": false
+          },
+          "SubnetId": "subnet-09775427cce5757bd",
+          "State": "available",
+          "VpcId": "vpc-0b022a23d565152bc",
+          "CidrBlock": "10.237.1.0/24",
+          "AvailableIpAddressCount": 251,
+          "AvailabilityZone": "us-east-1a",
+          "DefaultForAz": false,
+          "MapPublicIpOnLaunch": false
+        }
+      },
+      "http_status": 200,
+      "request_id": "79ea1a6a-3fc6-42a9-a4d3-634f16fa9436",
+      "finished_at": "2026-09-27T01:50:22.480961+00:00"
+    },
+    {
+      "label": "read-public-amazon-linux-image",
+      "service": "ssm",
+      "operation": "GetParameter",
+      "input": {
+        "Name": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:22.481810+00:00",
+      "code": "Success",
+      "output": {
+        "Parameter": {
+          "Name": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64",
+          "Type": "String",
+          "Value": "ami-0fef201115eefe936",
+          "Version": 189,
+          "LastModifiedDate": "2026-09-19T00:28:00.583000+01:00",
+          "ARN": "arn:aws:ssm:us-east-1::parameter/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64",
+          "DataType": "text"
+        }
+      },
+      "http_status": 200,
+      "request_id": "a9cf411b-68b8-4f84-b395-7b679a620409",
+      "finished_at": "2026-09-27T01:50:22.960338+00:00"
+    },
+    {
+      "label": "baseline-launch-authority",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd"
+          }
+        ]
+      },
+      "caller": "baseline",
+      "started_at": "2026-09-27T01:50:22.960828+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "3975542e-7e12-4950-b38e-c9a0215904e9",
+      "finished_at": "2026-09-27T01:50:23.578244+00:00"
+    },
+    {
+      "label": "federate-Bool",
+      "service": "sts",
+      "operation": "GetFederationToken",
+      "input": {
+        "Name": "Bool",
+        "DurationSeconds": 900,
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\"},{\"Effect\":\"Allow\",\"Action\":\"ec2:RunInstances\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":\"ec2:RunInstances\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:network-interface/*\",\"Condition\":{\"Bool\":{\"ec2:AssociatePublicIpAddress\":\"true\"}}}]}"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:23.578885+00:00",
+      "code": "Success",
+      "output": {
+        "Credentials": {
+          "AccessKeyId": "<redacted>",
+          "SecretAccessKey": "<redacted>",
+          "SessionToken": "<redacted>",
+          "Expiration": "2026-09-27T02:05:23+00:00"
+        },
+        "FederatedUser": {
+          "FederatedUserId": "000000000000:Bool",
+          "Arn": "arn:aws:sts::000000000000:federated-user/Bool"
+        },
+        "PackedPolicySize": 23,
+        "SessionTokenUtilization": 23,
+        "SessionTokenSize": 968
+      },
+      "http_status": 200,
+      "request_id": "49abd259-c90d-4d80-aff5-a7a4a320ea7b",
+      "finished_at": "2026-09-27T01:50:23.687291+00:00"
+    },
+    {
+      "label": "federate-BoolIfExists",
+      "service": "sts",
+      "operation": "GetFederationToken",
+      "input": {
+        "Name": "BoolIfExists",
+        "DurationSeconds": 900,
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ec2:ReleaseAddress\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7\"},{\"Effect\":\"Allow\",\"Action\":\"ec2:RunInstances\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":\"ec2:RunInstances\",\"Resource\":\"arn:aws:ec2:us-east-1:000000000000:network-interface/*\",\"Condition\":{\"BoolIfExists\":{\"ec2:AssociatePublicIpAddress\":\"true\"}}}]}"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:23.693237+00:00",
+      "code": "Success",
+      "output": {
+        "Credentials": {
+          "AccessKeyId": "<redacted>",
+          "SecretAccessKey": "<redacted>",
+          "SessionToken": "<redacted>",
+          "Expiration": "2026-09-27T02:05:23+00:00"
+        },
+        "FederatedUser": {
+          "FederatedUserId": "000000000000:BoolIfExists",
+          "Arn": "arn:aws:sts::000000000000:federated-user/BoolIfExists"
+        },
+        "PackedPolicySize": 23,
+        "SessionTokenUtilization": 23,
+        "SessionTokenSize": 976
+      },
+      "http_status": 200,
+      "request_id": "712025de-1a33-4bd5-a26f-9c8f8450bf40",
+      "finished_at": "2026-09-27T01:50:23.798677+00:00"
+    },
+    {
+      "label": "set-owned-subnet-public-false",
+      "service": "ec2",
+      "operation": "ModifySubnetAttribute",
+      "input": {
+        "SubnetId": "subnet-09775427cce5757bd",
+        "MapPublicIpOnLaunch": {
+          "Value": false
+        }
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:23.803076+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "request_id": "6aa3096d-be9c-4064-b4b2-50608a52c68d",
+      "finished_at": "2026-09-27T01:50:24.041451+00:00"
+    },
+    {
+      "label": "subnet-false-request-omitted-baseline",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd"
+          }
+        ]
+      },
+      "caller": "baseline",
+      "started_at": "2026-09-27T01:50:24.042459+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "a4c2567b-35c2-4081-8231-3eb0a83c7893",
+      "finished_at": "2026-09-27T01:50:24.713193+00:00"
+    },
+    {
+      "label": "subnet-false-request-omitted-Bool",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd"
+          }
+        ]
+      },
+      "caller": "Bool",
+      "started_at": "2026-09-27T01:50:24.713828+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "76e3f161-24db-4985-a973-faa84413fd34",
+      "finished_at": "2026-09-27T01:50:25.695044+00:00"
+    },
+    {
+      "label": "subnet-false-request-omitted-BoolIfExists",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd"
+          }
+        ]
+      },
+      "caller": "BoolIfExists",
+      "started_at": "2026-09-27T01:50:25.695679+00:00",
+      "code": "UnauthorizedOperation",
+      "error": {
+        "Code": "UnauthorizedOperation",
+        "Message": "You are not authorized to perform this operation. User: arn:aws:sts::000000000000:federated-user/BoolIfExists is not authorized to perform: ec2:RunInstances on resource: arn:aws:ec2:us-east-1:000000000000:network-interface/* with an explicit deny in a session policy. Encoded authorization failure message: ItrGsmKGnDQK3O7jIDaIDL1_-oTiFeY5icBWQfmj0bvJ7eR_R9aDRWLuQuJiaqhIJZo-WSiuSNjRWYMMXI8iGhSkxbnWRa6TBXzE-YLSoYtvTLlkO3XVeIuk_HKt-i-oFoL5R33VNbeWXuxqsczFUTo77_WdK-Yt19F7Wl8T_D9gwBKFXyFlpWGt1yP4H7__0dRlqVMNO4vXq8DoDtJ1LwEnOn49_SyF3Vx0WupZ1adODMMrQOklumcs_-PL5XYI_VeIdpUIVXbLR3KE2owwK62UyugEkBIghSQ1bmjC-TFEl82udy0nEhVR0v_54InIOiIkjBR5tV_ZQtdjTc2-oqpF4Cv6sfi0PLrh0odOMuv2O3QW8BViTgzwKXj88djQHO712Zq81UxvdVTCgmtJYW2K9KqFS5x_bSsabJzY2TsaHCXvne1mPAVVyOiOa7eThABDaey5NPdNv8axvMY6ZSdberVQocpwQVlzhTsb2eyZM5wg5d9wYFHtsoIs9wYclUXW1mUg9gO_g2zR_heJPP6FDkzmzWmQHdeN66jcPOaVCQgJzt9i9nAirR6u_CuRylCAkmXsUXsqXA2GyzBjya7aUiOMiHpBfN1MuptDjZ7LXqAB4T4g8jQYVk9pMvM6bioDF64SI9rXmHfAq6vGiUQc3VnlVZgMo0rAUK5vfaVgELuEwXk6R2Qfc7q0e_OXsuGrb7l5iOU15OlY87j2mnxWJ8MeypPffQc4Uq9J64-J1ZHx7pUsixsLKOmba1DfhijY9s_0xR9QuObeKTpVRJQ"
+      },
+      "http_status": 403,
+      "request_id": "3e7a8dc3-52e8-44a4-b12e-55671a53ec70",
+      "finished_at": "2026-09-27T01:50:26.757116+00:00"
+    },
+    {
+      "label": "subnet-false-request-false-baseline",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": false
+          }
+        ]
+      },
+      "caller": "baseline",
+      "started_at": "2026-09-27T01:50:26.757765+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "41b3ef6d-4ed1-41cb-8f19-931cf765b73e",
+      "finished_at": "2026-09-27T01:50:27.298955+00:00"
+    },
+    {
+      "label": "subnet-false-request-false-Bool",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": false
+          }
+        ]
+      },
+      "caller": "Bool",
+      "started_at": "2026-09-27T01:50:27.299643+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "985fee88-76a9-4b36-8a00-b3f09e7d6ab0",
+      "finished_at": "2026-09-27T01:50:27.893977+00:00"
+    },
+    {
+      "label": "subnet-false-request-false-BoolIfExists",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": false
+          }
+        ]
+      },
+      "caller": "BoolIfExists",
+      "started_at": "2026-09-27T01:50:27.894649+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "4608f356-6588-476a-848f-33c876959da7",
+      "finished_at": "2026-09-27T01:50:28.446214+00:00"
+    },
+    {
+      "label": "subnet-false-request-true-baseline",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": true
+          }
+        ]
+      },
+      "caller": "baseline",
+      "started_at": "2026-09-27T01:50:28.446921+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "0769a278-4c5b-48cb-968c-208aa921c75b",
+      "finished_at": "2026-09-27T01:50:29.051371+00:00"
+    },
+    {
+      "label": "subnet-false-request-true-Bool",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": true
+          }
+        ]
+      },
+      "caller": "Bool",
+      "started_at": "2026-09-27T01:50:29.052099+00:00",
+      "code": "UnauthorizedOperation",
+      "error": {
+        "Code": "UnauthorizedOperation",
+        "Message": "You are not authorized to perform this operation. User: arn:aws:sts::000000000000:federated-user/Bool is not authorized to perform: ec2:RunInstances on resource: arn:aws:ec2:us-east-1:000000000000:network-interface/* with an explicit deny in a session policy. Encoded authorization failure message: 4jgbI1DqLkx9w9mcAFjRZlNlPtXVgGTEpqnqncIENOP4q1ISLIOmd0M2ODREIv4RKWSVgDi13z44Of2wAQo1szfDUdce8IJQwTlCI5YNciZ6g0ctmlnq_r93wc6d8qR33-uSDFpIcCw3hUElEsg9TpNVJBVcqD-Ywbxaf_6iXvWi3tFeY2TJbs8vlcSEjDWrGdhv6qfQNZaT5O3BLwXrMj8r9rewQHmeGNl5PAAEXRlT2LH-3DEsqD6Jzv-BZzJhYfgGbRRXA9nXt2f5KfjDssG7iXzkp1_qsVRsUXycY4-fioVJWT9EuJ9roXbI57VmpGxs7KxhAb1luUpW1HLEtjQ39V2I4Fmzdgxf6caIcIL0SVEF8g-r4u2FVLTCMzfZ1WGERuuXvj_A147ZwovI-8-cThgTxIV5dv57q7G35XkGSFXkJw7sq196puLSBX6sRs6xoChln4IKJrCrPdQRNtJLgZ68XGPUIdDxDsEdLLqz7zkm-cfeNIlFyzWpECEUryCthR8uOJs1heVYorxpaxIjatKk5QrhIL6MWlTQfDAcPt0-rnxMmh-x0bvFa6dkNFomd-WsZcKViq4YkrMcz-wRsv4SJG4xuLbD7bEnsAsr_bY86ACbST7LDgQtoXWU8wDOhe8U52wm1OqC0QRahZqicQiaGfyzyT6eWT7OEB8xGX5Wv53lmIjM8kSLACplDqlUKP8lxG7s49_wnGVp7VXuMP0azZ8A298yi5rhGTMpFgy7B4C4NeDAzuznV35NVDMi50RfyTTvR60slLzUn895"
+      },
+      "http_status": 403,
+      "request_id": "cb4347d0-82ce-4a14-b8a3-7f125a4f01f6",
+      "finished_at": "2026-09-27T01:50:29.630199+00:00"
+    },
+    {
+      "label": "subnet-false-request-true-BoolIfExists",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": true
+          }
+        ]
+      },
+      "caller": "BoolIfExists",
+      "started_at": "2026-09-27T01:50:29.630902+00:00",
+      "code": "UnauthorizedOperation",
+      "error": {
+        "Code": "UnauthorizedOperation",
+        "Message": "You are not authorized to perform this operation. User: arn:aws:sts::000000000000:federated-user/BoolIfExists is not authorized to perform: ec2:RunInstances on resource: arn:aws:ec2:us-east-1:000000000000:network-interface/* with an explicit deny in a session policy. Encoded authorization failure message: ARENzRSxm_i1qQ4c-8o6yPkI1Z4rONVtPdiboh26mOa4zD7Xih7WFNcR6CkfVk2LgIC3P7Pce36_slgV4n6BmyYycI1FHzPVVK2FuaVjSUGWHKx3ztV_5_fyfTT17xDobQVzn8VPzoKPD3FyI17ldpCBXcXSPx_ps5omCi70Hbc2wQrjlcjpeBs3u37hbiKJ_n4bioiqtGk_NFKSQ8yjmRHgz4R4qV2jJw8q0frdoJdwfq3F_C8UAy3nkwbU7jfwC_j45WBTze9M9nJEtOE-9F--avI_PjpcWk8AgL3iTmVCpFonnLgcFdJ_HPzkCz20dtiEN9aBnC5hZ1YHEeS1NpcjqG8Y3KfqL3_G52f_hiQ9lB9yFl82I0KKhLN7uM_PqNJo8dS_5xkd9YROfxkjtb5RmwlMe4nzq7dqu4E-xaE8n2w66Bcf03m7_sFtzypBiFWY0056nRiL9IuN7CA9byLmQ8djF1vkk1xKhI2Yaipsvf4oLW1qGXJKcT3gCxrYsH0WssBgAW0ejEk5kZ7xOQ4ugvFYhRvfUvp0QNyZosSctqd0GGENB2lI9lm-5Wp07TkB8kiByDf8TXp6roH15mb8B2poHIOtQj9PbkiRyqRxoA9RzEVc5dU5V0Gwi0iBAF1fxQydE08ppBYgN_Qqn5PCUpvbskdsJ2rWL3cPUBU-T30WmV5kM64LbKENkowQygl6jw0zXzfaeq7-fRuW03bywLuL2gvUigcmgEQ_UsUPrhwytFeueqx-PZqKDuhyNDndSH3wMAo_cfaDDT1wMA2PbEBpcQ"
+      },
+      "http_status": 403,
+      "request_id": "88ccac1d-786e-41de-8b36-53c9d0835f11",
+      "finished_at": "2026-09-27T01:50:30.338530+00:00"
+    },
+    {
+      "label": "set-owned-subnet-public-true",
+      "service": "ec2",
+      "operation": "ModifySubnetAttribute",
+      "input": {
+        "SubnetId": "subnet-09775427cce5757bd",
+        "MapPublicIpOnLaunch": {
+          "Value": true
+        }
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:30.339287+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "request_id": "48c8bf03-5b37-4987-a710-24531966daad",
+      "finished_at": "2026-09-27T01:50:30.588449+00:00"
+    },
+    {
+      "label": "subnet-true-request-omitted-baseline",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd"
+          }
+        ]
+      },
+      "caller": "baseline",
+      "started_at": "2026-09-27T01:50:30.589374+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "f2252151-48bb-4369-98b5-9c2c5a41c3cb",
+      "finished_at": "2026-09-27T01:50:31.245786+00:00"
+    },
+    {
+      "label": "subnet-true-request-omitted-Bool",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd"
+          }
+        ]
+      },
+      "caller": "Bool",
+      "started_at": "2026-09-27T01:50:31.246826+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "d2454713-ae6e-45ee-925b-5f11526f97b1",
+      "finished_at": "2026-09-27T01:50:31.862585+00:00"
+    },
+    {
+      "label": "subnet-true-request-omitted-BoolIfExists",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd"
+          }
+        ]
+      },
+      "caller": "BoolIfExists",
+      "started_at": "2026-09-27T01:50:31.863367+00:00",
+      "code": "UnauthorizedOperation",
+      "error": {
+        "Code": "UnauthorizedOperation",
+        "Message": "You are not authorized to perform this operation. User: arn:aws:sts::000000000000:federated-user/BoolIfExists is not authorized to perform: ec2:RunInstances on resource: arn:aws:ec2:us-east-1:000000000000:network-interface/* with an explicit deny in a session policy. Encoded authorization failure message: J73Z1y6nDeIhQX-hhpLZfRwSwey8ftYu7ZKdcjPLpqkDhUZqOWcToO-DoAt9FvxQs_YhwQCLPMD-lZKM6dSYgMZqCQkBJRHUUU1RhPI6aU79-Klo_cVbptjT-W-NvUEPd1YAxI-G9NLitE6lmFziIaZ7QbSCrnl-noSJdR8jbsIjH6XgwhOw1X5UZclvGVfHiAkYSptCkikHAebjTmVxHxuivFHtSP4-9IXOEdupVXhDNroIeT5VY4a4vRXdgBZxt4XvlpHNHztDNEL-6_l8g3B8ITEQmFYVvdtDoZuObhb-sz1PqLCD9XZeh-nnUL9r_nVaNABP2oms1JlWKPS1DaqwpmUsh-8GJAhInIzqzcE1OyWxXyHl4S-G8y2QGgF7TNqHCKvQauw63WN2VHYY8q_FnNkce1BRUO5ErIaiasFMj1HbCUzjZE6_9G7i-rVphlDWVzrIZO7qwmxeh3rNbw2V-lSqAxS9QqGnLgNSbsU7NCacEhcb8na0kYkGj6FI5OjeCMNA-6CD7A0oOlMndEHgV00NsdBwCN2XpkHlcyu870BCBu8uGrra-WBUJ7n4GPhClxWmxEGBiY66zoD_f_D20uh79jCBLyQZJ-Rdvv3yndpI6WPOKT3Hv_ozL-1I0EcqQSx6d0ak6eHTECiOfBtqNvRb08kpkc2n_R7BhkHi34bXTsx-0IanGnkU_W8yBARmYKKhUsBZR7VDhwQad7GBGbU1ZDCnFKYhaoof4cNA2rEeMd-T-fil8Ja6TlQqYX-5EEYWA2qOLExTgcTvJL0"
+      },
+      "http_status": 403,
+      "request_id": "da781590-4c0a-403f-aff4-453bef850b95",
+      "finished_at": "2026-09-27T01:50:32.524365+00:00"
+    },
+    {
+      "label": "subnet-true-request-false-baseline",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": false
+          }
+        ]
+      },
+      "caller": "baseline",
+      "started_at": "2026-09-27T01:50:32.525159+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "caddd2c7-aeba-4206-9e75-5889b5f1d24b",
+      "finished_at": "2026-09-27T01:50:33.077991+00:00"
+    },
+    {
+      "label": "subnet-true-request-false-Bool",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": false
+          }
+        ]
+      },
+      "caller": "Bool",
+      "started_at": "2026-09-27T01:50:33.078816+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "89729a5d-6a01-4167-9e91-beda95d67c14",
+      "finished_at": "2026-09-27T01:50:33.640137+00:00"
+    },
+    {
+      "label": "subnet-true-request-false-BoolIfExists",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": false
+          }
+        ]
+      },
+      "caller": "BoolIfExists",
+      "started_at": "2026-09-27T01:50:33.641033+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "92f1b54d-481a-4477-b902-b1ba8358ac53",
+      "finished_at": "2026-09-27T01:50:34.187260+00:00"
+    },
+    {
+      "label": "subnet-true-request-true-baseline",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": true
+          }
+        ]
+      },
+      "caller": "baseline",
+      "started_at": "2026-09-27T01:50:34.188104+00:00",
+      "code": "DryRunOperation",
+      "error": {
+        "Code": "DryRunOperation",
+        "Message": "Request would have succeeded, but DryRun flag is set."
+      },
+      "http_status": 412,
+      "request_id": "1c667f31-b119-49f8-bea6-8c6c076f9774",
+      "finished_at": "2026-09-27T01:50:34.773357+00:00"
+    },
+    {
+      "label": "subnet-true-request-true-Bool",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": true
+          }
+        ]
+      },
+      "caller": "Bool",
+      "started_at": "2026-09-27T01:50:34.774246+00:00",
+      "code": "UnauthorizedOperation",
+      "error": {
+        "Code": "UnauthorizedOperation",
+        "Message": "You are not authorized to perform this operation. User: arn:aws:sts::000000000000:federated-user/Bool is not authorized to perform: ec2:RunInstances on resource: arn:aws:ec2:us-east-1:000000000000:network-interface/* with an explicit deny in a session policy. Encoded authorization failure message: xwRF6JQjDBSX7aXJ8qwzQy0cpE0Ore5V3Kqv_KCEcPvHYlPitxyGX2wRn4qD85igyF8T5RDZd8vsUSOS5WSPlewKpv2jUPaom_m_EWUe6-u0IXwWxh1MvS6g5w9Pdzl4m7qsxxiwxU5jEEId391dT98RRrjv9E5nAHQRe_QSdrBoKLxfWWEnNx1r-jhPhAcNzW3g_OMlsYEE5SpdsKf4MtoaIYJJNZERvjVkMZoAJxzEPDw63eUA3cvWQsl9COMSfFjz6DiR4Os7cX5fneQi8UyyUhRjItW23lXnA9BpjE5uYz0rjDHnqdc8rawt7eqqJFun2xOX4lO9XUEO93ku4eGxvrj3MxU6nBOCvNdjeVR4RdtIB7RIZGegZqcspQpaAlFBJt2Jy4FcGmDFNMHkXR3uvd3Q8dKfKVPr_dxLd5xAKVyCFYx05VV3WTG1BZvnomGUmHuamzLb7cqCUrLCZVapA_EDHX0Fag-Cduz7b6_u_qDEhsuGuiCa1F3IMFpUkMkiKs4mI8OisHopdptew9FuZUmGvsOxG72VsqoCM5DGBDI7_P8yyP4Iv17StWiap93l8bBuuOJyyJ6VIDIX6T__8Ax32Sg_DARUhWy8mdae4nBTYCMQPte7BrVIye0EvIPCqHZhB1_7lhS3w_KfyQDQQbfV20gdpgGkm_4nlm78PbLporpAdeKzmQTJX01Mo1ITF8qhjPCeryEDdhhK61c9JSswMfQerDdMbh9NyDbSgpxjL7jivN2W8s_aaUDCBtIbVdCnnR7e0a8cpo0tXeY"
+      },
+      "http_status": 403,
+      "request_id": "38ca1650-7185-4a4d-a585-e09cf714cc36",
+      "finished_at": "2026-09-27T01:50:35.338426+00:00"
+    },
+    {
+      "label": "subnet-true-request-true-BoolIfExists",
+      "service": "ec2",
+      "operation": "RunInstances",
+      "input": {
+        "ImageId": "ami-0fef201115eefe936",
+        "InstanceType": "t3.micro",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": true,
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-09775427cce5757bd",
+            "AssociatePublicIpAddress": true
+          }
+        ]
+      },
+      "caller": "BoolIfExists",
+      "started_at": "2026-09-27T01:50:35.339309+00:00",
+      "code": "UnauthorizedOperation",
+      "error": {
+        "Code": "UnauthorizedOperation",
+        "Message": "You are not authorized to perform this operation. User: arn:aws:sts::000000000000:federated-user/BoolIfExists is not authorized to perform: ec2:RunInstances on resource: arn:aws:ec2:us-east-1:000000000000:network-interface/* with an explicit deny in a session policy. Encoded authorization failure message: VQ5wKqbECuqtcBm--WGqMUuwW_YzSK9RJXs2IF8xlzZ4vmBUsfu2Gf07cAgVy4U0Rkqgdcz3vCwS0DbC1yGSPGecKLQj4T3VAIn4qM2wM1rENz2imRVpAR-mKp2GhN1qYzPpvHbEkFBFMfldKqFt8BOIaDwpG83fBgqclHTKetdy-Sq4-nd_X3EPFC64ILKwtpaSC-1akFQaZ6lXO03VjuqLNDvJg8AioKjikdqlXPMC7qIzeJj224ribmhgkynsLLvCguyo9D9CSNhhPrEeskJcYXEmh-w-VTdRcrpf5dPsn0SygAzzw6tWDv8mKHYYTRZiSAnVrtH5KX81rL4_BgVetWM8HkHKZmTtoFpn9eRGDYoO28ezbMcOahL9Oaev_3Gp7M_Eml-EcFNEvzU1RUfIgi34WtQbWJ1AbdGUUOqEXhjYVsLira_RnKdJmTePRZCBFWf0ZvOoZvcHwz18dlIisGd5bTaDKVqWfCEexsIL0-msaUqCcup7EM-w3uoIThrj6GPWH7u3gaUg2lQuQqfnvB3tG_YcHKeFczYPG_8xTs94Mgiq8IOXNmjUHhwhVfZ3SIOvFOA-vhJobgwsTLQwxl5FWgZ9Yzab-G-fFLDC02S-tp2TZkjqbTPKBWqCxpQlNIRQmLyT30fqGcbzd_T3xipeqRneZoajC0_nmdMWuetxHbA4NG8RZ2tPr6ipssAnHDH-BtKDMZV3fjvyxsy7hWYt1kmCA1u1fI-uXg67xsZC7aX-uMYbEJWs_q_dT1h4Sh7yc769nmE2z1QC9Q28XyOHKw"
+      },
+      "http_status": 403,
+      "request_id": "ecbe2310-3414-46c7-9f01-b9130af97dd5",
+      "finished_at": "2026-09-27T01:50:35.876501+00:00"
+    },
+    {
+      "label": "cleanup-release-address",
+      "service": "ec2",
+      "operation": "ReleaseAddress",
+      "input": {
+        "AllocationId": "eipalloc-0f9f48429391f23a7"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:35.877434+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "request_id": "1814d384-842d-4e8f-8bd1-fe05b57b0029",
+      "finished_at": "2026-09-27T01:50:36.181738+00:00"
+    },
+    {
+      "label": "cleanup-address-absence",
+      "service": "ec2",
+      "operation": "DescribeAddresses",
+      "input": {
+        "AllocationIds": [
+          "eipalloc-0f9f48429391f23a7"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:36.182672+00:00",
+      "code": "InvalidAllocationID.NotFound",
+      "error": {
+        "Code": "InvalidAllocationID.NotFound",
+        "Message": "The allocation ID 'eipalloc-0f9f48429391f23a7' does not exist"
+      },
+      "http_status": 400,
+      "request_id": "b08bbeab-4e15-4ef0-8b8c-3a9b5f1e65db",
+      "finished_at": "2026-09-27T01:50:36.385061+00:00"
+    },
+    {
+      "label": "cleanup-delete-subnet",
+      "service": "ec2",
+      "operation": "DeleteSubnet",
+      "input": {
+        "SubnetId": "subnet-09775427cce5757bd"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:36.385965+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "request_id": "a1e41945-1cff-40b8-8dde-65fbf3624e1b",
+      "finished_at": "2026-09-27T01:50:37.284636+00:00"
+    },
+    {
+      "label": "cleanup-subnet-absence",
+      "service": "ec2",
+      "operation": "DescribeSubnets",
+      "input": {
+        "SubnetIds": [
+          "subnet-09775427cce5757bd"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:37.285743+00:00",
+      "code": "InvalidSubnetID.NotFound",
+      "error": {
+        "Code": "InvalidSubnetID.NotFound",
+        "Message": "The subnet ID 'subnet-09775427cce5757bd' does not exist"
+      },
+      "http_status": 400,
+      "request_id": "71524942-863f-4cc2-9413-9aea0ef0f343",
+      "finished_at": "2026-09-27T01:50:37.459568+00:00"
+    },
+    {
+      "label": "cleanup-delete-vpc",
+      "service": "ec2",
+      "operation": "DeleteVpc",
+      "input": {
+        "VpcId": "vpc-0b022a23d565152bc"
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:37.460560+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "request_id": "f140eafd-31fe-4a04-9361-f6c4e1d21adf",
+      "finished_at": "2026-09-27T01:50:38.362927+00:00"
+    },
+    {
+      "label": "cleanup-vpc-absence",
+      "service": "ec2",
+      "operation": "DescribeVpcs",
+      "input": {
+        "VpcIds": [
+          "vpc-0b022a23d565152bc"
+        ]
+      },
+      "caller": "owner",
+      "started_at": "2026-09-27T01:50:38.363941+00:00",
+      "code": "InvalidVpcID.NotFound",
+      "error": {
+        "Code": "InvalidVpcID.NotFound",
+        "Message": "The vpc ID 'vpc-0b022a23d565152bc' does not exist"
+      },
+      "http_status": 400,
+      "request_id": "046373e7-f732-4710-afd0-cf0a6e1df93a",
+      "finished_at": "2026-09-27T01:50:38.534931+00:00"
+    }
+  ],
+  "sessions": {
+    "baseline": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "ec2:RunInstances",
+          "Resource": "*"
+        }
+      ]
+    },
+    "AllocationId-matching": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "ec2:RunInstances",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Deny",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7",
+          "Condition": {
+            "StringEquals": {
+              "ec2:AllocationId": "eipalloc-0f9f48429391f23a7"
+            }
+          }
+        }
+      ]
+    },
+    "AllocationId-nonmatching": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "ec2:RunInstances",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Deny",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7",
+          "Condition": {
+            "StringEquals": {
+              "ec2:AllocationId": "eipalloc-00000000000000000"
+            }
+          }
+        }
+      ]
+    },
+    "PublicIpAddress-matching": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "ec2:RunInstances",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Deny",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7",
+          "Condition": {
+            "StringEquals": {
+              "ec2:PublicIpAddress": "52.22.57.81"
+            }
+          }
+        }
+      ]
+    },
+    "PublicIpAddress-nonmatching": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "ec2:RunInstances",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Deny",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7",
+          "Condition": {
+            "StringEquals": {
+              "ec2:PublicIpAddress": "192.0.2.99"
+            }
+          }
+        }
+      ]
+    },
+    "Bool": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "ec2:RunInstances",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Deny",
+          "Action": "ec2:RunInstances",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:network-interface/*",
+          "Condition": {
+            "Bool": {
+              "ec2:AssociatePublicIpAddress": "true"
+            }
+          }
+        }
+      ]
+    },
+    "BoolIfExists": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "ec2:ReleaseAddress",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:elastic-ip/eipalloc-0f9f48429391f23a7"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "ec2:RunInstances",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Deny",
+          "Action": "ec2:RunInstances",
+          "Resource": "arn:aws:ec2:us-east-1:000000000000:network-interface/*",
+          "Condition": {
+            "BoolIfExists": {
+              "ec2:AssociatePublicIpAddress": "true"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "cleanup": {
+    "address_absent": true,
+    "subnet_absent": true,
+    "vpc_absent": true,
+    "complete": true
+  },
+  "gaps": [],
+  "bounds": {
+    "roles": 0,
+    "eips": 1,
+    "vpcs": 1,
+    "subnets": 1,
+    "instances": 0
+  },
+  "observations": [
+    {
+      "case": "AllocationId-matching",
+      "condition_key": "ec2:AllocationId",
+      "matching": true,
+      "code": "UnauthorizedOperation"
+    },
+    {
+      "case": "AllocationId-nonmatching",
+      "condition_key": "ec2:AllocationId",
+      "matching": false,
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "PublicIpAddress-matching",
+      "condition_key": "ec2:PublicIpAddress",
+      "matching": true,
+      "code": "UnauthorizedOperation"
+    },
+    {
+      "case": "PublicIpAddress-nonmatching",
+      "condition_key": "ec2:PublicIpAddress",
+      "matching": false,
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-false-request-omitted-baseline",
+      "subnet_map_public": false,
+      "request_associate_public": null,
+      "policy": "baseline",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-false-request-omitted-Bool",
+      "subnet_map_public": false,
+      "request_associate_public": null,
+      "policy": "Bool",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-false-request-omitted-BoolIfExists",
+      "subnet_map_public": false,
+      "request_associate_public": null,
+      "policy": "BoolIfExists",
+      "code": "UnauthorizedOperation"
+    },
+    {
+      "case": "subnet-false-request-false-baseline",
+      "subnet_map_public": false,
+      "request_associate_public": false,
+      "policy": "baseline",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-false-request-false-Bool",
+      "subnet_map_public": false,
+      "request_associate_public": false,
+      "policy": "Bool",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-false-request-false-BoolIfExists",
+      "subnet_map_public": false,
+      "request_associate_public": false,
+      "policy": "BoolIfExists",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-false-request-true-baseline",
+      "subnet_map_public": false,
+      "request_associate_public": true,
+      "policy": "baseline",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-false-request-true-Bool",
+      "subnet_map_public": false,
+      "request_associate_public": true,
+      "policy": "Bool",
+      "code": "UnauthorizedOperation"
+    },
+    {
+      "case": "subnet-false-request-true-BoolIfExists",
+      "subnet_map_public": false,
+      "request_associate_public": true,
+      "policy": "BoolIfExists",
+      "code": "UnauthorizedOperation"
+    },
+    {
+      "case": "subnet-true-request-omitted-baseline",
+      "subnet_map_public": true,
+      "request_associate_public": null,
+      "policy": "baseline",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-true-request-omitted-Bool",
+      "subnet_map_public": true,
+      "request_associate_public": null,
+      "policy": "Bool",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-true-request-omitted-BoolIfExists",
+      "subnet_map_public": true,
+      "request_associate_public": null,
+      "policy": "BoolIfExists",
+      "code": "UnauthorizedOperation"
+    },
+    {
+      "case": "subnet-true-request-false-baseline",
+      "subnet_map_public": true,
+      "request_associate_public": false,
+      "policy": "baseline",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-true-request-false-Bool",
+      "subnet_map_public": true,
+      "request_associate_public": false,
+      "policy": "Bool",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-true-request-false-BoolIfExists",
+      "subnet_map_public": true,
+      "request_associate_public": false,
+      "policy": "BoolIfExists",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-true-request-true-baseline",
+      "subnet_map_public": true,
+      "request_associate_public": true,
+      "policy": "baseline",
+      "code": "DryRunOperation"
+    },
+    {
+      "case": "subnet-true-request-true-Bool",
+      "subnet_map_public": true,
+      "request_associate_public": true,
+      "policy": "Bool",
+      "code": "UnauthorizedOperation"
+    },
+    {
+      "case": "subnet-true-request-true-BoolIfExists",
+      "subnet_map_public": true,
+      "request_associate_public": true,
+      "policy": "BoolIfExists",
+      "code": "UnauthorizedOperation"
+    }
+  ],
+  "workflow_complete": true
+}

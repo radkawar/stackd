@@ -1,0 +1,69 @@
+{
+  "scenario": "Actual signed MSK/Pipes/SQS commands with a real Apache Kafka 3.7.1 broker; drain one native record, revoke source IAM, stop; restore authority, delete cluster, then delete generated-group pipe.",
+  "before": {
+    "endpoint": "http://127.0.0.1:49159",
+    "prefix": "msk-proof-fc9e7d773b",
+    "observations": {
+      "idle_stop_after_source_deny": {
+        "state": "STOPPING",
+        "reason": "AccessDenied: User: arn:aws:sts::000000000000:assumed-role/msk-proof-fc9e7d773b/msk-proof-fc9e7d773b is not authorized to perform: kafka:GetBootstrapBrokers on resource: arn:aws:kafka:us-east-1:000000000000:cluster/msk-proof-fc9e7d773b/9bb9df8d-7e6d-4d5e-b984-79a59289f59c. An identity policy explicitly denies this operation.",
+        "retained_work": 0
+      },
+      "delete_after_source_absent": {
+        "state": "DELETING",
+        "reason": "MSK resource not found"
+      }
+    },
+    "cleanup": {
+      "container": true,
+      "volume": true,
+      "network": true,
+      "note": "Deleted source before pipe; unfixed pipe may remain in disposable database. Native source absence is separately observed.",
+      "queue": true,
+      "role": true
+    },
+    "controllers": [
+      {
+        "start": 1,
+        "exit_status": 0
+      }
+    ]
+  },
+  "after": {
+    "endpoint": "http://127.0.0.1:58299",
+    "prefix": "msk-proof-4b58673f02",
+    "observations": {
+      "idle_stop_after_source_deny": {
+        "state": "STOPPED",
+        "reason": null,
+        "retained_work": 0
+      },
+      "delete_after_source_absent": {
+        "state": "ABSENT"
+      }
+    },
+    "cleanup": {
+      "container": true,
+      "volume": true,
+      "network": true,
+      "note": "Deleted source before pipe; unfixed pipe may remain in disposable database. Native source absence is separately observed.",
+      "queue": true,
+      "role": true
+    },
+    "controllers": [
+      {
+        "start": 1,
+        "exit_status": 0
+      }
+    ]
+  },
+  "verification": {
+    "race": "go test -race ./internal/services/pipes ./internal/integrations -run TestKafka|TestPipes",
+    "vet_staticcheck": "passed for both affected packages",
+    "runtime": "race-enabled actual cmd/stackd with SQLite; exact-owned native container/volume/network absence; both controller exits0"
+  },
+  "limits": [
+    "Pinned local engine behavior, not live AWS stop/delete calibration.",
+    "The intermediate222 proof database is disposable and is not used for subsequent topic-identity schema changes."
+  ]
+}

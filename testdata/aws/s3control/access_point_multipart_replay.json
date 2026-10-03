@@ -1,0 +1,1405 @@
+{
+  "Source": "access_point_multipart_evidence.json.gz",
+  "Normalization": [
+    "Sequence references the one-based Observations index, or Cleanup index when the source suffix is #Cleanup. Native raw responses and input bytes remain in evidence.",
+    "Owner account 000000000000 maps to 123456789012. Native owner IAM user Delegated is represented by local caller/root; no IAM authorization broader than the observed owner access and explicit AP deny is claimed.",
+    "Bucket/AP names are deterministic fixture names. AP ARN, alias, upload IDs and page-one continuation tokens are bound from real replay outputs, never predicted. ETags and exact consumer payload bytes remain native.",
+    "CopySource SDK dictionaries are converted to Go SDK strings; AP source uses ARN/object/key. ListParts marker numbers are represented as strings for the Go SDK model.",
+    "Reopen injects local retained-backend verification before measured calls, not a native AWS operation. Default encryption/checksum, owner/initiator and timestamp fields unrelated to this identity/state contract are not projected.",
+    "CompleteMultipartUpload Bucket is the underlying bucket while Location preserves the requested alias hostname. ListObjects, ListObjectsV2 and ListObjectVersions Name is the underlying bucket.",
+    "A single fixed native wait preceded explicit AP source denial; the two observed 403 outcomes and direct-source success are retained, not a propagation SLA.",
+    "No client-only unsupported-ARN error occurred. No broader multipart/ObjectLock/storage-class or positive VPC transport coverage is claimed.",
+    "ARNCompletionCapture is an additional native CLI capture. Its CRC64NVME upload default is explicit in Go; ARN completion survives a local reopen and retains the measured ARN endpoint Location. The separate pre-HTTP CLI download failure is not replayed as an AWS error."
+  ],
+  "Payloads": {
+    "seed-source-direct": [
+      {
+        "Base64": "b3duZWQgQVAgbXVsdGlwYXJ0IGNvcHkgc291cmNlCg==",
+        "Repeat": 1
+      }
+    ],
+    "upload-part-alias": [
+      {
+        "Base64": "b3duZWQgQVAgbXVsdGlwYXJ0IHVwbG9hZGVkIGJ5dGVzAP8K",
+        "Repeat": 1
+      }
+    ],
+    "arn-completion": [
+      {
+        "Base64": "bmF0aXZlIEFSTiBtdWx0aXBhcnQgY29tcGxldGlvbgo=",
+        "Repeat": 1
+      }
+    ]
+  },
+  "Scenarios": [
+    {
+      "Name": "multipart-underlying-state-ap-identities-copy-source-and-continuation",
+      "Calls": [
+        {
+          "Label": "create-bucket",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-ap",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 2,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "multipart-ap",
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "apArn": "AccessPointArn",
+            "alias": "Alias"
+          }
+        },
+        {
+          "Label": "seed-source-direct",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 3,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "a-source"
+          },
+          "Output": {
+            "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\""
+          },
+          "Payload": "seed-source-direct"
+        },
+        {
+          "Label": "initiate-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 4,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "b-uploaded"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "Key": "b-uploaded",
+            "UploadId": "${upload-4}"
+          },
+          "Bind": {
+            "upload-4": "UploadId"
+          }
+        },
+        {
+          "Label": "upload-part-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "UploadPart",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "b-uploaded",
+            "UploadId": "${upload-4}",
+            "PartNumber": 1
+          },
+          "Output": {
+            "ETag": "\"2b5929f507ff36d7b3e843fc94363b04\""
+          },
+          "Payload": "upload-part-alias"
+        },
+        {
+          "Label": "list-parts-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 6,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListParts",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "b-uploaded",
+            "UploadId": "${upload-4}"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "Key": "b-uploaded",
+            "UploadId": "${upload-4}",
+            "IsTruncated": false,
+            "PartNumberMarker": "0",
+            "NextPartNumberMarker": "1",
+            "Parts": [
+              {
+                "PartNumber": 1,
+                "ETag": "\"2b5929f507ff36d7b3e843fc94363b04\"",
+                "Size": 36
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "list-uploads-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListMultipartUploads",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "IsTruncated": false,
+            "Uploads": [
+              {
+                "UploadId": "${upload-4}",
+                "Key": "b-uploaded"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "list-parts-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 8,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListParts",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "b-uploaded",
+            "UploadId": "${upload-4}"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "Key": "b-uploaded",
+            "UploadId": "${upload-4}",
+            "IsTruncated": false,
+            "PartNumberMarker": "0",
+            "NextPartNumberMarker": "1",
+            "Parts": [
+              {
+                "PartNumber": 1,
+                "ETag": "\"2b5929f507ff36d7b3e843fc94363b04\"",
+                "Size": 36
+              }
+            ]
+          }
+        },
+        {
+          "Label": "list-uploads-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 9,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListMultipartUploads",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "IsTruncated": false,
+            "Uploads": [
+              {
+                "UploadId": "${upload-4}",
+                "Key": "b-uploaded"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "list-parts-direct",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 10,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListParts",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "b-uploaded",
+            "UploadId": "${upload-4}"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "Key": "b-uploaded",
+            "UploadId": "${upload-4}",
+            "IsTruncated": false,
+            "PartNumberMarker": "0",
+            "NextPartNumberMarker": "1",
+            "Parts": [
+              {
+                "PartNumber": 1,
+                "ETag": "\"2b5929f507ff36d7b3e843fc94363b04\"",
+                "Size": 36
+              }
+            ]
+          }
+        },
+        {
+          "Label": "list-uploads-direct",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 11,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListMultipartUploads",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "IsTruncated": false,
+            "Uploads": [
+              {
+                "UploadId": "${upload-4}",
+                "Key": "b-uploaded"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "complete-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 12,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CompleteMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "b-uploaded",
+            "UploadId": "${upload-4}",
+            "MultipartUpload": {
+              "Parts": [
+                {
+                  "ETag": "\"2b5929f507ff36d7b3e843fc94363b04\"",
+                  "PartNumber": 1
+                }
+              ]
+            }
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "Location": "https://${alias}.s3.amazonaws.com/b-uploaded",
+            "Key": "b-uploaded",
+            "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\""
+          }
+        },
+        {
+          "Label": "read-uploaded-direct",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 13,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "b-uploaded"
+          },
+          "Output": {
+            "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+            "ContentLength": 36
+          },
+          "Digest": {
+            "Length": 36,
+            "SHA256": "646c914328225d82dfcd675e935efea3a5030ec6cbf9854d37b5af6ca4873a8c"
+          }
+        },
+        {
+          "Label": "initiate-copy-direct",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 14,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "c-copied"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "Key": "c-copied",
+            "UploadId": "${upload-14}"
+          },
+          "Bind": {
+            "upload-14": "UploadId"
+          }
+        },
+        {
+          "Label": "copy-part-ap-source-alias-destination",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 15,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "UploadPartCopy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "c-copied",
+            "UploadId": "${upload-14}",
+            "PartNumber": 1,
+            "CopySource": "${apArn}/object/a-source"
+          },
+          "Output": {
+            "CopyPartResult": {
+              "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\""
+            }
+          }
+        },
+        {
+          "Label": "list-copy-parts-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 16,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListParts",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "c-copied",
+            "UploadId": "${upload-14}"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "Key": "c-copied",
+            "UploadId": "${upload-14}",
+            "IsTruncated": false,
+            "PartNumberMarker": "0",
+            "NextPartNumberMarker": "1",
+            "Parts": [
+              {
+                "PartNumber": 1,
+                "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                "Size": 31
+              }
+            ]
+          }
+        },
+        {
+          "Label": "complete-copy-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CompleteMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "c-copied",
+            "UploadId": "${upload-14}",
+            "MultipartUpload": {
+              "Parts": [
+                {
+                  "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                  "PartNumber": 1
+                }
+              ]
+            }
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "Location": "https://${alias}.s3.amazonaws.com/c-copied",
+            "Key": "c-copied",
+            "ETag": "\"12fd7e0b445b8ca1a127bc2027d54507-1\""
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "read-copied-direct",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 18,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "c-copied"
+          },
+          "Output": {
+            "ETag": "\"12fd7e0b445b8ca1a127bc2027d54507-1\"",
+            "ContentLength": 31
+          },
+          "Reopen": true,
+          "Digest": {
+            "Length": 31,
+            "SHA256": "f975901256d906f4c7e8c3bf46926fffc9f485b45bb93402667fb61492dc5ad9"
+          }
+        },
+        {
+          "Label": "list-v2-page1-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 19,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "MaxKeys": 1
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": true,
+            "KeyCount": 1,
+            "Contents": [
+              {
+                "Key": "a-source",
+                "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                "Size": 31
+              }
+            ],
+            "MaxKeys": 1,
+            "NextContinuationToken": "${token-19}"
+          },
+          "Bind": {
+            "token-19": "NextContinuationToken"
+          }
+        },
+        {
+          "Label": "list-v2-page2-same-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 20,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "MaxKeys": 1,
+            "ContinuationToken": "${token-19}"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": true,
+            "KeyCount": 1,
+            "Contents": [
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36
+              }
+            ],
+            "MaxKeys": 1,
+            "ContinuationToken": "${token-19}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "list-v2-page2-cross-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 21,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "MaxKeys": 1,
+            "ContinuationToken": "${token-19}"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": true,
+            "KeyCount": 1,
+            "Contents": [
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36
+              }
+            ],
+            "MaxKeys": 1,
+            "ContinuationToken": "${token-19}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "list-v1-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 22,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjects",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "a-source",
+                "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                "Size": 31
+              },
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36
+              },
+              {
+                "Key": "c-copied",
+                "ETag": "\"12fd7e0b445b8ca1a127bc2027d54507-1\"",
+                "Size": 31
+              }
+            ]
+          }
+        },
+        {
+          "Label": "list-v2-page1-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 23,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "MaxKeys": 1
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": true,
+            "KeyCount": 1,
+            "Contents": [
+              {
+                "Key": "a-source",
+                "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                "Size": 31
+              }
+            ],
+            "MaxKeys": 1,
+            "NextContinuationToken": "${token-23}"
+          },
+          "Bind": {
+            "token-23": "NextContinuationToken"
+          }
+        },
+        {
+          "Label": "list-v2-page2-same-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 24,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "MaxKeys": 1,
+            "ContinuationToken": "${token-23}"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": true,
+            "KeyCount": 1,
+            "Contents": [
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36
+              }
+            ],
+            "MaxKeys": 1,
+            "ContinuationToken": "${token-23}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "list-v2-page2-cross-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 25,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "MaxKeys": 1,
+            "ContinuationToken": "${token-23}"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": true,
+            "KeyCount": 1,
+            "Contents": [
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36
+              }
+            ],
+            "MaxKeys": 1,
+            "ContinuationToken": "${token-23}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "list-v1-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 26,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjects",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "a-source",
+                "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                "Size": 31
+              },
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36
+              },
+              {
+                "Key": "c-copied",
+                "ETag": "\"12fd7e0b445b8ca1a127bc2027d54507-1\"",
+                "Size": 31
+              }
+            ]
+          }
+        },
+        {
+          "Label": "enable-owned-versioning",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 27,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "PutBucketVersioning",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "list-versions-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 28,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectVersions",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": false,
+            "Versions": [
+              {
+                "Key": "a-source",
+                "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                "Size": 31,
+                "VersionId": "null",
+                "IsLatest": true
+              },
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36,
+                "VersionId": "null",
+                "IsLatest": true
+              },
+              {
+                "Key": "c-copied",
+                "ETag": "\"12fd7e0b445b8ca1a127bc2027d54507-1\"",
+                "Size": 31,
+                "VersionId": "null",
+                "IsLatest": true
+              }
+            ]
+          }
+        },
+        {
+          "Label": "list-versions-alias",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 29,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectVersions",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": false,
+            "Versions": [
+              {
+                "Key": "a-source",
+                "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                "Size": 31,
+                "VersionId": "null",
+                "IsLatest": true
+              },
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36,
+                "VersionId": "null",
+                "IsLatest": true
+              },
+              {
+                "Key": "c-copied",
+                "ETag": "\"12fd7e0b445b8ca1a127bc2027d54507-1\"",
+                "Size": 31,
+                "VersionId": "null",
+                "IsLatest": true
+              }
+            ]
+          }
+        },
+        {
+          "Label": "list-versions-direct",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 30,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectVersions",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": false,
+            "Versions": [
+              {
+                "Key": "a-source",
+                "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                "Size": 31,
+                "VersionId": "null",
+                "IsLatest": true
+              },
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36,
+                "VersionId": "null",
+                "IsLatest": true
+              },
+              {
+                "Key": "c-copied",
+                "ETag": "\"12fd7e0b445b8ca1a127bc2027d54507-1\"",
+                "Size": 31,
+                "VersionId": "null",
+                "IsLatest": true
+              }
+            ]
+          }
+        },
+        {
+          "Label": "initiate-deny-probe-direct",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 31,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "d-deny-probe"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "Key": "d-deny-probe",
+            "UploadId": "${upload-31}"
+          },
+          "Bind": {
+            "upload-31": "UploadId"
+          }
+        },
+        {
+          "Label": "deny-ap-source-read",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 32,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "PutAccessPointPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "multipart-ap",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":\"${apArn}/object/a-source\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "denied-source-get-arn",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 33,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "a-source"
+          },
+          "Output": {},
+          "Reopen": true
+        },
+        {
+          "Label": "denied-copy-ap-source",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 34,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "UploadPartCopy",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "d-deny-probe",
+            "UploadId": "${upload-31}",
+            "PartNumber": 1,
+            "CopySource": "${apArn}/object/a-source"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "allowed-copy-direct-source",
+          "Source": "access_point_multipart_evidence.json.gz#Observations",
+          "Sequence": 35,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "UploadPartCopy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "d-deny-probe",
+            "UploadId": "${upload-31}",
+            "PartNumber": 1,
+            "CopySource": "multipart-bucket/a-source"
+          },
+          "Output": {
+            "CopyPartResult": {
+              "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\""
+            }
+          }
+        },
+        {
+          "Label": "cleanup-list-uploads",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListMultipartUploads",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "IsTruncated": false,
+            "Uploads": [
+              {
+                "UploadId": "${upload-31}",
+                "Key": "d-deny-probe"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "cleanup-abort-d-deny-probe",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "AbortMultipartUpload",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "d-deny-probe",
+            "UploadId": "${upload-31}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cleanup-list-versions",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 3,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectVersions",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": false,
+            "Versions": [
+              {
+                "Key": "a-source",
+                "ETag": "\"43a4bb143fc69dbd15d4143894fb836a\"",
+                "Size": 31,
+                "VersionId": "null",
+                "IsLatest": true
+              },
+              {
+                "Key": "b-uploaded",
+                "ETag": "\"f3c4789e7c5a27b37cd17e2f3062370c-1\"",
+                "Size": 36,
+                "VersionId": "null",
+                "IsLatest": true
+              },
+              {
+                "Key": "c-copied",
+                "ETag": "\"12fd7e0b445b8ca1a127bc2027d54507-1\"",
+                "Size": 31,
+                "VersionId": "null",
+                "IsLatest": true
+              }
+            ]
+          }
+        },
+        {
+          "Label": "cleanup-delete-a-source",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 4,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "DeleteObject",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "a-source",
+            "VersionId": "null"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cleanup-delete-b-uploaded",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "DeleteObject",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "b-uploaded",
+            "VersionId": "null"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cleanup-delete-c-copied",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 6,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "DeleteObject",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "multipart-bucket",
+            "Key": "c-copied",
+            "VersionId": "null"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "verify-no-uploads",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListMultipartUploads",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {
+            "Bucket": "multipart-bucket",
+            "IsTruncated": false,
+            "Uploads": []
+          }
+        },
+        {
+          "Label": "verify-no-versions",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 8,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectVersions",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": false,
+            "Versions": [],
+            "DeleteMarkers": []
+          }
+        },
+        {
+          "Label": "verify-no-objects",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 9,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {
+            "Name": "multipart-bucket",
+            "IsTruncated": false,
+            "KeyCount": 0,
+            "Contents": []
+          }
+        },
+        {
+          "Label": "cleanup-delete-ap",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 10,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "DeleteAccessPoint",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "multipart-ap"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "verify-ap-absent",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 11,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "GetAccessPoint",
+          "Code": "NoSuchAccessPoint",
+          "Status": 404,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "multipart-ap"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cleanup-delete-bucket",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 12,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "DeleteBucket",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "verify-bucket-absent",
+          "Source": "access_point_multipart_evidence.json.gz#Cleanup",
+          "Sequence": 13,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "HeadBucket",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "multipart-bucket"
+          },
+          "Output": {}
+        }
+      ]
+    },
+    {
+      "Name": "native-arn-multipart-completion-location",
+      "Calls": [
+        {
+          "Label": "arn-completion-bucket",
+          "Source": "access_point_multipart_evidence.json.gz#ARNCompletionCapture.Observations",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "arn-completion-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "arn-completion-point",
+          "Source": "access_point_multipart_evidence.json.gz#ARNCompletionCapture.Observations",
+          "Sequence": 3,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "arn-completion-ap",
+            "Bucket": "arn-completion-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "apArn": "AccessPointArn"
+          }
+        },
+        {
+          "Label": "arn-completion-initiate",
+          "Source": "access_point_multipart_evidence.json.gz#ARNCompletionCapture.Observations",
+          "Sequence": 4,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "arn-completed"
+          },
+          "Output": {
+            "Bucket": "arn-completion-bucket"
+          },
+          "Bind": {
+            "upload": "UploadId"
+          }
+        },
+        {
+          "Label": "arn-completion-part",
+          "Source": "access_point_multipart_evidence.json.gz#ARNCompletionCapture.Observations",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "UploadPart",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "arn-completed",
+            "UploadId": "${upload}",
+            "PartNumber": 1,
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "Output": {
+            "ETag": "\"22648a6f9995c9ed7ebaae424f8a2e69\"",
+            "ChecksumCRC64NVME": "/vS1arH1WHo="
+          },
+          "Payload": "arn-completion"
+        },
+        {
+          "Label": "arn-completion-location",
+          "Source": "access_point_multipart_evidence.json.gz#ARNCompletionCapture.Observations",
+          "Sequence": 6,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CompleteMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "arn-completed",
+            "UploadId": "${upload}",
+            "MultipartUpload": {
+              "Parts": [
+                {
+                  "PartNumber": 1,
+                  "ETag": "\"22648a6f9995c9ed7ebaae424f8a2e69\""
+                }
+              ]
+            }
+          },
+          "Output": {
+            "Bucket": "arn-completion-bucket",
+            "Location": "https://arn-completion-ap-123456789012.s3-accesspoint.us-east-1.amazonaws.com/arn-completed",
+            "Key": "arn-completed",
+            "ETag": "\"37cd9a80fc4764542cfcb1a762e2295c-1\""
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "arn-completion-delete-object",
+          "Source": "access_point_multipart_evidence.json.gz#ARNCompletionCapture.Observations",
+          "Sequence": 8,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "DeleteObject",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "arn-completion-bucket",
+            "Key": "arn-completed"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "arn-completion-delete-point",
+          "Source": "access_point_multipart_evidence.json.gz#ARNCompletionCapture.Observations",
+          "Sequence": 9,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "DeleteAccessPoint",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "arn-completion-ap"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "arn-completion-delete-bucket",
+          "Source": "access_point_multipart_evidence.json.gz#ARNCompletionCapture.Observations",
+          "Sequence": 11,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "DeleteBucket",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "arn-completion-bucket"
+          },
+          "Output": {}
+        }
+      ]
+    }
+  ]
+}

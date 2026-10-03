@@ -1,0 +1,2509 @@
+{
+  "Source": "restore_evidence.json.gz:r7",
+  "Start": "2026-09-21T09:20:00Z",
+  "AuditBucket": "stackd-restore-1789982477-audit",
+  "AuditPrefix": "AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Positive native r7 configured classic SQS, direct EventBridge-to-SQS and delivered CloudTrail gzip records. SourceSequence retains producer observation ids; Source retains zero-based Deliveries indexes and delivered gzip keys. No missing delivery or exactly-once assertion is inferred from bounded capture.",
+    "Calls through 69 use native request-start timestamps truncated to milliseconds. After-completion calls 94,97,98,100,103 shift four minutes to accommodate deterministic local Expedited five-minute jobs; Reopen precedes the first completion drain. Completion timestamps equal the accepted call plus five minutes, not the advanced drain horizon or measured native latency.",
+    "Completion expiry remains the literal measured September 23 UTC calendar deadline. Expiration itself was NOT observed or replayed. Deep Bulk/noncurrent Bulk and maxint32 Days admission are not advanced to completion.",
+    "Classic Put records bind original object sequencers; every Post/Completed must reuse them. Direct restores retain omitted sequencer/reason and completion source-IP omission. Completion request IDs are service generated, distinct from initiating HTTP IDs and shared across both native channels; AmazonCustomer identity is bound to the stable bucket owner.",
+    "All measured already-restored 200 calls (97 same,98 extend,100 shorten) require both positive Post channels. Their delivered audit records retain the exact native RestoreRequest projection and actual HTTP correlation. Native request/response IDs, version IDs and account are rebound; native transport timing/TLS is not a local contract.",
+    "Local journal causality checks are derived persistence checks, not native AWS journal observations. They join retained API outcomes to direct EventBridge admissions and queue descendants after SQLite reopen."
+  ],
+  "Setup": [
+    {
+      "Label": "create-stackd-restore-1789982477",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 2,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-stackd-restore-1789982477-audit",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 3,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477-audit"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "versioning",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 4,
+      "Service": "s3",
+      "Operation": "PutBucketVersioning",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-stackd-restore-1789982477-classic",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 5,
+      "Service": "sqs",
+      "Operation": "CreateQueue",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueName": "stackd-restore-1789982477-classic"
+      },
+      "Output": {},
+      "Bind": {
+        "queue_classic": "QueueUrl"
+      }
+    },
+    {
+      "Label": "create-stackd-restore-1789982477-eb",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 6,
+      "Service": "sqs",
+      "Operation": "CreateQueue",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueName": "stackd-restore-1789982477-eb"
+      },
+      "Output": {},
+      "Bind": {
+        "queue_eventbridge": "QueueUrl"
+      }
+    },
+    {
+      "Label": "policy-stackd-restore-1789982477-classic",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 7,
+      "Service": "sqs",
+      "Operation": "SetQueueAttributes",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-restore-1789982477-classic",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-restore-1789982477-classic\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:s3:::stackd-restore-1789982477\"}}}]}"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "policy-stackd-restore-1789982477-eb",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 8,
+      "Service": "sqs",
+      "Operation": "SetQueueAttributes",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-restore-1789982477-eb",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-restore-1789982477-eb\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/stackd-restore-1789982477-rule\"}}}]}"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "event-rule",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 9,
+      "Service": "eventbridge",
+      "Operation": "PutRule",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-restore-1789982477-rule",
+        "EventPattern": "{\"source\": [\"aws.s3\"], \"detail\": {\"bucket\": {\"name\": [\"stackd-restore-1789982477\"]}}}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "event-target",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 10,
+      "Service": "eventbridge",
+      "Operation": "PutTargets",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Rule": "stackd-restore-1789982477-rule",
+        "Targets": [
+          {
+            "Id": "queue",
+            "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-restore-1789982477-eb"
+          }
+        ]
+      },
+      "Output": {}
+    },
+    {
+      "Label": "notifications",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 11,
+      "Service": "s3",
+      "Operation": "PutBucketNotificationConfiguration",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "NotificationConfiguration": {
+          "EventBridgeConfiguration": {},
+          "QueueConfigurations": [
+            {
+              "Id": "restore-events",
+              "QueueArn": "arn:aws:sqs:us-east-1:123456789012:stackd-restore-1789982477-classic",
+              "Events": [
+                "s3:ObjectRestore:*",
+                "s3:ObjectCreated:*"
+              ]
+            }
+          ]
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "trail-bucket-policy",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 12,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477-audit",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-restore-1789982477-audit\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/stackd-restore-1789982477-trail\"}}}, {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-restore-1789982477-audit/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-acl\": \"bucket-owner-full-control\", \"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/stackd-restore-1789982477-trail\"}}}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-trail",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 13,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-restore-1789982477-trail",
+        "S3BucketName": "stackd-restore-1789982477-audit",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false
+      },
+      "Output": {}
+    },
+    {
+      "Label": "trail-selectors",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 14,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "TrailName": "stackd-restore-1789982477-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "owned-objects",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::S3::Object"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:s3:::stackd-restore-1789982477/"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start-trail",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 15,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-restore-1789982477-trail"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-role",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 16,
+      "Service": "iam",
+      "Operation": "CreateRole",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "stackd-restore-1789982477-role",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:user/Delegated\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "role-policy",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 17,
+      "Service": "iam",
+      "Operation": "PutRolePolicy",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "stackd-restore-1789982477-role",
+        "PolicyName": "restore-only",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:RestoreObject\", \"Resource\": \"arn:aws:s3:::stackd-restore-1789982477/*\"}, {\"Effect\": \"Deny\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\"], \"Resource\": \"arn:aws:s3:::stackd-restore-1789982477/*\"}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "assume-restore-only",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 61,
+      "Service": "sts",
+      "Operation": "AssumeRole",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleArn": "arn:aws:iam::123456789012:role/stackd-restore-1789982477-role",
+        "RoleSessionName": "restore-only"
+      },
+      "Output": {},
+      "Session": "restore-only"
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "put-glacier",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 18,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "glacier",
+        "StorageClass": "GLACIER",
+        "ServerSideEncryption": "AES256"
+      },
+      "Output": {
+        "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\""
+      },
+      "At": "2026-09-21T09:21:31.474Z",
+      "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+      "Bind": {
+        "version_glacier": "VersionId"
+      }
+    },
+    {
+      "Label": "put-permission",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 19,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "permission",
+        "StorageClass": "GLACIER",
+        "ServerSideEncryption": "AES256"
+      },
+      "Output": {
+        "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\""
+      },
+      "At": "2026-09-21T09:21:32.327Z",
+      "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+      "Bind": {
+        "version_permission": "VersionId"
+      }
+    },
+    {
+      "Label": "put-bounds",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 20,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "bounds",
+        "StorageClass": "GLACIER",
+        "ServerSideEncryption": "AES256"
+      },
+      "Output": {
+        "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\""
+      },
+      "At": "2026-09-21T09:21:33.123Z",
+      "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+      "Bind": {
+        "version_bounds": "VersionId"
+      }
+    },
+    {
+      "Label": "put-marker",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 21,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "marker",
+        "StorageClass": "GLACIER",
+        "ServerSideEncryption": "AES256"
+      },
+      "Output": {
+        "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\""
+      },
+      "At": "2026-09-21T09:21:33.918Z",
+      "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+      "Bind": {
+        "version_marker": "VersionId"
+      }
+    },
+    {
+      "Label": "put-deep",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 22,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "deep",
+        "StorageClass": "DEEP_ARCHIVE",
+        "ServerSideEncryption": "AES256"
+      },
+      "Output": {
+        "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\""
+      },
+      "At": "2026-09-21T09:21:34.720Z",
+      "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+      "Bind": {
+        "version_deep": "VersionId"
+      }
+    },
+    {
+      "Label": "delete-current-marker",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 27,
+      "Service": "s3",
+      "Operation": "DeleteObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "marker"
+      },
+      "Output": {},
+      "At": "2026-09-21T09:21:38.751Z",
+      "Bind": {
+        "marker_version": "VersionId"
+      }
+    },
+    {
+      "Label": "days-maxint",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 46,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 202,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "bounds",
+        "RestoreRequest": {
+          "Days": 2147483647
+        }
+      },
+      "Output": {},
+      "At": "2026-09-21T09:21:52.502Z"
+    },
+    {
+      "Label": "authorized-no-get",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 62,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "restore-only",
+      "Code": "Success",
+      "Status": 202,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "permission",
+        "RestoreRequest": {
+          "Days": 1,
+          "GlacierJobParameters": {
+            "Tier": "Expedited"
+          }
+        }
+      },
+      "Output": {},
+      "At": "2026-09-21T09:26:37.425Z"
+    },
+    {
+      "Label": "start-expedited",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 65,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 202,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "glacier",
+        "RestoreRequest": {
+          "Days": 1,
+          "GlacierJobParameters": {
+            "Tier": "Expedited"
+          }
+        },
+        "VersionId": "${version_glacier}"
+      },
+      "Output": {},
+      "At": "2026-09-21T09:26:40.223Z"
+    },
+    {
+      "Label": "pending-repeat",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 66,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "owner",
+      "Code": "RestoreAlreadyInProgress",
+      "Status": 409,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "glacier",
+        "RestoreRequest": {
+          "Days": 1,
+          "GlacierJobParameters": {
+            "Tier": "Expedited"
+          }
+        },
+        "VersionId": "${version_glacier}"
+      },
+      "Output": {},
+      "At": "2026-09-21T09:26:41.319Z"
+    },
+    {
+      "Label": "pending-change-days",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 67,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "owner",
+      "Code": "RestoreAlreadyInProgress",
+      "Status": 409,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "glacier",
+        "RestoreRequest": {
+          "Days": 2,
+          "GlacierJobParameters": {
+            "Tier": "Expedited"
+          }
+        }
+      },
+      "Output": {},
+      "At": "2026-09-21T09:26:42.352Z"
+    },
+    {
+      "Label": "restore-noncurrent",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 68,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 202,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "marker",
+        "RestoreRequest": {
+          "Days": 1,
+          "GlacierJobParameters": {
+            "Tier": "Bulk"
+          }
+        },
+        "VersionId": "${version_marker}"
+      },
+      "Output": {},
+      "At": "2026-09-21T09:26:43.258Z"
+    },
+    {
+      "Label": "deep-bulk",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 69,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 202,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "deep",
+        "RestoreRequest": {
+          "Days": 1,
+          "GlacierJobParameters": {
+            "Tier": "Bulk"
+          }
+        }
+      },
+      "Output": {},
+      "At": "2026-09-21T09:26:44.290Z"
+    },
+    {
+      "Label": "restored-payload",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 94,
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "glacier",
+        "VersionId": "${version_glacier}"
+      },
+      "Output": {
+        "StorageClass": "GLACIER",
+        "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+        "ContentLength": 37
+      },
+      "At": "2026-09-21T09:32:14.189Z",
+      "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+      "Reopen": true,
+      "Drain": true
+    },
+    {
+      "Label": "already-restored-same",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 97,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "glacier",
+        "RestoreRequest": {
+          "Days": 1,
+          "GlacierJobParameters": {
+            "Tier": "Expedited"
+          }
+        }
+      },
+      "Output": {},
+      "At": "2026-09-21T09:32:16.338Z"
+    },
+    {
+      "Label": "already-restored-extend",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 98,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "glacier",
+        "RestoreRequest": {
+          "Days": 3,
+          "GlacierJobParameters": {
+            "Tier": "Expedited"
+          }
+        }
+      },
+      "Output": {},
+      "At": "2026-09-21T09:32:17.119Z"
+    },
+    {
+      "Label": "already-restored-shorten",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 100,
+      "Service": "s3",
+      "Operation": "RestoreObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "glacier",
+        "RestoreRequest": {
+          "Days": 1
+        }
+      },
+      "Output": {},
+      "At": "2026-09-21T09:32:18.609Z"
+    },
+    {
+      "Label": "permission-owner-payload",
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 103,
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "owner",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-restore-1789982477",
+        "Key": "permission"
+      },
+      "Output": {
+        "StorageClass": "GLACIER",
+        "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+        "ContentLength": 37
+      },
+      "At": "2026-09-21T09:32:20.784Z",
+      "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg=="
+    }
+  ],
+  "Notifications": [
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[17]",
+      "SourceSequence": 18,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:21:32.194Z",
+        "eventName": "ObjectCreated:Put",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request18}",
+          "x-amz-id-2": "Xpt8bydUqKI4oLJDMFsblsvOOFkYHhfLKGoW9U01oDqkbng1i2qV+MSdD3JA3SpyFPST+3NgypjMMWt+ztIAvl9S4/LVOn6U"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_glacier}",
+            "sequencer": "${sequencer_glacier}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[28]",
+      "SourceSequence": 19,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:21:33.005Z",
+        "eventName": "ObjectCreated:Put",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request19}",
+          "x-amz-id-2": "R4IBIKuf5ux/3FT2ZJRWds5WHpvykmzQbwTnuz8RYmySEz9mWsnQgx2OeqWoRE470GlglqD6uLEzkdeQiZU5AdOr7/wJSCAg"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "permission",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_permission}",
+            "sequencer": "${sequencer_permission}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[34]",
+      "SourceSequence": 20,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:21:33.796Z",
+        "eventName": "ObjectCreated:Put",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request20}",
+          "x-amz-id-2": "zQj3EnDEZjIEbfwO4b7aM3PsD0VOrPdG4bxjz0DWiZz+qRQ6AZc+KDKJzJ7KtmSWjd+MvSxAXkQrXLpttnUeYudnTdQAlJ04"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "bounds",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_bounds}",
+            "sequencer": "${sequencer_bounds}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[11]",
+      "SourceSequence": 21,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:21:34.603Z",
+        "eventName": "ObjectCreated:Put",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request21}",
+          "x-amz-id-2": "XoMmzW528uh0yit1aRfi9Uk5KNFpGs/cBZW1dTl5UaFdvTADlrx2sBaNU38VZ2O+NfoL6mA2DxL/+dHOSLP9xUcKvOfjod6X"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "marker",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_marker}",
+            "sequencer": "${sequencer_marker}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[7]",
+      "SourceSequence": 22,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:21:35.393Z",
+        "eventName": "ObjectCreated:Put",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request22}",
+          "x-amz-id-2": "TV9RWO8W+tBaCGU6K/1WLNZKYM5VEI66Vn8JaKws5lb4smFbVvCfIPeA8h0rmqiGsgrYKPIfZhuRuE5IRs0swwPju96BsOYL"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "deep",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_deep}",
+            "sequencer": "${sequencer_deep}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[19]",
+      "SourceSequence": 46,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:21:53.334Z",
+        "eventName": "ObjectRestore:Post",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request46}",
+          "x-amz-id-2": "UiyMYWbRsPOY8M5dX4UOuVOtO3DSwnZH/s+bOXoqLiEQaAKo+quOzKsXNenLObMIX924pmuHC6mNx588mnsNx1NqboRqtABY"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "bounds",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_bounds}",
+            "sequencer": "${sequencer_bounds}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[4]",
+      "SourceSequence": 46,
+      "Payload": {
+        "version": "0",
+        "id": "29119c1a-45e1-5ca5-9998-7c41decf81d2",
+        "detail-type": "Object Restore Initiated",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:21:53Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "bounds",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_bounds}"
+          },
+          "request-id": "${request46}",
+          "requester": "123456789012",
+          "source-ip-address": "92.234.107.50",
+          "source-storage-class": "GLACIER"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque",
+        "time": "time",
+        "detail.source-ip-address": "ip"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[1]",
+      "SourceSequence": 62,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:26:38.378Z",
+        "eventName": "ObjectRestore:Post",
+        "userIdentity": {
+          "principalId": "AWS:AROAQAAAAAAADCKGDR6PT:restore-only"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request62}",
+          "x-amz-id-2": "41Q2MVjEMDXzt7KC7dXhpADZjogyga7GGpX5yD07EQz5uGopcQeBr5ggv2QKmHEZVdayOpPw3YS1zvX5v6vasDB5ps+vnKoX"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "permission",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_permission}",
+            "sequencer": "${sequencer_permission}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[31]",
+      "SourceSequence": 62,
+      "CompletionFrom": 62,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:31:37.425Z",
+        "eventName": "ObjectRestore:Completed",
+        "userIdentity": {
+          "principalId": "AmazonCustomer:${owner_permission}"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "s3.amazonaws.com"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${completion_permission}",
+          "x-amz-id-2": "n8TQURMcACBnJ7bjhNf43WmlHQvXgH2rSFVuJQn1wLVy+1+yk4Cv4SK8ccUxW6lJycvcbFDop3sSu/knQVtMtg=="
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "permission",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_permission}",
+            "sequencer": "${sequencer_permission}"
+          }
+        },
+        "glacierEventData": {
+          "restoreEventData": {
+            "lifecycleRestorationExpiryTime": "2026-09-23T00:00:00.000Z",
+            "lifecycleRestoreStorageClass": "GLACIER"
+          }
+        }
+      },
+      "Dynamic": {
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[25]",
+      "SourceSequence": 62,
+      "CompletionFrom": 62,
+      "Payload": {
+        "version": "0",
+        "id": "1ffebdc0-59d4-373f-3ea7-bc742b9fbb5a",
+        "detail-type": "Object Restore Completed",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:31:37Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "permission",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_permission}"
+          },
+          "request-id": "${completion_permission}",
+          "requester": "s3.amazonaws.com",
+          "restore-expiry-time": "2026-09-23T00:00:00Z",
+          "source-storage-class": "GLACIER"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[35]",
+      "SourceSequence": 62,
+      "Payload": {
+        "version": "0",
+        "id": "4f076a28-1906-f1dc-4e98-79e7cb4c58ec",
+        "detail-type": "Object Restore Initiated",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:26:38Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "permission",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_permission}"
+          },
+          "request-id": "${request62}",
+          "requester": "123456789012",
+          "source-ip-address": "92.234.107.50",
+          "source-storage-class": "GLACIER"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque",
+        "time": "time",
+        "detail.source-ip-address": "ip"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[2]",
+      "SourceSequence": 65,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:26:41.160Z",
+        "eventName": "ObjectRestore:Post",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request65}",
+          "x-amz-id-2": "tu3W6SH/W6hrHe2JL7Pn9g+QhAKEH18pq9L8ofY3z0Ejllb7K42p5UOjwUDIngRviCsPsr9c+jylsk36V2qO2gU3HmpO2ygZ"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_glacier}",
+            "sequencer": "${sequencer_glacier}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[23]",
+      "SourceSequence": 65,
+      "CompletionFrom": 65,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:31:40.223Z",
+        "eventName": "ObjectRestore:Completed",
+        "userIdentity": {
+          "principalId": "AmazonCustomer:${owner_glacier}"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "s3.amazonaws.com"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${completion_glacier}",
+          "x-amz-id-2": "pdmfNodNq+3O2DAwlD7uvmDw1K0aSXhl3AhKreS4HLQkDcU2Mg8Bot7v2DRBfDCTnUjuYxNa130EQa1+tKHUbQ=="
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_glacier}",
+            "sequencer": "${sequencer_glacier}"
+          }
+        },
+        "glacierEventData": {
+          "restoreEventData": {
+            "lifecycleRestorationExpiryTime": "2026-09-23T00:00:00.000Z",
+            "lifecycleRestoreStorageClass": "GLACIER"
+          }
+        }
+      },
+      "Dynamic": {
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[6]",
+      "SourceSequence": 65,
+      "Payload": {
+        "version": "0",
+        "id": "e7b25b5d-6f3e-b73c-54d7-732b692c51d6",
+        "detail-type": "Object Restore Initiated",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:26:41Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_glacier}"
+          },
+          "request-id": "${request65}",
+          "requester": "123456789012",
+          "source-ip-address": "92.234.107.50",
+          "source-storage-class": "GLACIER"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque",
+        "time": "time",
+        "detail.source-ip-address": "ip"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[26]",
+      "SourceSequence": 65,
+      "CompletionFrom": 65,
+      "Payload": {
+        "version": "0",
+        "id": "8a4cfb56-9e12-1be3-50a1-678d4db441cd",
+        "detail-type": "Object Restore Completed",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:31:40Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_glacier}"
+          },
+          "request-id": "${completion_glacier}",
+          "requester": "s3.amazonaws.com",
+          "restore-expiry-time": "2026-09-23T00:00:00Z",
+          "source-storage-class": "GLACIER"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[12]",
+      "SourceSequence": 68,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:26:44.118Z",
+        "eventName": "ObjectRestore:Post",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request68}",
+          "x-amz-id-2": "soJrx124GxKzShz/dKFIVdKXp/AyAQxq3lrvE0PdtjqnWcOVnIJQAFVfeojp5TO68ayWFbj9A0YSlBUhqv1GoLjjGejxM5mz"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "marker",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_marker}",
+            "sequencer": "${sequencer_marker}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[14]",
+      "SourceSequence": 68,
+      "Payload": {
+        "version": "0",
+        "id": "8209096a-7bc5-b9bf-c9c4-53456eec50a5",
+        "detail-type": "Object Restore Initiated",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:26:44Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "marker",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_marker}"
+          },
+          "request-id": "${request68}",
+          "requester": "123456789012",
+          "source-ip-address": "92.234.107.50",
+          "source-storage-class": "GLACIER"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque",
+        "time": "time",
+        "detail.source-ip-address": "ip"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[3]",
+      "SourceSequence": 69,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:26:45.081Z",
+        "eventName": "ObjectRestore:Post",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request69}",
+          "x-amz-id-2": "4TwITCk3D4mDKX749X4NsTYP3qIpMvIERxqobaJQvdyh5rdV5Lxw4KyUTOAmMYFSoRAtIwVEGnozNHC8ZPNWVWXmG6iEAg/k"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "deep",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_deep}",
+            "sequencer": "${sequencer_deep}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[15]",
+      "SourceSequence": 69,
+      "Payload": {
+        "version": "0",
+        "id": "72a52093-5198-a255-f8eb-4e5b82121133",
+        "detail-type": "Object Restore Initiated",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:26:45Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "deep",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_deep}"
+          },
+          "request-id": "${request69}",
+          "requester": "123456789012",
+          "source-ip-address": "92.234.107.50",
+          "source-storage-class": "DEEP_ARCHIVE"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque",
+        "time": "time",
+        "detail.source-ip-address": "ip"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[20]",
+      "SourceSequence": 97,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:28:16.962Z",
+        "eventName": "ObjectRestore:Post",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request97}",
+          "x-amz-id-2": "aTtkSHRIj3L38HcYvHLeHyYBXOjyuEkxqmYGOkdZN9GXIuNX4NswVcgN3fvJvoRwni/Rx51o0gpiPg/fFpCtsVBdXvR7JYKZ"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_glacier}",
+            "sequencer": "${sequencer_glacier}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[33]",
+      "SourceSequence": 97,
+      "Payload": {
+        "version": "0",
+        "id": "ca3aafd0-3844-8ce7-68f6-e63d2c86db92",
+        "detail-type": "Object Restore Initiated",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:28:16Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_glacier}"
+          },
+          "request-id": "${request97}",
+          "requester": "123456789012",
+          "source-ip-address": "92.234.107.50",
+          "source-storage-class": "GLACIER"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque",
+        "time": "time",
+        "detail.source-ip-address": "ip"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[32]",
+      "SourceSequence": 98,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:28:17.794Z",
+        "eventName": "ObjectRestore:Post",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request98}",
+          "x-amz-id-2": "i14CDeiiP7//RwLkYJR5iGXT2pUBlnhp7LUvMQUx/zNRYRR5nQDSbWXwIG4/qIdrVFVf02m8KgGJX9xUMYhiv+T5bLpSOneX"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_glacier}",
+            "sequencer": "${sequencer_glacier}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[36]",
+      "SourceSequence": 98,
+      "Payload": {
+        "version": "0",
+        "id": "858cbc9f-569b-441f-540a-3711403854b9",
+        "detail-type": "Object Restore Initiated",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:28:17Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_glacier}"
+          },
+          "request-id": "${request98}",
+          "requester": "123456789012",
+          "source-ip-address": "92.234.107.50",
+          "source-storage-class": "GLACIER"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque",
+        "time": "time",
+        "detail.source-ip-address": "ip"
+      }
+    },
+    {
+      "Queue": "${queue_classic}",
+      "Kind": "classic",
+      "Source": "restore_evidence.json.gz:Deliveries[24]",
+      "SourceSequence": 100,
+      "Payload": {
+        "eventVersion": "2.6",
+        "eventSource": "aws:s3",
+        "awsRegion": "us-east-1",
+        "eventTime": "2026-09-21T09:28:19.248Z",
+        "eventName": "ObjectRestore:Post",
+        "userIdentity": {
+          "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "92.234.107.50"
+        },
+        "responseElements": {
+          "x-amz-request-id": "${request100}",
+          "x-amz-id-2": "bHxv9PoyCkOpkaKWLQGnyJbc3fge1yeptPCbnO0I1V2N3MdNKkt7mkfLHyHJItBSTY9d6tAbLxEPh9//K9CTmuYjIuVcdQvp"
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "restore-events",
+          "bucket": {
+            "name": "stackd-restore-1789982477",
+            "ownerIdentity": {
+              "principalId": "AW1K7DS23TRWT"
+            },
+            "arn": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "eTag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "versionId": "${version_glacier}",
+            "sequencer": "${sequencer_glacier}"
+          }
+        }
+      },
+      "Dynamic": {
+        "eventTime": "time",
+        "responseElements.x-amz-id-2": "opaque",
+        "s3.bucket.ownerIdentity.principalId": "opaque",
+        "requestParameters.sourceIPAddress": "ip",
+        "userIdentity.principalId": "opaque"
+      }
+    },
+    {
+      "Queue": "${queue_eventbridge}",
+      "Kind": "eventbridge",
+      "Source": "restore_evidence.json.gz:Deliveries[16]",
+      "SourceSequence": 100,
+      "Payload": {
+        "version": "0",
+        "id": "fdbb0ed3-34a1-0bb3-6f10-6a93f6e6fc6a",
+        "detail-type": "Object Restore Initiated",
+        "source": "aws.s3",
+        "account": "123456789012",
+        "time": "2026-09-21T09:28:19Z",
+        "region": "us-east-1",
+        "resources": [
+          "arn:aws:s3:::stackd-restore-1789982477"
+        ],
+        "detail": {
+          "version": "0",
+          "event-version": "1.2",
+          "bucket": {
+            "name": "stackd-restore-1789982477"
+          },
+          "object": {
+            "key": "glacier",
+            "size": 37,
+            "etag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "version-id": "${version_glacier}"
+          },
+          "request-id": "${request100}",
+          "requester": "123456789012",
+          "source-ip-address": "92.234.107.50",
+          "source-storage-class": "GLACIER"
+        }
+      },
+      "Dynamic": {
+        "id": "opaque",
+        "time": "time",
+        "detail.source-ip-address": "ip"
+      }
+    }
+  ],
+  "Records": [
+    {
+      "Sequence": 65,
+      "Source": "restore_evidence.json.gz:Deliveries[37]:AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0930Z_0siSvGLGcnipMMk0.json.gz",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T09:26:41Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "RestoreObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.restore-object]",
+        "requestParameters": {
+          "bucketName": "stackd-restore-1789982477",
+          "versionId": "${version_glacier}",
+          "Host": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com",
+          "RestoreRequest": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "Days": 1,
+            "GlacierJobParameters": {
+              "Tier": "Expedited"
+            }
+          },
+          "restore": "",
+          "key": "glacier"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 162,
+          "startTime": 1789982800885,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789982801179,
+          "x-amz-id-2": "MY6YEGBMciUlpz+evtMXQHZ+VqYEYYf+HrOjyQxBKSfSMYR1ovJKIZpXb3Z+JIl5a701Fyhy6bs=",
+          "turnAroundTime": 5,
+          "httpStatusCode": 202,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "8WM9F47G0HEN702V",
+        "eventID": "209580cd-16b6-4db5-82ae-0417710a082b",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477/glacier"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sequence": 67,
+      "Source": "restore_evidence.json.gz:Deliveries[37]:AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0930Z_0siSvGLGcnipMMk0.json.gz",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T09:26:43Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "RestoreObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.restore-object]",
+        "errorCode": "RestoreAlreadyInProgress",
+        "errorMessage": "Object restore is already in progress",
+        "requestParameters": {
+          "bucketName": "stackd-restore-1789982477",
+          "Host": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com",
+          "RestoreRequest": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "Days": 2,
+            "GlacierJobParameters": {
+              "Tier": "Expedited"
+            }
+          },
+          "restore": "",
+          "key": "glacier"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 162,
+          "startTime": 1789982803046,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789982803144,
+          "x-amz-id-2": "CL0SB2KJJ8oBuyK6gxqmP64WjPTp7M/gPv0EwL2iHC/sYx4GqQ6PcLl6lH09Uexuh7TBYNQQiNA=",
+          "httpStatusCode": 409,
+          "bytesTransferredOut": 279
+        },
+        "requestID": "PZVHGQ6R4ZDB9TA6",
+        "eventID": "5b6f1769-904d-477a-874d-b953a518b469",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477/glacier"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sequence": 68,
+      "Source": "restore_evidence.json.gz:Deliveries[37]:AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0930Z_0siSvGLGcnipMMk0.json.gz",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T09:26:44Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "RestoreObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.restore-object]",
+        "requestParameters": {
+          "bucketName": "stackd-restore-1789982477",
+          "versionId": "${version_marker}",
+          "Host": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com",
+          "RestoreRequest": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "Days": 1,
+            "GlacierJobParameters": {
+              "Tier": "Bulk"
+            }
+          },
+          "restore": "",
+          "key": "marker"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 157,
+          "startTime": 1789982803876,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789982804145,
+          "x-amz-id-2": "RLLWOfp/HcGqIdSyU++vweNx8HWgSja9R938S87j48pgcrZ1HiGF5ab5c/xz/mjxQ9mmT0UOLks=",
+          "turnAroundTime": 7,
+          "httpStatusCode": 202,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "PZVJG52CKJGFNVVR",
+        "eventID": "e4bb32f2-3618-4310-be78-e488da991e78",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477/marker"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sequence": 100,
+      "Source": "restore_evidence.json.gz:Deliveries[37]:AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0930Z_0siSvGLGcnipMMk0.json.gz",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T09:28:19Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "RestoreObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.restore-object]",
+        "requestParameters": {
+          "bucketName": "stackd-restore-1789982477",
+          "Host": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com",
+          "RestoreRequest": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "Days": 1
+          },
+          "restore": "",
+          "key": "glacier"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 95,
+          "startTime": 1789982899195,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789982899257,
+          "x-amz-id-2": "DfCnRNepq52Bv9/HbHhd2Ephf2cSYE7PtNcJtmuuiSlmVVrn/sUGsjN1mQG2AYupJl30s57s54A=",
+          "turnAroundTime": 6,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "B8RCAKADVYQ6KHEA",
+        "eventID": "9111cf2c-b9cf-49c6-aea8-42675af8080b",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477/glacier"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+          "clientProvidedHostHeader": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sequence": 98,
+      "Source": "restore_evidence.json.gz:Deliveries[38]:AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0930Z_bobbGOt1tli5zL2P.json.gz",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T09:28:17Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "RestoreObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.restore-object]",
+        "requestParameters": {
+          "bucketName": "stackd-restore-1789982477",
+          "Host": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com",
+          "RestoreRequest": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "Days": 3,
+            "GlacierJobParameters": {
+              "Tier": "Expedited"
+            }
+          },
+          "restore": "",
+          "key": "glacier"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 162,
+          "startTime": 1789982897729,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789982897803,
+          "x-amz-id-2": "15onMNb2OE2rF/qkmge9quL2d6pehSN1SX3vEdSJR+o0HWRX8DxDQn2w5stua5PtQFc2gs223X+ovqeGm/dHQE5OT74uM8/+",
+          "turnAroundTime": 6,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "EVW24A60ZVZ10KHF",
+        "eventID": "b29be4eb-7538-45b1-ae60-41a5012997b0",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477/glacier"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sequence": 69,
+      "Source": "restore_evidence.json.gz:Deliveries[39]:AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0930Z_qN6pjIJlo5iC5UhE.json.gz",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T09:26:45Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "RestoreObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.restore-object]",
+        "requestParameters": {
+          "bucketName": "stackd-restore-1789982477",
+          "Host": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com",
+          "RestoreRequest": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "Days": 1,
+            "GlacierJobParameters": {
+              "Tier": "Bulk"
+            }
+          },
+          "restore": "",
+          "key": "deep"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 157,
+          "startTime": 1789982804845,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789982805104,
+          "x-amz-id-2": "XT42qoIdB8B6h2k0tbEK4RXs+PjlhQax3JhZ7qX1ZXzLE7mmpVRwVO2f5LJqZX54W5w3cJ9xcHE=",
+          "turnAroundTime": 9,
+          "httpStatusCode": 202,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "MNZGNKZQ9707G4Z9",
+        "eventID": "49014201-94fb-44e2-a9c3-1716b3e49081",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477/deep"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+          "clientProvidedHostHeader": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sequence": 97,
+      "Source": "restore_evidence.json.gz:Deliveries[39]:AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0930Z_qN6pjIJlo5iC5UhE.json.gz",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T09:28:17Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "RestoreObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.restore-object]",
+        "requestParameters": {
+          "bucketName": "stackd-restore-1789982477",
+          "Host": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com",
+          "RestoreRequest": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "Days": 1,
+            "GlacierJobParameters": {
+              "Tier": "Expedited"
+            }
+          },
+          "restore": "",
+          "key": "glacier"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 162,
+          "startTime": 1789982896916,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789982896976,
+          "x-amz-id-2": "jDkKPMbycO5fdKOL+AZPPv4/ae+w4/QNFVpn7ZLWpof31aepblgoL6ZVPDIvUyRemrEFVjknHMKpGCCkeEMrxwD9c16EmO43",
+          "turnAroundTime": 7,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "3MDGKWQXR8002RZR",
+        "eventID": "b744d265-5d38-457a-8b8e-8e27770a0869",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477/glacier"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sequence": 62,
+      "Source": "restore_evidence.json.gz:Deliveries[40]:AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0935Z_9lxVLE6IbhiQ5hVB.json.gz",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AssumedRole",
+          "principalId": "AROAQAAAAAAADCKGDR6PT:restore-only",
+          "arn": "arn:aws:sts::123456789012:assumed-role/stackd-restore-1789982477-role/restore-only",
+          "accountId": "123456789012",
+          "accessKeyId": "ASIAQAAAAAAAN7MHOLIS",
+          "sessionContext": {
+            "sessionIssuer": {
+              "type": "Role",
+              "principalId": "AROAQAAAAAAADCKGDR6PT",
+              "arn": "arn:aws:iam::123456789012:role/stackd-restore-1789982477-role",
+              "accountId": "123456789012",
+              "userName": "stackd-restore-1789982477-role"
+            },
+            "attributes": {
+              "creationDate": "2026-09-21T09:26:37Z",
+              "mfaAuthenticated": "false"
+            }
+          }
+        },
+        "eventTime": "2026-09-21T09:26:38Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "RestoreObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,W,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.restore-object]",
+        "requestParameters": {
+          "bucketName": "stackd-restore-1789982477",
+          "Host": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com",
+          "RestoreRequest": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "Days": 1,
+            "GlacierJobParameters": {
+              "Tier": "Expedited"
+            }
+          },
+          "restore": "",
+          "key": "permission"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 162,
+          "startTime": 1789982798091,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789982798400,
+          "x-amz-id-2": "EBO7atJpv3o4Myp4cvEztBLCg1dw1vhkowiU6uP54GzAe5zAZHb+S4Ne5hcYQ6Rq0/sMRYarGxCz/M0EIb3lG/ndQFx7yENr",
+          "turnAroundTime": 7,
+          "httpStatusCode": 202,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "NT1TWPK2JJA1BCQ9",
+        "eventID": "a4702fde-7f32-4081-9989-c12ed2542ece",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477/permission"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sequence": 66,
+      "Source": "restore_evidence.json.gz:Deliveries[40]:AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0935Z_9lxVLE6IbhiQ5hVB.json.gz",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "accountId": "123456789012",
+          "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T09:26:42Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "RestoreObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.restore-object]",
+        "errorCode": "RestoreAlreadyInProgress",
+        "errorMessage": "Object restore is already in progress",
+        "requestParameters": {
+          "bucketName": "stackd-restore-1789982477",
+          "versionId": "${version_glacier}",
+          "Host": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com",
+          "RestoreRequest": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "Days": 1,
+            "GlacierJobParameters": {
+              "Tier": "Expedited"
+            }
+          },
+          "restore": "",
+          "key": "glacier"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 162,
+          "startTime": 1789982801999,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789982802238,
+          "x-amz-id-2": "Ta5NbyCpokL4d3/dkjrcoRIGYbBTumrgZut08EJx1CjIz1PSKMJljPFo6IZ+em1a0RWJeP0txuw=",
+          "httpStatusCode": 409,
+          "bytesTransferredOut": 279
+        },
+        "requestID": "XTSY4E5PYS78GF5K",
+        "eventID": "451b0650-9f67-4ecb-8a64-3e5903d2e00a",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-restore-1789982477/glacier"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+          "clientProvidedHostHeader": "stackd-restore-1789982477.s3.us-east-1.amazonaws.com"
+        }
+      }
+    }
+  ]
+}

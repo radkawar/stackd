@@ -1,0 +1,4368 @@
+{
+  "Source": "recreation_controls_evidence.json.gz",
+  "Notes": [
+    "Native owned us-east-1 recreation is conditional: current nonempty ownership must match candidate ownership; nonempty creation Tags reject even when identical. Absent ownership remains absent. West still conflicts.",
+    "Successful ordinary and accelerated recreation replaces only bucket ACL. Version IDs, object bytes and metadata, tags, versioning, acceleration, public-access block and ListBuckets CreationDate are retained.",
+    "Owned names/account/canonical owner and version identities are rebound. At advances seven service seconds per native sequence; this is deterministic test time, not an AWS propagation or latency guarantee.",
+    "Native CreationDate and LastModified bind before successful recreation and are compared exactly afterward. Reopen additionally checks local durability, not an AWS operation.",
+    "Full native requests/responses, actual response Date headers, source scripts, errors and verified version/bucket cleanup remain in the gzip evidence. No APs or IAM identities were created.",
+    "Native ObjectLockEnabledForBucket must match the retained enabled boolean; omitted is false. No object retention dates or held objects were created.",
+    "A nonempty retained public-access block differing from the new all-true creation default rejects with 409. Restoring all true permits recreation; deleting BPA permits recreation without reinstating it. Public ACL validation still uses creation defaults and rejects before recreation even when existing BlockPublicAcls is false. IgnorePublicAcls stayed true throughout the public-read rejection probe."
+  ],
+  "Scenarios": [
+    {
+      "Name": "owned-recreation-acl-transition-and-retained-resource-state",
+      "TLS": true,
+      "Setup": [],
+      "Calls": [
+        {
+          "Sequence": 1,
+          "Label": "fresh-default",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=1]",
+          "At": "2026-01-01T00:00:07Z",
+          "Input": {
+            "Bucket": "recreation-original-default"
+          },
+          "Output": {
+            "Location": "/recreation-original-default",
+            "BucketArn": "arn:aws:s3:::recreation-original-default"
+          }
+        },
+        {
+          "Sequence": 2,
+          "Label": "fresh-default-ownership",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=2]",
+          "At": "2026-01-01T00:00:14Z",
+          "Input": {
+            "Bucket": "recreation-original-default"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerEnforced"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 3,
+          "Label": "default-repeat-explicit-writer",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=3]",
+          "At": "2026-01-01T00:00:21Z",
+          "Input": {
+            "Bucket": "recreation-original-default",
+            "ObjectOwnership": "ObjectWriter"
+          }
+        },
+        {
+          "Sequence": 4,
+          "Label": "default-after-writer-ownership",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=4]",
+          "At": "2026-01-01T00:00:28Z",
+          "Input": {
+            "Bucket": "recreation-original-default"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerEnforced"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 5,
+          "Label": "default-repeat-private",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=5]",
+          "At": "2026-01-01T00:00:35Z",
+          "Input": {
+            "Bucket": "recreation-original-default",
+            "ACL": "private"
+          },
+          "Output": {
+            "Location": "/recreation-original-default",
+            "BucketArn": "arn:aws:s3:::recreation-original-default"
+          }
+        },
+        {
+          "Sequence": 6,
+          "Label": "fresh-east-tagged-preferred",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=6]",
+          "At": "2026-01-01T00:00:42Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "birth",
+                  "Value": "original"
+                }
+              ]
+            }
+          },
+          "Output": {
+            "Location": "/recreation-original-east",
+            "BucketArn": "arn:aws:s3:::recreation-original-east"
+          }
+        },
+        {
+          "Sequence": 7,
+          "Label": "east-owner",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=7]",
+          "At": "2026-01-01T00:00:49Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Bind": {
+            "owner": "Owner.ID"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 8,
+          "Label": "seed-private-logdelivery-acl",
+          "Service": "s3",
+          "Operation": "PutBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=8]",
+          "At": "2026-01-01T00:00:56Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "AccessControlPolicy": {
+              "Owner": {
+                "ID": "${owner}"
+              },
+              "Grants": [
+                {
+                  "Grantee": {
+                    "Type": "CanonicalUser",
+                    "ID": "${owner}"
+                  },
+                  "Permission": "FULL_CONTROL"
+                },
+                {
+                  "Grantee": {
+                    "Type": "Group",
+                    "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                  },
+                  "Permission": "WRITE"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 12,
+          "Label": "seed-tags",
+          "Service": "s3",
+          "Operation": "PutBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=12]",
+          "At": "2026-01-01T00:01:24Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "state",
+                  "Value": "must-survive"
+                },
+                {
+                  "Key": "birth",
+                  "Value": "original"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 24,
+          "Label": "east-repeat-omitted",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=24]",
+          "At": "2026-01-01T00:02:48Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          }
+        },
+        {
+          "Sequence": 25,
+          "Label": "after-omitted-get_bucket_acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=25]",
+          "At": "2026-01-01T00:02:55Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                },
+                "Permission": "WRITE"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 26,
+          "Label": "after-omitted-get_bucket_ownership_controls",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=26]",
+          "At": "2026-01-01T00:03:02Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 36,
+          "Label": "east-repeat-explicit-writer-private-tags",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=36]",
+          "At": "2026-01-01T00:04:12Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "ObjectOwnership": "ObjectWriter",
+            "ACL": "private",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "replacement",
+                  "Value": "ignored-or-applied"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 37,
+          "Label": "after-explicit-get_bucket_acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=37]",
+          "At": "2026-01-01T00:04:19Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                },
+                "Permission": "WRITE"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 38,
+          "Label": "after-explicit-get_bucket_ownership_controls",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=38]",
+          "At": "2026-01-01T00:04:26Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 40,
+          "Label": "after-explicit-get_bucket_tagging",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=40]",
+          "At": "2026-01-01T00:04:40Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "birth",
+                "Value": "original"
+              },
+              {
+                "Key": "state",
+                "Value": "must-survive"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 47,
+          "Label": "east-repeat-custom-owner-read-only",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=47]",
+          "At": "2026-01-01T00:05:29Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "GrantRead": "id=\"${owner}\""
+          },
+          "Output": {
+            "Location": "/recreation-original-east",
+            "BucketArn": "arn:aws:s3:::recreation-original-east"
+          }
+        },
+        {
+          "Sequence": 48,
+          "Label": "after-custom-acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=48]",
+          "At": "2026-01-01T00:05:36Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 49,
+          "Label": "after-custom-ownership",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=49]",
+          "At": "2026-01-01T00:05:43Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 50,
+          "Label": "east-repeat-logdelivery-no-ownership",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidBucketAclWithObjectOwnership",
+          "Status": 400,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=50]",
+          "At": "2026-01-01T00:05:50Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "GrantFullControl": "id=\"${owner}\"",
+            "GrantWrite": "uri=\"http://acs.amazonaws.com/groups/s3/LogDelivery\""
+          }
+        },
+        {
+          "Sequence": 51,
+          "Label": "after-no-ownership-acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=51]",
+          "At": "2026-01-01T00:05:57Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 52,
+          "Label": "east-repeat-enforced-custom-acl",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidBucketAclWithObjectOwnership",
+          "Status": 400,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=52]",
+          "At": "2026-01-01T00:06:04Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "ObjectOwnership": "BucketOwnerEnforced",
+            "GrantFullControl": "id=\"${owner}\"",
+            "GrantWrite": "uri=\"http://acs.amazonaws.com/groups/s3/LogDelivery\""
+          }
+        },
+        {
+          "Sequence": 53,
+          "Label": "after-invalid-enforced-acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=53]",
+          "At": "2026-01-01T00:06:11Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 54,
+          "Label": "after-invalid-enforced-ownership",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=54]",
+          "At": "2026-01-01T00:06:18Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 55,
+          "Label": "east-repeat-enforced-private",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=55]",
+          "At": "2026-01-01T00:06:25Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "ObjectOwnership": "BucketOwnerEnforced",
+            "ACL": "private"
+          }
+        },
+        {
+          "Sequence": 56,
+          "Label": "after-enforced-private-ownership",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=56]",
+          "At": "2026-01-01T00:06:32Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 57,
+          "Label": "after-enforced-private-acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=57]",
+          "At": "2026-01-01T00:06:39Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 59,
+          "Label": "east-repeat-config-east-explicit",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidLocationConstraint",
+          "Status": 400,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=59]",
+          "At": "2026-01-01T00:06:53Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-east-1"
+            }
+          }
+        },
+        {
+          "Sequence": 61,
+          "Label": "east-repeat-config-invalid-location",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidLocationConstraint",
+          "Status": 400,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=61]",
+          "At": "2026-01-01T00:07:07Z",
+          "Input": {
+            "Bucket": "recreation-original-east",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "invalid-region"
+            }
+          }
+        },
+        {
+          "Sequence": 62,
+          "Label": "after-config-errors-get_bucket_acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=62]",
+          "At": "2026-01-01T00:07:14Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 63,
+          "Label": "after-config-errors-get_bucket_ownership_controls",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=63]",
+          "At": "2026-01-01T00:07:21Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 65,
+          "Label": "after-config-errors-get_bucket_tagging",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=65]",
+          "At": "2026-01-01T00:07:35Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "birth",
+                "Value": "original"
+              },
+              {
+                "Key": "state",
+                "Value": "must-survive"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 72,
+          "Label": "east-repeat-accelerated",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=72]",
+          "At": "2026-01-01T00:08:24Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/",
+            "RequestHost": "recreation-original-east.s3-accelerate.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {},
+            "Body": ""
+          }
+        },
+        {
+          "Sequence": 73,
+          "Label": "after-accelerated-get_bucket_acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=73]",
+          "At": "2026-01-01T00:08:31Z",
+          "Input": {
+            "Bucket": "recreation-original-east"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 83,
+          "Label": "fresh-west",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=83]",
+          "At": "2026-01-01T00:09:41Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          },
+          "Output": {
+            "Location": "http://recreation-original-west.s3.amazonaws.com/",
+            "BucketArn": "arn:aws:s3:::recreation-original-west"
+          }
+        },
+        {
+          "Sequence": 84,
+          "Label": "west-seed-acl",
+          "Service": "s3",
+          "Operation": "PutBucketAcl",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=84]",
+          "At": "2026-01-01T00:09:48Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "AccessControlPolicy": {
+              "Owner": {
+                "ID": "${owner}"
+              },
+              "Grants": [
+                {
+                  "Grantee": {
+                    "Type": "CanonicalUser",
+                    "ID": "${owner}"
+                  },
+                  "Permission": "FULL_CONTROL"
+                },
+                {
+                  "Grantee": {
+                    "Type": "Group",
+                    "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                  },
+                  "Permission": "WRITE"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 85,
+          "Label": "west-seed-object",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=85]",
+          "At": "2026-01-01T00:09:55Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "Key": "survivor",
+            "Metadata": {
+              "proof": "west-retained"
+            }
+          },
+          "Body": "d2VzdC1yZWNyZWF0aW9uLXN1cnZpdm9y",
+          "Output": {
+            "ETag": "\"b4d911d02e84e2d7b01e49120315a0ad\"",
+            "ServerSideEncryption": "AES256"
+          }
+        },
+        {
+          "Sequence": 86,
+          "Label": "west-seed-tags",
+          "Service": "s3",
+          "Operation": "PutBucketTagging",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=86]",
+          "At": "2026-01-01T00:10:02Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "state",
+                  "Value": "west-survives"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 87,
+          "Label": "west-before-get_bucket_acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=87]",
+          "At": "2026-01-01T00:10:09Z",
+          "Input": {
+            "Bucket": "recreation-original-west"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                },
+                "Permission": "WRITE"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 88,
+          "Label": "west-before-get_bucket_ownership_controls",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=88]",
+          "At": "2026-01-01T00:10:16Z",
+          "Input": {
+            "Bucket": "recreation-original-west"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 90,
+          "Label": "west-before-get_bucket_tagging",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=90]",
+          "At": "2026-01-01T00:10:30Z",
+          "Input": {
+            "Bucket": "recreation-original-west"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "state",
+                "Value": "west-survives"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 94,
+          "Label": "west-before-versions",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=94]",
+          "At": "2026-01-01T00:10:58Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "EncodingType": "url"
+          },
+          "Bind": {
+            "modified94v0": "Versions.0.LastModified"
+          },
+          "Output": {
+            "IsTruncated": false,
+            "KeyMarker": "",
+            "VersionIdMarker": "",
+            "Versions": [
+              {
+                "ETag": "\"b4d911d02e84e2d7b01e49120315a0ad\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "Size": 24,
+                "StorageClass": "STANDARD",
+                "Key": "survivor",
+                "VersionId": "null",
+                "IsLatest": true,
+                "LastModified": "2026-09-22T10:51:35+00:00",
+                "Owner": {
+                  "ID": "${owner}"
+                }
+              }
+            ],
+            "Name": "recreation-original-west",
+            "Prefix": "",
+            "MaxKeys": 1000,
+            "EncodingType": "url"
+          }
+        },
+        {
+          "Sequence": 95,
+          "Label": "west-before-head",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=95]",
+          "At": "2026-01-01T00:11:05Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "Key": "survivor"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified94v0}",
+            "ContentLength": 24,
+            "ETag": "\"b4d911d02e84e2d7b01e49120315a0ad\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "west-retained"
+            }
+          }
+        },
+        {
+          "Sequence": 96,
+          "Label": "west-before-read",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=96]",
+          "At": "2026-01-01T00:11:12Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "Key": "survivor"
+          },
+          "Plaintext": "d2VzdC1yZWNyZWF0aW9uLXN1cnZpdm9y",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified94v0}",
+            "ContentLength": 24,
+            "ETag": "\"b4d911d02e84e2d7b01e49120315a0ad\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "west-retained"
+            }
+          }
+        },
+        {
+          "Sequence": 97,
+          "Label": "west-repeat-matching",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=97]",
+          "At": "2026-01-01T00:11:19Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "ACL": "private",
+            "ObjectOwnership": "ObjectWriter",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2",
+              "Tags": [
+                {
+                  "Key": "replacement",
+                  "Value": "ignored"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 98,
+          "Label": "west-repeat-omitted",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "IllegalLocationConstraintException",
+          "Status": 400,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=98]",
+          "At": "2026-01-01T00:11:26Z",
+          "Input": {
+            "Bucket": "recreation-original-west"
+          }
+        },
+        {
+          "Sequence": 99,
+          "Label": "west-after-get_bucket_acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=99]",
+          "At": "2026-01-01T00:11:33Z",
+          "Input": {
+            "Bucket": "recreation-original-west"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                },
+                "Permission": "WRITE"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 100,
+          "Label": "west-after-get_bucket_ownership_controls",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=100]",
+          "At": "2026-01-01T00:11:40Z",
+          "Input": {
+            "Bucket": "recreation-original-west"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 102,
+          "Label": "west-after-get_bucket_tagging",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=102]",
+          "At": "2026-01-01T00:11:54Z",
+          "Input": {
+            "Bucket": "recreation-original-west"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "state",
+                "Value": "west-survives"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 106,
+          "Label": "west-after-versions",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=106]",
+          "At": "2026-01-01T00:12:22Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "EncodingType": "url"
+          },
+          "Output": {
+            "IsTruncated": false,
+            "KeyMarker": "",
+            "VersionIdMarker": "",
+            "Versions": [
+              {
+                "ETag": "\"b4d911d02e84e2d7b01e49120315a0ad\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "Size": 24,
+                "StorageClass": "STANDARD",
+                "Key": "survivor",
+                "VersionId": "null",
+                "IsLatest": true,
+                "LastModified": "${modified94v0}",
+                "Owner": {
+                  "ID": "${owner}"
+                }
+              }
+            ],
+            "Name": "recreation-original-west",
+            "Prefix": "",
+            "MaxKeys": 1000,
+            "EncodingType": "url"
+          }
+        },
+        {
+          "Sequence": 107,
+          "Label": "west-after-head",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=107]",
+          "At": "2026-01-01T00:12:29Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "Key": "survivor"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified94v0}",
+            "ContentLength": 24,
+            "ETag": "\"b4d911d02e84e2d7b01e49120315a0ad\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "west-retained"
+            }
+          }
+        },
+        {
+          "Sequence": 108,
+          "Label": "west-after-read",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=108]",
+          "At": "2026-01-01T00:12:36Z",
+          "Input": {
+            "Bucket": "recreation-original-west",
+            "Key": "survivor"
+          },
+          "Plaintext": "d2VzdC1yZWNyZWF0aW9uLXN1cnZpdm9y",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified94v0}",
+            "ContentLength": 24,
+            "ETag": "\"b4d911d02e84e2d7b01e49120315a0ad\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "west-retained"
+            }
+          }
+        },
+        {
+          "Sequence": 124,
+          "Label": "followup-create-preferred",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=124]",
+          "At": "2026-01-01T00:14:28Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "ObjectOwnership": "BucketOwnerPreferred"
+          },
+          "Output": {
+            "Location": "/recreation-preserved",
+            "BucketArn": "arn:aws:s3:::recreation-preserved"
+          }
+        },
+        {
+          "Sequence": 125,
+          "Label": "followup-owner",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=125]",
+          "At": "2026-01-01T00:14:35Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 126,
+          "Label": "followup-seed-acl",
+          "Service": "s3",
+          "Operation": "PutBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=126]",
+          "At": "2026-01-01T00:14:42Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "AccessControlPolicy": {
+              "Owner": {
+                "ID": "${owner}"
+              },
+              "Grants": [
+                {
+                  "Grantee": {
+                    "Type": "CanonicalUser",
+                    "ID": "${owner}"
+                  },
+                  "Permission": "FULL_CONTROL"
+                },
+                {
+                  "Grantee": {
+                    "Type": "Group",
+                    "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                  },
+                  "Permission": "WRITE"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 127,
+          "Label": "followup-seed-versioning",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=127]",
+          "At": "2026-01-01T00:14:49Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 128,
+          "Label": "followup-seed-version-0",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=128]",
+          "At": "2026-01-01T00:14:56Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "Key": "survivor",
+            "Metadata": {
+              "proof": "retained",
+              "revision": "0"
+            },
+            "ContentType": "application/octet-stream",
+            "CacheControl": "max-age=43"
+          },
+          "Body": "Zm9sbG93dXAtb2xkLXZlcnNpb24=",
+          "Bind": {
+            "version128": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"19422f75ee2a060a84c7db995ee64678\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${version128}"
+          }
+        },
+        {
+          "Sequence": 129,
+          "Label": "followup-seed-version-1",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=129]",
+          "At": "2026-01-01T00:15:03Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "Key": "survivor",
+            "Metadata": {
+              "proof": "retained",
+              "revision": "1"
+            },
+            "ContentType": "application/octet-stream",
+            "CacheControl": "max-age=43"
+          },
+          "Body": "Zm9sbG93dXAtbGl2ZS12ZXJzaW9u",
+          "Bind": {
+            "version129": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"567da40e3ac266bf06814e2b74e267c5\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${version129}"
+          }
+        },
+        {
+          "Sequence": 130,
+          "Label": "followup-seed-tags",
+          "Service": "s3",
+          "Operation": "PutBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=130]",
+          "At": "2026-01-01T00:15:10Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "state",
+                  "Value": "must-survive"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 131,
+          "Label": "followup-seed-acceleration",
+          "Service": "s3",
+          "Operation": "PutBucketAccelerateConfiguration",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=131]",
+          "At": "2026-01-01T00:15:17Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "AccelerateConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 138,
+          "Label": "followup-before-list-buckets",
+          "Service": "s3",
+          "Operation": "ListBuckets",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=138]",
+          "At": "2026-01-01T00:16:06Z",
+          "Input": {
+            "Prefix": "recreation-preserved",
+            "MaxBuckets": 10
+          },
+          "Bind": {
+            "created138b0": "Buckets.0.CreationDate"
+          },
+          "Output": {
+            "Buckets": [
+              {
+                "Name": "recreation-preserved",
+                "BucketRegion": "us-east-1",
+                "BucketArn": "arn:aws:s3:::recreation-preserved"
+              }
+            ],
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Prefix": "recreation-preserved"
+          }
+        },
+        {
+          "Sequence": 139,
+          "Label": "followup-before-versions",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=139]",
+          "At": "2026-01-01T00:16:13Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "EncodingType": "url"
+          },
+          "Bind": {
+            "modified139v0": "Versions.0.LastModified",
+            "modified139v1": "Versions.1.LastModified"
+          },
+          "Output": {
+            "IsTruncated": false,
+            "KeyMarker": "",
+            "VersionIdMarker": "",
+            "Versions": [
+              {
+                "ETag": "\"567da40e3ac266bf06814e2b74e267c5\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "Size": 21,
+                "StorageClass": "STANDARD",
+                "Key": "survivor",
+                "VersionId": "${version129}",
+                "IsLatest": true,
+                "LastModified": "2026-09-22T10:52:37+00:00",
+                "Owner": {
+                  "ID": "${owner}"
+                }
+              },
+              {
+                "ETag": "\"19422f75ee2a060a84c7db995ee64678\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "Size": 20,
+                "StorageClass": "STANDARD",
+                "Key": "survivor",
+                "VersionId": "${version128}",
+                "IsLatest": false,
+                "LastModified": "2026-09-22T10:52:37+00:00",
+                "Owner": {
+                  "ID": "${owner}"
+                }
+              }
+            ],
+            "Name": "recreation-preserved",
+            "Prefix": "",
+            "MaxKeys": 1000,
+            "EncodingType": "url"
+          }
+        },
+        {
+          "Sequence": 140,
+          "Label": "followup-before-head",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=140]",
+          "At": "2026-01-01T00:16:20Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "Key": "survivor"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified139v0}",
+            "ContentLength": 21,
+            "ETag": "\"567da40e3ac266bf06814e2b74e267c5\"",
+            "VersionId": "${version129}",
+            "CacheControl": "max-age=43",
+            "ContentType": "application/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "retained",
+              "revision": "1"
+            }
+          }
+        },
+        {
+          "Sequence": 142,
+          "Label": "followup-same-ownership-omitted-acl",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=142]",
+          "At": "2026-01-01T00:16:34Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "ObjectOwnership": "BucketOwnerPreferred"
+          },
+          "Output": {
+            "Location": "/recreation-preserved",
+            "BucketArn": "arn:aws:s3:::recreation-preserved"
+          }
+        },
+        {
+          "Sequence": 143,
+          "Label": "followup-after-reset-get_bucket_acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=143]",
+          "At": "2026-01-01T00:16:41Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 144,
+          "Label": "followup-after-reset-get_bucket_ownership_controls",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=144]",
+          "At": "2026-01-01T00:16:48Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 145,
+          "Label": "followup-after-reset-get_bucket_versioning",
+          "Service": "s3",
+          "Operation": "GetBucketVersioning",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=145]",
+          "At": "2026-01-01T00:16:55Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Status": "Enabled"
+          }
+        },
+        {
+          "Sequence": 146,
+          "Label": "followup-after-reset-get_bucket_tagging",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=146]",
+          "At": "2026-01-01T00:17:02Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "state",
+                "Value": "must-survive"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 147,
+          "Label": "followup-after-reset-get_bucket_accelerate_configuration",
+          "Service": "s3",
+          "Operation": "GetBucketAccelerateConfiguration",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=147]",
+          "At": "2026-01-01T00:17:09Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Status": "Enabled"
+          }
+        },
+        {
+          "Sequence": 148,
+          "Label": "followup-after-reset-get_public_access_block",
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=148]",
+          "At": "2026-01-01T00:17:16Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Sequence": 149,
+          "Label": "followup-after-reset-list-buckets",
+          "Service": "s3",
+          "Operation": "ListBuckets",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=149]",
+          "At": "2026-01-01T00:17:23Z",
+          "Input": {
+            "Prefix": "recreation-preserved",
+            "MaxBuckets": 10
+          },
+          "Output": {
+            "Buckets": [
+              {
+                "Name": "recreation-preserved",
+                "CreationDate": "${created138b0}",
+                "BucketRegion": "us-east-1",
+                "BucketArn": "arn:aws:s3:::recreation-preserved"
+              }
+            ],
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Prefix": "recreation-preserved"
+          }
+        },
+        {
+          "Sequence": 150,
+          "Label": "followup-after-reset-versions",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=150]",
+          "At": "2026-01-01T00:17:30Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "EncodingType": "url"
+          },
+          "Output": {
+            "IsTruncated": false,
+            "KeyMarker": "",
+            "VersionIdMarker": "",
+            "Versions": [
+              {
+                "ETag": "\"567da40e3ac266bf06814e2b74e267c5\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "Size": 21,
+                "StorageClass": "STANDARD",
+                "Key": "survivor",
+                "VersionId": "${version129}",
+                "IsLatest": true,
+                "LastModified": "${modified139v0}",
+                "Owner": {
+                  "ID": "${owner}"
+                }
+              },
+              {
+                "ETag": "\"19422f75ee2a060a84c7db995ee64678\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "Size": 20,
+                "StorageClass": "STANDARD",
+                "Key": "survivor",
+                "VersionId": "${version128}",
+                "IsLatest": false,
+                "LastModified": "${modified139v1}",
+                "Owner": {
+                  "ID": "${owner}"
+                }
+              }
+            ],
+            "Name": "recreation-preserved",
+            "Prefix": "",
+            "MaxKeys": 1000,
+            "EncodingType": "url"
+          }
+        },
+        {
+          "Sequence": 151,
+          "Label": "followup-after-reset-head",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=151]",
+          "At": "2026-01-01T00:17:37Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "Key": "survivor"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified139v0}",
+            "ContentLength": 21,
+            "ETag": "\"567da40e3ac266bf06814e2b74e267c5\"",
+            "VersionId": "${version129}",
+            "CacheControl": "max-age=43",
+            "ContentType": "application/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "retained",
+              "revision": "1"
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 152,
+          "Label": "followup-after-reset-read",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=152]",
+          "At": "2026-01-01T00:17:44Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "Key": "survivor"
+          },
+          "Plaintext": "Zm9sbG93dXAtbGl2ZS12ZXJzaW9u",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified139v0}",
+            "ContentLength": 21,
+            "ETag": "\"567da40e3ac266bf06814e2b74e267c5\"",
+            "VersionId": "${version129}",
+            "CacheControl": "max-age=43",
+            "ContentType": "application/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "retained",
+              "revision": "1"
+            }
+          }
+        },
+        {
+          "Sequence": 153,
+          "Label": "followup-reset-acl",
+          "Service": "s3",
+          "Operation": "PutBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=153]",
+          "At": "2026-01-01T00:17:51Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "AccessControlPolicy": {
+              "Owner": {
+                "ID": "${owner}"
+              },
+              "Grants": [
+                {
+                  "Grantee": {
+                    "Type": "CanonicalUser",
+                    "ID": "${owner}"
+                  },
+                  "Permission": "FULL_CONTROL"
+                },
+                {
+                  "Grantee": {
+                    "Type": "Group",
+                    "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                  },
+                  "Permission": "WRITE"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 154,
+          "Label": "followup-same-ownership-supplied-tags",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=154]",
+          "At": "2026-01-01T00:17:58Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "replacement",
+                  "Value": "new"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 155,
+          "Label": "followup-after-supplied-tags",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=155]",
+          "At": "2026-01-01T00:18:05Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "state",
+                "Value": "must-survive"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 156,
+          "Label": "followup-after-supplied-tags-acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=156]",
+          "At": "2026-01-01T00:18:12Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                },
+                "Permission": "WRITE"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 158,
+          "Label": "followup-repeat-accelerated-same-ownership",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=158]",
+          "At": "2026-01-01T00:18:26Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/",
+            "RequestHost": "recreation-preserved.s3-accelerate.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-object-ownership": "BucketOwnerPreferred"
+            },
+            "Body": "",
+            "ResponseDigest": {
+              "Length": 0,
+              "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          }
+        },
+        {
+          "Sequence": 159,
+          "Label": "followup-after-accelerated-acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=159]",
+          "At": "2026-01-01T00:18:33Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 160,
+          "Label": "followup-same-ownership-empty-config",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=160]",
+          "At": "2026-01-01T00:18:40Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "CreateBucketConfiguration": {}
+          },
+          "Output": {
+            "Location": "/recreation-preserved",
+            "BucketArn": "arn:aws:s3:::recreation-preserved"
+          }
+        },
+        {
+          "Sequence": 161,
+          "Label": "followup-same-ownership-west-config",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=161]",
+          "At": "2026-01-01T00:18:47Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          }
+        },
+        {
+          "Sequence": 162,
+          "Label": "followup-after-west-config-location",
+          "Service": "s3",
+          "Operation": "GetBucketLocation",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=162]",
+          "At": "2026-01-01T00:18:54Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {},
+          "Absent": [
+            "LocationConstraint"
+          ]
+        },
+        {
+          "Sequence": 163,
+          "Label": "followup-remove-ownership",
+          "Service": "s3",
+          "Operation": "DeleteBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=163]",
+          "At": "2026-01-01T00:19:01Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 164,
+          "Label": "followup-absent-ownership",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "OwnershipControlsNotFoundError",
+          "Status": 404,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=164]",
+          "At": "2026-01-01T00:19:08Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          }
+        },
+        {
+          "Sequence": 165,
+          "Label": "followup-absent-ownership-repeat-omitted",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=165]",
+          "At": "2026-01-01T00:19:15Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Location": "/recreation-preserved",
+            "BucketArn": "arn:aws:s3:::recreation-preserved"
+          }
+        },
+        {
+          "Sequence": 166,
+          "Label": "followup-after-absent-repeat-ownership",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "OwnershipControlsNotFoundError",
+          "Status": 404,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=166]",
+          "At": "2026-01-01T00:19:22Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 167,
+          "Label": "followup-final-get_bucket_acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=167]",
+          "At": "2026-01-01T00:19:29Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 169,
+          "Label": "followup-final-get_bucket_versioning",
+          "Service": "s3",
+          "Operation": "GetBucketVersioning",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=169]",
+          "At": "2026-01-01T00:19:43Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Status": "Enabled"
+          }
+        },
+        {
+          "Sequence": 170,
+          "Label": "followup-final-get_bucket_tagging",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=170]",
+          "At": "2026-01-01T00:19:50Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "state",
+                "Value": "must-survive"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 171,
+          "Label": "followup-final-get_bucket_accelerate_configuration",
+          "Service": "s3",
+          "Operation": "GetBucketAccelerateConfiguration",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=171]",
+          "At": "2026-01-01T00:19:57Z",
+          "Input": {
+            "Bucket": "recreation-preserved"
+          },
+          "Output": {
+            "Status": "Enabled"
+          }
+        },
+        {
+          "Sequence": 173,
+          "Label": "followup-final-list-buckets",
+          "Service": "s3",
+          "Operation": "ListBuckets",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=173]",
+          "At": "2026-01-01T00:20:11Z",
+          "Input": {
+            "Prefix": "recreation-preserved",
+            "MaxBuckets": 10
+          },
+          "Output": {
+            "Buckets": [
+              {
+                "Name": "recreation-preserved",
+                "CreationDate": "${created138b0}",
+                "BucketRegion": "us-east-1",
+                "BucketArn": "arn:aws:s3:::recreation-preserved"
+              }
+            ],
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Prefix": "recreation-preserved"
+          }
+        },
+        {
+          "Sequence": 176,
+          "Label": "followup-final-read",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=176]",
+          "At": "2026-01-01T00:20:32Z",
+          "Input": {
+            "Bucket": "recreation-preserved",
+            "Key": "survivor"
+          },
+          "Plaintext": "Zm9sbG93dXAtbGl2ZS12ZXJzaW9u",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified139v0}",
+            "ContentLength": 21,
+            "ETag": "\"567da40e3ac266bf06814e2b74e267c5\"",
+            "VersionId": "${version129}",
+            "CacheControl": "max-age=43",
+            "ContentType": "application/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "retained",
+              "revision": "1"
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 177,
+          "Label": "followup-create-default",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=177]",
+          "At": "2026-01-01T00:20:39Z",
+          "Input": {
+            "Bucket": "recreation-default"
+          },
+          "Output": {
+            "Location": "/recreation-default",
+            "BucketArn": "arn:aws:s3:::recreation-default"
+          }
+        },
+        {
+          "Sequence": 178,
+          "Label": "followup-default-seed-object",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=178]",
+          "At": "2026-01-01T00:20:46Z",
+          "Input": {
+            "Bucket": "recreation-default",
+            "Key": "survivor",
+            "Metadata": {
+              "proof": "default-retained"
+            }
+          },
+          "Body": "ZGVmYXVsdC1yZXRhaW5lZA==",
+          "Output": {
+            "ETag": "\"a007f47bb2126eadb566822d79f1375e\"",
+            "ServerSideEncryption": "AES256"
+          }
+        },
+        {
+          "Sequence": 179,
+          "Label": "followup-default-seed-tags",
+          "Service": "s3",
+          "Operation": "PutBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=179]",
+          "At": "2026-01-01T00:20:53Z",
+          "Input": {
+            "Bucket": "recreation-default",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "state",
+                  "Value": "default-retained"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 181,
+          "Label": "followup-default-before-get_bucket_ownership_controls",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=181]",
+          "At": "2026-01-01T00:21:07Z",
+          "Input": {
+            "Bucket": "recreation-default"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerEnforced"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 183,
+          "Label": "followup-default-before-get_bucket_tagging",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=183]",
+          "At": "2026-01-01T00:21:21Z",
+          "Input": {
+            "Bucket": "recreation-default"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "state",
+                "Value": "default-retained"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 186,
+          "Label": "followup-default-before-list-buckets",
+          "Service": "s3",
+          "Operation": "ListBuckets",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=186]",
+          "At": "2026-01-01T00:21:42Z",
+          "Input": {
+            "Prefix": "recreation-default",
+            "MaxBuckets": 10
+          },
+          "Bind": {
+            "created186b0": "Buckets.0.CreationDate"
+          },
+          "Output": {
+            "Buckets": [
+              {
+                "Name": "recreation-default",
+                "BucketRegion": "us-east-1",
+                "BucketArn": "arn:aws:s3:::recreation-default"
+              }
+            ],
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Prefix": "recreation-default"
+          }
+        },
+        {
+          "Sequence": 188,
+          "Label": "followup-default-before-head",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=188]",
+          "At": "2026-01-01T00:21:56Z",
+          "Input": {
+            "Bucket": "recreation-default",
+            "Key": "survivor"
+          },
+          "Bind": {
+            "modified188": "LastModified"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-22T10:52:49+00:00",
+            "ContentLength": 16,
+            "ETag": "\"a007f47bb2126eadb566822d79f1375e\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "default-retained"
+            }
+          }
+        },
+        {
+          "Sequence": 189,
+          "Label": "followup-default-before-read",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=189]",
+          "At": "2026-01-01T00:22:03Z",
+          "Input": {
+            "Bucket": "recreation-default",
+            "Key": "survivor"
+          },
+          "Plaintext": "ZGVmYXVsdC1yZXRhaW5lZA==",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified188}",
+            "ContentLength": 16,
+            "ETag": "\"a007f47bb2126eadb566822d79f1375e\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "default-retained"
+            }
+          }
+        },
+        {
+          "Sequence": 190,
+          "Label": "followup-default-repeat-omitted",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=190]",
+          "At": "2026-01-01T00:22:10Z",
+          "Input": {
+            "Bucket": "recreation-default"
+          },
+          "Output": {
+            "Location": "/recreation-default",
+            "BucketArn": "arn:aws:s3:::recreation-default"
+          }
+        },
+        {
+          "Sequence": 192,
+          "Label": "followup-default-after-get_bucket_ownership_controls",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=192]",
+          "At": "2026-01-01T00:22:24Z",
+          "Input": {
+            "Bucket": "recreation-default"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerEnforced"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 194,
+          "Label": "followup-default-after-get_bucket_tagging",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=194]",
+          "At": "2026-01-01T00:22:38Z",
+          "Input": {
+            "Bucket": "recreation-default"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "state",
+                "Value": "default-retained"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 197,
+          "Label": "followup-default-after-list-buckets",
+          "Service": "s3",
+          "Operation": "ListBuckets",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=197]",
+          "At": "2026-01-01T00:22:59Z",
+          "Input": {
+            "Prefix": "recreation-default",
+            "MaxBuckets": 10
+          },
+          "Output": {
+            "Buckets": [
+              {
+                "Name": "recreation-default",
+                "CreationDate": "${created186b0}",
+                "BucketRegion": "us-east-1",
+                "BucketArn": "arn:aws:s3:::recreation-default"
+              }
+            ],
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Prefix": "recreation-default"
+          }
+        },
+        {
+          "Sequence": 199,
+          "Label": "followup-default-after-head",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=199]",
+          "At": "2026-01-01T00:23:13Z",
+          "Input": {
+            "Bucket": "recreation-default",
+            "Key": "survivor"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified188}",
+            "ContentLength": 16,
+            "ETag": "\"a007f47bb2126eadb566822d79f1375e\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "default-retained"
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 200,
+          "Label": "followup-default-after-read",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=200]",
+          "At": "2026-01-01T00:23:20Z",
+          "Input": {
+            "Bucket": "recreation-default",
+            "Key": "survivor"
+          },
+          "Plaintext": "ZGVmYXVsdC1yZXRhaW5lZA==",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "${modified188}",
+            "ContentLength": 16,
+            "ETag": "\"a007f47bb2126eadb566822d79f1375e\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {
+              "proof": "default-retained"
+            }
+          }
+        },
+        {
+          "Sequence": 201,
+          "Label": "followup-create-west",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=201]",
+          "At": "2026-01-01T00:23:27Z",
+          "Input": {
+            "Bucket": "recreation-west",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          },
+          "Output": {
+            "Location": "http://recreation-west.s3.amazonaws.com/",
+            "BucketArn": "arn:aws:s3:::recreation-west"
+          }
+        },
+        {
+          "Sequence": 202,
+          "Label": "followup-west-seed-acl",
+          "Service": "s3",
+          "Operation": "PutBucketAcl",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=202]",
+          "At": "2026-01-01T00:23:34Z",
+          "Input": {
+            "Bucket": "recreation-west",
+            "AccessControlPolicy": {
+              "Owner": {
+                "ID": "${owner}"
+              },
+              "Grants": [
+                {
+                  "Grantee": {
+                    "Type": "CanonicalUser",
+                    "ID": "${owner}"
+                  },
+                  "Permission": "FULL_CONTROL"
+                },
+                {
+                  "Grantee": {
+                    "Type": "Group",
+                    "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                  },
+                  "Permission": "WRITE"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 203,
+          "Label": "followup-west-repeat-same-ownership",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=203]",
+          "At": "2026-01-01T00:23:41Z",
+          "Input": {
+            "Bucket": "recreation-west",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          }
+        },
+        {
+          "Sequence": 204,
+          "Label": "followup-west-after-acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-west-2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=204]",
+          "At": "2026-01-01T00:23:48Z",
+          "Input": {
+            "Bucket": "recreation-west"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                },
+                "Permission": "WRITE"
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 220,
+          "Label": "matching-create-tagged-default",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=220]",
+          "At": "2026-01-01T00:25:40Z",
+          "Input": {
+            "Bucket": "recreation-matching",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "birth",
+                  "Value": "original"
+                }
+              ]
+            }
+          },
+          "Output": {
+            "Location": "/recreation-matching",
+            "BucketArn": "arn:aws:s3:::recreation-matching"
+          }
+        },
+        {
+          "Sequence": 221,
+          "Label": "matching-repeat-identical-creation-tags",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=221]",
+          "At": "2026-01-01T00:25:47Z",
+          "Input": {
+            "Bucket": "recreation-matching",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "birth",
+                  "Value": "original"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 222,
+          "Label": "matching-tags-after-identical",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=222]",
+          "At": "2026-01-01T00:25:54Z",
+          "Input": {
+            "Bucket": "recreation-matching"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "birth",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 223,
+          "Label": "matching-repeat-empty-tags",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=223]",
+          "At": "2026-01-01T00:26:01Z",
+          "Input": {
+            "Bucket": "recreation-matching",
+            "CreateBucketConfiguration": {
+              "Tags": []
+            }
+          },
+          "Output": {
+            "Location": "/recreation-matching",
+            "BucketArn": "arn:aws:s3:::recreation-matching"
+          }
+        },
+        {
+          "Sequence": 224,
+          "Label": "matching-tags-after-empty",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=224]",
+          "At": "2026-01-01T00:26:08Z",
+          "Input": {
+            "Bucket": "recreation-matching"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "birth",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 225,
+          "Label": "matching-change-tags",
+          "Service": "s3",
+          "Operation": "PutBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=225]",
+          "At": "2026-01-01T00:26:15Z",
+          "Input": {
+            "Bucket": "recreation-matching",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "state",
+                  "Value": "current"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 226,
+          "Label": "matching-repeat-current-tags",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=226]",
+          "At": "2026-01-01T00:26:22Z",
+          "Input": {
+            "Bucket": "recreation-matching",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "state",
+                  "Value": "current"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 227,
+          "Label": "matching-repeat-original-tags",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=227]",
+          "At": "2026-01-01T00:26:29Z",
+          "Input": {
+            "Bucket": "recreation-matching",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "birth",
+                  "Value": "original"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Sequence": 228,
+          "Label": "matching-tags-after-original",
+          "Service": "s3",
+          "Operation": "GetBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=228]",
+          "At": "2026-01-01T00:26:36Z",
+          "Input": {
+            "Bucket": "recreation-matching"
+          },
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "state",
+                "Value": "current"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 229,
+          "Label": "matching-set-ownership-writer",
+          "Service": "s3",
+          "Operation": "PutBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=229]",
+          "At": "2026-01-01T00:26:43Z",
+          "Input": {
+            "Bucket": "recreation-matching",
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 230,
+          "Label": "matching-repeat-current-ownership",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=230]",
+          "At": "2026-01-01T00:26:50Z",
+          "Input": {
+            "Bucket": "recreation-matching",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Output": {
+            "Location": "/recreation-matching",
+            "BucketArn": "arn:aws:s3:::recreation-matching"
+          }
+        },
+        {
+          "Sequence": 231,
+          "Label": "matching-repeat-original-ownership",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=231]",
+          "At": "2026-01-01T00:26:57Z",
+          "Input": {
+            "Bucket": "recreation-matching"
+          }
+        },
+        {
+          "Sequence": 232,
+          "Label": "matching-ownership-after-original",
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=232]",
+          "At": "2026-01-01T00:27:04Z",
+          "Input": {
+            "Bucket": "recreation-matching"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 233,
+          "Label": "matching-repeat-current-ownership-empty-config",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=233]",
+          "At": "2026-01-01T00:27:11Z",
+          "Input": {
+            "Bucket": "recreation-matching",
+            "ObjectOwnership": "ObjectWriter",
+            "CreateBucketConfiguration": {}
+          },
+          "Output": {
+            "Location": "/recreation-matching",
+            "BucketArn": "arn:aws:s3:::recreation-matching"
+          }
+        },
+        {
+          "Sequence": 237,
+          "Label": "lock-create-enabled",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=237]",
+          "At": "2026-01-01T00:27:39Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access",
+            "ObjectLockEnabledForBucket": true
+          },
+          "Output": {
+            "Location": "/recreation-lock-public-access",
+            "BucketArn": "arn:aws:s3:::recreation-lock-public-access"
+          }
+        },
+        {
+          "Sequence": 238,
+          "Label": "lock-before",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=238]",
+          "At": "2026-01-01T00:27:46Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access"
+          },
+          "Output": {
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled"
+            }
+          }
+        },
+        {
+          "Sequence": 239,
+          "Label": "lock-repeat-omitted",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=239]",
+          "At": "2026-01-01T00:27:53Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access"
+          }
+        },
+        {
+          "Sequence": 240,
+          "Label": "lock-after-omitted",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=240]",
+          "At": "2026-01-01T00:28:00Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access"
+          },
+          "Output": {
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled"
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 241,
+          "Label": "lock-repeat-false",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=241]",
+          "At": "2026-01-01T00:28:07Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access",
+            "ObjectLockEnabledForBucket": false
+          }
+        },
+        {
+          "Sequence": 242,
+          "Label": "lock-after-false",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=242]",
+          "At": "2026-01-01T00:28:14Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access"
+          },
+          "Output": {
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled"
+            }
+          }
+        },
+        {
+          "Sequence": 243,
+          "Label": "lock-versioning-after-false",
+          "Service": "s3",
+          "Operation": "GetBucketVersioning",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=243]",
+          "At": "2026-01-01T00:28:21Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access"
+          },
+          "Output": {
+            "Status": "Enabled",
+            "MFADelete": "Disabled"
+          }
+        },
+        {
+          "Sequence": 244,
+          "Label": "lock-repeat-true",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=244]",
+          "At": "2026-01-01T00:28:28Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access",
+            "ObjectLockEnabledForBucket": true
+          },
+          "Output": {
+            "Location": "/recreation-lock-public-access",
+            "BucketArn": "arn:aws:s3:::recreation-lock-public-access"
+          }
+        },
+        {
+          "Sequence": 245,
+          "Label": "bpa-set-preferred",
+          "Service": "s3",
+          "Operation": "PutBucketOwnershipControls",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=245]",
+          "At": "2026-01-01T00:28:35Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access",
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 246,
+          "Label": "bpa-ignore-public-block-false",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=246]",
+          "At": "2026-01-01T00:28:42Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 247,
+          "Label": "bpa-repeat-public-read-ignored",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidBucketAclWithBlockPublicAccessError",
+          "Status": 400,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=247]",
+          "At": "2026-01-01T00:28:49Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "ACL": "public-read",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Sequence": 248,
+          "Label": "bpa-after-public-acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=248]",
+          "At": "2026-01-01T00:28:56Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 249,
+          "Label": "bpa-after-public-block",
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=249]",
+          "At": "2026-01-01T00:29:03Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 250,
+          "Label": "bpa-repeat-private",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=250]",
+          "At": "2026-01-01T00:29:10Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "ACL": "private",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Sequence": 251,
+          "Label": "bpa-after-private-acl",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=251]",
+          "At": "2026-01-01T00:29:17Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 252,
+          "Label": "lock-after-bpa",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=252]",
+          "At": "2026-01-01T00:29:24Z",
+          "Input": {
+            "Bucket": "recreation-lock-public-access"
+          },
+          "Output": {
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled"
+            }
+          }
+        },
+        {
+          "Sequence": 256,
+          "Label": "bpa-equality-create-preferred",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=256]",
+          "At": "2026-01-01T00:29:52Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality",
+            "ObjectOwnership": "BucketOwnerPreferred"
+          },
+          "Output": {
+            "Location": "/recreation-public-access-equality",
+            "BucketArn": "arn:aws:s3:::recreation-public-access-equality"
+          }
+        },
+        {
+          "Sequence": 257,
+          "Label": "lock-disabled-repeat-enable",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=257]",
+          "At": "2026-01-01T00:29:59Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Sequence": 258,
+          "Label": "lock-disabled-after-enable",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "ObjectLockConfigurationNotFoundError",
+          "Status": 404,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=258]",
+          "At": "2026-01-01T00:30:06Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality"
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 259,
+          "Label": "lock-disabled-repeat-false",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=259]",
+          "At": "2026-01-01T00:30:13Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "ObjectLockEnabledForBucket": false
+          },
+          "Output": {
+            "Location": "/recreation-public-access-equality",
+            "BucketArn": "arn:aws:s3:::recreation-public-access-equality"
+          }
+        },
+        {
+          "Sequence": 260,
+          "Label": "bpa-equality-disable-block",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=260]",
+          "At": "2026-01-01T00:30:20Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 261,
+          "Label": "bpa-equality-repeat-private",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=261]",
+          "At": "2026-01-01T00:30:27Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "ACL": "private"
+          }
+        },
+        {
+          "Sequence": 262,
+          "Label": "bpa-equality-after-private",
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=262]",
+          "At": "2026-01-01T00:30:34Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 263,
+          "Label": "bpa-equality-restore-block",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=263]",
+          "At": "2026-01-01T00:30:41Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 264,
+          "Label": "bpa-equality-repeat-restored",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=264]",
+          "At": "2026-01-01T00:30:48Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "ACL": "private"
+          },
+          "Output": {
+            "Location": "/recreation-public-access-equality",
+            "BucketArn": "arn:aws:s3:::recreation-public-access-equality"
+          }
+        },
+        {
+          "Sequence": 265,
+          "Label": "bpa-equality-delete-controls",
+          "Service": "s3",
+          "Operation": "DeletePublicAccessBlock",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=265]",
+          "At": "2026-01-01T00:30:55Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality"
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 266,
+          "Label": "bpa-equality-repeat-absent",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=266]",
+          "At": "2026-01-01T00:31:02Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality",
+            "ObjectOwnership": "BucketOwnerPreferred"
+          },
+          "Output": {
+            "Location": "/recreation-public-access-equality",
+            "BucketArn": "arn:aws:s3:::recreation-public-access-equality"
+          }
+        },
+        {
+          "Sequence": 267,
+          "Label": "bpa-equality-after-absent",
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "NoSuchPublicAccessBlockConfiguration",
+          "Status": 404,
+          "Source": "recreation_controls_evidence.json.gz#Rows[Sequence=267]",
+          "At": "2026-01-01T00:31:09Z",
+          "Input": {
+            "Bucket": "recreation-public-access-equality"
+          },
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "each-public-access-flag-conflict-and-absent-settings",
+      "Calls": [
+        {
+          "Sequence": 1,
+          "Label": "create",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=1]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:05.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Location": "/recreation-public-flags",
+            "BucketArn": "arn:aws:s3:::recreation-public-flags"
+          }
+        },
+        {
+          "Sequence": 2,
+          "Label": "BlockPublicAcls-change",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=2]",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:10.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 3,
+          "Label": "BlockPublicAcls-recreate",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=3]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:15.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Output": {}
+        },
+        {
+          "Sequence": 4,
+          "Label": "BlockPublicAcls-read",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=4]",
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:20.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 5,
+          "Label": "BlockPublicAcls-restore",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=5]",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:25.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 6,
+          "Label": "BlockPublicAcls-matching",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=6]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:30.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Location": "/recreation-public-flags",
+            "BucketArn": "arn:aws:s3:::recreation-public-flags"
+          }
+        },
+        {
+          "Sequence": 7,
+          "Label": "IgnorePublicAcls-change",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=7]",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:35.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 8,
+          "Label": "IgnorePublicAcls-recreate",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=8]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:40.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Output": {}
+        },
+        {
+          "Sequence": 9,
+          "Label": "IgnorePublicAcls-read",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=9]",
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:45.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 10,
+          "Label": "IgnorePublicAcls-restore",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=10]",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:50.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 11,
+          "Label": "IgnorePublicAcls-matching",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=11]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:00:55.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Location": "/recreation-public-flags",
+            "BucketArn": "arn:aws:s3:::recreation-public-flags"
+          }
+        },
+        {
+          "Sequence": 12,
+          "Label": "BlockPublicPolicy-change",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=12]",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:00.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 13,
+          "Label": "BlockPublicPolicy-recreate",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=13]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:05.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Output": {}
+        },
+        {
+          "Sequence": 14,
+          "Label": "BlockPublicPolicy-read",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=14]",
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:10.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 15,
+          "Label": "BlockPublicPolicy-restore",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=15]",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:15.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 16,
+          "Label": "BlockPublicPolicy-matching",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=16]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:20.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Location": "/recreation-public-flags",
+            "BucketArn": "arn:aws:s3:::recreation-public-flags"
+          }
+        },
+        {
+          "Sequence": 17,
+          "Label": "RestrictPublicBuckets-change",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=17]",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:25.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 18,
+          "Label": "RestrictPublicBuckets-recreate",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=18]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:30.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Output": {}
+        },
+        {
+          "Sequence": 19,
+          "Label": "RestrictPublicBuckets-read",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=19]",
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:35.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 20,
+          "Label": "RestrictPublicBuckets-restore",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=20]",
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:40.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 21,
+          "Label": "RestrictPublicBuckets-matching",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=21]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:45.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Location": "/recreation-public-flags",
+            "BucketArn": "arn:aws:s3:::recreation-public-flags"
+          }
+        },
+        {
+          "Sequence": 22,
+          "Label": "list-owned",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=22]",
+          "Service": "s3",
+          "Operation": "ListBuckets",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:50.000Z",
+          "Input": {
+            "Prefix": "recreation-public-flags",
+            "MaxBuckets": 1
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Buckets": [
+              {
+                "Name": "recreation-public-flags",
+                "BucketRegion": "us-east-1",
+                "BucketArn": "arn:aws:s3:::recreation-public-flags"
+              }
+            ],
+            "Prefix": "recreation-public-flags"
+          }
+        },
+        {
+          "Sequence": 23,
+          "Label": "delete-controls",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=23]",
+          "Service": "s3",
+          "Operation": "DeletePublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:01:55.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 204,
+          "Output": {}
+        },
+        {
+          "Sequence": 24,
+          "Label": "absent-recreate",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=24]",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:02:00.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Location": "/recreation-public-flags",
+            "BucketArn": "arn:aws:s3:::recreation-public-flags"
+          }
+        },
+        {
+          "Sequence": 25,
+          "Label": "absent-read",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=25]",
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:02:05.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "NoSuchPublicAccessBlockConfiguration",
+          "Status": 404,
+          "Output": {},
+          "Reopen": true
+        },
+        {
+          "Sequence": 26,
+          "Label": "cleanup",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=26]",
+          "Service": "s3",
+          "Operation": "DeleteBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:02:10.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "Success",
+          "Status": 204,
+          "Output": {}
+        },
+        {
+          "Sequence": 27,
+          "Label": "verify-absent",
+          "Source": "recreation_controls_evidence.json.gz#PublicAccessFlags.Rows[Sequence=27]",
+          "Service": "s3",
+          "Operation": "HeadBucket",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "At": "2026-01-02T00:02:15.000Z",
+          "Input": {
+            "Bucket": "recreation-public-flags"
+          },
+          "Code": "404",
+          "Status": 404,
+          "Output": {}
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "provenance": {
+    "kind": "SDK/runtime regression backed by owned native controls and primary documentation",
+    "sources": [
+      "https://docs.aws.amazon.com/lambda/latest/dg/permissions-user-layer.html",
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-single-vs-multi-valued-context-keys.html",
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html"
+    ],
+    "native_capture": "layer_conditions_native.json",
+    "unobserved_native_edges": "CreateFunction condition cases, mixed layer sets, missing independent GetLayerVersion authority, and explicit Deny cases are documentation-derived extensions. Update omission/clearing, positive/negative condition controls, and independent layer-read authority were observed natively."
+  },
+  "artifacts": {
+    "function": {"entry.py": "import glob, os\ndef invoke(event, context):\n    return sorted(os.path.basename(path) for path in glob.glob('/opt/*.txt'))\n"},
+    "allowed": {"allowed.txt": "allowed layer\n"},
+    "other": {"other.txt": "other layer\n"}
+  },
+  "policies": {
+    "all": {"Version":"2012-10-17","Statement":[
+      {"Effect":"Allow","Action":["lambda:CreateFunction","lambda:UpdateFunctionConfiguration"],"Resource":"*","Condition":{"ForAllValues:StringLike":{"lambda:Layer":"arn:aws:lambda:us-east-1:000000000000:layer:condition-allowed:*"}}},
+      {"Effect":"Allow","Action":["iam:PassRole","lambda:GetLayerVersion"],"Resource":"*"}
+    ]},
+    "any": {"Version":"2012-10-17","Statement":[
+      {"Effect":"Allow","Action":["lambda:CreateFunction","lambda:UpdateFunctionConfiguration"],"Resource":"*","Condition":{"ForAnyValue:ArnEquals":{"lambda:Layer":"arn:aws:lambda:us-east-1:000000000000:layer:condition-allowed:1"}}},
+      {"Effect":"Allow","Action":["iam:PassRole","lambda:GetLayerVersion"],"Resource":"*"}
+    ]},
+    "required": {"Version":"2012-10-17","Statement":[
+      {"Effect":"Allow","Action":["lambda:CreateFunction","lambda:UpdateFunctionConfiguration"],"Resource":"*","Condition":{"ForAllValues:ArnLike":{"lambda:Layer":"arn:aws:lambda:us-east-1:000000000000:layer:condition-allowed:*"},"Null":{"lambda:Layer":"false"}}},
+      {"Effect":"Allow","Action":["iam:PassRole","lambda:GetLayerVersion"],"Resource":"*"}
+    ]},
+    "ifexists": {"Version":"2012-10-17","Statement":[
+      {"Effect":"Allow","Action":["lambda:CreateFunction","lambda:UpdateFunctionConfiguration"],"Resource":"*","Condition":{"ForAllValues:StringLikeIfExists":{"lambda:Layer":"arn:aws:lambda:us-east-1:000000000000:layer:condition-allowed:*"}}},
+      {"Effect":"Allow","Action":["iam:PassRole","lambda:GetLayerVersion"],"Resource":"*"}
+    ]},
+    "deny_other": {"Version":"2012-10-17","Statement":[
+      {"Effect":"Allow","Action":["lambda:CreateFunction","lambda:UpdateFunctionConfiguration","iam:PassRole","lambda:GetLayerVersion"],"Resource":"*"},
+      {"Effect":"Deny","Action":["lambda:CreateFunction","lambda:UpdateFunctionConfiguration"],"Resource":"*","Condition":{"ForAnyValue:StringNotLike":{"lambda:Layer":"arn:aws:lambda:us-east-1:000000000000:layer:condition-allowed:*"}}}
+    ]},
+    "no_other_read": {"Version":"2012-10-17","Statement":[
+      {"Effect":"Allow","Action":["lambda:CreateFunction","lambda:UpdateFunctionConfiguration"],"Resource":"*","Condition":{"ForAnyValue:ArnEquals":{"lambda:Layer":"arn:aws:lambda:us-east-1:000000000000:layer:condition-allowed:1"}}},
+      {"Effect":"Allow","Action":"iam:PassRole","Resource":"*"},
+      {"Effect":"Allow","Action":"lambda:GetLayerVersion","Resource":"arn:aws:lambda:us-east-1:000000000000:layer:condition-allowed:1"}
+    ]}
+  },
+  "cases": [
+    {"name":"create_allowed","operation":"create","function":"condition-main","policy":"all","layers":["allowed"],"get":{"allowed":"Success"},"result":"Success","expected_layers":["allowed"]},
+    {"name":"create_disallowed_despite_read","operation":"create","function":"condition-rejected","policy":"all","layers":["other"],"get":{"other":"Success"},"result":"AccessDeniedException"},
+    {"name":"create_mixed_requires_all","operation":"create","function":"condition-mixed-rejected","policy":"all","layers":["allowed","other"],"result":"AccessDeniedException"},
+    {"name":"create_omitted_vacuous_all","operation":"create","function":"condition-empty","policy":"all","result":"Success","expected_layers":[]},
+    {"name":"create_explicit_empty_required","operation":"create","function":"condition-required-rejected","policy":"required","layers":[],"result":"AccessDeniedException"},
+    {"name":"create_requires_each_layer_read","operation":"create","function":"condition-read-rejected","policy":"no_other_read","layers":["allowed","other"],"get":{"allowed":"Success","other":"AccessDeniedException"},"result":"AccessDeniedException"},
+    {"name":"update_disallowed_atomic","operation":"update","function":"condition-main","policy":"all","layers":["other"],"native":"all-explicit-other-control"},
+    {"name":"update_any_allows_mixed","operation":"update","function":"condition-main","policy":"any","layers":["allowed","other"],"result":"Success","expected_layers":["allowed","other"]},
+    {"name":"omission_does_not_reuse_retained_allowed_arn","operation":"update","function":"condition-main","policy":"any","native":"any-omitted"},
+    {"name":"empty_does_not_satisfy_any","operation":"update","function":"condition-main","policy":"any","layers":[],"native":"any-empty"},
+    {"name":"omission_does_not_recheck_retained_other_arn","operation":"update","function":"condition-main","policy":"all","native":"all-omitted","expected_layers":["allowed","other"]},
+    {"name":"null_guard_rejects_omission","operation":"update","function":"condition-main","policy":"required","native":"required-omitted"},
+    {"name":"null_guard_rejects_clear","operation":"update","function":"condition-main","policy":"required","layers":[],"native":"required-empty"},
+    {"name":"update_requires_each_layer_read","operation":"update","function":"condition-main","policy":"no_other_read","layers":["allowed","other"],"result":"AccessDeniedException"},
+    {"name":"explicit_deny_overrides_allow","operation":"update","function":"condition-main","policy":"deny_other","layers":["allowed","other"],"result":"AccessDeniedException"},
+    {"name":"ifexists_accepts_omission","operation":"update","function":"condition-main","policy":"ifexists","native":"ifexists-omitted","expected_layers":["allowed","other"]},
+    {"name":"ifexists_still_checks_present_values","operation":"update","function":"condition-main","policy":"ifexists","layers":["other"],"native":"ifexists-explicit-other-control"},
+    {"name":"empty_does_not_trigger_any_deny","operation":"update","function":"condition-main","policy":"deny_other","layers":[],"result":"Success","expected_layers":[]},
+    {"name":"null_guard_allows_present_arn","operation":"update","function":"condition-main","policy":"required","layers":["allowed"],"native":"required-explicit-allowed-control-0","expected_layers":["allowed"]},
+    {"name":"all_allows_explicit_clear","operation":"update","function":"condition-main","policy":"all","layers":[],"native":"all-empty","expected_layers":[]}
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "interpretation": "Local IAM regression cases for real snapshot resource ownership and parent data authority; these are not additional native AWS captures.",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "policies": {
+    "size-deny": {"Statement":[{"Effect":"Allow","Action":"ebs:StartSnapshot","Resource":"*"},{"Effect":"Deny","Action":"ebs:StartSnapshot","Resource":"*","Condition":{"NumericGreaterThan":{"ebs:VolumeSize":"10"}}}]},
+    "description-deny": {"Statement":[{"Effect":"Allow","Action":"ebs:StartSnapshot","Resource":"*"},{"Effect":"Deny","Action":"ebs:StartSnapshot","Resource":"*","Condition":{"StringEquals":{"ebs:Description":"forbidden"}}}]},
+    "request-allow": {"Statement":{"Effect":"Allow","Action":"ebs:StartSnapshot","Resource":"arn:aws:ec2:us-east-1::snapshot/*","Condition":{"StringEquals":{"ebs:Description":"approved"},"NumericEquals":{"ebs:VolumeSize":"1"}}}},
+    "parent-size-deny": {"Statement":[{"Effect":"Allow","Action":"ebs:StartSnapshot","Resource":"*"},{"Effect":"Deny","Action":"ebs:StartSnapshot","Resource":"arn:aws:ec2:us-east-1::snapshot/${parent}","Condition":{"NumericGreaterThan":{"ebs:VolumeSize":"10"}}}]},
+    "parent-description-deny": {"Statement":[{"Effect":"Allow","Action":"ebs:StartSnapshot","Resource":"*"},{"Effect":"Deny","Action":"ebs:StartSnapshot","Resource":"arn:aws:ec2:us-east-1::snapshot/${parent}","Condition":{"StringEquals":{"ebs:Description":"forbidden"}}}]},
+    "parent-tags": {"Statement":[{"Effect":"Allow","Action":"ebs:StartSnapshot","Resource":"arn:aws:ec2:us-east-1::snapshot/null","Condition":{"StringEquals":{"aws:ResourceTag/team":"alice","aws:RequestTag/team":"alice"}}},{"Effect":"Allow","Action":"ebs:StartSnapshot","NotResource":"arn:aws:ec2:us-east-1::snapshot/null","Condition":{"StringEquals":{"aws:ResourceTag/team":"alice"}}},{"Effect":"Allow","Action":"ec2:CreateTags","Resource":"arn:aws:ec2:us-east-1::snapshot/*"}]},
+    "owner-allow": {"Statement":{"Effect":"Allow","Action":["ebs:StartSnapshot","ec2:CreateTags","ec2:DeleteTags"],"Resource":"arn:aws:ec2:us-east-1::snapshot/*","Condition":{"StringEquals":{"aws:ResourceAccount":"000000000000"}}}},
+    "owner-deny": {"Statement":[{"Effect":"Allow","Action":["ebs:StartSnapshot","ec2:CreateTags","ec2:DeleteTags"],"Resource":"*"},{"Effect":"Deny","Action":["ebs:StartSnapshot","ec2:CreateTags","ec2:DeleteTags"],"Resource":"*","Condition":{"StringEquals":{"aws:ResourceAccount":"000000000000"}}}]},
+    "organization-allow": {"Statement":{"Effect":"Allow","Action":["ebs:StartSnapshot","ec2:CreateTags","ec2:DeleteTags"],"Resource":"arn:aws:ec2:us-east-1::snapshot/*","Condition":{"StringEquals":{"aws:ResourceAccount":"000000000000","aws:ResourceOrgID":"${org}"},"ForAnyValue:StringEquals":{"aws:ResourceOrgPaths":"${org-path}"}}}},
+    "organization-deny": {"Statement":[{"Effect":"Allow","Action":["ebs:StartSnapshot","ec2:CreateTags","ec2:DeleteTags"],"Resource":"*"},{"Effect":"Deny","Action":["ebs:StartSnapshot","ec2:CreateTags","ec2:DeleteTags"],"Resource":"*","Condition":{"StringEquals":{"aws:ResourceOrgID":"${org}"}}}]}
+  },
+  "starts": [
+    {"name":"size-explicit-deny","policy":"size-deny","input":{"VolumeSize":20},"code":"AccessDeniedException"},
+    {"name":"size-valid-allow","policy":"size-deny","input":{"VolumeSize":1},"code":"Success"},
+    {"name":"description-explicit-deny","policy":"description-deny","input":{"VolumeSize":1,"Description":"forbidden"},"code":"AccessDeniedException"},
+    {"name":"request-conditional-allow","policy":"request-allow","input":{"VolumeSize":1,"Description":"approved"},"code":"Success"},
+    {"name":"missing-description-denied","policy":"request-allow","input":{"VolumeSize":1},"code":"AccessDeniedException"},
+    {"name":"wrong-size-denied","policy":"request-allow","input":{"VolumeSize":2,"Description":"approved"},"code":"AccessDeniedException"},
+    {"name":"parent-request-conditional-allow","policy":"request-allow","input":{"VolumeSize":1,"Description":"approved","ParentSnapshotId":"${parent}"},"code":"Success"},
+    {"name":"parent-size-explicit-deny","policy":"parent-size-deny","input":{"VolumeSize":20,"ParentSnapshotId":"${parent}"},"code":"AccessDeniedException"},
+    {"name":"parent-description-explicit-deny","policy":"parent-description-deny","input":{"VolumeSize":1,"Description":"forbidden","ParentSnapshotId":"${parent}"},"code":"AccessDeniedException"},
+    {"name":"child-tag-cannot-authorize-untagged-parent","policy":"parent-tags","input":{"VolumeSize":1,"ParentSnapshotId":"${parent}","Tags":[{"Key":"team","Value":"alice"}]},"code":"AccessDeniedException"},
+    {"name":"tagged-parent-conditional-allow","policy":"parent-tags","input":{"VolumeSize":1,"ParentSnapshotId":"${tagged-parent}","Tags":[{"Key":"team","Value":"alice"}]},"code":"Success"},
+    {"name":"owner-conditional-allow","policy":"owner-allow","input":{"VolumeSize":1},"code":"Success"},
+    {"name":"owner-explicit-deny","policy":"owner-deny","input":{"VolumeSize":1},"code":"AccessDeniedException"},
+    {"name":"organization-conditional-allow","policy":"organization-allow","input":{"VolumeSize":1,"ParentSnapshotId":"${parent}"},"code":"Success"},
+    {"name":"organization-explicit-deny","policy":"organization-deny","input":{"VolumeSize":1},"code":"AccessDeniedException"}
+  ],
+  "tags": [
+    {"name":"owner-create-deny","policy":"owner-deny","operation":"CreateTags","code":"UnauthorizedOperation","present":false},
+    {"name":"owner-create-allow","policy":"owner-allow","operation":"CreateTags","code":"Success","present":true},
+    {"name":"owner-delete-deny","policy":"owner-deny","operation":"DeleteTags","code":"UnauthorizedOperation","present":true},
+    {"name":"owner-delete-allow","policy":"owner-allow","operation":"DeleteTags","code":"Success","present":false},
+    {"name":"organization-create-deny","policy":"organization-deny","operation":"CreateTags","code":"UnauthorizedOperation","present":false},
+    {"name":"organization-create-allow","policy":"organization-allow","operation":"CreateTags","code":"Success","present":true},
+    {"name":"organization-delete-deny","policy":"organization-deny","operation":"DeleteTags","code":"UnauthorizedOperation","present":true},
+    {"name":"organization-delete-allow","policy":"organization-allow","operation":"DeleteTags","code":"Success","present":false}
+  ]
+}

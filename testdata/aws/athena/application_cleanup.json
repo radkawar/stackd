@@ -1,0 +1,128 @@
+{
+  "source": "native AWS",
+  "retrieved_at": "2026-09-26T14:42:58.694145+00:00",
+  "region": "us-east-1",
+  "run_suffix": "33de8ff7254146da",
+  "source_revisions": {
+    "aws_sdk_go_v2": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "primary_references": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucket.html"
+  ],
+  "bounds": {
+    "max_calls": 10,
+    "wall_seconds": 120,
+    "cost_usd_upper_estimate": 0.001
+  },
+  "normalization": "Owned names, account/caller/role/query/run IDs and pagination tokens replaced consistently; timestamps, field presence, list order, errors and data bytes retained. Credentials/debug output never persisted.",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_ms": 1790433778694,
+      "finished_ms": 1790433779444,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "OWNEDCALLERID",
+          "Account": "123456789012",
+          "Arn": "arn:aws:iam::123456789012:user/owned-caller"
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "list-owned-objects",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "MaxKeys": 10
+        },
+        "started_ms": 1790433779445,
+        "finished_ms": 1790433780268,
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "input/source.csv",
+                "LastModified": "2026-09-26T14:39:19+00:00",
+                "ETag": "\"0a8894f6cb75eb495cff9c1080f6bc34\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 36,
+                "StorageClass": "STANDARD"
+              }
+            ],
+            "Name": "stackd-analytics-owned",
+            "Prefix": "",
+            "MaxKeys": 10,
+            "EncodingType": "url",
+            "KeyCount": 1
+          }
+        }
+      },
+      {
+        "label": "delete-owned-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "input/source.csv"
+        },
+        "started_ms": 1790433780268,
+        "finished_ms": 1790433781053,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "delete-owned-bucket",
+        "service": "s3api",
+        "operation": "delete-bucket",
+        "input": {
+          "Bucket": "stackd-analytics-owned"
+        },
+        "started_ms": 1790433781053,
+        "finished_ms": 1790433781996,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-owned-bucket-absent",
+        "service": "s3api",
+        "operation": "head-bucket",
+        "input": {
+          "Bucket": "stackd-analytics-owned"
+        },
+        "started_ms": 1790433781996,
+        "finished_ms": 1790433783172,
+        "result": {
+          "code": "404",
+          "error": {
+            "Code": "404",
+            "Message": "Not Found"
+          }
+        }
+      }
+    ],
+    "remaining_owned": []
+  },
+  "completed": true,
+  "cli_calls": 5,
+  "elapsed_seconds": 4.479,
+  "account": "123456789012",
+  "recovers_capture": "testdata/aws/athena/application.json"
+}

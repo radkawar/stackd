@@ -1,0 +1,552 @@
+{
+  "recorded_at": "2026-09-11T10:22:11.122569+00:00",
+  "source": "Live AWS IAM GetContextKeysForCustomPolicy calls; no resources created. Output order is unspecified; comparisons preserve multiplicity.",
+  "custom": [
+    {
+      "name": "case_and_variables",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::bucket/${aws:PrincipalTag/Team}/${aws:username}",
+            "Condition": {
+              "StringEquals": {
+                "s3:ExistingObjectTag/Owner": "${aws:PrincipalTag/Team}"
+              },
+              "Null": {
+                "AWS:SourceIp": "false"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "s3:ExistingObjectTag/Owner",
+          "aws:username",
+          "aws:PrincipalTag/Team",
+          "AWS:SourceIp"
+        ]
+      }
+    },
+    {
+      "name": "default_and_literals",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::bucket/${aws:username, 'default'}/${*}/${?}/${$}"
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "$",
+          "aws:username",
+          "*",
+          "?"
+        ]
+      }
+    },
+    {
+      "name": "old_version",
+      "documents": [
+        {
+          "Version": "2008-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::bucket/${aws:username}"
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": []
+      }
+    },
+    {
+      "name": "not_resource",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Deny",
+            "Action": "s3:GetObject",
+            "NotResource": "arn:aws:s3:::bucket/${aws:PrincipalTag/project}"
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:PrincipalTag/project"
+        ]
+      }
+    },
+    {
+      "name": "duplicates_and_case",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::bucket/${aws:username}/${AWS:username}",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "${aws:username}",
+                "AWS:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:username",
+          "AWS:username"
+        ]
+      }
+    },
+    {
+      "name": "multiple_duplicates",
+      "documents": [
+        {
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          }
+        },
+        {
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:username",
+          "aws:username"
+        ]
+      }
+    },
+    {
+      "name": "invalid_operator",
+      "documents": [
+        {
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+              "MadeUp": {
+                "aws:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "error_code": "InvalidInput"
+    },
+    {
+      "name": "resource_policy",
+      "documents": [
+        {
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*",
+            "Principal": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:username"
+        ]
+      }
+    },
+    {
+      "name": "missing_resource",
+      "documents": [
+        {
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:username"
+        ]
+      }
+    },
+    {
+      "name": "variable_condition_numeric",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+              "NumericEquals": {
+                "aws:MultiFactorAuthAge": "${aws:PrincipalTag/Age}"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:PrincipalTag/Age",
+          "aws:MultiFactorAuthAge"
+        ]
+      }
+    },
+    {
+      "name": "missing_Effect",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "error_code": "InvalidInput"
+    },
+    {
+      "name": "missing_Action",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Resource": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:username"
+        ]
+      }
+    },
+    {
+      "name": "unknown_field",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          },
+          "Foo": "x"
+        }
+      ],
+      "error_code": "InvalidInput"
+    },
+    {
+      "name": "unknown_service_action",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "madeup:Thing",
+            "Resource": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:username"
+        ]
+      }
+    },
+    {
+      "name": "invalid_action",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "abc",
+            "Resource": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:username"
+        ]
+      }
+    },
+    {
+      "name": "invalid_resource",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "bad",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "a"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:username"
+        ]
+      }
+    },
+    {
+      "name": "numeric_literal_invalid",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+              "NumericEquals": {
+                "aws:MultiFactorAuthAge": "nope"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "aws:MultiFactorAuthAge"
+        ]
+      }
+    },
+    {
+      "name": "empty_statements",
+      "documents": [
+        {
+          "Statement": []
+        }
+      ],
+      "response": {
+        "ContextKeyNames": []
+      }
+    },
+    {
+      "name": "action_variable",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Action": "${aws:username}",
+            "Resource": "*"
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": []
+      }
+    },
+    {
+      "name": "principal_variable",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "${aws:username}"
+            },
+            "Action": "*",
+            "Resource": "*"
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": []
+      }
+    },
+    {
+      "name": "condition_key_variable",
+      "documents": [
+        {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Condition": {
+              "StringEquals": {
+                "${aws:username}": "a"
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": [
+          "${aws:username}"
+        ]
+      }
+    },
+    {
+      "name": "empty_condition",
+      "documents": [
+        {
+          "Statement": {
+            "Effect": "Allow",
+            "Condition": {}
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": []
+      }
+    },
+    {
+      "name": "missing_statement",
+      "documents": [
+        {
+          "Version": "2012-10-17"
+        }
+      ],
+      "response": {
+        "ContextKeyNames": []
+      }
+    },
+    {
+      "name": "empty_action_resource",
+      "documents": [
+        {
+          "Statement": {
+            "Effect": "Allow",
+            "Action": [],
+            "Resource": []
+          }
+        }
+      ],
+      "response": {
+        "ContextKeyNames": []
+      }
+    }
+  ],
+  "principal": {
+    "observations": [
+      {
+        "name": "user_with_shared_attachment_and_boundary",
+        "response": {
+          "ContextKeyNames": [
+            "aws:PrincipalTag/GroupInline",
+            "aws:PrincipalTag/UserInline",
+            "aws:PrincipalTag/Managed",
+            "aws:PrincipalTag/BoundaryOnly"
+          ]
+        }
+      },
+      {
+        "name": "group",
+        "response": {
+          "ContextKeyNames": [
+            "aws:PrincipalTag/GroupInline",
+            "aws:PrincipalTag/Managed"
+          ]
+        }
+      },
+      {
+        "name": "extra_duplicate",
+        "response": {
+          "ContextKeyNames": [
+            "aws:PrincipalTag/UserInline",
+            "aws:PrincipalTag/GroupInline",
+            "aws:PrincipalTag/UserInline",
+            "aws:PrincipalTag/Managed",
+            "aws:PrincipalTag/BoundaryOnly"
+          ]
+        }
+      },
+      {
+        "name": "wrong_path",
+        "response": {
+          "ContextKeyNames": [
+            "aws:PrincipalTag/GroupInline",
+            "aws:PrincipalTag/UserInline",
+            "aws:PrincipalTag/Managed",
+            "aws:PrincipalTag/BoundaryOnly"
+          ]
+        }
+      },
+      {
+        "name": "malformed_source_arn",
+        "request": {
+          "PolicySourceArn": "this-is-not-an-iam-source-arn"
+        },
+        "error_code": "InvalidInput",
+        "observed_at": "2026-09-11T10:33:57.940298+00:00",
+        "source": "Read-only AWS CLI probe during independent integration review; no resources created."
+      }
+    ],
+    "cleanup_complete": true
+  }
+}

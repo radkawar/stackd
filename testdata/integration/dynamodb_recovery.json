@@ -1,0 +1,1870 @@
+{
+  "source": "Historical item, GSI, selector, capacity and restored-default contracts selected from testdata/aws/dynamodb/point_in_time_recovery.json; nativeSequence identifies that evidence. Retention, reopen and frozen-time admission cuts are local lifecycle extensions.",
+  "account": "000000000000",
+  "start": "2026-09-17T23:59:00Z",
+  "assumptions": [
+    "Every request uses the generated AWS SDK against a real DynamoDB Local engine, with separate memory and SQLite replays. Only selected observable fields are compared; native identifiers and request timestamps are not copied.",
+    "All steps default explicitly to a frozen service instant. Named advances separate ordinary updates, deletions and inserts and move the sampled latest bound beyond those writes.",
+    "A cancellable native Request barrier waits after the next indexed target is really created, before its readiness description. It never replaces an engine result or blocks source writes. Two pending restores pin respectively zero and one retained change before a same-time source deletion.",
+    "Historical and latest restores inherit current source GSI and capacity, but not public Streams, tags or enabled PITR. ACTIVE descriptions omit RestoreSummary.",
+    "The hash-only GSI does not promise item ordering. Multi-item group queries filter a deterministic member while asserting ScannedCount; full typed table images are checked independently by Scan.",
+    "After real two-day expiry, shrinking to one day advances the lower bound. Increasing retention cannot move it backwards, including across reopen. Restoration at that bound must use the compacted historical baseline rather than current source data.",
+    "Disabling retires the interval. Re-enabling starts a fresh default window and baseline that includes writes made while disabled."
+  ],
+  "steps": [
+    {
+      "name": "create-source-with-gsi-streams-disabled-and-tags",
+      "advance": "0s",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "BillingMode": "PROVISIONED",
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 2,
+          "WriteCapacityUnits": 2
+        },
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "gpk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "by-group",
+            "KeySchema": [
+              {
+                "AttributeName": "gpk",
+                "KeyType": "HASH"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            },
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          }
+        ],
+        "StreamSpecification": {
+          "StreamEnabled": false
+        },
+        "Tags": [
+          {
+            "Key": "source-only",
+            "Value": "recovery"
+          }
+        ]
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING"
+      },
+      "nativeSequence": 2
+    },
+    {
+      "name": "pitr-default-disabled-after-initialization",
+      "advance": "1m",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source"
+      },
+      "want": {
+        "ContinuousBackupsDescription.ContinuousBackupsStatus": "ENABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": null,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": null,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime": null
+      }
+    },
+    {
+      "name": "baseline-alpha",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Item": {
+          "pk": {
+            "S": "alpha"
+          },
+          "gpk": {
+            "S": "old"
+          },
+          "version": {
+            "N": "1"
+          },
+          "payload": {
+            "S": "historical alpha"
+          }
+        }
+      },
+      "want": {},
+      "nativeSequence": 6
+    },
+    {
+      "name": "baseline-beta",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Item": {
+          "pk": {
+            "S": "beta"
+          },
+          "gpk": {
+            "S": "old"
+          },
+          "version": {
+            "N": "1"
+          },
+          "payload": {
+            "S": "deleted after point"
+          }
+        }
+      },
+      "want": {},
+      "nativeSequence": 7
+    },
+    {
+      "name": "baseline-stable",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Item": {
+          "pk": {
+            "S": "stable"
+          },
+          "gpk": {
+            "S": "stable"
+          },
+          "version": {
+            "N": "1"
+          },
+          "payload": {
+            "S": "unchanged"
+          }
+        }
+      },
+      "want": {},
+      "nativeSequence": 8
+    },
+    {
+      "name": "baseline-data",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "Items": [
+          {
+            "pk": {
+              "S": "alpha"
+            },
+            "gpk": {
+              "S": "old"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "historical alpha"
+            }
+          },
+          {
+            "pk": {
+              "S": "beta"
+            },
+            "gpk": {
+              "S": "old"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "deleted after point"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          }
+        ]
+      },
+      "nativeSequence": 9
+    },
+    {
+      "name": "enable-two-day-history",
+      "advance": "0s",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true,
+          "RecoveryPeriodInDays": 2
+        }
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "ENABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": 2,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": 1789689600,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime": 1789689600
+      },
+      "bind": {
+        "@interval-start": "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime"
+      }
+    },
+    {
+      "name": "enable-no-op-preserves-retention-and-bounds",
+      "advance": "0s",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true
+        }
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": 2,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": "@interval-start",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime": "@interval-start"
+      }
+    },
+    {
+      "name": "admit-zero-change-cut-at-frozen-time",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-cut-zero",
+        "UseLatestRestorableTime": true
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.RestoreSummary.RestoreInProgress": true,
+        "TableDescription.RestoreSummary.RestoreDateTime": "@interval-start"
+      },
+      "restorePaused": true,
+      "waitRestoreBarrier": true
+    },
+    {
+      "name": "same-time-update-after-first-admission",
+      "advance": "0s",
+      "operation": "UpdateItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Key": {
+          "pk": {
+            "S": "alpha"
+          }
+        },
+        "UpdateExpression": "SET #g = :g, #v = :v, #p = :p",
+        "ExpressionAttributeNames": {
+          "#g": "gpk",
+          "#v": "version",
+          "#p": "payload"
+        },
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "new"
+          },
+          ":v": {
+            "N": "2"
+          },
+          ":p": {
+            "S": "latest alpha"
+          }
+        },
+        "ReturnValues": "ALL_NEW"
+      },
+      "want": {
+        "Attributes": {
+          "gpk": {
+            "S": "new"
+          },
+          "version": {
+            "N": "2"
+          },
+          "pk": {
+            "S": "alpha"
+          },
+          "payload": {
+            "S": "latest alpha"
+          }
+        }
+      }
+    },
+    {
+      "name": "admit-one-change-cut-while-first-pending",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-cut-one",
+        "UseLatestRestorableTime": true
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.RestoreSummary.RestoreDateTime": "@interval-start"
+      }
+    },
+    {
+      "name": "same-time-delete-after-second-admission",
+      "advance": "0s",
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Key": {
+          "pk": {
+            "S": "beta"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {}
+    },
+    {
+      "name": "first-restore-still-pending",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-cut-zero"
+      },
+      "want": {
+        "Table.TableStatus": "CREATING",
+        "Table.RestoreSummary.RestoreInProgress": true
+      }
+    },
+    {
+      "name": "second-restore-still-pending",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-cut-one"
+      },
+      "want": {
+        "Table.TableStatus": "CREATING",
+        "Table.RestoreSummary.RestoreInProgress": true
+      }
+    },
+    {
+      "name": "release-native-readiness",
+      "advance": "0s",
+      "restorePaused": false
+    },
+    {
+      "name": "stackd-recovery-cut-zero-active",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-cut-zero"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.RestoreSummary": null
+      }
+    },
+    {
+      "name": "stackd-recovery-cut-zero-exact-admission-cut",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-cut-zero",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "Items": [
+          {
+            "pk": {
+              "S": "alpha"
+            },
+            "gpk": {
+              "S": "old"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "historical alpha"
+            }
+          },
+          {
+            "pk": {
+              "S": "beta"
+            },
+            "gpk": {
+              "S": "old"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "deleted after point"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "stackd-recovery-cut-one-active",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-cut-one"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.RestoreSummary": null
+      }
+    },
+    {
+      "name": "stackd-recovery-cut-one-exact-admission-cut",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-cut-one",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "Items": [
+          {
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "alpha"
+            },
+            "payload": {
+              "S": "latest alpha"
+            }
+          },
+          {
+            "pk": {
+              "S": "beta"
+            },
+            "gpk": {
+              "S": "old"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "deleted after point"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "source-reflects-both-post-admission-mutations",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 2,
+        "Items": [
+          {
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "alpha"
+            },
+            "payload": {
+              "S": "latest alpha"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "reset-alpha-for-separated-history",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Item": {
+          "pk": {
+            "S": "alpha"
+          },
+          "gpk": {
+            "S": "old"
+          },
+          "version": {
+            "N": "1"
+          },
+          "payload": {
+            "S": "historical alpha"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "reset-beta-for-separated-history",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Item": {
+          "pk": {
+            "S": "beta"
+          },
+          "gpk": {
+            "S": "old"
+          },
+          "version": {
+            "N": "1"
+          },
+          "payload": {
+            "S": "deleted after point"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "separated-update",
+      "advance": "10s",
+      "operation": "UpdateItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Key": {
+          "pk": {
+            "S": "alpha"
+          }
+        },
+        "UpdateExpression": "SET #g = :g, #v = :v, #p = :p",
+        "ExpressionAttributeNames": {
+          "#g": "gpk",
+          "#v": "version",
+          "#p": "payload"
+        },
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "new"
+          },
+          ":v": {
+            "N": "2"
+          },
+          ":p": {
+            "S": "latest alpha"
+          }
+        },
+        "ReturnValues": "ALL_NEW"
+      },
+      "want": {
+        "Attributes": {
+          "gpk": {
+            "S": "new"
+          },
+          "version": {
+            "N": "2"
+          },
+          "pk": {
+            "S": "alpha"
+          },
+          "payload": {
+            "S": "latest alpha"
+          }
+        }
+      },
+      "nativeSequence": 15
+    },
+    {
+      "name": "separated-delete",
+      "advance": "10s",
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Key": {
+          "pk": {
+            "S": "beta"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {},
+      "nativeSequence": 16
+    },
+    {
+      "name": "separated-insert",
+      "advance": "10s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Item": {
+          "pk": {
+            "S": "gamma"
+          },
+          "gpk": {
+            "S": "new"
+          },
+          "version": {
+            "N": "2"
+          },
+          "payload": {
+            "S": "created after point"
+          }
+        }
+      },
+      "want": {},
+      "nativeSequence": 17
+    },
+    {
+      "name": "change-current-source-capacity",
+      "advance": "0s",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 3,
+          "WriteCapacityUnits": 4
+        },
+        "GlobalSecondaryIndexUpdates": [
+          {
+            "Update": {
+              "IndexName": "by-group",
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 4,
+                "WriteCapacityUnits": 3
+              }
+            }
+          }
+        ]
+      },
+      "want": {},
+      "nativeSequence": 18
+    },
+    {
+      "name": "source-current-schema-and-capacity",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-source"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.ProvisionedThroughput.ReadCapacityUnits": 3,
+        "Table.ProvisionedThroughput.WriteCapacityUnits": 4,
+        "Table.GlobalSecondaryIndexes.0.IndexName": "by-group",
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 4,
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 3,
+        "Table.StreamSpecification": null,
+        "Table.LatestStreamArn": null
+      },
+      "nativeSequence": 20
+    },
+    {
+      "name": "source-current-data",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "Items": [
+          {
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "alpha"
+            },
+            "payload": {
+              "S": "latest alpha"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          },
+          {
+            "pk": {
+              "S": "gamma"
+            },
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "created after point"
+            }
+          }
+        ]
+      },
+      "nativeSequence": 21
+    },
+    {
+      "name": "latest-bound-covers-all-separated-writes",
+      "advance": "6m",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": "@interval-start",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime": 1789689690
+      },
+      "bind": {
+        "@latest-point": "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime"
+      }
+    },
+    {
+      "name": "reject-before-earliest",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-rejected",
+        "RestoreDateTime": 1789689599
+      },
+      "want": {},
+      "code": "InvalidRestoreTimeException",
+      "nativeSequence": 45
+    },
+    {
+      "name": "no-target-after-before-earliest",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-rejected"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "reject-after-latest",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-rejected",
+        "RestoreDateTime": 1789689991
+      },
+      "want": {},
+      "code": "InvalidRestoreTimeException",
+      "nativeSequence": 46
+    },
+    {
+      "name": "no-target-after-after-latest",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-rejected"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "reject-missing-selector",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-rejected"
+      },
+      "want": {},
+      "code": "ValidationException",
+      "nativeSequence": 47
+    },
+    {
+      "name": "no-target-after-missing-selector",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-rejected"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "reject-false-without-time",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-rejected",
+        "UseLatestRestorableTime": false
+      },
+      "want": {},
+      "code": "ValidationException",
+      "nativeSequence": 48
+    },
+    {
+      "name": "no-target-after-false-without-time",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-rejected"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "reject-conflicting-selectors",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-rejected",
+        "RestoreDateTime": 1789689605,
+        "UseLatestRestorableTime": true
+      },
+      "want": {},
+      "code": "ValidationException",
+      "nativeSequence": 49
+    },
+    {
+      "name": "no-target-after-conflicting-selectors",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-rejected"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "restore-historical",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-past",
+        "RestoreDateTime": 1789689605
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.RestoreSummary.SourceTableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-recovery-source",
+        "TableDescription.RestoreSummary.SourceBackupArn": null,
+        "TableDescription.RestoreSummary.RestoreDateTime": 1789689605,
+        "TableDescription.RestoreSummary.RestoreInProgress": true,
+        "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 3,
+        "TableDescription.ProvisionedThroughput.WriteCapacityUnits": 4,
+        "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 4,
+        "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 3
+      },
+      "nativeSequence": 50
+    },
+    {
+      "name": "historical-active-controls",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-past"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.RestoreSummary": null,
+        "Table.StreamSpecification": null,
+        "Table.LatestStreamArn": null,
+        "Table.ProvisionedThroughput.ReadCapacityUnits": 3,
+        "Table.ProvisionedThroughput.WriteCapacityUnits": 4,
+        "Table.GlobalSecondaryIndexes.0.IndexName": "by-group",
+        "Table.GlobalSecondaryIndexes.0.KeySchema": [
+          {
+            "AttributeName": "gpk",
+            "KeyType": "HASH"
+          }
+        ],
+        "Table.GlobalSecondaryIndexes.0.Projection": {
+          "ProjectionType": "ALL"
+        },
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 4,
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 3
+      }
+    },
+    {
+      "name": "historical-actual-items",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-past",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "Items": [
+          {
+            "pk": {
+              "S": "alpha"
+            },
+            "gpk": {
+              "S": "old"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "historical alpha"
+            }
+          },
+          {
+            "pk": {
+              "S": "beta"
+            },
+            "gpk": {
+              "S": "old"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "deleted after point"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          }
+        ]
+      },
+      "nativeSequence": 73
+    },
+    {
+      "name": "historical-index-old",
+      "advance": "0s",
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-recovery-past",
+        "IndexName": "by-group",
+        "KeyConditionExpression": "gpk = :g",
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "old"
+          },
+          ":pk": {
+            "S": "alpha"
+          }
+        },
+        "FilterExpression": "pk = :pk"
+      },
+      "want": {
+        "Count": 1,
+        "ScannedCount": 2,
+        "Items": [
+          {
+            "pk": {
+              "S": "alpha"
+            },
+            "gpk": {
+              "S": "old"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "historical alpha"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "historical-index-new",
+      "advance": "0s",
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-recovery-past",
+        "IndexName": "by-group",
+        "KeyConditionExpression": "gpk = :g",
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "new"
+          }
+        }
+      },
+      "want": {
+        "Count": 0,
+        "Items": []
+      }
+    },
+    {
+      "name": "historical-index-stable",
+      "advance": "0s",
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-recovery-past",
+        "IndexName": "by-group",
+        "KeyConditionExpression": "gpk = :g",
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "stable"
+          }
+        }
+      },
+      "want": {
+        "Count": 1,
+        "Items": [
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "historical-pitr-disabled",
+      "advance": "0s",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-past"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": null,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": null,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime": null
+      },
+      "nativeSequence": 77
+    },
+    {
+      "name": "historical-tags-not-restored",
+      "advance": "0s",
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-recovery-past"
+      },
+      "want": {
+        "Tags": []
+      },
+      "nativeSequence": 78
+    },
+    {
+      "name": "restore-latest",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-latest",
+        "UseLatestRestorableTime": true
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.RestoreSummary.SourceTableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-recovery-source",
+        "TableDescription.RestoreSummary.SourceBackupArn": null,
+        "TableDescription.RestoreSummary.RestoreDateTime": "@latest-point",
+        "TableDescription.RestoreSummary.RestoreInProgress": true,
+        "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 3,
+        "TableDescription.ProvisionedThroughput.WriteCapacityUnits": 4,
+        "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 4,
+        "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 3
+      },
+      "nativeSequence": 51
+    },
+    {
+      "name": "latest-active-controls",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-latest"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.RestoreSummary": null,
+        "Table.StreamSpecification": null,
+        "Table.LatestStreamArn": null,
+        "Table.ProvisionedThroughput.ReadCapacityUnits": 3,
+        "Table.ProvisionedThroughput.WriteCapacityUnits": 4,
+        "Table.GlobalSecondaryIndexes.0.IndexName": "by-group",
+        "Table.GlobalSecondaryIndexes.0.KeySchema": [
+          {
+            "AttributeName": "gpk",
+            "KeyType": "HASH"
+          }
+        ],
+        "Table.GlobalSecondaryIndexes.0.Projection": {
+          "ProjectionType": "ALL"
+        },
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 4,
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 3
+      }
+    },
+    {
+      "name": "latest-actual-items",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-latest",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "Items": [
+          {
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "alpha"
+            },
+            "payload": {
+              "S": "latest alpha"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          },
+          {
+            "pk": {
+              "S": "gamma"
+            },
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "created after point"
+            }
+          }
+        ]
+      },
+      "nativeSequence": 80
+    },
+    {
+      "name": "latest-index-old",
+      "advance": "0s",
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-recovery-latest",
+        "IndexName": "by-group",
+        "KeyConditionExpression": "gpk = :g",
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "old"
+          }
+        }
+      },
+      "want": {
+        "Count": 0,
+        "Items": []
+      }
+    },
+    {
+      "name": "latest-index-new",
+      "advance": "0s",
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-recovery-latest",
+        "IndexName": "by-group",
+        "KeyConditionExpression": "gpk = :g",
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "new"
+          },
+          ":pk": {
+            "S": "alpha"
+          }
+        },
+        "FilterExpression": "pk = :pk"
+      },
+      "want": {
+        "Count": 1,
+        "ScannedCount": 2,
+        "Items": [
+          {
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "alpha"
+            },
+            "payload": {
+              "S": "latest alpha"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "latest-index-stable",
+      "advance": "0s",
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-recovery-latest",
+        "IndexName": "by-group",
+        "KeyConditionExpression": "gpk = :g",
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "stable"
+          }
+        }
+      },
+      "want": {
+        "Count": 1,
+        "Items": [
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "latest-pitr-disabled",
+      "advance": "0s",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-latest"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": null,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": null,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime": null
+      },
+      "nativeSequence": 84
+    },
+    {
+      "name": "latest-tags-not-restored",
+      "advance": "0s",
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-recovery-latest"
+      },
+      "want": {
+        "Tags": []
+      },
+      "nativeSequence": 85
+    },
+    {
+      "name": "age-history-past-two-days",
+      "advance": "49h",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": 2,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": 1789693590
+      }
+    },
+    {
+      "name": "shrink-retention-compacts-expired-history",
+      "advance": "0s",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true,
+          "RecoveryPeriodInDays": 1
+        }
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": 1,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": 1789779990
+      }
+    },
+    {
+      "name": "write-after-retention-floor",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Item": {
+          "gpk": {
+            "S": "new"
+          },
+          "version": {
+            "N": "3"
+          },
+          "pk": {
+            "S": "alpha"
+          },
+          "payload": {
+            "S": "after retention shrink"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "shrunken-window-continues-advancing",
+      "advance": "6m",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": 1,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": 1789780350
+      },
+      "bind": {
+        "@retained-floor": "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime"
+      }
+    },
+    {
+      "name": "increase-does-not-resurrect-expired-history",
+      "advance": "0s",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true,
+          "RecoveryPeriodInDays": 2
+        }
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": 2,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": "@retained-floor"
+      }
+    },
+    {
+      "name": "reopen-retains-window-and-history",
+      "advance": "0s",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": 2,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": "@retained-floor"
+      },
+      "reopen": true
+    },
+    {
+      "name": "expired-point-stays-unavailable-after-increase-and-reopen",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-rejected",
+        "RestoreDateTime": 1789689605
+      },
+      "want": {},
+      "code": "InvalidRestoreTimeException"
+    },
+    {
+      "name": "expired-point-created-no-target",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-rejected"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "restore-compacted-lower-bound",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-retained-floor",
+        "RestoreDateTime": "@retained-floor"
+      },
+      "want": {
+        "TableDescription.RestoreSummary.RestoreDateTime": "@retained-floor"
+      }
+    },
+    {
+      "name": "compacted-baseline-is-historical-not-current",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-retained-floor",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "Items": [
+          {
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "alpha"
+            },
+            "payload": {
+              "S": "latest alpha"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          },
+          {
+            "pk": {
+              "S": "gamma"
+            },
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "created after point"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "restore-latest-after-reopen",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-retained-latest",
+        "UseLatestRestorableTime": true
+      },
+      "want": {}
+    },
+    {
+      "name": "reopened-history-includes-later-write",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-retained-latest",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "Items": [
+          {
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "alpha"
+            },
+            "payload": {
+              "S": "after retention shrink"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          },
+          {
+            "pk": {
+              "S": "gamma"
+            },
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "created after point"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "disable-history",
+      "advance": "0s",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": false
+        }
+      },
+      "want": {
+        "ContinuousBackupsDescription.ContinuousBackupsStatus": "ENABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": null,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": null,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime": null
+      }
+    },
+    {
+      "name": "disabled-history-cannot-restore",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-rejected",
+        "UseLatestRestorableTime": true
+      },
+      "want": {},
+      "code": "PointInTimeRecoveryUnavailableException"
+    },
+    {
+      "name": "disabled-history-created-no-target",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-rejected"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "write-while-history-disabled",
+      "advance": "10s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "Item": {
+          "gpk": {
+            "S": "new"
+          },
+          "version": {
+            "N": "4"
+          },
+          "pk": {
+            "S": "alpha"
+          },
+          "payload": {
+            "S": "written while recovery disabled"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "reenable-starts-fresh-default-window",
+      "advance": "0s",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true
+        }
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "ENABLED",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": 35,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": 1789866760,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime": 1789866760
+      },
+      "bind": {
+        "@fresh-start": "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime"
+      }
+    },
+    {
+      "name": "reopen-keeps-new-interval",
+      "advance": "0s",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-source"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.RecoveryPeriodInDays": 35,
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.EarliestRestorableDateTime": "@fresh-start",
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.LatestRestorableDateTime": "@fresh-start"
+      },
+      "reopen": true
+    },
+    {
+      "name": "reenabled-history-rejects-previous-interval",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-rejected",
+        "RestoreDateTime": "@retained-floor"
+      },
+      "want": {},
+      "code": "InvalidRestoreTimeException"
+    },
+    {
+      "name": "previous-interval-created-no-target",
+      "advance": "0s",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-recovery-rejected"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "restore-fresh-interval-baseline",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-source",
+        "TargetTableName": "stackd-recovery-fresh",
+        "UseLatestRestorableTime": true
+      },
+      "want": {
+        "TableDescription.RestoreSummary.RestoreDateTime": "@fresh-start"
+      }
+    },
+    {
+      "name": "fresh-baseline-includes-disabled-period-writes",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-fresh",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "Items": [
+          {
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "alpha"
+            },
+            "payload": {
+              "S": "written while recovery disabled"
+            }
+          },
+          {
+            "pk": {
+              "S": "stable"
+            },
+            "gpk": {
+              "S": "stable"
+            },
+            "version": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "unchanged"
+            }
+          },
+          {
+            "pk": {
+              "S": "gamma"
+            },
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "created after point"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "fresh-baseline-index-has-disabled-period-write",
+      "advance": "0s",
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-recovery-fresh",
+        "IndexName": "by-group",
+        "KeyConditionExpression": "gpk = :g",
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "new"
+          },
+          ":pk": {
+            "S": "alpha"
+          }
+        },
+        "FilterExpression": "pk = :pk"
+      },
+      "want": {
+        "Count": 1,
+        "ScannedCount": 2,
+        "Items": [
+          {
+            "gpk": {
+              "S": "new"
+            },
+            "version": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "alpha"
+            },
+            "payload": {
+              "S": "written while recovery disabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "source-tags-survive-control-transitions",
+      "advance": "0s",
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-recovery-source"
+      },
+      "want": {
+        "Tags": [
+          {
+            "Key": "source-only",
+            "Value": "recovery"
+          }
+        ]
+      }
+    }
+  ]
+}

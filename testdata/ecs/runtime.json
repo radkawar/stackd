@@ -1,0 +1,132 @@
+{
+  "evidence": {
+    "success": "aws/ecs/execution.json calls sequence 49 (first-task-timeline): init exit 0, SUCCESS-dependent main exit 0, EssentialContainerExited, startedAt present, ENI DELETED",
+    "failed-success": "aws/ecs/task_dependency_transitions.json scenarios.failed-success.final and findings[0]: init exit 7, dependent STOPPED without exitCode, TaskFailedToStart, startedAt absent, ENI DELETED",
+    "architecture": "Local Prepare-failure regression; startup field-presence contract from aws/ecs/task_log_startup.json observations auto-denied: TaskFailedToStart, no startedAt or exitCode",
+    "stopped-healthy": "Local dependency-liveness regression: an exited nonessential health provider cannot leave its never-started dependent pending indefinitely; exact native failure timing is not claimed",
+    "replay": "aws/ecs/task_tokens.json calls sequence 24 empty-overrides-versus-omitted and 25 empty-startedBy-versus-omitted: ConflictException"
+  },
+  "scenarios": [
+    {
+      "name": "success",
+      "definition": {
+        "family": "ecs-runtime-success",
+        "networkMode": "awsvpc",
+        "requiresCompatibilities": ["FARGATE"],
+        "cpu": "256",
+        "memory": "512",
+        "runtimePlatform": {"cpuArchitecture": "X86_64", "operatingSystemFamily": "LINUX"},
+        "volumes": [{"name": "shared"}],
+        "containerDefinitions": [
+          {
+            "name": "init",
+            "image": "python@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97",
+            "essential": false,
+            "entryPoint": ["python3"],
+            "command": ["-c", "from pathlib import Path; Path('/shared/ready').write_text('ready')"],
+            "mountPoints": [{"sourceVolume": "shared", "containerPath": "/shared"}]
+          },
+          {
+            "name": "dependent",
+            "image": "python@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97",
+            "essential": true,
+            "entryPoint": ["python3"],
+            "command": ["-c", "from pathlib import Path; import sys,time; ready=Path('/shared/ready').read_text() == 'ready'; time.sleep(1); sys.exit(0 if ready else 42)"],
+            "dependsOn": [{"containerName": "init", "condition": "SUCCESS"}],
+            "mountPoints": [{"sourceVolume": "shared", "containerPath": "/shared", "readOnly": true}]
+          }
+        ]
+      },
+      "stopCode": "EssentialContainerExited",
+      "startedAtPresent": true,
+      "exitCodes": {"init": 0, "dependent": 0}
+    },
+    {
+      "name": "failed-success",
+      "definition": {
+        "family": "ecs-runtime-failed-success",
+        "networkMode": "awsvpc",
+        "requiresCompatibilities": ["FARGATE"],
+        "cpu": "256",
+        "memory": "512",
+        "runtimePlatform": {"cpuArchitecture": "X86_64", "operatingSystemFamily": "LINUX"},
+        "containerDefinitions": [
+          {
+            "name": "init",
+            "image": "python@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97",
+            "essential": false,
+            "entryPoint": ["python3"],
+            "command": ["-c", "import sys; sys.exit(7)"]
+          },
+          {
+            "name": "dependent",
+            "image": "python@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97",
+            "essential": true,
+            "entryPoint": ["python3"],
+            "command": ["-c", "import sys; sys.exit(42)"],
+            "dependsOn": [{"containerName": "init", "condition": "SUCCESS"}]
+          }
+        ]
+      },
+      "stopCode": "TaskFailedToStart",
+      "startedAtPresent": false,
+      "exitCodes": {"init": 7, "dependent": null}
+    },
+    {
+      "name": "stopped-healthy",
+      "definition": {
+        "family": "ecs-runtime-stopped-healthy",
+        "networkMode": "awsvpc",
+        "requiresCompatibilities": ["FARGATE"],
+        "cpu": "256",
+        "memory": "512",
+        "runtimePlatform": {"cpuArchitecture": "X86_64", "operatingSystemFamily": "LINUX"},
+        "containerDefinitions": [
+          {
+            "name": "init",
+            "image": "python@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97",
+            "essential": false,
+            "entryPoint": ["python3"],
+            "command": ["-c", "import sys; sys.exit(0)"],
+            "healthCheck": {"command": ["CMD-SHELL", "exit 1"], "interval": 5, "timeout": 2, "retries": 2}
+          },
+          {
+            "name": "dependent",
+            "image": "python@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97",
+            "essential": true,
+            "entryPoint": ["python3"],
+            "command": ["-c", "import sys; sys.exit(42)"],
+            "dependsOn": [{"containerName": "init", "condition": "HEALTHY"}]
+          }
+        ]
+      },
+      "stopCode": "TaskFailedToStart",
+      "startedAtPresent": false,
+      "exitCodes": {"init": 0, "dependent": null}
+    },
+    {
+      "name": "architecture",
+      "definition": {
+        "family": "ecs-runtime-architecture",
+        "networkMode": "awsvpc",
+        "requiresCompatibilities": ["FARGATE"],
+        "cpu": "256",
+        "memory": "512",
+        "runtimePlatform": {"cpuArchitecture": "X86_64", "operatingSystemFamily": "LINUX"},
+        "containerDefinitions": [
+          {
+            "name": "wrong-architecture",
+            "image": "public.ecr.aws/lambda/python@sha256:6a1d5d5815a9e754969f1c14f0f6a3ef14a8b094db25e16c1ad5bccc4ee4b99e",
+            "essential": true,
+            "entryPoint": ["/var/lang/bin/python3"],
+            "command": ["-c", "import sys; sys.exit(42)"]
+          }
+        ]
+      },
+      "stopCode": "TaskFailedToStart",
+      "startedAtPresent": false,
+      "exitCodes": {"wrong-architecture": null}
+    }
+  ],
+  "conflicts": [{"startedBy": ""}, {"overrides": {}}]
+}

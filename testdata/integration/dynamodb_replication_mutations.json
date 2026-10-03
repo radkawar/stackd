@@ -1,0 +1,1458 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Both-region real native mutation replay. Known-successful unchanged-value writes and missing-key delete follow global_tables_conflicts.json; no assertion about unobservable internal replication or concurrent-write timestamp ordering.",
+  "steps": [
+    {
+      "name": "create-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "put-initial",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Item": {
+          "pk": {
+            "S": "initial"
+          },
+          "n": {
+            "N": "1"
+          },
+          "mark": {
+            "S": "bootstrap"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "create-peer",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "membership-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-mutations"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "membership-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-mutations"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "observe-initial",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "initial"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "initial"
+          },
+          "n": {
+            "N": "1"
+          },
+          "mark": {
+            "S": "bootstrap"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "put-item-east1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Item": {
+          "pk": {
+            "S": "item-east1"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "east1-put-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "item-east1"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-update",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east1"
+          }
+        },
+        "UpdateExpression": "SET n = :n",
+        "ExpressionAttributeValues": {
+          ":n": {
+            "N": "2"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "east1-update-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "item-east1"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-unchanged-put",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Item": {
+          "pk": {
+            "S": "item-east1"
+          },
+          "n": {
+            "N": "2"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": {
+          "pk": {
+            "S": "item-east1"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      }
+    },
+    {
+      "name": "east1-unchanged-update",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east1"
+          }
+        },
+        "UpdateExpression": "SET n = :n",
+        "ExpressionAttributeValues": {
+          ":n": {
+            "N": "2"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": {
+          "pk": {
+            "S": "item-east1"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      }
+    },
+    {
+      "name": "east1-unchanged-value-preserved",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "item-east1"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-delete-missing",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "missing-east1"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": null
+      }
+    },
+    {
+      "name": "east1-missing-remains-absent",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "missing-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-delete",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east1"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": {
+          "pk": {
+            "S": "item-east1"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      }
+    },
+    {
+      "name": "east1-delete-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "put-batch-victim-east1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Item": {
+          "pk": {
+            "S": "batch-victim-east1"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "observe-batch-victim-east1",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "batch-victim-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "batch-victim-east1"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-batch-put-delete",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "BatchWriteItem",
+      "input": {
+        "RequestItems": {
+          "stackd-replication-mutations": [
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "batch-east1"
+                  },
+                  "n": {
+                    "N": "3"
+                  }
+                }
+              }
+            },
+            {
+              "DeleteRequest": {
+                "Key": {
+                  "pk": {
+                    "S": "batch-victim-east1"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "want": {
+        "UnprocessedItems": {}
+      }
+    },
+    {
+      "name": "east1-batch-put-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "batch-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "batch-east1"
+          },
+          "n": {
+            "N": "3"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-batch-delete-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "batch-victim-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-transaction-put-delete",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "TransactWriteItems",
+      "input": {
+        "ClientRequestToken": "replication-east1",
+        "TransactItems": [
+          {
+            "Put": {
+              "TableName": "stackd-replication-mutations",
+              "Item": {
+                "pk": {
+                  "S": "txn-east1"
+                },
+                "n": {
+                  "N": "4"
+                }
+              }
+            }
+          },
+          {
+            "Delete": {
+              "TableName": "stackd-replication-mutations",
+              "Key": {
+                "pk": {
+                  "S": "batch-east1"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "east1-transaction-put-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "txn-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "txn-east1"
+          },
+          "n": {
+            "N": "4"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-transaction-delete-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "batch-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-partiql-update",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "ExecuteStatement",
+      "input": {
+        "Statement": "UPDATE \"stackd-replication-mutations\" SET \"n\"=? WHERE \"pk\"=?",
+        "Parameters": [
+          {
+            "N": "5"
+          },
+          {
+            "S": "txn-east1"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "east1-partiql-update-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "txn-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "txn-east1"
+          },
+          "n": {
+            "N": "5"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-partiql-batch-update",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "BatchExecuteStatement",
+      "input": {
+        "Statements": [
+          {
+            "Statement": "UPDATE \"stackd-replication-mutations\" SET \"n\"=? WHERE \"pk\"=?",
+            "Parameters": [
+              {
+                "N": "6"
+              },
+              {
+                "S": "txn-east1"
+              }
+            ]
+          }
+        ]
+      },
+      "want": {
+        "Responses.0.Error": null
+      }
+    },
+    {
+      "name": "east1-partiql-batch-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "txn-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "txn-east1"
+          },
+          "n": {
+            "N": "6"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east1-partiql-transaction-delete",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "ExecuteTransaction",
+      "input": {
+        "ClientRequestToken": "replication-partiql-east1",
+        "TransactStatements": [
+          {
+            "Statement": "DELETE FROM \"stackd-replication-mutations\" WHERE \"pk\"=?",
+            "Parameters": [
+              {
+                "S": "txn-east1"
+              }
+            ]
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "east1-partiql-transaction-delete-replicates",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "txn-east1"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "put-item-east2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Item": {
+          "pk": {
+            "S": "item-east2"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "east2-put-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "item-east2"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-update",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "UpdateItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east2"
+          }
+        },
+        "UpdateExpression": "SET n = :n",
+        "ExpressionAttributeValues": {
+          ":n": {
+            "N": "2"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "east2-update-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "item-east2"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-unchanged-put",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Item": {
+          "pk": {
+            "S": "item-east2"
+          },
+          "n": {
+            "N": "2"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": {
+          "pk": {
+            "S": "item-east2"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      }
+    },
+    {
+      "name": "east2-unchanged-update",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "UpdateItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east2"
+          }
+        },
+        "UpdateExpression": "SET n = :n",
+        "ExpressionAttributeValues": {
+          ":n": {
+            "N": "2"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": {
+          "pk": {
+            "S": "item-east2"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      }
+    },
+    {
+      "name": "east2-unchanged-value-preserved",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "item-east2"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-delete-missing",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "missing-east2"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": null
+      }
+    },
+    {
+      "name": "east2-missing-remains-absent",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "missing-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-delete",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east2"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": {
+          "pk": {
+            "S": "item-east2"
+          },
+          "n": {
+            "N": "2"
+          }
+        }
+      }
+    },
+    {
+      "name": "east2-delete-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "item-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "put-batch-victim-east2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Item": {
+          "pk": {
+            "S": "batch-victim-east2"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "observe-batch-victim-east2",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "batch-victim-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "batch-victim-east2"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-batch-put-delete",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "BatchWriteItem",
+      "input": {
+        "RequestItems": {
+          "stackd-replication-mutations": [
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "batch-east2"
+                  },
+                  "n": {
+                    "N": "3"
+                  }
+                }
+              }
+            },
+            {
+              "DeleteRequest": {
+                "Key": {
+                  "pk": {
+                    "S": "batch-victim-east2"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "want": {
+        "UnprocessedItems": {}
+      }
+    },
+    {
+      "name": "east2-batch-put-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "batch-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "batch-east2"
+          },
+          "n": {
+            "N": "3"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-batch-delete-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "batch-victim-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-transaction-put-delete",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "TransactWriteItems",
+      "input": {
+        "ClientRequestToken": "replication-east2",
+        "TransactItems": [
+          {
+            "Put": {
+              "TableName": "stackd-replication-mutations",
+              "Item": {
+                "pk": {
+                  "S": "txn-east2"
+                },
+                "n": {
+                  "N": "4"
+                }
+              }
+            }
+          },
+          {
+            "Delete": {
+              "TableName": "stackd-replication-mutations",
+              "Key": {
+                "pk": {
+                  "S": "batch-east2"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "east2-transaction-put-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "txn-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "txn-east2"
+          },
+          "n": {
+            "N": "4"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-transaction-delete-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "batch-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-partiql-update",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "ExecuteStatement",
+      "input": {
+        "Statement": "UPDATE \"stackd-replication-mutations\" SET \"n\"=? WHERE \"pk\"=?",
+        "Parameters": [
+          {
+            "N": "5"
+          },
+          {
+            "S": "txn-east2"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "east2-partiql-update-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "txn-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "txn-east2"
+          },
+          "n": {
+            "N": "5"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-partiql-batch-update",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "BatchExecuteStatement",
+      "input": {
+        "Statements": [
+          {
+            "Statement": "UPDATE \"stackd-replication-mutations\" SET \"n\"=? WHERE \"pk\"=?",
+            "Parameters": [
+              {
+                "N": "6"
+              },
+              {
+                "S": "txn-east2"
+              }
+            ]
+          }
+        ]
+      },
+      "want": {
+        "Responses.0.Error": null
+      }
+    },
+    {
+      "name": "east2-partiql-batch-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "txn-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "txn-east2"
+          },
+          "n": {
+            "N": "6"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "east2-partiql-transaction-delete",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "ExecuteTransaction",
+      "input": {
+        "ClientRequestToken": "replication-partiql-east2",
+        "TransactStatements": [
+          {
+            "Statement": "DELETE FROM \"stackd-replication-mutations\" WHERE \"pk\"=?",
+            "Parameters": [
+              {
+                "S": "txn-east2"
+              }
+            ]
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "east2-partiql-transaction-delete-replicates",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "txn-east2"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "source-survives-reopen",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "initial"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "initial"
+          },
+          "n": {
+            "N": "1"
+          },
+          "mark": {
+            "S": "bootstrap"
+          }
+        }
+      },
+      "waitWant": true,
+      "reopen": true
+    },
+    {
+      "name": "peer-survives-reopen",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "Key": {
+          "pk": {
+            "S": "initial"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "initial"
+          },
+          "n": {
+            "N": "1"
+          },
+          "mark": {
+            "S": "bootstrap"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "remove-peer",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-mutations",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "peer-absent",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-mutations"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "source-demoted-streams-remain",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-mutations"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-owned-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-replication-mutations"
+      },
+      "want": {}
+    },
+    {
+      "name": "source-absent",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-mutations"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    }
+  ]
+}

@@ -1,0 +1,657 @@
+{
+  "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+  "Normalization": "Uses established local-fixture foreign OrganizationAccountAccessRole prerequisite; native account/bucket/role rebound, all AWS operation outcomes and charged-header presence/absence from cited events. Presigned requests remain evidence-only because this raw runner signs header authentication rather than query signatures.",
+  "Scenarios": [
+    {
+      "Name": "foreign-management-admission-and-state-transition",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-createrole",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "CreateRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "AssumeRolePolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${account}:root\"},\"Action\":\"sts:AssumeRole\"}]}"
+          },
+          "Output": {},
+          "Bind": {
+            "memberRole": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-prerequisite-putrolepolicy",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "PutRolePolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "PolicyName": "NativeOwnershipProbe",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cross-assume-existing-member-role",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Operation": "AssumeRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${memberRole}",
+            "RoleSessionName": "requester-replay"
+          },
+          "Output": {},
+          "Actor": "caller",
+          "Service": "sts",
+          "Session": "foreign"
+        },
+        {
+          "Label": "create boundaries",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "grant owned bucket to foreign role",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "requester-native",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"${memberRole}\"}, \"Action\": \"s3:*\", \"Resource\": [\"arn:aws:s3:::requester-native\", \"arn:aws:s3:::requester-native/*\"]}]}"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "BucketOwner foreign /?requestPayment",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 3,
+          "Actor": "foreign",
+          "Operation": "GetBucketRequestPayment",
+          "Method": "GET",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "BodyContains": [
+            "<Payer>BucketOwner</Payer>"
+          ]
+        },
+        {
+          "Label": "BucketOwner foreign /?versioning",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 4,
+          "Actor": "foreign",
+          "Operation": "GetBucketVersioning",
+          "Method": "GET",
+          "Target": "/requester-native/?versioning",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "BucketOwner foreign /?location",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 5,
+          "Actor": "foreign",
+          "Operation": "GetBucketLocation",
+          "Method": "GET",
+          "Target": "/requester-native/?location",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "wrong root changes Owner to Requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 6,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {},
+          "Body": "<Other><Payer>Requester</Payer></Other>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "wrong root changed state retained",
+              "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+              "Sequence": 7,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              }
+            }
+          ]
+        },
+        {
+          "Label": "Requester foreign /?requestPayment None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 8,
+          "Actor": "foreign",
+          "Operation": "GetBucketRequestPayment",
+          "Method": "GET",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "Requester foreign /?requestPayment requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 9,
+          "Actor": "foreign",
+          "Operation": "GetBucketRequestPayment",
+          "Method": "GET",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          },
+          "BodyContains": [
+            "<Payer>Requester</Payer>"
+          ]
+        },
+        {
+          "Label": "Requester foreign /?versioning None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 10,
+          "Actor": "foreign",
+          "Operation": "GetBucketVersioning",
+          "Method": "GET",
+          "Target": "/requester-native/?versioning",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "Requester foreign /?versioning requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 11,
+          "Actor": "foreign",
+          "Operation": "GetBucketVersioning",
+          "Method": "GET",
+          "Target": "/requester-native/?versioning",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          }
+        },
+        {
+          "Label": "Requester foreign /?location None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 12,
+          "Actor": "foreign",
+          "Operation": "GetBucketLocation",
+          "Method": "GET",
+          "Target": "/requester-native/?location",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "Requester foreign /?location requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 13,
+          "Actor": "foreign",
+          "Operation": "GetBucketLocation",
+          "Method": "GET",
+          "Target": "/requester-native/?location",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          }
+        },
+        {
+          "Label": "Requester foreign /?acl None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 14,
+          "Actor": "foreign",
+          "Operation": "GetBucketAcl",
+          "Method": "GET",
+          "Target": "/requester-native/?acl",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "Requester foreign /?acl requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 15,
+          "Actor": "foreign",
+          "Operation": "GetBucketAcl",
+          "Method": "GET",
+          "Target": "/requester-native/?acl",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          }
+        },
+        {
+          "Label": "Requester foreign /?cors None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 16,
+          "Actor": "foreign",
+          "Operation": "GetBucketCors",
+          "Method": "GET",
+          "Target": "/requester-native/?cors",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "Requester foreign /?cors requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 17,
+          "Actor": "foreign",
+          "Operation": "GetBucketCors",
+          "Method": "GET",
+          "Target": "/requester-native/?cors",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 404,
+          "Code": "NoSuchCORSConfiguration",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          }
+        },
+        {
+          "Label": "Requester foreign /?website None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 18,
+          "Actor": "foreign",
+          "Operation": "GetBucketWebsite",
+          "Method": "GET",
+          "Target": "/requester-native/?website",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "Requester foreign /?website requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 19,
+          "Actor": "foreign",
+          "Operation": "GetBucketWebsite",
+          "Method": "GET",
+          "Target": "/requester-native/?website",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 404,
+          "Code": "NoSuchWebsiteConfiguration",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          }
+        },
+        {
+          "Label": "Requester foreign /?logging None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 20,
+          "Actor": "foreign",
+          "Operation": "GetBucketLogging",
+          "Method": "GET",
+          "Target": "/requester-native/?logging",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "Requester foreign /?logging requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 21,
+          "Actor": "foreign",
+          "Operation": "GetBucketLogging",
+          "Method": "GET",
+          "Target": "/requester-native/?logging",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          }
+        },
+        {
+          "Label": "Requester foreign HeadBucket None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 22,
+          "Actor": "foreign",
+          "Operation": "HeadBucket",
+          "Method": "HEAD",
+          "Target": "/requester-native/",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ]
+        },
+        {
+          "Label": "foreign payment PUT None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 23,
+          "Actor": "foreign",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {},
+          "Body": "<RequestPaymentConfiguration><Payer>BucketOwner</Payer></RequestPaymentConfiguration>",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "foreign PUT state None retained",
+              "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+              "Sequence": 24,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "Requester"
+              }
+            }
+          ]
+        },
+        {
+          "Label": "foreign bucket tagging None",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 26,
+          "Actor": "foreign",
+          "Operation": "PutBucketTagging",
+          "Method": "PUT",
+          "Target": "/requester-native/?tagging",
+          "Headers": {
+            "Content-MD5": "7Bj4thhfaq2cYARt62N8jw=="
+          },
+          "Body": "<Tagging><TagSet><Tag><Key>probe</Key><Value>payer</Value></Tag></TagSet></Tagging>",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "bucket tags retained None",
+              "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+              "Sequence": 27,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketTagging",
+              "Code": "NoSuchTagSet",
+              "Status": 404,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {}
+            }
+          ]
+        },
+        {
+          "Label": "Requester foreign HeadBucket requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 28,
+          "Actor": "foreign",
+          "Operation": "HeadBucket",
+          "Method": "HEAD",
+          "Target": "/requester-native/",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          }
+        },
+        {
+          "Label": "foreign payment PUT requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 29,
+          "Actor": "foreign",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "<RequestPaymentConfiguration><Payer>BucketOwner</Payer></RequestPaymentConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          },
+          "After": [
+            {
+              "Label": "foreign PUT state requester retained",
+              "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+              "Sequence": 30,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "BucketOwner"
+              }
+            },
+            {
+              "Label": "restore Requester after foreign management requester",
+              "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+              "Sequence": 31,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "PutBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native",
+                "RequestPaymentConfiguration": {
+                  "Payer": "Requester"
+                }
+              },
+              "Output": {}
+            }
+          ]
+        },
+        {
+          "Label": "foreign bucket tagging requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 32,
+          "Actor": "foreign",
+          "Operation": "PutBucketTagging",
+          "Method": "PUT",
+          "Target": "/requester-native/?tagging",
+          "Headers": {
+            "x-amz-request-payer": "requester",
+            "Content-MD5": "7Bj4thhfaq2cYARt62N8jw=="
+          },
+          "Body": "<Tagging><TagSet><Tag><Key>probe</Key><Value>payer</Value></Tag></TagSet></Tagging>",
+          "Status": 204,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          },
+          "After": [
+            {
+              "Label": "bucket tags retained requester",
+              "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+              "Sequence": 33,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketTagging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {}
+            }
+          ]
+        },
+        {
+          "Label": "missing checksum changes Requester to Owner",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 37,
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Method": "PUT",
+          "Target": "/requester-native/?requestPayment",
+          "Headers": {},
+          "Body": "<RequestPaymentConfiguration><Payer>BucketOwner</Payer></RequestPaymentConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "missing checksum changed state retained",
+              "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+              "Sequence": 38,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketRequestPayment",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "requester-native"
+              },
+              "Output": {
+                "Payer": "BucketOwner"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

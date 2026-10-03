@@ -1,0 +1,2864 @@
+{
+  "Source": "customer_encryption_control_evidence.json.gz",
+  "Normalization": "Raw signed native header strings are replayed verbatim: public synthetic key is already base64 encoded and MD5 is explicit; no SDK automatic key encoding assumed. Native bucket names are replaced per scenario. SDK-origin PutBucketPolicy rows supply the existing bodyMD5 recipe after policy resource normalization, preserving required transport integrity. Request IDs, dates, signatures, opaque SSE-C ETags are not compared. SSE-C headers and exact successful object response bytes are compared. Configuration reads project native XML leaf values. TLS=true selects real TLS, not forwarded-proto headers. HTTP encrypted GET is evidence-only because the runner has no mixed per-call transport. Native audit delivery is retained in compressed evidence only.",
+  "Scenarios": [
+    {
+      "Name": "customer-controls-admission",
+      "TLS": true,
+      "Setup": [
+        {
+          "Label": "create owned bucket",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "customer-control-native"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "new bucket default",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 3,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "new bucket SSE-C blocked",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 4,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "explicit NONE",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 5,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "explicit NONE retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 6,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "enabled valid SSE-C",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 7,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/existing",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "omitted after NONE",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 8,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "omitted after NONE retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 9,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "empty after NONE",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 10,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "empty after NONE retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 11,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "duplicate NONE",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 12,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "duplicate NONE retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 13,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "invalid type",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 14,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>AES256</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid type retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 15,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "mixed NONE SSE-C",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 16,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType><EncryptionType>SSE-C</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "mixed NONE SSE-C retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 17,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "explicit SSE-C",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 18,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>SSE-C</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "explicit SSE-C retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 19,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "omitted after SSE-C",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 20,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "omitted after SSE-C retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 21,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "empty after SSE-C",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 22,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "empty after SSE-C retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 23,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "delete bucket encryption",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 24,
+          "Actor": "caller",
+          "Operation": "DeleteBucketEncryption",
+          "Method": "DELETE",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 204,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "after delete encryption",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 25,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "write after delete encryption",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 26,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "existing read while blocked",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 27,
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/customer-control-native/existing",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "ResponseBody": "synthetic customer encryption payload"
+        },
+        {
+          "Label": "admission enabled",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 28,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "admission enabled retained",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 29,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-control-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "missing algorithm",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 30,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "missing key",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 31,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "missing key-MD5",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 32,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "algorithm only",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 33,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "key only",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 34,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "MD5 only",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 35,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid algorithm 'aes256'",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 36,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "aes256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidEncryptionAlgorithmError",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid algorithm 'aws:kms'",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 37,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "aws:kms",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidEncryptionAlgorithmError",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid algorithm ''",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 38,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidEncryptionAlgorithmError",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid key '!!!'",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 39,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "!!!",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid key ''",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 40,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid key 'a2tra2tra2tra2tra2tra2tra2tra2tra2tra2traw=='",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 41,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2traw==",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid key 'a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tr'",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 42,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tr",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid key-MD5 '!!!'",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 43,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "!!!"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid key-MD5 ''",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 44,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": ""
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid key-MD5 'ZGRkZGRkZGRkZGRkZGRk'",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 45,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "ZGRkZGRkZGRkZGRkZGRk"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid key-MD5 'ZGRkZGRkZGRkZGRkZGRkZGQ='",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 46,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "ZGRkZGRkZGRkZGRkZGRkZGQ="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid key-MD5 'ZGRkZGRkZGRkZGRkZGRkZA=='",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 47,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "ZGRkZGRkZGRkZGRkZGRkZA=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "matched MD5 key length 0",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 48,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "",
+            "x-amz-server-side-encryption-customer-key-MD5": "1B2M2Y8AsgTpgAmY7PhCfg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "matched MD5 key length 16",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 49,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "a2tra2tra2tra2tra2traw==",
+            "x-amz-server-side-encryption-customer-key-MD5": "5eB2YnFGLcav0OwlNDgr8A=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "matched MD5 key length 24",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 50,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "a2tra2tra2tra2tra2tra2tra2tra2tr",
+            "x-amz-server-side-encryption-customer-key-MD5": "0Z9SqPmD0njt8S5ObQ02RA=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "matched MD5 key length 31",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 51,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2traw==",
+            "x-amz-server-side-encryption-customer-key-MD5": "ZWHjl/rfhz5aFD4XXti4Gw=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "matched MD5 key length 33",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 52,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tr",
+            "x-amz-server-side-encryption-customer-key-MD5": "PdbRRQBTPeCrs+oTX3qCrw=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "matched MD5 key length 64",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 53,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2traw==",
+            "x-amz-server-side-encryption-customer-key-MD5": "oYzHcbgYj/lF0N13V8UP0Q=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "conflict x-amz-server-side-encryption AES256",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 54,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg==",
+            "x-amz-server-side-encryption": "AES256"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "conflict x-amz-server-side-encryption aws:kms",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 55,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg==",
+            "x-amz-server-side-encryption": "aws:kms"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "conflict x-amz-server-side-encryption-aws-kms-key-id alias/aws/s3",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 56,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg==",
+            "x-amz-server-side-encryption-aws-kms-key-id": "alias/aws/s3"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "conflict x-amz-server-side-encryption-context eyJwdXJwb3NlIjoic3ludGhldGljIn0=",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 57,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg==",
+            "x-amz-server-side-encryption-context": "eyJwdXJwb3NlIjoic3ludGhldGljIn0="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "HTTPS SSE-C success",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 58,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/transport",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "wrong owner valid SSE-C",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 62,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg==",
+            "x-amz-expected-bucket-owner": "000000000000"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "wrong owner malformed MD5",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 63,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "!!!",
+            "x-amz-expected-bucket-owner": "000000000000"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "wrong owner missing key",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 64,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-control-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-expected-bucket-owner": "000000000000"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "customer-controls-authorization",
+      "TLS": true,
+      "Setup": [
+        {
+          "Label": "create owned bucket",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "customer-authority-native"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "audit enable SSE-C",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 8,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "audit enable SSE-C retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 9,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "audit valid write",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 10,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/audit-object",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "audit valid read",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 11,
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/customer-authority-native/audit-object",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "ResponseBody": "synthetic customer encryption payload"
+        },
+        {
+          "Label": "audit malformed MD5",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 12,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/bad",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "!!!"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "duplicate SSE-C",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 14,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>SSE-C</EncryptionType><EncryptionType>SSE-C</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "duplicate SSE-C retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 15,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "NONE baseline invalid retention",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 16,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "NONE baseline invalid retention retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 17,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "empty retains NONE",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 18,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "empty retains NONE retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 19,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "invalid retains NONE",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 20,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>UNKNOWN</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "invalid retains NONE retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 21,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "delete from NONE",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 22,
+          "Actor": "caller",
+          "Operation": "DeleteBucketEncryption",
+          "Method": "DELETE",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 204,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "delete from NONE retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 23,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "audit blocked read",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 24,
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/customer-authority-native/audit-object",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "ResponseBody": "synthetic customer encryption payload"
+        },
+        {
+          "Label": "audit blocked write",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 25,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/bad-blocked",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "blocked-only NONE",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 26,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "blocked-only NONE retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 27,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "blocked-only enabled write",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 28,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "explicit deny object writes",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 29,
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?policy",
+          "Headers": {"Content-MD5": "${bodyMD5}"},
+          "Body": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::customer-authority-native/*\"}]}",
+          "Status": 204,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "deny valid SSE-C",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 30,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "deny malformed MD5",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 31,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "!!!"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "deny missing key",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 32,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "remove unconditional deny",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 33,
+          "Actor": "caller",
+          "Operation": "DeleteBucketPolicy",
+          "Method": "DELETE",
+          "Target": "/customer-authority-native/?policy",
+          "Headers": {},
+          "Body": "",
+          "Status": 204,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "deny removal settled",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 34,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition deny s3:x-amz-server-side-encryption-customer-algorithm",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 35,
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?policy",
+          "Headers": {"Content-MD5": "${bodyMD5}"},
+          "Body": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::customer-authority-native/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-server-side-encryption-customer-algorithm\": \"AES256\"}}}]}",
+          "Status": 204,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition SSE-C s3:x-amz-server-side-encryption-customer-algorithm",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 36,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition ordinary s3:x-amz-server-side-encryption-customer-algorithm",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 37,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {},
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition explicit SSE-S3 s3:x-amz-server-side-encryption-customer-algorithm",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 38,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption": "AES256"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "remove condition s3:x-amz-server-side-encryption-customer-algorithm",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 39,
+          "Actor": "caller",
+          "Operation": "DeleteBucketPolicy",
+          "Method": "DELETE",
+          "Target": "/customer-authority-native/?policy",
+          "Headers": {},
+          "Body": "",
+          "Status": 204,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition deny s3:x-amz-server-side-encryption",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 40,
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?policy",
+          "Headers": {"Content-MD5": "${bodyMD5}"},
+          "Body": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::customer-authority-native/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-server-side-encryption\": \"AES256\"}}}]}",
+          "Status": 204,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition SSE-C s3:x-amz-server-side-encryption",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 41,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition ordinary s3:x-amz-server-side-encryption",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 42,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {},
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition explicit SSE-S3 s3:x-amz-server-side-encryption",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 43,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption": "AES256"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "remove condition s3:x-amz-server-side-encryption",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 44,
+          "Actor": "caller",
+          "Operation": "DeleteBucketPolicy",
+          "Method": "DELETE",
+          "Target": "/customer-authority-native/?policy",
+          "Headers": {},
+          "Body": "",
+          "Status": 204,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition deny s3:x-amz-server-side-encryption-customer-key",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 45,
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?policy",
+          "Headers": {"Content-MD5": "${bodyMD5}"},
+          "Body": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::customer-authority-native/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-server-side-encryption-customer-key\": \"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=\"}}}]}",
+          "Status": 400,
+          "Code": "MalformedPolicy",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "condition deny s3:x-amz-server-side-encryption-customer-key-MD5",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 46,
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?policy",
+          "Headers": {"Content-MD5": "${bodyMD5}"},
+          "Body": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::customer-authority-native/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-server-side-encryption-customer-key-MD5\": \"tP/LI3N87DFaSk0aoqYgzg==\"}}}]}",
+          "Status": 400,
+          "Code": "MalformedPolicy",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "block for precedence",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 47,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>SSE-C</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "block for precedence retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 48,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-authority-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "blocked malformed MD5",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 49,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "!!!"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "blocked missing key",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 50,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "blocked valid",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 51,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-authority-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "blocked existing read",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+          "Sequence": 52,
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/customer-authority-native/audit-object",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "ResponseBody": "synthetic customer encryption payload"
+        }
+      ]
+    },
+    {
+      "Name": "customer-controls-replacement",
+      "TLS": true,
+      "Setup": [
+        {
+          "Label": "create owned bucket",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "customer-replacement-native"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "KMS NONE baseline",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 3,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>aws:kms</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "KMS NONE baseline retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 4,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>aws:kms</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "blocked-only replaces KMS",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 5,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "blocked-only replaces KMS retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 6,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "KMS NONE before omit",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 7,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>aws:kms</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "KMS NONE before omit retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 8,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>aws:kms</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "KMS omit blocked",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 9,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>aws:kms</SSEAlgorithm></ApplyServerSideEncryptionByDefault></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "KMS omit blocked retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 10,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>aws:kms</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "NONE before empty rule",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 11,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "NONE before empty rule retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 12,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>NONE</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "empty rule",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 13,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule/></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "empty rule retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 14,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "blocked malformed ordering",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 15,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>SSE-C</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "blocked malformed ordering retained",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 16,
+          "Actor": "caller",
+          "Operation": "GetBucketEncryption",
+          "Method": "GET",
+          "Target": "/customer-replacement-native/?encryption",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ],
+          "BodyContains": [
+            "<BucketKeyEnabled>false</BucketKeyEnabled>",
+            "<SSEAlgorithm>AES256</SSEAlgorithm>",
+            "<EncryptionType>SSE-C</EncryptionType>"
+          ]
+        },
+        {
+          "Label": "blocked malformed MD5",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 17,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "!!!"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "blocked missing key",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 18,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256"
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "blocked wrong algorithm",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 19,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-replacement-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "aes256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidEncryptionAlgorithmError",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "customer-controls-http-admission",
+      "TLS": false,
+      "Setup": [
+        {
+          "Label": "create owned bucket",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "customer-transport-native"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "explicit NONE",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 5,
+          "Actor": "caller",
+          "Operation": "PutBucketEncryption",
+          "Method": "PUT",
+          "Target": "/customer-transport-native/?encryption",
+          "Headers": {},
+          "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "HTTP SSE-C rejected",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 59,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-transport-native/admission",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "synthetic customer encryption payload",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "HTTP ordinary SSE-S3 control",
+          "Source": "customer_encryption_control_evidence.json.gz",
+          "Sequence": 61,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-transport-native/http-control",
+          "Headers": {},
+          "Body": "synthetic customer encryption payload",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "customer-controls-http-blocked",
+      "TLS": false,
+      "Setup": [
+        {
+          "Label": "create owned bucket",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "customer-http-blocked-native"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "HTTP missing SSE-C key",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 20,
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Method": "PUT",
+          "Target": "/customer-http-blocked-native/http-missing",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256"
+          },
+          "Body": "synthetic",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        },
+        {
+          "Label": "HTTP customer GET nonexistent",
+          "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[2]",
+          "Sequence": 21,
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/customer-http-blocked-native/nonexistent",
+          "Headers": {
+            "x-amz-server-side-encryption-customer-algorithm": "AES256",
+            "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+          },
+          "Body": "",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key-md5",
+            "x-amz-server-side-encryption-customer-key"
+          ]
+        }
+      ]
+    }
+  ]
+}

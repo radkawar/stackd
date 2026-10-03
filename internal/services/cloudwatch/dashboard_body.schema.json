@@ -1,0 +1,1090 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "CloudWatch DashboardBody semantics, from the AWS Dashboard Body Structure and Syntax reference and testdata/aws/cloudwatch/dashboard*.json. Unknown fields produce native warnings and remain in the stored document.",
+  "type": "object",
+  "required": [
+    "widgets"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "widgets": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/widget"
+      }
+    },
+    "variables": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "$ref": "#/$defs/variable"
+      }
+    },
+    "start": {
+      "type": "string",
+      "pattern": "(^(?:[1-9]\\d{3}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1\\d|2[0-8])|(?:0[13-9]|1[0-2])-(?:29|30)|(?:0[13578]|1[02])-31)|(?:[1-9]\\d(?:0[48]|[2468][048]|[13579][26])|(?:[2468][048]|[13579][26])00)-02-29)T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{1,9})?(?:Z|[+-][01]\\d:[0-5]\\d)$)|(^\\-?P(T|\\d))",
+      "x-warning": true
+    },
+    "end": {
+      "type": "string",
+      "x-warning": true
+    },
+    "periodOverride": {
+      "type": "string",
+      "pattern": "^(inherit|auto)$",
+      "x-warning": true
+    }
+  },
+  "$defs": {
+    "period": {
+      "type": "integer",
+      "oneOf": [
+        {
+          "enum": [
+            1,
+            5,
+            10,
+            30
+          ]
+        },
+        {
+          "minimum": 60,
+          "multipleOf": 60
+        }
+      ]
+    },
+    "statistic": {
+      "type": "string",
+      "pattern": "^((SampleCount|Average|Sum|Minimum|Maximum|IQM)|(p|tc|tm|ts|wm)(100(.0{0,10})?|\\d{1,2})(\\.\\d{0,10})?|[ou](\\d+(\\.\\d{0,10})?)(_E|_L|_H)?|((TM|TC|TS|WM)\\(((100(.0{0,10})?|\\d{1,2})(\\.\\d{0,10})?%):((100(.0{0,10})?|\\d{1,2})(\\.\\d{0,10})?%)?\\)|(TM|TC|TS|WM)\\(((100(.0{0,10})?|\\d{1,2})(\\.\\d{0,10})?%)?:((100(.0{0,10})?|\\d{1,2})(\\.\\d{0,10})?%)\\))|(((TM|TC|TS|WM)|(PR))\\(((\\d+(\\.\\d{0,10})?)|(\\d+(\\.\\d{0,10})?[Ee][+-]?\\d+)):((\\d+(\\.\\d{0,10})?)|(\\d+(\\.\\d{0,10})?[Ee][+-]?\\d+))?\\))|(((TM|TC|TS|WM)|(PR))\\(((\\d+(\\.\\d{0,10})?)|(\\d+(\\.\\d{0,10})?[Ee][+-]?\\d+))?:((\\d+(\\.\\d{0,10})?)|(\\d+(\\.\\d{0,10})?[Ee][+-]?\\d+))\\)))$"
+    },
+    "legend": {
+      "type": "object",
+      "properties": {
+        "position": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "right",
+                "bottom",
+                "hidden"
+              ],
+              "x-warning": true
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "axis": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "label": {
+          "type": "string"
+        },
+        "showUnits": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "annotation": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "fill": {
+          "type": "string"
+        },
+        "yAxis": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "left",
+                "right"
+              ],
+              "x-warning": true
+            }
+          ]
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value"
+      ]
+    },
+    "annotationOrBand": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/annotation"
+        },
+        {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/annotation"
+          }
+        }
+      ]
+    },
+    "annotations": {
+      "type": "object",
+      "properties": {
+        "alarms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1
+        },
+        "horizontal": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/annotationOrBand"
+          }
+        },
+        "vertical": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/annotationOrBand"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "renderer": {
+      "type": "object",
+      "properties": {
+        "expression": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-zA-Z0-9_]*$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "period": {
+          "$ref": "#/$defs/period"
+        },
+        "stat": {
+          "$ref": "#/$defs/statistic"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "yAxis": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "left",
+                "right"
+              ],
+              "x-warning": true
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "metricRow": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/renderer"
+          }
+        ]
+      }
+    },
+    "metric": {
+      "type": "object",
+      "properties": {
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metricRow"
+          },
+          "maxItems": 500
+        },
+        "annotations": {
+          "$ref": "#/$defs/annotations"
+        },
+        "region": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "view": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "singleValue",
+                "timeSeries",
+                "bar",
+                "pie",
+                "gauge",
+                "table"
+              ],
+              "x-warning": true
+            }
+          ]
+        },
+        "period": {
+          "$ref": "#/$defs/period"
+        },
+        "stat": {
+          "$ref": "#/$defs/statistic"
+        },
+        "stacked": {
+          "type": "boolean"
+        },
+        "sparkline": {
+          "type": "boolean"
+        },
+        "liveData": {
+          "type": "boolean"
+        },
+        "setPeriodToTimeRange": {
+          "type": "boolean"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "legend": {
+          "$ref": "#/$defs/legend"
+        },
+        "yAxis": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "$ref": "#/$defs/axis"
+            },
+            "right": {
+              "$ref": "#/$defs/axis"
+            }
+          },
+          "additionalProperties": false
+        },
+        "table": {
+          "type": "object",
+          "properties": {
+            "layout": {
+              "type": "string"
+            },
+            "showTimeSeriesData": {
+              "type": "boolean"
+            },
+            "stickySummary": {
+              "type": "boolean"
+            },
+            "summaryColumns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "metrics",
+            "region"
+          ]
+        },
+        {
+          "required": [
+            "annotations"
+          ]
+        }
+      ]
+    },
+    "text": {
+      "type": "object",
+      "properties": {
+        "markdown": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "solid",
+                "transparent"
+              ],
+              "x-warning": true
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "markdown"
+      ]
+    },
+    "log": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "view": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "table",
+                "timeSeries",
+                "bar",
+                "pie"
+              ],
+              "x-warning": true
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "alarm": {
+      "type": "object",
+      "properties": {
+        "alarms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "title": {
+          "type": "string"
+        },
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "OK|ALARM|INSUFFICIENT_DATA"
+          }
+        },
+        "sortBy": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "default",
+                "stateUpdatedTimestamp",
+                "timestamp"
+              ],
+              "x-warning": true
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "alarms"
+      ]
+    },
+    "explorer": {
+      "type": "object",
+      "properties": {
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "metricName": {
+                "type": "string"
+              },
+              "resourceType": {
+                "type": "string"
+              },
+              "stat": {
+                "$ref": "#/$defs/statistic"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "metricName",
+              "resourceType"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "period": {
+          "$ref": "#/$defs/period"
+        },
+        "aggregateBy": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "func": {
+              "type": "string",
+              "allOf": [
+                {
+                  "enum": [
+                    "AVG",
+                    "MIN",
+                    "MAX",
+                    "STDDEV",
+                    "SUM"
+                  ]
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "key"
+            ]
+          }
+        },
+        "splitBy": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "widgetOptions": {
+          "type": "object",
+          "properties": {
+            "legend": {
+              "$ref": "#/$defs/legend"
+            },
+            "rowsPerPage": {
+              "type": "integer"
+            },
+            "widgetsPerRow": {
+              "type": "integer"
+            },
+            "stacked": {
+              "type": "boolean"
+            },
+            "view": {
+              "type": "string",
+              "allOf": [
+                {
+                  "enum": [
+                    "timeSeries",
+                    "bar",
+                    "pie"
+                  ],
+                  "x-warning": true
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "custom": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "pattern": "^arn:aws(-cn|-us-gov|-iso(-[bef])?|-eusc)?:lambda:[a-z]{2,}(-[a-z]+)*-[0-9]{1,2}:[0-9]{12}:function:[a-zA-Z0-9-_]+(:(\\$LATEST|[a-zA-Z0-9-_]+))?$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        },
+        "updateOn": {
+          "type": "object",
+          "properties": {
+            "refresh": {
+              "type": "boolean"
+            },
+            "resize": {
+              "type": "boolean"
+            },
+            "timeRange": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "endpoint"
+      ]
+    },
+    "chart": {
+      "type": "object",
+      "properties": {
+        "view": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "line",
+                "bar",
+                "pie",
+                "number",
+                "solidgauge",
+                "column",
+                "legend",
+                "histogram",
+                "heatmap",
+                "scatter"
+              ],
+              "x-warning": true
+            }
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "queries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "language": {
+                    "type": "string"
+                  },
+                  "query": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "step": {
+                    "type": "number"
+                  },
+                  "visible": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "type",
+                  "language",
+                  "query"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "queries"
+          ]
+        },
+        "plotOptions": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "data",
+        "title",
+        "view"
+      ]
+    },
+    "timeline": {
+      "type": "object",
+      "properties": {
+        "alarm": {
+          "type": "string",
+          "pattern": "^arn:aws(-cn|-us-gov|-iso(-[bef])?|-eusc)?:cloudwatch:([a-z]{2}|[a-z]{4})(-[a-z]+)*-[0-9]{1,2}:[0-9]{12}:alarm:.{1,255}$"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": ["alarm"],
+      "additionalProperties": false
+    },
+    "xray": {
+      "type": "object",
+      "properties": {
+        "title": {"type": "string"},
+        "region": {"type": "string"},
+        "accountId": {"type": "string"},
+        "groupARN": {"type": "string"},
+        "filterExpression": {"type": "string"},
+        "traceId": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "variable": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "property",
+                "pattern"
+              ]
+            }
+          ]
+        },
+        "inputType": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "input",
+                "select",
+                "radio"
+              ]
+            }
+          ]
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^[0-9A-Za-z_-]+$"
+        },
+        "property": {
+          "type": "string"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "defaultValue": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ]
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 255
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "value"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 500
+        },
+        "search": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "populateFrom": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        },
+        "searchLabelValues": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "inputType",
+        "id"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "pattern"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "pattern"
+            ]
+          },
+          "else": {
+            "required": [
+              "property"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "inputType": {
+                "enum": [
+                  "select",
+                  "radio"
+                ]
+              }
+            },
+            "required": [
+              "inputType"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": [
+                  "values"
+                ]
+              },
+              {
+                "required": [
+                  "tag"
+                ]
+              },
+              {
+                "required": [
+                  "search",
+                  "populateFrom"
+                ]
+              },
+              {
+                "required": [
+                  "searchLabelValues"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "widget": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "allOf": [
+            {
+              "enum": [
+                "chart",
+                "custom",
+                "metric",
+                "service",
+                "text",
+                "log",
+                "alarm",
+                "explorer",
+                "timeline",
+                "serviceMap",
+                "serviceTable",
+                "trace"
+              ],
+              "x-warning": true
+            }
+          ]
+        },
+        "x": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "properties": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "properties"
+      ],
+      "dependentRequired": {
+        "x": [
+          "y"
+        ],
+        "y": [
+          "x"
+        ]
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "metric"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "properties": {
+                "$ref": "#/$defs/metric"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "text"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "properties": {
+                "$ref": "#/$defs/text"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "log"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "properties": {
+                "$ref": "#/$defs/log"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "alarm"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "properties": {
+                "$ref": "#/$defs/alarm"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "explorer"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "properties": {
+                "$ref": "#/$defs/explorer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "custom"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "properties": {
+                "$ref": "#/$defs/custom"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "chart"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "properties": {
+                "$ref": "#/$defs/chart"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"type": {"const": "timeline"}},
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "properties": {"$ref": "#/$defs/timeline"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"type": {"enum": ["serviceMap", "serviceTable", "trace"]}},
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "properties": {"$ref": "#/$defs/xray"}
+            }
+          }
+        }
+      ]
+    }
+  }
+}

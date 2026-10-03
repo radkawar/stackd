@@ -1,0 +1,532 @@
+{
+  "Source": "requester_payment_evidence.json.gz",
+  "Normalization": "Signatures, credentials and signing time are freshly produced locally. Presign signs the native path, payer query and original Headers; AfterSigningHeaders substitutes the actual sent header only after signing. Source:Sequence retains original request/response provenance. Account, bucket and session names are rebound; exact native status/error and charged-header presence/absence are retained. No claim of header/query precedence follows merely from a mismatched signature. The complementary authentication-discriminator rows distinguish canonical signing from payer admission. No native URL-tamper replay is invented: primary 185 requires an after-signing URL mutation absent from this runner.",
+  "Scenarios": [
+    {
+      "Name": "foreign-presigned-omitted-exact-and-invalid-query-payer",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-createrole",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "CreateRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "AssumeRolePolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${account}:root\"},\"Action\":\"sts:AssumeRole\"}]}"
+          },
+          "Output": {},
+          "Bind": {
+            "memberRole": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-prerequisite-putrolepolicy",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "PutRolePolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "PolicyName": "NativeOwnershipProbe",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cross-assume-existing-member-role",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Operation": "AssumeRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${memberRole}",
+            "RoleSessionName": "requester-replay"
+          },
+          "Output": {},
+          "Actor": "caller",
+          "Service": "sts",
+          "Session": "foreign"
+        },
+        {
+          "Label": "create requester-native",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "versioned fixtures",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 10,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketVersioning",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "version fixture",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 12,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native",
+            "Key": "index.html",
+            "ContentType": "text/plain"
+          },
+          "Output": {},
+          "Body": "c2Vjb25kIGhhcm1sZXNzIHJlcXVlc3RlciBmaXh0dXJlCg=="
+        },
+        {
+          "Label": "bucket-local public policy permissions",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 14,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owned data bucket policy requester-native",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "requester-native",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"PublicHarmlessFixture\", \"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::requester-native/index.html\"}, {\"Sid\": \"ForeignOwnedExperiment\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"${memberRole}\"}, \"Action\": \"s3:*\", \"Resource\": [\"arn:aws:s3:::requester-native\", \"arn:aws:s3:::requester-native/*\"]}, {\"Sid\": \"DeniedRegardlessOfPayer\", \"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"${memberRole}\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::requester-native/forbidden\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "set Requester",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 22,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native",
+            "RequestPaymentConfiguration": {
+              "Payer": "Requester"
+            }
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "foreign presigned omitted",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 182,
+          "Actor": "foreign",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/requester-native/index.html",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "Presign": true
+        },
+        {
+          "Label": "foreign presigned correct",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 183,
+          "Actor": "foreign",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/requester-native/index.html?x-amz-request-payer=requester",
+          "Headers": {},
+          "Body": "",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {
+            "x-amz-request-charged": "requester"
+          },
+          "AbsentHeaders": [],
+          "ResponseBody": "second harmless requester fixture\n",
+          "Presign": true,
+          "Reopen": true
+        },
+        {
+          "Label": "foreign presigned invalid",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 184,
+          "Actor": "foreign",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/requester-native/index.html?x-amz-request-payer=invalid",
+          "Headers": {},
+          "Body": "",
+          "Status": 403,
+          "Code": "AccessDenied",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "Presign": true
+        }
+      ]
+    },
+    {
+      "Name": "presigned-signed-header-query-conflict-and-duplicate",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-createrole",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "CreateRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "AssumeRolePolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${account}:root\"},\"Action\":\"sts:AssumeRole\"}]}"
+          },
+          "Output": {},
+          "Bind": {
+            "memberRole": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-prerequisite-putrolepolicy",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "PutRolePolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "PolicyName": "NativeOwnershipProbe",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cross-assume-existing-member-role",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Operation": "AssumeRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${memberRole}",
+            "RoleSessionName": "requester-replay"
+          },
+          "Output": {},
+          "Actor": "caller",
+          "Service": "sts",
+          "Session": "foreign"
+        },
+        {
+          "Label": "create boundaries",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-boundaries"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "grant owned bucket to foreign role",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "requester-boundaries",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"${memberRole}\"}, \"Action\": \"s3:*\", \"Resource\": [\"arn:aws:s3:::requester-boundaries\", \"arn:aws:s3:::requester-boundaries/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "local-prerequisite-putbucketrequestpayment",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-boundaries",
+            "RequestPaymentConfiguration": {
+              "Payer": "Requester"
+            }
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "presigned query requester header invalid",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 34,
+          "Actor": "foreign",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/requester-boundaries/absent?x-amz-request-payer=requester",
+          "Headers": {
+            "x-amz-request-payer": "invalid"
+          },
+          "Body": "",
+          "Status": 403,
+          "Code": "SignatureDoesNotMatch",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "Presign": true
+        },
+        {
+          "Label": "presigned query invalid header requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 35,
+          "Actor": "foreign",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/requester-boundaries/absent?x-amz-request-payer=invalid",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 403,
+          "Code": "SignatureDoesNotMatch",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "Presign": true
+        },
+        {
+          "Label": "presigned query requester header requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_boundaries.json.gz",
+          "Sequence": 36,
+          "Actor": "foreign",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/requester-boundaries/absent?x-amz-request-payer=requester",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "Presign": true
+        }
+      ]
+    },
+    {
+      "Name": "query-canonicalization-versus-sent-header-discriminator",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-createrole",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "CreateRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "AssumeRolePolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${account}:root\"},\"Action\":\"sts:AssumeRole\"}]}"
+          },
+          "Output": {},
+          "Bind": {
+            "memberRole": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-prerequisite-putrolepolicy",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "PutRolePolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "PolicyName": "NativeOwnershipProbe",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cross-assume-existing-member-role",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Operation": "AssumeRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${memberRole}",
+            "RoleSessionName": "requester-replay"
+          },
+          "Output": {},
+          "Actor": "caller",
+          "Service": "sts",
+          "Session": "foreign"
+        },
+        {
+          "Label": "create auth probe",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_auth_conflict.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-auth"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "foreign owned bucket policy",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_auth_conflict.json.gz",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "requester-auth",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"${memberRole}\"}, \"Action\": \"s3:*\", \"Resource\": [\"arn:aws:s3:::requester-auth\", \"arn:aws:s3:::requester-auth/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "enable Requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_auth_conflict.json.gz",
+          "Sequence": 3,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-auth",
+            "RequestPaymentConfiguration": {
+              "Payer": "Requester"
+            }
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "query requester signed header requester sent header invalid",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_auth_conflict.json.gz",
+          "Sequence": 4,
+          "Actor": "foreign",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/requester-auth/absent?x-amz-request-payer=requester",
+          "Headers": {
+            "x-amz-request-payer": "requester"
+          },
+          "Body": "",
+          "Status": 400,
+          "Code": "InvalidArgument",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "Presign": true,
+          "AfterSigningHeaders": {
+            "x-amz-request-payer": "invalid"
+          }
+        },
+        {
+          "Label": "query requester signed header invalid sent header requester",
+          "Source": "requester_payment_evidence.json.gz#supplements.requester_auth_conflict.json.gz",
+          "Sequence": 5,
+          "Actor": "foreign",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/requester-auth/absent?x-amz-request-payer=requester",
+          "Headers": {
+            "x-amz-request-payer": "invalid"
+          },
+          "Body": "",
+          "Status": 403,
+          "Code": "SignatureDoesNotMatch",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "Presign": true,
+          "AfterSigningHeaders": {
+            "x-amz-request-payer": "requester"
+          },
+          "Reopen": true
+        }
+      ]
+    }
+  ]
+}

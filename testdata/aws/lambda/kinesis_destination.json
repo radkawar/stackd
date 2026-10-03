@@ -1,0 +1,2647 @@
+{
+  "source": "Native AWS public endpoints through scripts/aws/aws_cli.py",
+  "region": "us-east-1",
+  "prefix": "stackd-kinesislambda-6920efc7e6e0",
+  "started_at": "2026-09-19T09:09:23.784708+00:00",
+  "mode": "destination",
+  "documentation": [
+    "https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/services-kinesis-create.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/services-kinesis-batchfailurereporting.html",
+    "https://raw.githubusercontent.com/awslabs/amazon-kinesis-producer/master/aws/kinesis/protobuf/messages.proto"
+  ],
+  "handler_source": "import base64\nimport json\nimport time\n\ndef invoke(event, context):\n    started = time.time()\n    decoded = []\n    failures = []\n    for record in event[\"Records\"]:\n        raw = base64.b64decode(record[\"kinesis\"][\"data\"])\n        try:\n            item = json.loads(raw)\n        except (ValueError, UnicodeDecodeError):\n            item = {\"raw_base64\": record[\"kinesis\"][\"data\"]}\n        decoded.append(item)\n        if item.get(\"bad\"):\n            failures.append({\"itemIdentifier\": record[\"kinesis\"][\"sequenceNumber\"]})\n        time.sleep(item.get(\"delay\", 0))\n    response = {\"batchItemFailures\": failures}\n    print(\"KINESIS_PROBE \" + json.dumps({\"request_id\": context.aws_request_id, \"invoked_arn\": context.invoked_function_arn, \"started\": started, \"finished\": time.time(), \"event\": event, \"decoded\": decoded, \"response\": response}, separators=(\",\", \":\")), flush=True)\n    return response\n",
+  "observations": [
+    {
+      "label": "identity_before_writes",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_at": "2026-09-19T09:09:23.784746+00:00",
+      "finished_at": "2026-09-19T09:09:24.452872+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      }
+    },
+    {
+      "label": "create_log_group",
+      "service": "logs",
+      "operation": "create-log-group",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:09:24.453061+00:00",
+      "finished_at": "2026-09-19T09:09:25.149648+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create_role",
+      "service": "iam",
+      "operation": "create-role",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"lambda.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "started_at": "2026-09-19T09:09:25.149869+00:00",
+      "finished_at": "2026-09-19T09:09:25.902171+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+            "RoleId": "AROAQAAAAAAAJSKPDECFT",
+            "Arn": "arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role",
+            "CreateDate": "2026-09-19T09:09:25+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "lambda.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "policy_owned-logs",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "PolicyName": "owned-logs",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": \"arn:aws:logs:us-east-1:000000000000:log-group:/aws/lambda/stackd-kinesislambda-6920efc7e6e0:*\"}]}"
+      },
+      "started_at": "2026-09-19T09:09:25.902406+00:00",
+      "finished_at": "2026-09-19T09:09:26.637552+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create_stream",
+      "service": "kinesis",
+      "operation": "create-stream",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0",
+        "ShardCount": 1
+      },
+      "started_at": "2026-09-19T09:09:26.637755+00:00",
+      "finished_at": "2026-09-19T09:09:27.442661+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "stream_ready_0",
+      "service": "kinesis",
+      "operation": "describe-stream",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:09:27.442926+00:00",
+      "finished_at": "2026-09-19T09:09:28.129766+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "StreamDescription": {
+            "Shards": [],
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+            "StreamName": "stackd-kinesislambda-6920efc7e6e0",
+            "StreamStatus": "CREATING",
+            "RetentionPeriodHours": 24,
+            "EnhancedMonitoring": [
+              {
+                "ShardLevelMetrics": []
+              }
+            ],
+            "EncryptionType": "NONE",
+            "KeyId": null,
+            "StreamCreationTimestamp": "2026-09-19T10:09:26+01:00"
+          }
+        }
+      }
+    },
+    {
+      "label": "stream_ready_1",
+      "service": "kinesis",
+      "operation": "describe-stream",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:09:30.130195+00:00",
+      "finished_at": "2026-09-19T09:09:30.859828+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "StreamDescription": {
+            "Shards": [],
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+            "StreamName": "stackd-kinesislambda-6920efc7e6e0",
+            "StreamStatus": "CREATING",
+            "RetentionPeriodHours": 24,
+            "EnhancedMonitoring": [
+              {
+                "ShardLevelMetrics": []
+              }
+            ],
+            "EncryptionType": "NONE",
+            "KeyId": null,
+            "StreamCreationTimestamp": "2026-09-19T10:09:26+01:00"
+          }
+        }
+      }
+    },
+    {
+      "label": "stream_ready_2",
+      "service": "kinesis",
+      "operation": "describe-stream",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:09:32.860897+00:00",
+      "finished_at": "2026-09-19T09:09:33.571936+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "StreamDescription": {
+            "Shards": [
+              {
+                "ShardId": "shardId-999000999000",
+                "HashKeyRange": {
+                  "StartingHashKey": "0",
+                  "EndingHashKey": "340282366920938463463374607431768211455"
+                },
+                "SequenceNumberRange": {
+                  "StartingSequenceNumber": "49678482485914992647126238407194356641525074131186352130"
+                }
+              }
+            ],
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+            "StreamName": "stackd-kinesislambda-6920efc7e6e0",
+            "StreamStatus": "ACTIVE",
+            "RetentionPeriodHours": 24,
+            "EnhancedMonitoring": [
+              {
+                "ShardLevelMetrics": []
+              }
+            ],
+            "EncryptionType": "NONE",
+            "KeyId": null,
+            "StreamCreationTimestamp": "2026-09-19T10:09:26+01:00"
+          }
+        }
+      }
+    },
+    {
+      "label": "register_consumer",
+      "service": "kinesis",
+      "operation": "register-stream-consumer",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+        "ConsumerName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:09:33.572210+00:00",
+      "finished_at": "2026-09-19T09:09:34.347036+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Consumer": {
+            "ConsumerName": "stackd-kinesislambda-6920efc7e6e0",
+            "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+            "ConsumerStatus": "CREATING",
+            "ConsumerCreationTimestamp": "2026-09-19T10:09:33+01:00"
+          }
+        }
+      }
+    },
+    {
+      "label": "consumer_ready_0",
+      "service": "kinesis",
+      "operation": "describe-stream-consumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973"
+      },
+      "started_at": "2026-09-19T09:09:34.347328+00:00",
+      "finished_at": "2026-09-19T09:09:35.047747+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ConsumerDescription": {
+            "ConsumerName": "stackd-kinesislambda-6920efc7e6e0",
+            "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+            "ConsumerStatus": "CREATING",
+            "ConsumerCreationTimestamp": "2026-09-19T10:09:33+01:00",
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0"
+          }
+        }
+      }
+    },
+    {
+      "label": "consumer_ready_1",
+      "service": "kinesis",
+      "operation": "describe-stream-consumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973"
+      },
+      "started_at": "2026-09-19T09:09:37.048143+00:00",
+      "finished_at": "2026-09-19T09:09:37.807765+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ConsumerDescription": {
+            "ConsumerName": "stackd-kinesislambda-6920efc7e6e0",
+            "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+            "ConsumerStatus": "CREATING",
+            "ConsumerCreationTimestamp": "2026-09-19T10:09:33+01:00",
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0"
+          }
+        }
+      }
+    },
+    {
+      "label": "consumer_ready_2",
+      "service": "kinesis",
+      "operation": "describe-stream-consumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973"
+      },
+      "started_at": "2026-09-19T09:09:39.808319+00:00",
+      "finished_at": "2026-09-19T09:09:40.535763+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ConsumerDescription": {
+            "ConsumerName": "stackd-kinesislambda-6920efc7e6e0",
+            "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+            "ConsumerStatus": "ACTIVE",
+            "ConsumerCreationTimestamp": "2026-09-19T10:09:33+01:00",
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0"
+          }
+        }
+      }
+    },
+    {
+      "label": "create_function_0",
+      "service": "lambda",
+      "operation": "create-function",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0",
+        "Role": "arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role",
+        "Runtime": "python3.12",
+        "Handler": "entry.invoke",
+        "Code": {
+          "ZipFile": "UEsDBBQAAAAAAAAAIVxp4QMEfgMAAH4DAAAIAAAAZW50cnkucHlpbXBvcnQgYmFzZTY0CmltcG9ydCBqc29uCmltcG9ydCB0aW1lCgpkZWYgaW52b2tlKGV2ZW50LCBjb250ZXh0KToKICAgIHN0YXJ0ZWQgPSB0aW1lLnRpbWUoKQogICAgZGVjb2RlZCA9IFtdCiAgICBmYWlsdXJlcyA9IFtdCiAgICBmb3IgcmVjb3JkIGluIGV2ZW50WyJSZWNvcmRzIl06CiAgICAgICAgcmF3ID0gYmFzZTY0LmI2NGRlY29kZShyZWNvcmRbImtpbmVzaXMiXVsiZGF0YSJdKQogICAgICAgIHRyeToKICAgICAgICAgICAgaXRlbSA9IGpzb24ubG9hZHMocmF3KQogICAgICAgIGV4Y2VwdCAoVmFsdWVFcnJvciwgVW5pY29kZURlY29kZUVycm9yKToKICAgICAgICAgICAgaXRlbSA9IHsicmF3X2Jhc2U2NCI6IHJlY29yZFsia2luZXNpcyJdWyJkYXRhIl19CiAgICAgICAgZGVjb2RlZC5hcHBlbmQoaXRlbSkKICAgICAgICBpZiBpdGVtLmdldCgiYmFkIik6CiAgICAgICAgICAgIGZhaWx1cmVzLmFwcGVuZCh7Iml0ZW1JZGVudGlmaWVyIjogcmVjb3JkWyJraW5lc2lzIl1bInNlcXVlbmNlTnVtYmVyIl19KQogICAgICAgIHRpbWUuc2xlZXAoaXRlbS5nZXQoImRlbGF5IiwgMCkpCiAgICByZXNwb25zZSA9IHsiYmF0Y2hJdGVtRmFpbHVyZXMiOiBmYWlsdXJlc30KICAgIHByaW50KCJLSU5FU0lTX1BST0JFICIgKyBqc29uLmR1bXBzKHsicmVxdWVzdF9pZCI6IGNvbnRleHQuYXdzX3JlcXVlc3RfaWQsICJpbnZva2VkX2FybiI6IGNvbnRleHQuaW52b2tlZF9mdW5jdGlvbl9hcm4sICJzdGFydGVkIjogc3RhcnRlZCwgImZpbmlzaGVkIjogdGltZS50aW1lKCksICJldmVudCI6IGV2ZW50LCAiZGVjb2RlZCI6IGRlY29kZWQsICJyZXNwb25zZSI6IHJlc3BvbnNlfSwgc2VwYXJhdG9ycz0oIiwiLCAiOiIpKSwgZmx1c2g9VHJ1ZSkKICAgIHJldHVybiByZXNwb25zZQpQSwECFAMUAAAAAAAAACFcaeEDBH4DAAB+AwAACAAAAAAAAAAAAAAAgAEAAAAAZW50cnkucHlQSwUGAAAAAAEAAQA2AAAApAMAAAAA"
+        },
+        "Timeout": 15,
+        "MemorySize": 128
+      },
+      "started_at": "2026-09-19T09:09:40.536190+00:00",
+      "finished_at": "2026-09-19T09:09:41.757385+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FunctionName": "stackd-kinesislambda-6920efc7e6e0",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0",
+          "Runtime": "python3.12",
+          "Role": "arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role",
+          "Handler": "entry.invoke",
+          "CodeSize": 1008,
+          "Description": "",
+          "Timeout": 15,
+          "MemorySize": 128,
+          "LastModified": "2026-09-19T09:09:41.358+0000",
+          "CodeSha256": "7oExtalRklX0VoaCF+6KB2cr+DBv3w/mNqCv3rVdOkI=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "d4a1de1d-4ef9-45b0-9893-54b688e16050",
+          "State": "Pending",
+          "StateReason": "The function is being created.",
+          "StateReasonCode": "Creating",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:36aeb19f3326e129d9f096dea0a3c6a9ca8dce2610e62d2b2060747602d863ae"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0"
+          }
+        }
+      }
+    },
+    {
+      "label": "function_ready_0",
+      "service": "lambda",
+      "operation": "get-function-configuration",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:09:41.757742+00:00",
+      "finished_at": "2026-09-19T09:09:42.507687+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FunctionName": "stackd-kinesislambda-6920efc7e6e0",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0",
+          "Runtime": "python3.12",
+          "Role": "arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role",
+          "Handler": "entry.invoke",
+          "CodeSize": 1008,
+          "Description": "",
+          "Timeout": 15,
+          "MemorySize": 128,
+          "LastModified": "2026-09-19T09:09:41.358+0000",
+          "CodeSha256": "7oExtalRklX0VoaCF+6KB2cr+DBv3w/mNqCv3rVdOkI=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "d4a1de1d-4ef9-45b0-9893-54b688e16050",
+          "State": "Pending",
+          "StateReason": "The function is being created.",
+          "StateReasonCode": "Creating",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:36aeb19f3326e129d9f096dea0a3c6a9ca8dce2610e62d2b2060747602d863ae"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0"
+          }
+        }
+      }
+    },
+    {
+      "label": "function_ready_1",
+      "service": "lambda",
+      "operation": "get-function-configuration",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:09:44.508211+00:00",
+      "finished_at": "2026-09-19T09:09:45.275247+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FunctionName": "stackd-kinesislambda-6920efc7e6e0",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0",
+          "Runtime": "python3.12",
+          "Role": "arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role",
+          "Handler": "entry.invoke",
+          "CodeSize": 1008,
+          "Description": "",
+          "Timeout": 15,
+          "MemorySize": 128,
+          "LastModified": "2026-09-19T09:09:41.358+0000",
+          "CodeSha256": "7oExtalRklX0VoaCF+6KB2cr+DBv3w/mNqCv3rVdOkI=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "8afa660e-107b-4c14-a557-1986ff4709e8",
+          "State": "Active",
+          "LastUpdateStatus": "Successful",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:36aeb19f3326e129d9f096dea0a3c6a9ca8dce2610e62d2b2060747602d863ae"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0"
+          }
+        }
+      }
+    },
+    {
+      "label": "publish_handler",
+      "service": "lambda",
+      "operation": "publish-version",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:09:45.275632+00:00",
+      "finished_at": "2026-09-19T09:09:46.183669+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "FunctionName": "stackd-kinesislambda-6920efc7e6e0",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:1",
+          "Runtime": "python3.12",
+          "Role": "arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role",
+          "Handler": "entry.invoke",
+          "CodeSize": 1008,
+          "Description": "",
+          "Timeout": 15,
+          "MemorySize": 128,
+          "LastModified": "2026-09-19T09:09:41.358+0000",
+          "CodeSha256": "7oExtalRklX0VoaCF+6KB2cr+DBv3w/mNqCv3rVdOkI=",
+          "Version": "1",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "7b95d63e-9a07-4359-8dbe-5c4574f82719",
+          "State": "Active",
+          "LastUpdateStatus": "Successful",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:36aeb19f3326e129d9f096dea0a3c6a9ca8dce2610e62d2b2060747602d863ae"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0"
+          }
+        }
+      }
+    },
+    {
+      "label": "missing_source_permissions",
+      "service": "lambda",
+      "operation": "create-event-source-mapping",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0",
+        "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+        "StartingPosition": "TRIM_HORIZON",
+        "Enabled": false
+      },
+      "started_at": "2026-09-19T09:09:46.184059+00:00",
+      "finished_at": "2026-09-19T09:09:47.079928+00:00",
+      "result": {
+        "code": "InvalidParameterValueException",
+        "error": {
+          "Message": "Cannot access stream arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0. Please ensure the role can perform the GetRecords, GetShardIterator, DescribeStream, DescribeStreamSummary, ListShards, and ListStreams Actions on your stream.",
+          "Code": "InvalidParameterValueException",
+          "Type": "User",
+          "message": "Cannot access stream arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0. Please ensure the role can perform the GetRecords, GetShardIterator, DescribeStream, DescribeStreamSummary, ListShards, and ListStreams Actions on your stream."
+        }
+      }
+    },
+    {
+      "label": "policy_owned-source",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "PolicyName": "owned-source",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"kinesis:DescribeStream\", \"kinesis:DescribeStreamSummary\", \"kinesis:GetRecords\", \"kinesis:GetShardIterator\", \"kinesis:ListShards\", \"kinesis:SubscribeToShard\", \"kinesis:DescribeStreamConsumer\"], \"Resource\": [\"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0\", \"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973\"]}]}"
+      },
+      "started_at": "2026-09-19T09:09:47.080522+00:00",
+      "finished_at": "2026-09-19T09:09:47.789145+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create_destination",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-kinesislambda-6920efc7e6e0-failure",
+        "Attributes": {
+          "MessageRetentionPeriod": "3600"
+        }
+      },
+      "started_at": "2026-09-19T09:10:02.789847+00:00",
+      "finished_at": "2026-09-19T09:10:03.561075+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-kinesislambda-6920efc7e6e0-failure"
+        }
+      }
+    },
+    {
+      "label": "destination_arn",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-kinesislambda-6920efc7e6e0-failure",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "started_at": "2026-09-19T09:10:03.561668+00:00",
+      "finished_at": "2026-09-19T09:10:04.229733+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+          }
+        }
+      }
+    },
+    {
+      "label": "policy_owned-destination",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "PolicyName": "owned-destination",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure\"}]}"
+      },
+      "started_at": "2026-09-19T09:10:04.230156+00:00",
+      "finished_at": "2026-09-19T09:10:04.949794+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "consumer_destination_alias",
+      "service": "lambda",
+      "operation": "create-alias",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0",
+        "Name": "consumer_destination",
+        "FunctionVersion": "1"
+      },
+      "started_at": "2026-09-19T09:10:19.950316+00:00",
+      "finished_at": "2026-09-19T09:10:20.691615+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "AliasArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "Name": "consumer_destination",
+          "FunctionVersion": "1",
+          "Description": "",
+          "RevisionId": "275c913d-d9dd-4807-9557-2c9a5d1e74ff"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_create",
+      "service": "lambda",
+      "operation": "create-event-source-mapping",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+        "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+        "StartingPosition": "TRIM_HORIZON",
+        "Enabled": false,
+        "BatchSize": 1,
+        "MaximumBatchingWindowInSeconds": 2,
+        "MaximumRetryAttempts": 0,
+        "MaximumRecordAgeInSeconds": 600,
+        "FilterCriteria": {
+          "Filters": [
+            {
+              "Pattern": "{\"data\": {\"phase\": [\"consumer_destination\"]}}"
+            }
+          ]
+        },
+        "FunctionResponseTypes": [
+          "ReportBatchItemFailures"
+        ],
+        "DestinationConfig": {
+          "OnFailure": {
+            "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+          }
+        }
+      },
+      "started_at": "2026-09-19T09:10:20.692069+00:00",
+      "finished_at": "2026-09-19T09:10:21.698125+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"consumer_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "LastModified": "2026-09-19T10:10:21.560000+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Creating",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_ready_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+      },
+      "started_at": "2026-09-19T09:10:21.698620+00:00",
+      "finished_at": "2026-09-19T09:10:22.584962+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"consumer_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "LastModified": "2026-09-19T10:10:00+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Disabled",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_put_1",
+      "service": "kinesis",
+      "operation": "put-record",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0",
+        "PartitionKey": "owned-key",
+        "Data": "eyJwaGFzZSI6ICJjb25zdW1lcl9kZXN0aW5hdGlvbiIsICJvcmRpbmFsIjogMSwgImJhZCI6IHRydWV9"
+      },
+      "started_at": "2026-09-19T09:10:22.585697+00:00",
+      "finished_at": "2026-09-19T09:10:23.292485+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ShardId": "shardId-999000999000",
+          "SequenceNumber": "49678482485914992647128486738460559735979993999471542274"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_enable",
+      "service": "lambda",
+      "operation": "update-event-source-mapping",
+      "input": {
+        "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+        "Enabled": true
+      },
+      "started_at": "2026-09-19T09:10:23.292962+00:00",
+      "finished_at": "2026-09-19T09:10:24.250592+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"consumer_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "LastModified": "2026-09-19T10:10:24.127000+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Enabling",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_enable_ready_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+      },
+      "started_at": "2026-09-19T09:10:24.251071+00:00",
+      "finished_at": "2026-09-19T09:10:25.109628+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"consumer_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "LastModified": "2026-09-19T10:10:00+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Enabled",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_0",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:10:25.110414+00:00",
+      "finished_at": "2026-09-19T09:10:26.283976+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_1",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:10:29.284601+00:00",
+      "finished_at": "2026-09-19T09:10:30.927053+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_2",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:10:33.927729+00:00",
+      "finished_at": "2026-09-19T09:10:35.094144+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_3",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:10:38.095129+00:00",
+      "finished_at": "2026-09-19T09:10:39.160168+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_4",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:10:42.161039+00:00",
+      "finished_at": "2026-09-19T09:10:43.691478+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_5",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:10:46.692180+00:00",
+      "finished_at": "2026-09-19T09:10:47.779070+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_6",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:10:50.779676+00:00",
+      "finished_at": "2026-09-19T09:10:52.654628+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_7",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:10:55.655307+00:00",
+      "finished_at": "2026-09-19T09:10:57.403800+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_8",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:00.404440+00:00",
+      "finished_at": "2026-09-19T09:11:01.769174+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_logs_9",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:04.770155+00:00",
+      "finished_at": "2026-09-19T09:11:06.105968+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_destination_0",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-kinesislambda-6920efc7e6e0-failure",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 1,
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "started_at": "2026-09-19T09:11:06.115602+00:00",
+      "finished_at": "2026-09-19T09:11:06.861420+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "30c94727-d50d-4e53-93ab-006e0704fb45",
+              "MD5OfBody": "b7bcb37eca55d525023ef7b4e6bc8c69",
+              "Body": "{\"requestContext\":{\"requestId\":\"30d0e7bd-5ddd-4e96-af57-03a7080f606d\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination\",\"condition\":\"RetryAttemptsExhausted\",\"approximateInvokeCount\":1},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"1\",\"functionError\":null},\"version\":\"1.0\",\"timestamp\":\"2026-09-19T09:10:45.948Z\",\"KinesisBatchInfo\":{\"shardId\":\"shardId-999000999000\",\"startSequenceNumber\":\"49678482485914992647128486738460559735979993999471542274\",\"endSequenceNumber\":\"49678482485914992647128486738460559735979993999471542274\",\"approximateArrivalOfFirstRecord\":\"2026-09-19T09:10:23.187Z\",\"approximateArrivalOfLastRecord\":\"2026-09-19T09:10:23.187Z\",\"batchSize\":1,\"streamArn\":\"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973\"}}",
+              "Attributes": {
+                "SenderId": "AROAQAAAAAAAJSKPDECFT:awslambda_962_20260919091045954",
+                "ApproximateFirstReceiveTimestamp": "1789809066732",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1789809045997"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_disable",
+      "service": "lambda",
+      "operation": "update-event-source-mapping",
+      "input": {
+        "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+        "Enabled": false
+      },
+      "started_at": "2026-09-19T09:11:06.870995+00:00",
+      "finished_at": "2026-09-19T09:11:07.841333+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"consumer_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "LastModified": "2026-09-19T10:11:07.719000+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Disabling",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_disable_ready_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+      },
+      "started_at": "2026-09-19T09:11:07.842000+00:00",
+      "finished_at": "2026-09-19T09:11:08.737481+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"consumer_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "LastModified": "2026-09-19T10:11:00+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Disabled",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_disabled_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+      },
+      "started_at": "2026-09-19T09:11:08.738151+00:00",
+      "finished_at": "2026-09-19T09:11:09.628840+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"consumer_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "LastModified": "2026-09-19T10:11:00+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Disabled",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_delete",
+      "service": "lambda",
+      "operation": "delete-event-source-mapping",
+      "input": {
+        "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+      },
+      "started_at": "2026-09-19T09:11:09.629510+00:00",
+      "finished_at": "2026-09-19T09:11:10.522329+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"consumer_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "LastModified": "2026-09-19T10:11:00+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Deleting",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+        }
+      }
+    },
+    {
+      "label": "consumer_destination_absent_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "c54f7a40-26b9-40a8-98d0-d36e631d29d2"
+      },
+      "started_at": "2026-09-19T09:11:10.523438+00:00",
+      "finished_at": "2026-09-19T09:11:11.518965+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The resource you requested does not exist.",
+          "Code": "ResourceNotFoundException",
+          "Type": "User"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_alias",
+      "service": "lambda",
+      "operation": "create-alias",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0",
+        "Name": "standard_destination",
+        "FunctionVersion": "1"
+      },
+      "started_at": "2026-09-19T09:11:11.519660+00:00",
+      "finished_at": "2026-09-19T09:11:12.237239+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "AliasArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "Name": "standard_destination",
+          "FunctionVersion": "1",
+          "Description": "",
+          "RevisionId": "3b88c82b-c5ab-4a79-83c4-26a3892e6f0d"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_create",
+      "service": "lambda",
+      "operation": "create-event-source-mapping",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0:standard_destination",
+        "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+        "StartingPosition": "TRIM_HORIZON",
+        "Enabled": false,
+        "BatchSize": 1,
+        "MaximumBatchingWindowInSeconds": 2,
+        "MaximumRetryAttempts": 0,
+        "MaximumRecordAgeInSeconds": 600,
+        "FilterCriteria": {
+          "Filters": [
+            {
+              "Pattern": "{\"data\": {\"phase\": [\"standard_destination\"]}}"
+            }
+          ]
+        },
+        "FunctionResponseTypes": [
+          "ReportBatchItemFailures"
+        ],
+        "DestinationConfig": {
+          "OnFailure": {
+            "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+          }
+        }
+      },
+      "started_at": "2026-09-19T09:11:12.238014+00:00",
+      "finished_at": "2026-09-19T09:11:13.220923+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"standard_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "LastModified": "2026-09-19T10:11:13.085000+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Creating",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:b36a166a-67e0-4388-8abb-9a2f513cfa09"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_ready_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09"
+      },
+      "started_at": "2026-09-19T09:11:13.221670+00:00",
+      "finished_at": "2026-09-19T09:11:14.102186+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"standard_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "LastModified": "2026-09-19T10:11:00+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Disabled",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:b36a166a-67e0-4388-8abb-9a2f513cfa09"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_put_1",
+      "service": "kinesis",
+      "operation": "put-record",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0",
+        "PartitionKey": "owned-key",
+        "Data": "eyJwaGFzZSI6ICJzdGFuZGFyZF9kZXN0aW5hdGlvbiIsICJvcmRpbmFsIjogMSwgImJhZCI6IHRydWV9"
+      },
+      "started_at": "2026-09-19T09:11:14.102953+00:00",
+      "finished_at": "2026-09-19T09:11:14.823610+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ShardId": "shardId-999000999000",
+          "SequenceNumber": "49678482485914992647128486738923578324892400478077321218"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_enable",
+      "service": "lambda",
+      "operation": "update-event-source-mapping",
+      "input": {
+        "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+        "Enabled": true
+      },
+      "started_at": "2026-09-19T09:11:14.824437+00:00",
+      "finished_at": "2026-09-19T09:11:15.759687+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"standard_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "LastModified": "2026-09-19T10:11:15.636000+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Enabling",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:b36a166a-67e0-4388-8abb-9a2f513cfa09"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_enable_ready_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09"
+      },
+      "started_at": "2026-09-19T09:11:15.760893+00:00",
+      "finished_at": "2026-09-19T09:11:16.655854+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"standard_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "LastModified": "2026-09-19T10:11:00+01:00",
+          "LastProcessingResult": "No records processed",
+          "State": "Enabled",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:b36a166a-67e0-4388-8abb-9a2f513cfa09"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_0",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:16.656734+00:00",
+      "finished_at": "2026-09-19T09:11:18.390424+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_1",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:21.391745+00:00",
+      "finished_at": "2026-09-19T09:11:22.700145+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_2",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:25.701018+00:00",
+      "finished_at": "2026-09-19T09:11:27.542031+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_3",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:30.543095+00:00",
+      "finished_at": "2026-09-19T09:11:31.848850+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_4",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:34.850036+00:00",
+      "finished_at": "2026-09-19T09:11:36.919659+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_5",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:39.920753+00:00",
+      "finished_at": "2026-09-19T09:11:41.265755+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_6",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:44.266819+00:00",
+      "finished_at": "2026-09-19T09:11:45.580136+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_7",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:48.581227+00:00",
+      "finished_at": "2026-09-19T09:11:50.354750+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_8",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:53.355853+00:00",
+      "finished_at": "2026-09-19T09:11:54.688560+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_9",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:11:57.689610+00:00",
+      "finished_at": "2026-09-19T09:11:59.048730+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_10",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:12:02.049834+00:00",
+      "finished_at": "2026-09-19T09:12:03.897307+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            },
+            {
+              "event_id_ref": "39914076961969200043040155592427856159868125521559355393"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_11",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:12:06.899173+00:00",
+      "finished_at": "2026-09-19T09:12:08.710413+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            },
+            {
+              "event_id_ref": "39914076961969200043040155592427856159868125521559355393"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_12",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:12:11.711525+00:00",
+      "finished_at": "2026-09-19T09:12:13.216446+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            },
+            {
+              "event_id_ref": "39914076961969200043040155592427856159868125521559355393"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_logs_13",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0",
+        "filterPattern": "\"KINESIS_PROBE\""
+      },
+      "started_at": "2026-09-19T09:12:16.217598+00:00",
+      "finished_at": "2026-09-19T09:12:17.526158+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "event_id_ref": "39914075487600032732585067749093293404066968423259504642"
+            },
+            {
+              "event_id_ref": "39914076961969200043040155592427856159868125521559355393"
+            }
+          ],
+          "searchedLogStreams": []
+        }
+      }
+    },
+    {
+      "label": "standard_destination_destination_0",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-kinesislambda-6920efc7e6e0-failure",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 5,
+        "VisibilityTimeout": 1,
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "started_at": "2026-09-19T09:12:17.536181+00:00",
+      "finished_at": "2026-09-19T09:12:18.277401+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "8c0fd2c7-48bc-463d-a663-7aac63febeec",
+              "MD5OfBody": "91f7b8da3f1af8df788a3a5daa460b82",
+              "Body": "{\"requestContext\":{\"requestId\":\"99fdb8a9-ebfe-401c-8f28-fc002132a6c9\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination\",\"condition\":\"RetryAttemptsExhausted\",\"approximateInvokeCount\":1},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"1\",\"functionError\":null},\"version\":\"1.0\",\"timestamp\":\"2026-09-19T09:11:52.059Z\",\"KinesisBatchInfo\":{\"shardId\":\"shardId-999000999000\",\"startSequenceNumber\":\"49678482485914992647128486738923578324892400478077321218\",\"endSequenceNumber\":\"49678482485914992647128486738923578324892400478077321218\",\"approximateArrivalOfFirstRecord\":\"2026-09-19T09:11:14.716Z\",\"approximateArrivalOfLastRecord\":\"2026-09-19T09:11:14.716Z\",\"batchSize\":1,\"streamArn\":\"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0\"}}",
+              "Attributes": {
+                "SenderId": "AROAQAAAAAAAJSKPDECFT:awslambda_601_20260919091152063",
+                "ApproximateFirstReceiveTimestamp": "1789809138147",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1789809112094"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "standard_destination_disable",
+      "service": "lambda",
+      "operation": "update-event-source-mapping",
+      "input": {
+        "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+        "Enabled": false
+      },
+      "started_at": "2026-09-19T09:12:18.279679+00:00",
+      "finished_at": "2026-09-19T09:12:19.298091+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"standard_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "LastModified": "2026-09-19T10:12:19.174000+01:00",
+          "LastProcessingResult": "OK",
+          "State": "Disabling",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:b36a166a-67e0-4388-8abb-9a2f513cfa09"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_disable_ready_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09"
+      },
+      "started_at": "2026-09-19T09:12:19.299229+00:00",
+      "finished_at": "2026-09-19T09:12:20.141486+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"standard_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "LastModified": "2026-09-19T10:12:00+01:00",
+          "LastProcessingResult": "OK",
+          "State": "Disabled",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:b36a166a-67e0-4388-8abb-9a2f513cfa09"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_disabled_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09"
+      },
+      "started_at": "2026-09-19T09:12:20.142505+00:00",
+      "finished_at": "2026-09-19T09:12:21.001529+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"standard_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "LastModified": "2026-09-19T10:12:00+01:00",
+          "LastProcessingResult": "OK",
+          "State": "Disabled",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:b36a166a-67e0-4388-8abb-9a2f513cfa09"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_delete",
+      "service": "lambda",
+      "operation": "delete-event-source-mapping",
+      "input": {
+        "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09"
+      },
+      "started_at": "2026-09-19T09:12:21.003313+00:00",
+      "finished_at": "2026-09-19T09:12:21.899085+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09",
+          "StartingPosition": "TRIM_HORIZON",
+          "BatchSize": 1,
+          "MaximumBatchingWindowInSeconds": 2,
+          "ParallelizationFactor": 1,
+          "EventSourceArn": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"data\": {\"phase\": [\"standard_destination\"]}}"
+              }
+            ]
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "LastModified": "2026-09-19T10:12:00+01:00",
+          "LastProcessingResult": "OK",
+          "State": "Deleting",
+          "StateTransitionReason": "User action",
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-kinesislambda-6920efc7e6e0-failure"
+            }
+          },
+          "MaximumRecordAgeInSeconds": 600,
+          "BisectBatchOnFunctionError": false,
+          "MaximumRetryAttempts": 0,
+          "TumblingWindowInSeconds": 0,
+          "FunctionResponseTypes": [
+            "ReportBatchItemFailures"
+          ],
+          "EventSourceMappingArn": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:b36a166a-67e0-4388-8abb-9a2f513cfa09"
+        }
+      }
+    },
+    {
+      "label": "standard_destination_absent_0",
+      "service": "lambda",
+      "operation": "get-event-source-mapping",
+      "input": {
+        "UUID": "b36a166a-67e0-4388-8abb-9a2f513cfa09"
+      },
+      "started_at": "2026-09-19T09:12:21.900193+00:00",
+      "finished_at": "2026-09-19T09:12:22.862199+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "The resource you requested does not exist.",
+          "Code": "ResourceNotFoundException",
+          "Type": "User"
+        }
+      }
+    }
+  ],
+  "delivery": {
+    "consumer_destination": {
+      "invocations": [
+        {
+          "request_id": "30d0e7bd-5ddd-4e96-af57-03a7080f606d",
+          "invoked_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination",
+          "started": 1789809045.9435058,
+          "finished": 1789809045.943597,
+          "event": {
+            "Records": [
+              {
+                "kinesis": {
+                  "kinesisSchemaVersion": "1.0",
+                  "partitionKey": "owned-key",
+                  "sequenceNumber": "49678482485914992647128486738460559735979993999471542274",
+                  "data": "eyJwaGFzZSI6ICJjb25zdW1lcl9kZXN0aW5hdGlvbiIsICJvcmRpbmFsIjogMSwgImJhZCI6IHRydWV9",
+                  "approximateArrivalTimestamp": 1789809023.187
+                },
+                "eventSource": "aws:kinesis",
+                "eventVersion": "1.0",
+                "eventID": "shardId-999000999000:49678482485914992647128486738460559735979993999471542274",
+                "eventName": "aws:kinesis:record",
+                "invokeIdentityArn": "arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role",
+                "awsRegion": "us-east-1",
+                "eventSourceARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973"
+              }
+            ]
+          },
+          "decoded": [
+            {
+              "phase": "consumer_destination",
+              "ordinal": 1,
+              "bad": true
+            }
+          ],
+          "response": {
+            "batchItemFailures": [
+              {
+                "itemIdentifier": "49678482485914992647128486738460559735979993999471542274"
+              }
+            ]
+          }
+        }
+      ],
+      "ended_at": "2026-09-19T09:11:06.106570+00:00",
+      "bounded_wait_seconds": 150,
+      "minimum_invocations_observed": true
+    },
+    "standard_destination": {
+      "invocations": [
+        {
+          "request_id": "99fdb8a9-ebfe-401c-8f28-fc002132a6c9",
+          "invoked_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination",
+          "started": 1789809112.056288,
+          "finished": 1789809112.056403,
+          "event": {
+            "Records": [
+              {
+                "kinesis": {
+                  "kinesisSchemaVersion": "1.0",
+                  "partitionKey": "owned-key",
+                  "sequenceNumber": "49678482485914992647128486738923578324892400478077321218",
+                  "data": "eyJwaGFzZSI6ICJzdGFuZGFyZF9kZXN0aW5hdGlvbiIsICJvcmRpbmFsIjogMSwgImJhZCI6IHRydWV9",
+                  "approximateArrivalTimestamp": 1789809074.716
+                },
+                "eventSource": "aws:kinesis",
+                "eventVersion": "1.0",
+                "eventID": "shardId-999000999000:49678482485914992647128486738923578324892400478077321218",
+                "eventName": "aws:kinesis:record",
+                "invokeIdentityArn": "arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role",
+                "awsRegion": "us-east-1",
+                "eventSourceARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0"
+              }
+            ]
+          },
+          "decoded": [
+            {
+              "phase": "standard_destination",
+              "ordinal": 1,
+              "bad": true
+            }
+          ],
+          "response": {
+            "batchItemFailures": [
+              {
+                "itemIdentifier": "49678482485914992647128486738923578324892400478077321218"
+              }
+            ]
+          }
+        }
+      ],
+      "ended_at": "2026-09-19T09:12:17.527294+00:00",
+      "bounded_wait_seconds": 150,
+      "minimum_invocations_observed": true
+    }
+  },
+  "cleanup": [
+    {
+      "label": "delete_function",
+      "service": "lambda",
+      "operation": "delete-function",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:12:22.863385+00:00",
+      "finished_at": "2026-09-19T09:12:23.776082+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "StatusCode": 204
+        }
+      }
+    },
+    {
+      "label": "function_absent",
+      "service": "lambda",
+      "operation": "get-function-configuration",
+      "input": {
+        "FunctionName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:12:23.777213+00:00",
+      "finished_at": "2026-09-19T09:12:24.504197+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Function not found: arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0",
+          "Code": "ResourceNotFoundException",
+          "Type": "User"
+        }
+      }
+    },
+    {
+      "label": "deregister_consumer",
+      "service": "kinesis",
+      "operation": "deregister-stream-consumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973"
+      },
+      "started_at": "2026-09-19T09:12:24.506197+00:00",
+      "finished_at": "2026-09-19T09:12:25.291722+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "consumer_absent_0",
+      "service": "kinesis",
+      "operation": "describe-stream-consumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973"
+      },
+      "started_at": "2026-09-19T09:12:25.292871+00:00",
+      "finished_at": "2026-09-19T09:12:25.970283+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ConsumerDescription": {
+            "ConsumerName": "stackd-kinesislambda-6920efc7e6e0",
+            "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+            "ConsumerStatus": "DELETING",
+            "ConsumerCreationTimestamp": "2026-09-19T10:09:33+01:00",
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0"
+          }
+        }
+      }
+    },
+    {
+      "label": "consumer_absent_1",
+      "service": "kinesis",
+      "operation": "describe-stream-consumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973"
+      },
+      "started_at": "2026-09-19T09:12:27.971503+00:00",
+      "finished_at": "2026-09-19T09:12:28.633828+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ConsumerDescription": {
+            "ConsumerName": "stackd-kinesislambda-6920efc7e6e0",
+            "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973",
+            "ConsumerStatus": "DELETING",
+            "ConsumerCreationTimestamp": "2026-09-19T10:09:33+01:00",
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0"
+          }
+        }
+      }
+    },
+    {
+      "label": "consumer_absent_2",
+      "service": "kinesis",
+      "operation": "describe-stream-consumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973"
+      },
+      "started_at": "2026-09-19T09:12:30.635187+00:00",
+      "finished_at": "2026-09-19T09:12:31.298201+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Consumer stackd-kinesislambda-6920efc7e6e0 with creation timestamp 1789808973 under stream: stackd-kinesislambda-6920efc7e6e0, account 000000000000 not found.",
+          "Code": "ResourceNotFoundException",
+          "message": "Consumer stackd-kinesislambda-6920efc7e6e0 with creation timestamp 1789808973 under stream: stackd-kinesislambda-6920efc7e6e0, account 000000000000 not found."
+        }
+      }
+    },
+    {
+      "label": "delete_stream",
+      "service": "kinesis",
+      "operation": "delete-stream",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0",
+        "EnforceConsumerDeletion": true
+      },
+      "started_at": "2026-09-19T09:12:31.299492+00:00",
+      "finished_at": "2026-09-19T09:12:32.035442+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "stream_absent_0",
+      "service": "kinesis",
+      "operation": "describe-stream-summary",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:12:32.036626+00:00",
+      "finished_at": "2026-09-19T09:12:32.836638+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "StreamDescriptionSummary": {
+            "StreamName": "stackd-kinesislambda-6920efc7e6e0",
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+            "StreamStatus": "DELETING",
+            "StreamModeDetails": {
+              "StreamMode": "PROVISIONED"
+            },
+            "RetentionPeriodHours": 24,
+            "StreamCreationTimestamp": "2026-09-19T10:09:26+01:00",
+            "EnhancedMonitoring": [
+              {
+                "ShardLevelMetrics": []
+              }
+            ],
+            "EncryptionType": "NONE",
+            "ConsumerCount": 0,
+            "MaxRecordSizeInKiB": 1024
+          }
+        }
+      }
+    },
+    {
+      "label": "stream_absent_1",
+      "service": "kinesis",
+      "operation": "describe-stream-summary",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:12:34.838046+00:00",
+      "finished_at": "2026-09-19T09:12:35.528528+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "StreamDescriptionSummary": {
+            "StreamName": "stackd-kinesislambda-6920efc7e6e0",
+            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0",
+            "StreamStatus": "DELETING",
+            "StreamModeDetails": {
+              "StreamMode": "PROVISIONED"
+            },
+            "RetentionPeriodHours": 24,
+            "StreamCreationTimestamp": "2026-09-19T10:09:26+01:00",
+            "EnhancedMonitoring": [
+              {
+                "ShardLevelMetrics": []
+              }
+            ],
+            "EncryptionType": "NONE",
+            "ConsumerCount": 0,
+            "MaxRecordSizeInKiB": 1024
+          }
+        }
+      }
+    },
+    {
+      "label": "stream_absent_2",
+      "service": "kinesis",
+      "operation": "describe-stream-summary",
+      "input": {
+        "StreamName": "stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:12:37.529863+00:00",
+      "finished_at": "2026-09-19T09:12:38.261594+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Stream stackd-kinesislambda-6920efc7e6e0 under account 000000000000 not found.",
+          "Code": "ResourceNotFoundException",
+          "message": "Stream stackd-kinesislambda-6920efc7e6e0 under account 000000000000 not found."
+        }
+      }
+    },
+    {
+      "label": "delete_destination",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-kinesislambda-6920efc7e6e0-failure"
+      },
+      "started_at": "2026-09-19T09:12:38.263555+00:00",
+      "finished_at": "2026-09-19T09:12:39.021943+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "destination_absent",
+      "service": "sqs",
+      "operation": "get-queue-url",
+      "input": {
+        "QueueName": "stackd-kinesislambda-6920efc7e6e0-failure"
+      },
+      "started_at": "2026-09-19T09:12:39.023854+00:00",
+      "finished_at": "2026-09-19T09:12:39.686666+00:00",
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "error": {
+          "Message": "The specified queue does not exist.",
+          "Code": "AWS.SimpleQueueService.NonExistentQueue"
+        }
+      }
+    },
+    {
+      "label": "delete_logs",
+      "service": "logs",
+      "operation": "delete-log-group",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:12:39.688074+00:00",
+      "finished_at": "2026-09-19T09:12:40.431286+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "logs_absent",
+      "service": "logs",
+      "operation": "describe-log-groups",
+      "input": {
+        "logGroupNamePrefix": "/aws/lambda/stackd-kinesislambda-6920efc7e6e0"
+      },
+      "started_at": "2026-09-19T09:12:40.432493+00:00",
+      "finished_at": "2026-09-19T09:12:41.103727+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "logGroups": []
+        }
+      }
+    },
+    {
+      "label": "delete_policy_owned-destination",
+      "service": "iam",
+      "operation": "delete-role-policy",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "PolicyName": "owned-destination"
+      },
+      "started_at": "2026-09-19T09:12:41.105062+00:00",
+      "finished_at": "2026-09-19T09:12:41.813743+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "policy_absent_owned-destination",
+      "service": "iam",
+      "operation": "get-role-policy",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "PolicyName": "owned-destination"
+      },
+      "started_at": "2026-09-19T09:12:41.814985+00:00",
+      "finished_at": "2026-09-19T09:12:42.516442+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Code": "NoSuchEntity",
+          "Message": "The role policy with name owned-destination cannot be found."
+        }
+      }
+    },
+    {
+      "label": "delete_policy_owned-logs",
+      "service": "iam",
+      "operation": "delete-role-policy",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "PolicyName": "owned-logs"
+      },
+      "started_at": "2026-09-19T09:12:42.518500+00:00",
+      "finished_at": "2026-09-19T09:12:43.231963+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "policy_absent_owned-logs",
+      "service": "iam",
+      "operation": "get-role-policy",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "PolicyName": "owned-logs"
+      },
+      "started_at": "2026-09-19T09:12:43.234009+00:00",
+      "finished_at": "2026-09-19T09:12:43.949862+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Code": "NoSuchEntity",
+          "Message": "The role policy with name owned-logs cannot be found."
+        }
+      }
+    },
+    {
+      "label": "delete_policy_owned-source",
+      "service": "iam",
+      "operation": "delete-role-policy",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "PolicyName": "owned-source"
+      },
+      "started_at": "2026-09-19T09:12:43.951157+00:00",
+      "finished_at": "2026-09-19T09:12:44.669222+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "policy_absent_owned-source",
+      "service": "iam",
+      "operation": "get-role-policy",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role",
+        "PolicyName": "owned-source"
+      },
+      "started_at": "2026-09-19T09:12:44.670475+00:00",
+      "finished_at": "2026-09-19T09:12:45.372249+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Code": "NoSuchEntity",
+          "Message": "The role policy with name owned-source cannot be found."
+        }
+      }
+    },
+    {
+      "label": "delete_role",
+      "service": "iam",
+      "operation": "delete-role",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role"
+      },
+      "started_at": "2026-09-19T09:12:45.374226+00:00",
+      "finished_at": "2026-09-19T09:12:46.128718+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "role_absent",
+      "service": "iam",
+      "operation": "get-role",
+      "input": {
+        "RoleName": "stackd-kinesislambda-6920efc7e6e0-role"
+      },
+      "started_at": "2026-09-19T09:12:46.130724+00:00",
+      "finished_at": "2026-09-19T09:12:46.918808+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Code": "NoSuchEntity",
+          "Message": "The role with name stackd-kinesislambda-6920efc7e6e0-role cannot be found."
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "IAM policy changes and Lambda polling are eventually consistent; bounded samples do not establish an AWS propagation SLA.",
+    "This capture does not exercise cross-account access, encrypted streams, parallelization, or tumbling windows."
+  ],
+  "actor": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated"
+  },
+  "destination_messages": [
+    {
+      "MessageId": "30c94727-d50d-4e53-93ab-006e0704fb45",
+      "MD5OfBody": "b7bcb37eca55d525023ef7b4e6bc8c69",
+      "Body": "{\"requestContext\":{\"requestId\":\"30d0e7bd-5ddd-4e96-af57-03a7080f606d\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination\",\"condition\":\"RetryAttemptsExhausted\",\"approximateInvokeCount\":1},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"1\",\"functionError\":null},\"version\":\"1.0\",\"timestamp\":\"2026-09-19T09:10:45.948Z\",\"KinesisBatchInfo\":{\"shardId\":\"shardId-999000999000\",\"startSequenceNumber\":\"49678482485914992647128486738460559735979993999471542274\",\"endSequenceNumber\":\"49678482485914992647128486738460559735979993999471542274\",\"approximateArrivalOfFirstRecord\":\"2026-09-19T09:10:23.187Z\",\"approximateArrivalOfLastRecord\":\"2026-09-19T09:10:23.187Z\",\"batchSize\":1,\"streamArn\":\"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973\"}}",
+      "Attributes": {
+        "SenderId": "AROAQAAAAAAAJSKPDECFT:awslambda_962_20260919091045954",
+        "ApproximateFirstReceiveTimestamp": "1789809066732",
+        "ApproximateReceiveCount": "1",
+        "SentTimestamp": "1789809045997"
+      }
+    },
+    {
+      "MessageId": "8c0fd2c7-48bc-463d-a663-7aac63febeec",
+      "MD5OfBody": "91f7b8da3f1af8df788a3a5daa460b82",
+      "Body": "{\"requestContext\":{\"requestId\":\"99fdb8a9-ebfe-401c-8f28-fc002132a6c9\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination\",\"condition\":\"RetryAttemptsExhausted\",\"approximateInvokeCount\":1},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"1\",\"functionError\":null},\"version\":\"1.0\",\"timestamp\":\"2026-09-19T09:11:52.059Z\",\"KinesisBatchInfo\":{\"shardId\":\"shardId-999000999000\",\"startSequenceNumber\":\"49678482485914992647128486738923578324892400478077321218\",\"endSequenceNumber\":\"49678482485914992647128486738923578324892400478077321218\",\"approximateArrivalOfFirstRecord\":\"2026-09-19T09:11:14.716Z\",\"approximateArrivalOfLastRecord\":\"2026-09-19T09:11:14.716Z\",\"batchSize\":1,\"streamArn\":\"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0\"}}",
+      "Attributes": {
+        "SenderId": "AROAQAAAAAAAJSKPDECFT:awslambda_601_20260919091152063",
+        "ApproximateFirstReceiveTimestamp": "1789809138147",
+        "ApproximateReceiveCount": "1",
+        "SentTimestamp": "1789809112094"
+      }
+    }
+  ],
+  "workflow_complete": true,
+  "log_events": [
+    {
+      "logStreamName": "2026/09/19/[1]52cd94c4ebb94c66acd75703ed011dbd",
+      "timestamp": 1789809045943,
+      "message": "KINESIS_PROBE {\"request_id\":\"30d0e7bd-5ddd-4e96-af57-03a7080f606d\",\"invoked_arn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:consumer_destination\",\"started\":1789809045.9435058,\"finished\":1789809045.943597,\"event\":{\"Records\":[{\"kinesis\":{\"kinesisSchemaVersion\":\"1.0\",\"partitionKey\":\"owned-key\",\"sequenceNumber\":\"49678482485914992647128486738460559735979993999471542274\",\"data\":\"eyJwaGFzZSI6ICJjb25zdW1lcl9kZXN0aW5hdGlvbiIsICJvcmRpbmFsIjogMSwgImJhZCI6IHRydWV9\",\"approximateArrivalTimestamp\":1789809023.187},\"eventSource\":\"aws:kinesis\",\"eventVersion\":\"1.0\",\"eventID\":\"shardId-999000999000:49678482485914992647128486738460559735979993999471542274\",\"eventName\":\"aws:kinesis:record\",\"invokeIdentityArn\":\"arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role\",\"awsRegion\":\"us-east-1\",\"eventSourceARN\":\"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0/consumer/stackd-kinesislambda-6920efc7e6e0:1789808973\"}]},\"decoded\":[{\"phase\":\"consumer_destination\",\"ordinal\":1,\"bad\":true}],\"response\":{\"batchItemFailures\":[{\"itemIdentifier\":\"49678482485914992647128486738460559735979993999471542274\"}]}}\n",
+      "ingestionTime": 1789809049125,
+      "eventId": "39914075487600032732585067749093293404066968423259504642"
+    },
+    {
+      "logStreamName": "2026/09/19/[1]52cd94c4ebb94c66acd75703ed011dbd",
+      "timestamp": 1789809112056,
+      "message": "KINESIS_PROBE {\"request_id\":\"99fdb8a9-ebfe-401c-8f28-fc002132a6c9\",\"invoked_arn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-kinesislambda-6920efc7e6e0:standard_destination\",\"started\":1789809112.056288,\"finished\":1789809112.056403,\"event\":{\"Records\":[{\"kinesis\":{\"kinesisSchemaVersion\":\"1.0\",\"partitionKey\":\"owned-key\",\"sequenceNumber\":\"49678482485914992647128486738923578324892400478077321218\",\"data\":\"eyJwaGFzZSI6ICJzdGFuZGFyZF9kZXN0aW5hdGlvbiIsICJvcmRpbmFsIjogMSwgImJhZCI6IHRydWV9\",\"approximateArrivalTimestamp\":1789809074.716},\"eventSource\":\"aws:kinesis\",\"eventVersion\":\"1.0\",\"eventID\":\"shardId-999000999000:49678482485914992647128486738923578324892400478077321218\",\"eventName\":\"aws:kinesis:record\",\"invokeIdentityArn\":\"arn:aws:iam::000000000000:role/stackd-kinesislambda-6920efc7e6e0-role\",\"awsRegion\":\"us-east-1\",\"eventSourceARN\":\"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kinesislambda-6920efc7e6e0\"}]},\"decoded\":[{\"phase\":\"standard_destination\",\"ordinal\":1,\"bad\":true}],\"response\":{\"batchItemFailures\":[{\"itemIdentifier\":\"49678482485914992647128486738923578324892400478077321218\"}]}}\n",
+      "ingestionTime": 1789809121076,
+      "eventId": "39914076961969200043040155592427856159868125521559355393"
+    }
+  ],
+  "cleanup_errors": [],
+  "cleanup_verified": true,
+  "finished_at": "2026-09-19T09:12:46.920227+00:00",
+  "encoding": "event_id_ref expands losslessly to this run's log_events object with the same eventId. All other native output fields are retained except opaque SQS ReceiptHandle capabilities."
+}

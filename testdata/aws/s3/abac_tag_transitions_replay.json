@@ -1,0 +1,2134 @@
+{
+  "Source": "abac_tag_transitions_evidence.json.gz",
+  "Notes": [
+    "Each row cites the exact native sequence and request ID; source timestamps use existing At convention. Native caller user and trust principal rebind to replay caller root; owned prefix/account rebind deterministically.",
+    "Duplicate TagResource requests include a distinct sentinel tag, and duplicate access-point UntagResource requests include a distinct existing keep key. Subsequent native tag sets prove rejection is all-or-nothing for the captured inputs.",
+    "Tag arrays retain native ordering but are sets, not an AWS ordering guarantee.",
+    "Bucket duplicate creation/removal 500s and unchanged/absent post-state are replayed as repeatably captured rejection contracts on fresh low-cardinality resources, corroborated by prior captures and a quiet-interval removal retry. This does not assert a universal permanent AWS validation code or generalize AP InvalidTag to buckets.",
+    "Only reached authority endpoint states are replayed after the captured mutations. All measured delays and stale decisions remain raw; endpoint selection is not a latency SLA or a local delay requirement.",
+    "Transient quota errors are archive-only. The successful replacement and its observed tag set establish recovered capacity without pinning how long recovery takes.",
+    "Randomized IAM role identifiers, session credentials and access-point alias outputs are intentionally unasserted, matching existing native replay conventions."
+  ],
+  "ExcludedObservations": {
+    "33": "New role propagation during setup; not a permanent authorization decision.",
+    "34": "New role propagation during setup; not a permanent authorization decision.",
+    "42": "Nondeterministic authority propagation observation; no timing or stale-decision replay.",
+    "43": "Nondeterministic authority propagation observation; no timing or stale-decision replay.",
+    "47": "Nondeterministic authority propagation observation; no timing or stale-decision replay.",
+    "48": "Nondeterministic authority propagation observation; no timing or stale-decision replay.",
+    "52": "Nondeterministic authority propagation observation; no timing or stale-decision replay.",
+    "53": "Nondeterministic authority propagation observation; no timing or stale-decision replay.",
+    "60": "Transient quota propagation observation; no persistent quota tombstone inferred.",
+    "61": "Read following transient quota failure remains raw; no timing projection.",
+    "64": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "65": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "66": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "67": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "68": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "69": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "70": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "71": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "72": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "73": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "74": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "75": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "76": "Cleanup is native resource-absence evidence, not scenario behavior.",
+    "77": "Cleanup is native resource-absence evidence, not scenario behavior."
+  },
+  "Scenarios": [
+    {
+      "Name": "native-abac-duplicate-atomicity-and-settled-transitions",
+      "TLS": true,
+      "Setup": [],
+      "Calls": [
+        {
+          "Sequence": 1,
+          "Label": "create-main",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=1]; request 3F7MAHVK7RB6VA7W",
+          "At": "2026-09-22T11:40:47.941845+00:00",
+          "Status": 200,
+          "Input": {
+            "Bucket": "abac-tag-transitions-bucket",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "duplicate",
+                  "Value": "original"
+                },
+                {
+                  "Key": "keep",
+                  "Value": "unchanged"
+                }
+              ]
+            }
+          },
+          "Output": {
+            "Location": "/abac-tag-transitions-bucket",
+            "BucketArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          }
+        },
+        {
+          "Sequence": 2,
+          "Label": "create-ap",
+          "Service": "s3control",
+          "Operation": "CreateAccessPoint",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=2]; request 3F7WXA5V2ZCHWBG1",
+          "At": "2026-09-22T11:40:48.620949+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "Name": "abac-tag-transitions-ap",
+            "Bucket": "abac-tag-transitions-bucket",
+            "Tags": [
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              },
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 3,
+          "Label": "bucket-initial",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=3]; request EPZ17XJZ0JHE972H",
+          "At": "2026-09-22T11:40:49.164490+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 4,
+          "Label": "bucket-tag-duplicate-different",
+          "Service": "s3control",
+          "Operation": "TagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidTag",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=4]; request EPZD8G5D5XW6307H",
+          "At": "2026-09-22T11:40:49.281851+00:00",
+          "Status": 400,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "Tags": [
+              {
+                "Key": "sentinel",
+                "Value": "must-not-appear"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "first"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "last"
+              }
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 5,
+          "Label": "bucket-tag-duplicate-different-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=5]; request EPZ2Z1XW6964JWAJ",
+          "At": "2026-09-22T11:40:49.388735+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 6,
+          "Label": "bucket-tag-duplicate-same",
+          "Service": "s3control",
+          "Operation": "TagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidTag",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=6]; request EPZBM2RBEPJSVMH4",
+          "At": "2026-09-22T11:40:49.728647+00:00",
+          "Status": 400,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "Tags": [
+              {
+                "Key": "sentinel",
+                "Value": "must-not-appear"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "same"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "same"
+              }
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 7,
+          "Label": "bucket-tag-duplicate-same-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=7]; request N99JDZR6X4JN94T2",
+          "At": "2026-09-22T11:40:49.835153+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 8,
+          "Label": "bucket-untag-duplicate-present",
+          "Service": "s3control",
+          "Operation": "UntagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InternalError",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=8]; request N99ZQ75Q4GWCKXAT",
+          "At": "2026-09-22T11:40:50.181288+00:00",
+          "Status": 500,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "TagKeys": [
+              "keep",
+              "duplicate",
+              "duplicate"
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 9,
+          "Label": "bucket-untag-duplicate-present-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=9]; request N99W27HC5TPRG869",
+          "At": "2026-09-22T11:40:50.286991+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 10,
+          "Label": "bucket-untag-duplicate-absent",
+          "Service": "s3control",
+          "Operation": "UntagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InternalError",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=10]; request N99ZMEC64EDF9M7Y",
+          "At": "2026-09-22T11:40:50.632915+00:00",
+          "Status": 500,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "TagKeys": [
+              "keep",
+              "missing",
+              "missing"
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 11,
+          "Label": "bucket-untag-duplicate-absent-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=11]; request N99Q1DMCB51XCWN2",
+          "At": "2026-09-22T11:40:50.737263+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 12,
+          "Label": "ap-initial",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=12]; request 9VNZMFF3C80VGNTM",
+          "At": "2026-09-22T11:40:51.079277+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 13,
+          "Label": "ap-tag-duplicate-different",
+          "Service": "s3control",
+          "Operation": "TagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidTag",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=13]; request 9VNVWY5867YAG7D9",
+          "At": "2026-09-22T11:40:51.251677+00:00",
+          "Status": 400,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap",
+            "Tags": [
+              {
+                "Key": "sentinel",
+                "Value": "must-not-appear"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "first"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "last"
+              }
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 14,
+          "Label": "ap-tag-duplicate-different-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=14]; request 9VNXWG3NEWXGGN0A",
+          "At": "2026-09-22T11:40:51.411897+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 15,
+          "Label": "ap-tag-duplicate-same",
+          "Service": "s3control",
+          "Operation": "TagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidTag",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=15]; request 9VNVRA336WB6Y6TT",
+          "At": "2026-09-22T11:40:51.793962+00:00",
+          "Status": 400,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap",
+            "Tags": [
+              {
+                "Key": "sentinel",
+                "Value": "must-not-appear"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "same"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "same"
+              }
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 16,
+          "Label": "ap-tag-duplicate-same-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=16]; request 9NQTMP769RCB0A9A",
+          "At": "2026-09-22T11:40:51.953868+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 17,
+          "Label": "ap-untag-duplicate-present",
+          "Service": "s3control",
+          "Operation": "UntagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidTag",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=17]; request 9NQX91EAPTZEWW85",
+          "At": "2026-09-22T11:40:52.316938+00:00",
+          "Status": 400,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap",
+            "TagKeys": [
+              "keep",
+              "duplicate",
+              "duplicate"
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 18,
+          "Label": "ap-untag-duplicate-present-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=18]; request 9NQV7HMT1J15WDJ9",
+          "At": "2026-09-22T11:40:52.448533+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 19,
+          "Label": "ap-untag-duplicate-absent",
+          "Service": "s3control",
+          "Operation": "UntagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidTag",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=19]; request 9NQK1V3529RH9AMC",
+          "At": "2026-09-22T11:40:52.815636+00:00",
+          "Status": 400,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap",
+            "TagKeys": [
+              "keep",
+              "missing",
+              "missing"
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 20,
+          "Label": "ap-untag-duplicate-absent-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=20]; request W72SJ40A76Q3JK0Z",
+          "At": "2026-09-22T11:40:52.937266+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 21,
+          "Label": "create-different",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InternalError",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=21]; request W72KXS97MYX60E63",
+          "At": "2026-09-22T11:40:53.333312+00:00",
+          "Status": 500,
+          "Input": {
+            "Bucket": "abac-tag-transitions-different",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "unique",
+                  "Value": "sentinel"
+                },
+                {
+                  "Key": "duplicate",
+                  "Value": "first"
+                },
+                {
+                  "Key": "duplicate",
+                  "Value": "last"
+                }
+              ]
+            }
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 22,
+          "Label": "create-state-different",
+          "Service": "s3",
+          "Operation": "HeadBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "404",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=22]; request W72PKHD05F86Q8S0",
+          "At": "2026-09-22T11:40:53.715885+00:00",
+          "Status": 404,
+          "Input": {
+            "Bucket": "abac-tag-transitions-different"
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 23,
+          "Label": "create-tags-different",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "NoSuchResource",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=23]; request 6KPWR76W84B9GGEW",
+          "At": "2026-09-22T11:40:54.050412+00:00",
+          "Status": 404,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-different"
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 24,
+          "Label": "create-same",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InternalError",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=24]; request 6KPRTK7GDFNYRTJZ",
+          "At": "2026-09-22T11:40:54.157894+00:00",
+          "Status": 500,
+          "Input": {
+            "Bucket": "abac-tag-transitions-same",
+            "CreateBucketConfiguration": {
+              "Tags": [
+                {
+                  "Key": "unique",
+                  "Value": "sentinel"
+                },
+                {
+                  "Key": "duplicate",
+                  "Value": "same"
+                },
+                {
+                  "Key": "duplicate",
+                  "Value": "same"
+                }
+              ]
+            }
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 25,
+          "Label": "create-state-same",
+          "Service": "s3",
+          "Operation": "HeadBucket",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "404",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=25]; request 6KPN5Y3BEAXQEEPB",
+          "At": "2026-09-22T11:40:54.548304+00:00",
+          "Status": 404,
+          "Input": {
+            "Bucket": "abac-tag-transitions-same"
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 26,
+          "Label": "create-tags-same",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "NoSuchResource",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=26]; request 6KPHCB5XA445KNZH",
+          "At": "2026-09-22T11:40:54.885143+00:00",
+          "Status": 404,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-same"
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 27,
+          "Label": "bucket-untag-present-settled",
+          "Service": "s3control",
+          "Operation": "UntagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InternalError",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=27]; request VYB3H8TBZJQ6H9BN",
+          "At": "2026-09-22T11:41:09.990465+00:00",
+          "Status": 500,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "TagKeys": [
+              "duplicate",
+              "duplicate"
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 28,
+          "Label": "bucket-untag-present-settled-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=28]; request VYB8BJN4DSYDJP9Q",
+          "At": "2026-09-22T11:41:10.415121+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 29,
+          "Label": "ap-untag-present-settled",
+          "Service": "s3control",
+          "Operation": "UntagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "InvalidTag",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=29]; request VYB96Z7CQMEHDHH1",
+          "At": "2026-09-22T11:41:10.760353+00:00",
+          "Status": 400,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap",
+            "TagKeys": [
+              "duplicate",
+              "duplicate"
+            ]
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 30,
+          "Label": "ap-untag-present-settled-state",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=30]; request F1ZWBJK11CN1QQTA",
+          "At": "2026-09-22T11:41:10.892399+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:us-east-1:${account}:accesspoint/abac-tag-transitions-ap"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 31,
+          "Label": "create-reader-role",
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=31]; request 284905fa-9c3c-480d-a4f6-ea6228ac3beb",
+          "At": "2026-09-22T11:41:11.318171+00:00",
+          "Status": 200,
+          "Input": {
+            "RoleName": "abac-tag-transitions-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${account}:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          }
+        },
+        {
+          "Sequence": 32,
+          "Label": "scope-reader-role",
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=32]; request 89a3625c-0d7f-41c9-9cef-1a57b710c21d",
+          "At": "2026-09-22T11:41:11.809562+00:00",
+          "Status": 200,
+          "Input": {
+            "RoleName": "abac-tag-transitions-role",
+            "PolicyName": "OwnedBucketTagRead",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:ListBucket\", \"Resource\": \"arn:aws:s3:::abac-tag-transitions-bucket\", \"Condition\": {\"StringEquals\": {\"aws:ResourceTag/Project\": \"Blue\"}}}]}"
+          }
+        },
+        {
+          "Sequence": 35,
+          "Label": "assume-reader",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=35]; request 728b6a57-b46b-486b-9525-3d0b13b7274b",
+          "At": "2026-09-22T11:41:32.497853+00:00",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "arn:aws:iam::${account}:role/abac-tag-transitions-role",
+            "RoleSessionName": "tag-reader",
+            "DurationSeconds": 900
+          },
+          "Session": "tag-reader"
+        },
+        {
+          "Sequence": 36,
+          "Label": "authority-seed-blue",
+          "Service": "s3control",
+          "Operation": "TagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=36]; request MCRHHWE63MQMX989",
+          "At": "2026-09-22T11:41:32.628965+00:00",
+          "Status": 204,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "Tags": [
+              {
+                "Key": "Project",
+                "Value": "Blue"
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 37,
+          "Label": "enable-abac",
+          "Service": "s3",
+          "Operation": "PutBucketAbac",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=37]; request XENPH0B85T826S90",
+          "At": "2026-09-22T11:41:33.153919+00:00",
+          "Status": 200,
+          "Input": {
+            "Bucket": "abac-tag-transitions-bucket",
+            "AbacStatus": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 38,
+          "Label": "enable-readback",
+          "Service": "s3",
+          "Operation": "GetBucketAbac",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=38]; request XENVSZ45QT927K90",
+          "At": "2026-09-22T11:41:33.700109+00:00",
+          "Status": 200,
+          "Input": {
+            "Bucket": "abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "AbacStatus": {
+              "Status": "Enabled"
+            }
+          }
+        },
+        {
+          "Sequence": 39,
+          "Label": "enabled-blue-0",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Region": "us-east-1",
+          "Actor": "tag-reader",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=39]; request CG6BZ54BF2QKVZ43",
+          "At": "2026-09-22T11:41:33.837825+00:00",
+          "Status": 200,
+          "Input": {
+            "Bucket": "abac-tag-transitions-bucket",
+            "EncodingType": "url"
+          },
+          "Output": {
+            "IsTruncated": false,
+            "Name": "abac-tag-transitions-bucket",
+            "Prefix": "",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        },
+        {
+          "Sequence": 40,
+          "Label": "authority-red",
+          "Service": "s3control",
+          "Operation": "TagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=40]; request CG6A5YZHYDH2XCBW",
+          "At": "2026-09-22T11:41:34.193346+00:00",
+          "Status": 204,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "Tags": [
+              {
+                "Key": "Project",
+                "Value": "Red"
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 41,
+          "Label": "authority-red-readback",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=41]; request CG64XJZQYWYZ3Q2S",
+          "At": "2026-09-22T11:41:34.346511+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "Project",
+                "Value": "Red"
+              },
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 44,
+          "Label": "red-revokes-2",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Region": "us-east-1",
+          "Actor": "tag-reader",
+          "Code": "AccessDenied",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=44]; request 7HFBNH3RC3JXNWPS",
+          "At": "2026-09-22T11:41:49.454544+00:00",
+          "Status": 403,
+          "Input": {
+            "Bucket": "abac-tag-transitions-bucket",
+            "EncodingType": "url"
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 45,
+          "Label": "authority-blue",
+          "Service": "s3control",
+          "Operation": "TagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=45]; request Q6M8EZ0Q1Z4TYYEC",
+          "At": "2026-09-22T11:41:49.891638+00:00",
+          "Status": 204,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "Tags": [
+              {
+                "Key": "Project",
+                "Value": "Blue"
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 46,
+          "Label": "authority-blue-readback",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=46]; request Q6M3RCREZX16TA0C",
+          "At": "2026-09-22T11:41:50.336851+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "Project",
+                "Value": "Blue"
+              },
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 49,
+          "Label": "blue-grants-2",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Region": "us-east-1",
+          "Actor": "tag-reader",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=49]; request 31BFX9Z854Y9605S",
+          "At": "2026-09-22T11:42:05.451403+00:00",
+          "Status": 200,
+          "Input": {
+            "Bucket": "abac-tag-transitions-bucket",
+            "EncodingType": "url"
+          },
+          "Output": {
+            "IsTruncated": false,
+            "Name": "abac-tag-transitions-bucket",
+            "Prefix": "",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        },
+        {
+          "Sequence": 50,
+          "Label": "authority-remove",
+          "Service": "s3control",
+          "Operation": "UntagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=50]; request 5Y26HTSV8JB2V1FP",
+          "At": "2026-09-22T11:42:05.884415+00:00",
+          "Status": 204,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "TagKeys": [
+              "Project"
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 51,
+          "Label": "authority-remove-readback",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=51]; request 5Y20VQGTCE9W6DHV",
+          "At": "2026-09-22T11:42:06.341529+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "keep",
+                "Value": "unchanged"
+              },
+              {
+                "Key": "duplicate",
+                "Value": "original"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 54,
+          "Label": "removal-revokes-2",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Region": "us-east-1",
+          "Actor": "tag-reader",
+          "Code": "AccessDenied",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=54]; request 1Z5EEYY1MKG6GJZQ",
+          "At": "2026-09-22T11:42:21.453612+00:00",
+          "Status": 403,
+          "Input": {
+            "Bucket": "abac-tag-transitions-bucket",
+            "EncodingType": "url"
+          },
+          "Output": {},
+          "ErrorDetails": {}
+        },
+        {
+          "Sequence": 55,
+          "Label": "disable-before-quota",
+          "Service": "s3",
+          "Operation": "PutBucketAbac",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=55]; request B64MVNJWQ4RACXQK",
+          "At": "2026-09-22T11:42:21.887748+00:00",
+          "Status": 200,
+          "Input": {
+            "Bucket": "abac-tag-transitions-bucket",
+            "AbacStatus": {
+              "Status": "Disabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 56,
+          "Label": "quota-fifty-clean-reset",
+          "Service": "s3",
+          "Operation": "PutBucketTagging",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=56]; request B64SDFZF5BTV6D4W",
+          "At": "2026-09-22T11:42:22.347261+00:00",
+          "Status": 204,
+          "Input": {
+            "Bucket": "abac-tag-transitions-bucket",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "q00",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q01",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q02",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q03",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q04",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q05",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q06",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q07",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q08",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q09",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q10",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q11",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q12",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q13",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q14",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q15",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q16",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q17",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q18",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q19",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q20",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q21",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q22",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q23",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q24",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q25",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q26",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q27",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q28",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q29",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q30",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q31",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q32",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q33",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q34",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q35",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q36",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q37",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q38",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q39",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q40",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q41",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q42",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q43",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q44",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q45",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q46",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q47",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q48",
+                  "Value": "v"
+                },
+                {
+                  "Key": "q49",
+                  "Value": "v"
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 57,
+          "Label": "quota-fifty-readback",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=57]; request B64HFSP76Z60PGS7",
+          "At": "2026-09-22T11:42:22.554197+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "q31",
+                "Value": "v"
+              },
+              {
+                "Key": "q30",
+                "Value": "v"
+              },
+              {
+                "Key": "q33",
+                "Value": "v"
+              },
+              {
+                "Key": "q32",
+                "Value": "v"
+              },
+              {
+                "Key": "q35",
+                "Value": "v"
+              },
+              {
+                "Key": "q34",
+                "Value": "v"
+              },
+              {
+                "Key": "q37",
+                "Value": "v"
+              },
+              {
+                "Key": "q36",
+                "Value": "v"
+              },
+              {
+                "Key": "q39",
+                "Value": "v"
+              },
+              {
+                "Key": "q38",
+                "Value": "v"
+              },
+              {
+                "Key": "q40",
+                "Value": "v"
+              },
+              {
+                "Key": "q42",
+                "Value": "v"
+              },
+              {
+                "Key": "q41",
+                "Value": "v"
+              },
+              {
+                "Key": "q00",
+                "Value": "v"
+              },
+              {
+                "Key": "q44",
+                "Value": "v"
+              },
+              {
+                "Key": "q43",
+                "Value": "v"
+              },
+              {
+                "Key": "q02",
+                "Value": "v"
+              },
+              {
+                "Key": "q46",
+                "Value": "v"
+              },
+              {
+                "Key": "q01",
+                "Value": "v"
+              },
+              {
+                "Key": "q45",
+                "Value": "v"
+              },
+              {
+                "Key": "q04",
+                "Value": "v"
+              },
+              {
+                "Key": "q48",
+                "Value": "v"
+              },
+              {
+                "Key": "q03",
+                "Value": "v"
+              },
+              {
+                "Key": "q47",
+                "Value": "v"
+              },
+              {
+                "Key": "q06",
+                "Value": "v"
+              },
+              {
+                "Key": "q05",
+                "Value": "v"
+              },
+              {
+                "Key": "q49",
+                "Value": "v"
+              },
+              {
+                "Key": "q08",
+                "Value": "v"
+              },
+              {
+                "Key": "q07",
+                "Value": "v"
+              },
+              {
+                "Key": "q09",
+                "Value": "v"
+              },
+              {
+                "Key": "q11",
+                "Value": "v"
+              },
+              {
+                "Key": "q10",
+                "Value": "v"
+              },
+              {
+                "Key": "q13",
+                "Value": "v"
+              },
+              {
+                "Key": "q12",
+                "Value": "v"
+              },
+              {
+                "Key": "q15",
+                "Value": "v"
+              },
+              {
+                "Key": "q14",
+                "Value": "v"
+              },
+              {
+                "Key": "q17",
+                "Value": "v"
+              },
+              {
+                "Key": "q16",
+                "Value": "v"
+              },
+              {
+                "Key": "q19",
+                "Value": "v"
+              },
+              {
+                "Key": "q18",
+                "Value": "v"
+              },
+              {
+                "Key": "q20",
+                "Value": "v"
+              },
+              {
+                "Key": "q22",
+                "Value": "v"
+              },
+              {
+                "Key": "q21",
+                "Value": "v"
+              },
+              {
+                "Key": "q24",
+                "Value": "v"
+              },
+              {
+                "Key": "q23",
+                "Value": "v"
+              },
+              {
+                "Key": "q26",
+                "Value": "v"
+              },
+              {
+                "Key": "q25",
+                "Value": "v"
+              },
+              {
+                "Key": "q28",
+                "Value": "v"
+              },
+              {
+                "Key": "q27",
+                "Value": "v"
+              },
+              {
+                "Key": "q29",
+                "Value": "v"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 58,
+          "Label": "quota-remove-one",
+          "Service": "s3control",
+          "Operation": "UntagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=58]; request YE1RPJYJ1RNFXG1Y",
+          "At": "2026-09-22T11:42:37.992153+00:00",
+          "Status": 204,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "TagKeys": [
+              "q49"
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 59,
+          "Label": "quota-removed-readback",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=59]; request YE1TYJWK4JSYNV18",
+          "At": "2026-09-22T11:42:38.462296+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "q31",
+                "Value": "v"
+              },
+              {
+                "Key": "q30",
+                "Value": "v"
+              },
+              {
+                "Key": "q33",
+                "Value": "v"
+              },
+              {
+                "Key": "q32",
+                "Value": "v"
+              },
+              {
+                "Key": "q35",
+                "Value": "v"
+              },
+              {
+                "Key": "q34",
+                "Value": "v"
+              },
+              {
+                "Key": "q37",
+                "Value": "v"
+              },
+              {
+                "Key": "q36",
+                "Value": "v"
+              },
+              {
+                "Key": "q39",
+                "Value": "v"
+              },
+              {
+                "Key": "q38",
+                "Value": "v"
+              },
+              {
+                "Key": "q40",
+                "Value": "v"
+              },
+              {
+                "Key": "q42",
+                "Value": "v"
+              },
+              {
+                "Key": "q41",
+                "Value": "v"
+              },
+              {
+                "Key": "q00",
+                "Value": "v"
+              },
+              {
+                "Key": "q44",
+                "Value": "v"
+              },
+              {
+                "Key": "q43",
+                "Value": "v"
+              },
+              {
+                "Key": "q02",
+                "Value": "v"
+              },
+              {
+                "Key": "q46",
+                "Value": "v"
+              },
+              {
+                "Key": "q01",
+                "Value": "v"
+              },
+              {
+                "Key": "q45",
+                "Value": "v"
+              },
+              {
+                "Key": "q04",
+                "Value": "v"
+              },
+              {
+                "Key": "q48",
+                "Value": "v"
+              },
+              {
+                "Key": "q03",
+                "Value": "v"
+              },
+              {
+                "Key": "q47",
+                "Value": "v"
+              },
+              {
+                "Key": "q06",
+                "Value": "v"
+              },
+              {
+                "Key": "q05",
+                "Value": "v"
+              },
+              {
+                "Key": "q08",
+                "Value": "v"
+              },
+              {
+                "Key": "q07",
+                "Value": "v"
+              },
+              {
+                "Key": "q09",
+                "Value": "v"
+              },
+              {
+                "Key": "q11",
+                "Value": "v"
+              },
+              {
+                "Key": "q10",
+                "Value": "v"
+              },
+              {
+                "Key": "q13",
+                "Value": "v"
+              },
+              {
+                "Key": "q12",
+                "Value": "v"
+              },
+              {
+                "Key": "q15",
+                "Value": "v"
+              },
+              {
+                "Key": "q14",
+                "Value": "v"
+              },
+              {
+                "Key": "q17",
+                "Value": "v"
+              },
+              {
+                "Key": "q16",
+                "Value": "v"
+              },
+              {
+                "Key": "q19",
+                "Value": "v"
+              },
+              {
+                "Key": "q18",
+                "Value": "v"
+              },
+              {
+                "Key": "q20",
+                "Value": "v"
+              },
+              {
+                "Key": "q22",
+                "Value": "v"
+              },
+              {
+                "Key": "q21",
+                "Value": "v"
+              },
+              {
+                "Key": "q24",
+                "Value": "v"
+              },
+              {
+                "Key": "q23",
+                "Value": "v"
+              },
+              {
+                "Key": "q26",
+                "Value": "v"
+              },
+              {
+                "Key": "q25",
+                "Value": "v"
+              },
+              {
+                "Key": "q28",
+                "Value": "v"
+              },
+              {
+                "Key": "q27",
+                "Value": "v"
+              },
+              {
+                "Key": "q29",
+                "Value": "v"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 62,
+          "Label": "quota-replacement-1",
+          "Service": "s3control",
+          "Operation": "TagResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=62]; request SV7EYZ84ZW22HNDF",
+          "At": "2026-09-22T11:42:43.581483+00:00",
+          "Status": 204,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket",
+            "Tags": [
+              {
+                "Key": "replacement",
+                "Value": "v"
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Sequence": 63,
+          "Label": "quota-replacement-state-1",
+          "Service": "s3control",
+          "Operation": "ListTagsForResource",
+          "Region": "us-east-1",
+          "Actor": "caller",
+          "Code": "Success",
+          "Source": "abac_tag_transitions_evidence.json.gz#Rows[Sequence=63]; request SV7CK8HPDPBTY3EW",
+          "At": "2026-09-22T11:42:43.758096+00:00",
+          "Status": 200,
+          "Input": {
+            "AccountId": "${account}",
+            "ResourceArn": "arn:aws:s3:::abac-tag-transitions-bucket"
+          },
+          "Output": {
+            "Tags": [
+              {
+                "Key": "q31",
+                "Value": "v"
+              },
+              {
+                "Key": "q30",
+                "Value": "v"
+              },
+              {
+                "Key": "q33",
+                "Value": "v"
+              },
+              {
+                "Key": "q32",
+                "Value": "v"
+              },
+              {
+                "Key": "q35",
+                "Value": "v"
+              },
+              {
+                "Key": "q34",
+                "Value": "v"
+              },
+              {
+                "Key": "q37",
+                "Value": "v"
+              },
+              {
+                "Key": "q36",
+                "Value": "v"
+              },
+              {
+                "Key": "q39",
+                "Value": "v"
+              },
+              {
+                "Key": "q38",
+                "Value": "v"
+              },
+              {
+                "Key": "q40",
+                "Value": "v"
+              },
+              {
+                "Key": "q42",
+                "Value": "v"
+              },
+              {
+                "Key": "q41",
+                "Value": "v"
+              },
+              {
+                "Key": "q00",
+                "Value": "v"
+              },
+              {
+                "Key": "q44",
+                "Value": "v"
+              },
+              {
+                "Key": "q43",
+                "Value": "v"
+              },
+              {
+                "Key": "q02",
+                "Value": "v"
+              },
+              {
+                "Key": "q46",
+                "Value": "v"
+              },
+              {
+                "Key": "q01",
+                "Value": "v"
+              },
+              {
+                "Key": "q45",
+                "Value": "v"
+              },
+              {
+                "Key": "q04",
+                "Value": "v"
+              },
+              {
+                "Key": "q48",
+                "Value": "v"
+              },
+              {
+                "Key": "q03",
+                "Value": "v"
+              },
+              {
+                "Key": "q47",
+                "Value": "v"
+              },
+              {
+                "Key": "q06",
+                "Value": "v"
+              },
+              {
+                "Key": "q05",
+                "Value": "v"
+              },
+              {
+                "Key": "q08",
+                "Value": "v"
+              },
+              {
+                "Key": "q07",
+                "Value": "v"
+              },
+              {
+                "Key": "q09",
+                "Value": "v"
+              },
+              {
+                "Key": "replacement",
+                "Value": "v"
+              },
+              {
+                "Key": "q11",
+                "Value": "v"
+              },
+              {
+                "Key": "q10",
+                "Value": "v"
+              },
+              {
+                "Key": "q13",
+                "Value": "v"
+              },
+              {
+                "Key": "q12",
+                "Value": "v"
+              },
+              {
+                "Key": "q15",
+                "Value": "v"
+              },
+              {
+                "Key": "q14",
+                "Value": "v"
+              },
+              {
+                "Key": "q17",
+                "Value": "v"
+              },
+              {
+                "Key": "q16",
+                "Value": "v"
+              },
+              {
+                "Key": "q19",
+                "Value": "v"
+              },
+              {
+                "Key": "q18",
+                "Value": "v"
+              },
+              {
+                "Key": "q20",
+                "Value": "v"
+              },
+              {
+                "Key": "q22",
+                "Value": "v"
+              },
+              {
+                "Key": "q21",
+                "Value": "v"
+              },
+              {
+                "Key": "q24",
+                "Value": "v"
+              },
+              {
+                "Key": "q23",
+                "Value": "v"
+              },
+              {
+                "Key": "q26",
+                "Value": "v"
+              },
+              {
+                "Key": "q25",
+                "Value": "v"
+              },
+              {
+                "Key": "q28",
+                "Value": "v"
+              },
+              {
+                "Key": "q27",
+                "Value": "v"
+              },
+              {
+                "Key": "q29",
+                "Value": "v"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

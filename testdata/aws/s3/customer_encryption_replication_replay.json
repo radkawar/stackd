@@ -1,0 +1,642 @@
+{
+  "Source": "s3/customer_encryption_replication_evidence.json.gz",
+  "ProjectionNotes": [
+    "Source positions are zero-based native Observations indices; Sequence retains the one-based capture index. The initial invalid CLI key encoding run is retained in PriorRuns but excluded.",
+    "This scenario uses real trusted TLS. Explicit SSECustomerKey and MD5 values are synthetic wire base64 fields, not real credentials.",
+    "Buckets, role ARN, account, returned source versions and SSE-C ETags rebind to local outputs. Replica equality retains the native source version/ETag relationship, not a fixed opaque encryption ETag.",
+    "At and Drain freeze local scheduling until each observed terminal state; one-second local advances are not AWS latency claims. Pending and committed data are reopened on both retained backends.",
+    "Metadata mutation occurs after blocking destination writes. Only observed successful tag propagation is projected; payload remains the originally captured object.",
+    "No additional SSE-C permissions or customer key are provided to the replication role. Native teardown and redundant polls remain evidence only."
+  ],
+  "Limitations": [
+    "No CloudTrail, SQS or metrics resource was created. Failure-reason notification diagnostics are not measured; only returned source replication status and object API responses are measured.",
+    "Polling windows are capture bounds, not AWS latency guarantees."
+  ],
+  "Scenarios": [
+    {
+      "Name": "sse-c-ciphertext-replication-and-destination-block",
+      "TLS": true,
+      "Setup": [],
+      "Calls": [
+        {
+          "Label": "create-customer-replication-source",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[1]",
+          "Sequence": 2,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "version-customer-replication-source",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[2]",
+          "Sequence": 3,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "unblock-customer-replication-source",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[3]",
+          "Sequence": 4,
+          "Service": "s3",
+          "Operation": "PutBucketEncryption",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "ServerSideEncryptionConfiguration": {
+              "Rules": [
+                {
+                  "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "AES256"
+                  },
+                  "BlockedEncryptionTypes": {
+                    "EncryptionType": [
+                      "NONE"
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "create-customer-replication-destination",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[4]",
+          "Sequence": 5,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "version-customer-replication-destination",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[5]",
+          "Sequence": 6,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "unblock-customer-replication-destination",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[6]",
+          "Sequence": 7,
+          "Service": "s3",
+          "Operation": "PutBucketEncryption",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "ServerSideEncryptionConfiguration": {
+              "Rules": [
+                {
+                  "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "AES256"
+                  },
+                  "BlockedEncryptionTypes": {
+                    "EncryptionType": [
+                      "NONE"
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "create-role",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[7]",
+          "Sequence": 8,
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Input": {
+            "RoleName": "customer-replication-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "customerReplicationRole": "Role.Arn"
+          },
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "role-policy",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[8]",
+          "Sequence": 9,
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Input": {
+            "RoleName": "customer-replication-role",
+            "PolicyName": "owned-replication",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetReplicationConfiguration\", \"s3:ListBucket\"], \"Resource\": \"arn:aws:s3:::customer-replication-source\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersionForReplication\", \"s3:GetObjectVersionAcl\", \"s3:GetObjectVersionTagging\"], \"Resource\": \"arn:aws:s3:::customer-replication-source/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:ReplicateObject\", \"s3:ReplicateTags\"], \"Resource\": \"arn:aws:s3:::customer-replication-destination/*\"}]}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "configure",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[9]",
+          "Sequence": 10,
+          "Service": "s3",
+          "Operation": "PutBucketReplication",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "ReplicationConfiguration": {
+              "Role": "${customerReplicationRole}",
+              "Rules": [
+                {
+                  "ID": "owned-ssec",
+                  "Status": "Enabled",
+                  "Priority": 1,
+                  "Filter": {
+                    "Prefix": ""
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::customer-replication-destination"
+                  }
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "put-unblocked",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[10]",
+          "Sequence": 11,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "Key": "unblocked",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Body": "b3duZWQgc3ludGhldGljIFNTRS1DIHJlcGxpY2F0aW9uIHBheWxvYWQK",
+          "Bind": {
+            "customerReplicationUnblockedVersionId": "VersionId",
+            "customerReplicationUnblockedETag": "ETag"
+          },
+          "Output": {
+            "ETag": "${customerReplicationUnblockedETag}",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "poll-unblocked",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[11]",
+          "Sequence": 12,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "Key": "unblocked",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 42,
+            "ETag": "${customerReplicationUnblockedETag}",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "ContentType": "binary/octet-stream",
+            "Metadata": {},
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA==",
+            "ReplicationStatus": "PENDING"
+          },
+          "At": "2026-09-21T16:00:00Z"
+        },
+        {
+          "Label": "poll-unblocked",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[13]",
+          "Sequence": 14,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "Key": "unblocked",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 42,
+            "ETag": "${customerReplicationUnblockedETag}",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "ContentType": "binary/octet-stream",
+            "Metadata": {},
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA==",
+            "ReplicationStatus": "COMPLETED"
+          },
+          "Drain": true,
+          "Reopen": true,
+          "At": "2026-09-21T16:00:01Z"
+        },
+        {
+          "Label": "replica-matching-key",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[14]",
+          "Sequence": 15,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "Key": "unblocked",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 42,
+            "ETag": "${customerReplicationUnblockedETag}",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "ContentType": "binary/octet-stream",
+            "Metadata": {},
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA==",
+            "ReplicationStatus": "REPLICA"
+          },
+          "Plaintext": "b3duZWQgc3ludGhldGljIFNTRS1DIHJlcGxpY2F0aW9uIHBheWxvYWQK",
+          "Reopen": true,
+          "At": "2026-09-21T16:00:01Z"
+        },
+        {
+          "Label": "replica-missing-key",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[15]",
+          "Sequence": 16,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "Key": "unblocked",
+            "VersionId": "${customerReplicationUnblockedVersionId}"
+          },
+          "Code": "InvalidRequest",
+          "Status": 400,
+          "At": "2026-09-21T16:00:01Z"
+        },
+        {
+          "Label": "replica-wrong-key",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[16]",
+          "Sequence": 17,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "Key": "unblocked",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA=",
+            "SSECustomerKeyMD5": "dT1y7SEiqn6YCJ3QeqwoIw=="
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "At": "2026-09-21T16:00:01Z"
+        },
+        {
+          "Label": "block-destination",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[17]",
+          "Sequence": 18,
+          "Service": "s3",
+          "Operation": "PutBucketEncryption",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "ServerSideEncryptionConfiguration": {
+              "Rules": [
+                {
+                  "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "AES256"
+                  },
+                  "BlockedEncryptionTypes": {
+                    "EncryptionType": [
+                      "SSE-C"
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T16:00:01Z"
+        },
+        {
+          "Label": "existing-replica-after-block",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[18]",
+          "Sequence": 19,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "Key": "unblocked",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 42,
+            "ETag": "${customerReplicationUnblockedETag}",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "ContentType": "binary/octet-stream",
+            "Metadata": {},
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA==",
+            "ReplicationStatus": "REPLICA"
+          },
+          "Plaintext": "b3duZWQgc3ludGhldGljIFNTRS1DIHJlcGxpY2F0aW9uIHBheWxvYWQK",
+          "Reopen": true,
+          "At": "2026-09-21T16:00:01Z"
+        },
+        {
+          "Label": "metadata-after-block",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[19]",
+          "Sequence": 20,
+          "Service": "s3",
+          "Operation": "PutObjectTagging",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "Key": "unblocked",
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "after",
+                  "Value": "block"
+                }
+              ]
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "VersionId": "${customerReplicationUnblockedVersionId}"
+          },
+          "At": "2026-09-21T16:00:01Z"
+        },
+        {
+          "Label": "poll-metadata-after-block",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[20]",
+          "Sequence": 21,
+          "Service": "s3",
+          "Operation": "GetObjectTagging",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "Key": "unblocked",
+            "VersionId": "${customerReplicationUnblockedVersionId}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "TagSet": []
+          },
+          "At": "2026-09-21T16:00:01Z"
+        },
+        {
+          "Label": "poll-metadata-after-block",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[30]",
+          "Sequence": 31,
+          "Service": "s3",
+          "Operation": "GetObjectTagging",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "Key": "unblocked",
+            "VersionId": "${customerReplicationUnblockedVersionId}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "VersionId": "${customerReplicationUnblockedVersionId}",
+            "TagSet": [
+              {
+                "Key": "after",
+                "Value": "block"
+              }
+            ]
+          },
+          "Drain": true,
+          "Reopen": true,
+          "At": "2026-09-21T16:00:02Z"
+        },
+        {
+          "Label": "put-blocked-destination",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[31]",
+          "Sequence": 32,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "Key": "blocked",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Body": "b3duZWQgc3ludGhldGljIFNTRS1DIHJlcGxpY2F0aW9uIHBheWxvYWQK",
+          "Bind": {
+            "customerReplicationBlockedVersionId": "VersionId",
+            "customerReplicationBlockedETag": "ETag"
+          },
+          "Output": {
+            "ETag": "${customerReplicationBlockedETag}",
+            "VersionId": "${customerReplicationBlockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "At": "2026-09-21T16:00:02Z"
+        },
+        {
+          "Label": "poll-blocked",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[32]",
+          "Sequence": 33,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "Key": "blocked",
+            "VersionId": "${customerReplicationBlockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 42,
+            "ETag": "${customerReplicationBlockedETag}",
+            "VersionId": "${customerReplicationBlockedVersionId}",
+            "ContentType": "binary/octet-stream",
+            "Metadata": {},
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA==",
+            "ReplicationStatus": "PENDING"
+          },
+          "At": "2026-09-21T16:00:02Z"
+        },
+        {
+          "Label": "poll-blocked",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[35]",
+          "Sequence": 36,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "Key": "blocked",
+            "VersionId": "${customerReplicationBlockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 42,
+            "ETag": "${customerReplicationBlockedETag}",
+            "VersionId": "${customerReplicationBlockedVersionId}",
+            "ContentType": "binary/octet-stream",
+            "Metadata": {},
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA==",
+            "ReplicationStatus": "FAILED"
+          },
+          "Drain": true,
+          "Reopen": true,
+          "At": "2026-09-21T16:00:03Z"
+        },
+        {
+          "Label": "blocked-destination-absence",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[36]",
+          "Sequence": 37,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-destination",
+            "Key": "blocked",
+            "VersionId": "${customerReplicationBlockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "NoSuchVersion",
+          "Status": 404,
+          "At": "2026-09-21T16:00:03Z"
+        },
+        {
+          "Label": "blocked-source-readable",
+          "Source": "s3/customer_encryption_replication_evidence.json.gz:Observations[37]",
+          "Sequence": 38,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "customer-replication-source",
+            "Key": "blocked",
+            "VersionId": "${customerReplicationBlockedVersionId}",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA=="
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 42,
+            "ETag": "${customerReplicationBlockedETag}",
+            "VersionId": "${customerReplicationBlockedVersionId}",
+            "ContentType": "binary/octet-stream",
+            "Metadata": {},
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKeyMD5": "hRasmdxgYDKV3nvbahU1MA==",
+            "ReplicationStatus": "FAILED"
+          },
+          "Plaintext": "b3duZWQgc3ludGhldGljIFNTRS1DIHJlcGxpY2F0aW9uIHBheWxvYWQK",
+          "At": "2026-09-21T16:00:03Z"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2867 @@
+{
+  "Source": "object_lock_audit_evidence.json.gz",
+  "Sources": [
+    "https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazons3.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-policy-actions.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-managing.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/cloudtrail-logging-s3-info.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html",
+    "https://servicereference.us-east-1.amazonaws.com/v1/s3/s3.json",
+    "https://docs.aws.amazon.com/service-authorization/latest/reference/service-reference.html"
+  ],
+  "Start": "2026-09-21T07:20:00Z",
+  "AuditBucket": "object-lock-audit-replay-logs",
+  "AuditPrefix": "owned/AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "All 21 positively request-correlated delivered[] records are replayed in observations[] order. Two unrelated AWS service records and unmatched bounded-capture requests are not suppression expectations.",
+    "RecordSource retains the original delivered index, delivery object key/index, event ID and request ID, plus the original observation index/label. IDs, account, bucket and caller role names are rebound for local delivery.",
+    "Native millisecond modification times are rebound to the corresponding mutation service clock, independently for retentionInfo and legalHoldInfo. Explicit deadlines remain native; the default two-day deadline is relative to the local accepted write.",
+    "Reopen boundaries precede generic reads and the legal-hold getter. Final derived persistence reads reuse positively observed field projections with the last accepted mutation values; they are not additional native-delivery observations.",
+    "SDK serialization and native aws-chunked request byte counts differ; accounting uses measured local HTTP bodies. DeleteObjects retains native zero transfer fields. A denied HEAD has no public body; its hidden error size/message is normalized from the paired equivalent denied GET.",
+    "The native request header rounded explicit PutObject retain-until to whole seconds, while the retention XML retained milliseconds. Replay uses those actual transmitted deadlines, not CLI pre-serialization microseconds.",
+    "Role/session-policy provisioning locally reproduces the native caller grants; the native audit artifact does not contain its IAM/STS provisioning requests. Setup is not claimed as additional audit evidence."
+  ],
+  "Setup": [
+    {
+      "Label": "create-stackd-retention-authority-892d4c78652f",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "ObjectLockEnabledForBucket": true
+      },
+      "Output": {},
+      "Source": "object_lock_audit_evidence.json.gz:observations[0]"
+    },
+    {
+      "Label": "create-stackd-retention-authority-892d4c78652f-logs",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay-logs"
+      },
+      "Output": {},
+      "Source": "object_lock_audit_evidence.json.gz:observations[1]"
+    },
+    {
+      "Label": "audit-delivery-policy",
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "object-lock-audit-replay-logs",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::object-lock-audit-replay-logs\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/object-lock-audit-replay-trail\"}}}, {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::object-lock-audit-replay-logs/owned/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-acl\": \"bucket-owner-full-control\", \"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/object-lock-audit-replay-trail\"}}}]}"
+      },
+      "Output": {},
+      "Source": "object_lock_audit_evidence.json.gz:observations[2]"
+    },
+    {
+      "Label": "local-native-caller-role",
+      "Service": "iam",
+      "Operation": "CreateRole",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "object-lock-audit-replay-role",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "local-native-caller-permissions",
+      "Service": "iam",
+      "Operation": "PutRolePolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "object-lock-audit-replay-role",
+        "PolicyName": "S3",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:*\", \"Resource\": \"*\"}]}"
+      },
+      "Output": {}
+    }
+  ],
+  "Sessions": [
+    {
+      "Label": "local-payload-session",
+      "Service": "sts",
+      "Operation": "AssumeRole",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleArn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+        "RoleSessionName": "payload",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\"], \"Resource\": \"*\"}]}"
+      },
+      "Output": {},
+      "Session": "payload"
+    },
+    {
+      "Label": "local-retention-session",
+      "Service": "sts",
+      "Operation": "AssumeRole",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleArn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+        "RoleSessionName": "retention",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\", \"s3:GetObjectRetention\"], \"Resource\": \"*\"}]}"
+      },
+      "Output": {},
+      "Session": "retention"
+    },
+    {
+      "Label": "local-legal-session",
+      "Service": "sts",
+      "Operation": "AssumeRole",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleArn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+        "RoleSessionName": "legal",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\", \"s3:GetObjectLegalHold\"], \"Resource\": \"*\"}]}"
+      },
+      "Output": {},
+      "Session": "legal"
+    },
+    {
+      "Label": "local-metadata-session",
+      "Service": "sts",
+      "Operation": "AssumeRole",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleArn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+        "RoleSessionName": "metadata",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectRetention\", \"s3:GetObjectLegalHold\"], \"Resource\": \"*\"}]}"
+      },
+      "Output": {},
+      "Session": "metadata"
+    },
+    {
+      "Label": "local-full-session",
+      "Service": "sts",
+      "Operation": "AssumeRole",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleArn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+        "RoleSessionName": "full",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\", \"s3:GetObjectRetention\", \"s3:GetObjectLegalHold\"], \"Resource\": \"*\"}]}"
+      },
+      "Output": {},
+      "Session": "full"
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create-trail",
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "Name": "object-lock-audit-replay-trail",
+        "S3BucketName": "object-lock-audit-replay-logs",
+        "S3KeyPrefix": "owned"
+      },
+      "Output": {},
+      "Source": "object_lock_audit_evidence.json.gz:observations[3]"
+    },
+    {
+      "Label": "select-owned-data-and-management",
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AdvancedEventSelectors": [
+          {
+            "FieldSelectors": [
+              {
+                "Equals": [
+                  "Management"
+                ],
+                "Field": "eventCategory"
+              }
+            ],
+            "Name": "AllManagement"
+          },
+          {
+            "FieldSelectors": [
+              {
+                "Equals": [
+                  "Data"
+                ],
+                "Field": "eventCategory"
+              },
+              {
+                "Equals": [
+                  "AWS::S3::Object"
+                ],
+                "Field": "resources.type"
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:s3:::object-lock-audit-replay/"
+                ]
+              }
+            ],
+            "Name": "OwnedObjectData"
+          }
+        ],
+        "TrailName": "object-lock-audit-replay-trail"
+      },
+      "Output": {},
+      "Source": "object_lock_audit_evidence.json.gz:observations[4]"
+    },
+    {
+      "Label": "start-trail",
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "object-lock-audit-replay-trail"
+      },
+      "Output": {},
+      "Source": "object_lock_audit_evidence.json.gz:observations[6]"
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "repeat-audit-set-default",
+      "Service": "s3",
+      "Operation": "PutObjectLockConfiguration",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "ObjectLockConfiguration": {
+          "ObjectLockEnabled": "Enabled",
+          "Rule": {
+            "DefaultRetention": {
+              "Days": 2,
+              "Mode": "GOVERNANCE"
+            }
+          }
+        }
+      },
+      "Output": {},
+      "Sequence": 52,
+      "Source": "object_lock_audit_evidence.json.gz:observations[51]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 232,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975435073,
+          "httpStatusCode": 200,
+          "startTime": 1789975434977,
+          "x-amz-id-2": "dYt2UC+IZHR3nW1E7G3UzphThEZXis1AKFops+EC6MzR68YQKOQu/43ZYWR2dIhuhSJUej0ss+NritdQ8qEC8cihUWy1MnAt"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "f39389af-6f34-4715-ab98-dbace4cde648",
+        "eventName": "PutBucketObjectLockConfiguration",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:23:55Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "BW0T5XBG3CKBYAR2",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "ObjectLockConfiguration": {
+            "ObjectLockEnabled": "Enabled",
+            "Rule": {
+              "DefaultRetention": {
+                "Days": 2,
+                "Mode": "GOVERNANCE"
+              }
+            },
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "bucketName": "object-lock-audit-replay",
+          "object-lock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.put-object-lock-configuration]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:23:54.977Z",
+      "RecordSource": {
+        "ObservationIndex": 51,
+        "ObservationLabel": "repeat-audit-set-default",
+        "DeliveredIndex": 3,
+        "DeliveryObjectIndex": 0,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_X3PJTnvtcIuXb5cf.json.gz",
+        "RetainedEventIndex": 3,
+        "EventID": "f39389af-6f34-4715-ab98-dbace4cde648",
+        "RequestID": "BW0T5XBG3CKBYAR2"
+      },
+      "Headers": {}
+    },
+    {
+      "Label": "repeat-audit-get-config",
+      "Service": "s3",
+      "Operation": "GetObjectLockConfiguration",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay"
+      },
+      "Output": {
+        "ObjectLockConfiguration": {
+          "ObjectLockEnabled": "Enabled",
+          "Rule": {
+            "DefaultRetention": {
+              "Days": 2,
+              "Mode": "GOVERNANCE"
+            }
+          }
+        }
+      },
+      "Sequence": 53,
+      "Source": "object_lock_audit_evidence.json.gz:observations[52]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 271,
+          "endTime": 1789975435879,
+          "httpStatusCode": 200,
+          "startTime": 1789975435866,
+          "x-amz-id-2": "fWq4V7VwA1lSmEU9SGLwYD08pPMJnOlPOIM0Ph2NWc+OfsqiLZQATgGnPt05Rhj4p3hg2gPER52xHbm3qK6YrsrdzXKtPqyG"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "466c87a8-b4f9-4535-8ac0-6f9de562ad9c",
+        "eventName": "GetBucketObjectLockConfiguration",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:23:55Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "1PAWPBNXCEEJ41VJ",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "object-lock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.get-object-lock-configuration]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:23:55.866Z",
+      "RecordSource": {
+        "ObservationIndex": 52,
+        "ObservationLabel": "repeat-audit-get-config",
+        "DeliveredIndex": 2,
+        "DeliveryObjectIndex": 0,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_X3PJTnvtcIuXb5cf.json.gz",
+        "RetainedEventIndex": 2,
+        "EventID": "466c87a8-b4f9-4535-8ac0-6f9de562ad9c",
+        "RequestID": "1PAWPBNXCEEJ41VJ"
+      },
+      "Headers": {}
+    },
+    {
+      "Label": "repeat-audit-default-write",
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-default",
+        "ChecksumAlgorithm": "CRC64NVME"
+      },
+      "Output": {
+        "ServerSideEncryption": "AES256"
+      },
+      "Sequence": 54,
+      "Source": "object_lock_audit_evidence.json.gz:observations[53]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SSEApplied": "Default_SSE_S3",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 79,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975436704,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "retentionInfo": {
+              "lastModifiedTime": 1789975436590,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790148236590
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975436569,
+          "turnAroundTime": 12,
+          "x-amz-id-2": "u2D3QsYvt+pPVbsvr/rMZdmddcYJX7debKq/2fUF2m1jmRkTe9AkFaXbsGOfejkBOiax3mDA9b9J6DELFUOU8BktPhEW+TL1"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "52bf69aa-4876-4d40-8175-9414b5512694",
+        "eventName": "PutObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:23:56Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "BC10K6VBJD6PCQ2S",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-default"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-default",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256",
+          "x-amz-version-id": "${defaultVersion}"
+        },
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.put-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:23:56.569Z",
+      "RecordSource": {
+        "ObservationIndex": 53,
+        "ObservationLabel": "repeat-audit-default-write",
+        "DeliveredIndex": 6,
+        "DeliveryObjectIndex": 3,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_Tj6QIHcF7e1kOFCz.json.gz",
+        "RetainedEventIndex": 1,
+        "EventID": "52bf69aa-4876-4d40-8175-9414b5512694",
+        "RequestID": "BC10K6VBJD6PCQ2S"
+      },
+      "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+      "Bind": {
+        "defaultVersion": "VersionId"
+      },
+      "Headers": {
+        "x-amz-version-id": "${defaultVersion}"
+      },
+      "ModifiedFrom": {
+        "retentionInfo": 54
+      },
+      "DefaultRetentionFrom": 54,
+      "DefaultRetentionDays": 2
+    },
+    {
+      "Label": "repeat-audit-explicit-write",
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "ObjectLockLegalHoldStatus": "ON",
+        "ObjectLockMode": "GOVERNANCE",
+        "ObjectLockRetainUntilDate": "2026-09-24T07:23:56Z",
+        "ChecksumAlgorithm": "CRC64NVME"
+      },
+      "Output": {
+        "ServerSideEncryption": "AES256"
+      },
+      "Sequence": 55,
+      "Source": "object_lock_audit_evidence.json.gz:observations[54]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SSEApplied": "Default_SSE_S3",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 79,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975437533,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975437414,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790234636000
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975437404,
+          "turnAroundTime": 17,
+          "x-amz-id-2": "TxpA57dvsFtxkjh+Z2bh+GL91WLhRPiAXeqdEKRYd5E4q3olxWQyPEH49KCeIfKmg6K2cvmCj3mSByy5DaceSVdOpE5/iB1C"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "089334d2-1c3f-4614-8173-3646aa7d2eac",
+        "eventName": "PutObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:23:57Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "SSTEZKJQE6W32K4N",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256",
+          "x-amz-version-id": "${explicitVersion}"
+        },
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.put-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:23:57.404Z",
+      "RecordSource": {
+        "ObservationIndex": 54,
+        "ObservationLabel": "repeat-audit-explicit-write",
+        "DeliveredIndex": 7,
+        "DeliveryObjectIndex": 3,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_Tj6QIHcF7e1kOFCz.json.gz",
+        "RetainedEventIndex": 2,
+        "EventID": "089334d2-1c3f-4614-8173-3646aa7d2eac",
+        "RequestID": "SSTEZKJQE6W32K4N"
+      },
+      "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+      "Bind": {
+        "explicitVersion": "VersionId"
+      },
+      "Headers": {
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "ModifiedFrom": {
+        "legalHoldInfo": 55,
+        "retentionInfo": 55
+      }
+    },
+    {
+      "Label": "repeat-audit-payload-head",
+      "Service": "s3",
+      "Operation": "HeadObject",
+      "Actor": "payload",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "ContentLength": 29,
+        "VersionId": "${explicitVersion}"
+      },
+      "Sequence": 57,
+      "Source": "object_lock_audit_evidence.json.gz:observations[56]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975438958,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975437414,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790234636000
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975438937,
+          "x-amz-id-2": "sMdJN8dOPaxAQSVP2gXPrRFfmB/NjIOHbQc/X7YS27vPuMHIUDH0dUsK+EpfQFiQXOi3jCPk15jmOVLlw/bkDdM0UP4oTbQF"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "8fe299e0-069b-45b0-b7c8-a82002120f95",
+        "eventName": "HeadObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:23:58Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "86YGF64MDSZMHB4Q",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.head-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/payload",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:payload",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:17Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:23:58.937Z",
+      "RecordSource": {
+        "ObservationIndex": 56,
+        "ObservationLabel": "repeat-audit-payload-head",
+        "DeliveredIndex": 5,
+        "DeliveryObjectIndex": 3,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_Tj6QIHcF7e1kOFCz.json.gz",
+        "RetainedEventIndex": 0,
+        "EventID": "8fe299e0-069b-45b0-b7c8-a82002120f95",
+        "RequestID": "86YGF64MDSZMHB4Q"
+      },
+      "Absent": [
+        "ObjectLockMode",
+        "ObjectLockRetainUntilDate",
+        "ObjectLockLegalHoldStatus"
+      ],
+      "Headers": {
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "AbsentHeaders": [
+        "x-amz-object-lock-mode",
+        "x-amz-object-lock-retain-until-date",
+        "x-amz-object-lock-legal-hold"
+      ],
+      "ModifiedFrom": {
+        "legalHoldInfo": 55,
+        "retentionInfo": 55
+      },
+      "Reopen": true
+    },
+    {
+      "Label": "repeat-audit-retention-get",
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "retention",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "ContentLength": 29,
+        "ObjectLockMode": "GOVERNANCE",
+        "ObjectLockRetainUntilDate": "2026-09-24T07:23:56Z",
+        "VersionId": "${explicitVersion}"
+      },
+      "Sequence": 58,
+      "Source": "object_lock_audit_evidence.json.gz:observations[57]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 29,
+          "endTime": 1789975439668,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975437414,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790234636000
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975439644,
+          "turnAroundTime": 24,
+          "x-amz-id-2": "nETAub9W2fB+nXISTXKODRoCDHPZ5kcBAaJr4gywCaHc48FY/fbrh6Ilb17fSsbDY/1qqwa6uBNPYBC2uQQ1KYslWgG5wE61"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "a2a4b331-b618-49a3-972e-9e4fc3508052",
+        "eventName": "GetObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:23:59Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "7CV5GG21EW31FE2Q",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_CHACHA20_POLY1305_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.get-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/retention",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:retention",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:18Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:23:59.644Z",
+      "RecordSource": {
+        "ObservationIndex": 57,
+        "ObservationLabel": "repeat-audit-retention-get",
+        "DeliveredIndex": 12,
+        "DeliveryObjectIndex": 4,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_0uHHrcdt54SODJ5N.json.gz",
+        "RetainedEventIndex": 0,
+        "EventID": "a2a4b331-b618-49a3-972e-9e4fc3508052",
+        "RequestID": "7CV5GG21EW31FE2Q"
+      },
+      "Absent": [
+        "ObjectLockLegalHoldStatus"
+      ],
+      "Plaintext": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+      "Headers": {
+        "x-amz-object-lock-mode": "GOVERNANCE",
+        "x-amz-object-lock-retain-until-date": "2026-09-24T07:23:56Z",
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "AbsentHeaders": [
+        "x-amz-object-lock-legal-hold"
+      ],
+      "ModifiedFrom": {
+        "legalHoldInfo": 55,
+        "retentionInfo": 55
+      }
+    },
+    {
+      "Label": "repeat-audit-retention-head",
+      "Service": "s3",
+      "Operation": "HeadObject",
+      "Actor": "retention",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "ContentLength": 29,
+        "ObjectLockMode": "GOVERNANCE",
+        "ObjectLockRetainUntilDate": "2026-09-24T07:23:56Z",
+        "VersionId": "${explicitVersion}"
+      },
+      "Sequence": 59,
+      "Source": "object_lock_audit_evidence.json.gz:observations[58]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975440425,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975437414,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790234636000
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975440394,
+          "x-amz-id-2": "jGUL5sd3zPe+d2mo9erDBv3XE2RJQGn0oSxY5I2MAjGvhNVknGtbggl5ih2ev+fMoFcJzDsnBpxWjU3aBy94nIOExL+oxO5o"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "ebf1cb32-1841-480d-b8fb-d9290cb6161c",
+        "eventName": "HeadObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:00Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "4BAXPQW1N1Y0XREW",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.head-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/retention",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:retention",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:18Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:24:00.394Z",
+      "RecordSource": {
+        "ObservationIndex": 58,
+        "ObservationLabel": "repeat-audit-retention-head",
+        "DeliveredIndex": 14,
+        "DeliveryObjectIndex": 4,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_0uHHrcdt54SODJ5N.json.gz",
+        "RetainedEventIndex": 2,
+        "EventID": "ebf1cb32-1841-480d-b8fb-d9290cb6161c",
+        "RequestID": "4BAXPQW1N1Y0XREW"
+      },
+      "Absent": [
+        "ObjectLockLegalHoldStatus"
+      ],
+      "Headers": {
+        "x-amz-object-lock-mode": "GOVERNANCE",
+        "x-amz-object-lock-retain-until-date": "2026-09-24T07:23:56Z",
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "AbsentHeaders": [
+        "x-amz-object-lock-legal-hold"
+      ],
+      "ModifiedFrom": {
+        "legalHoldInfo": 55,
+        "retentionInfo": 55
+      }
+    },
+    {
+      "Label": "repeat-audit-legal-get",
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "legal",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "ContentLength": 29,
+        "ObjectLockLegalHoldStatus": "ON",
+        "VersionId": "${explicitVersion}"
+      },
+      "Sequence": 60,
+      "Source": "object_lock_audit_evidence.json.gz:observations[59]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 29,
+          "endTime": 1789975441142,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975437414,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790234636000
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975441115,
+          "turnAroundTime": 27,
+          "x-amz-id-2": "rf/P7VjbWO9X4WU+6NXiU174EbKPvDv2XYMhdlJTUJMukKsa8UfOvAWI0ZfUHCRpdxe+zKL8OZUn6357Lr+P96G+kGVau5o7"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "8833f127-1e9d-4f94-bc6f-2be28682e33d",
+        "eventName": "GetObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:01Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "E9ABCFRBH7CK98GA",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.get-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/legal",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:legal",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:18Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:24:01.115Z",
+      "RecordSource": {
+        "ObservationIndex": 59,
+        "ObservationLabel": "repeat-audit-legal-get",
+        "DeliveredIndex": 13,
+        "DeliveryObjectIndex": 4,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_0uHHrcdt54SODJ5N.json.gz",
+        "RetainedEventIndex": 1,
+        "EventID": "8833f127-1e9d-4f94-bc6f-2be28682e33d",
+        "RequestID": "E9ABCFRBH7CK98GA"
+      },
+      "Absent": [
+        "ObjectLockMode",
+        "ObjectLockRetainUntilDate"
+      ],
+      "Plaintext": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+      "Headers": {
+        "x-amz-object-lock-legal-hold": "ON",
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "AbsentHeaders": [
+        "x-amz-object-lock-mode",
+        "x-amz-object-lock-retain-until-date"
+      ],
+      "ModifiedFrom": {
+        "legalHoldInfo": 55,
+        "retentionInfo": 55
+      }
+    },
+    {
+      "Label": "repeat-audit-legal-head",
+      "Service": "s3",
+      "Operation": "HeadObject",
+      "Actor": "legal",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "ContentLength": 29,
+        "ObjectLockLegalHoldStatus": "ON",
+        "VersionId": "${explicitVersion}"
+      },
+      "Sequence": 61,
+      "Source": "object_lock_audit_evidence.json.gz:observations[60]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975441842,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975437414,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790234636000
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975441808,
+          "x-amz-id-2": "IEK/z0LF0cctFSycqU9nk7TnR2HKkN4O0dDR32hxWif8X1Rq2CP0Zz11UVTdOZyz6HimSYTdb5v3CXWLGHpaVDnqJ3F5RhF1"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "b132824e-c95f-465f-80b3-fa615aae892d",
+        "eventName": "HeadObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:01Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "E9ADRCDV1DM2D8JY",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.head-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/legal",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:legal",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:18Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:24:01.808Z",
+      "RecordSource": {
+        "ObservationIndex": 60,
+        "ObservationLabel": "repeat-audit-legal-head",
+        "DeliveredIndex": 9,
+        "DeliveryObjectIndex": 3,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_Tj6QIHcF7e1kOFCz.json.gz",
+        "RetainedEventIndex": 4,
+        "EventID": "b132824e-c95f-465f-80b3-fa615aae892d",
+        "RequestID": "E9ADRCDV1DM2D8JY"
+      },
+      "Absent": [
+        "ObjectLockMode",
+        "ObjectLockRetainUntilDate"
+      ],
+      "Headers": {
+        "x-amz-object-lock-legal-hold": "ON",
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "AbsentHeaders": [
+        "x-amz-object-lock-mode",
+        "x-amz-object-lock-retain-until-date"
+      ],
+      "ModifiedFrom": {
+        "legalHoldInfo": 55,
+        "retentionInfo": 55
+      }
+    },
+    {
+      "Label": "repeat-audit-metadata-get",
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "metadata",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {},
+      "Sequence": 62,
+      "Source": "object_lock_audit_evidence.json.gz:observations[61]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 546,
+          "endTime": 1789975442598,
+          "httpStatusCode": 403,
+          "startTime": 1789975442537,
+          "x-amz-id-2": "rUaSdhM4P073e1DuvRZ7AVO4c0hRe0FdA35I96gf74DA0lkLewCV7UHAhhI1tkT7IhGiONY+W/3wqPK0qaonE5ZZ0ZXQrFXF"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/metadata is not authorized to perform: s3:GetObjectVersion on resource: \"arn:aws:s3:::object-lock-audit-replay/repeat-explicit\" because no session policy allows the s3:GetObjectVersion action",
+        "eventCategory": "Data",
+        "eventID": "ddadac3e-6469-4c4a-9250-f77cf451ecb9",
+        "eventName": "GetObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:02Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "C54J3G1M1DGQH2QA",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.get-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/metadata",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:metadata",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:19Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:24:02.537Z",
+      "RecordSource": {
+        "ObservationIndex": 61,
+        "ObservationLabel": "repeat-audit-metadata-get",
+        "DeliveredIndex": 8,
+        "DeliveryObjectIndex": 3,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_Tj6QIHcF7e1kOFCz.json.gz",
+        "RetainedEventIndex": 3,
+        "EventID": "ddadac3e-6469-4c4a-9250-f77cf451ecb9",
+        "RequestID": "C54J3G1M1DGQH2QA"
+      },
+      "Headers": {},
+      "AbsentHeaders": [
+        "x-amz-object-lock-mode",
+        "x-amz-object-lock-retain-until-date",
+        "x-amz-object-lock-legal-hold"
+      ]
+    },
+    {
+      "Label": "repeat-audit-metadata-head",
+      "Service": "s3",
+      "Operation": "HeadObject",
+      "Actor": "metadata",
+      "Code": "403",
+      "Status": 403,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {},
+      "Sequence": 63,
+      "Source": "object_lock_audit_evidence.json.gz:observations[62]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 546,
+          "endTime": 1789975443347,
+          "httpStatusCode": 403,
+          "startTime": 1789975443308,
+          "x-amz-id-2": "l/9GsQn2p/GT9NIlez8eqGIK2Wwu2LvloTS9pBdVPyf3jLKs86oV+YkMy4ebPX8zj8ecep4SQrpCyr38qZttO7VNs/M1h5Dz"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/metadata is not authorized to perform: s3:GetObjectVersion on resource: \"arn:aws:s3:::object-lock-audit-replay/repeat-explicit\" because no session policy allows the s3:GetObjectVersion action",
+        "eventCategory": "Data",
+        "eventID": "0bb44333-a157-4db7-acd7-fdc93d0a5f25",
+        "eventName": "HeadObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:03Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "7WA6WFGT27JB6R1J",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.head-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/metadata",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:metadata",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:19Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:24:03.308Z",
+      "RecordSource": {
+        "ObservationIndex": 62,
+        "ObservationLabel": "repeat-audit-metadata-head",
+        "DeliveredIndex": 10,
+        "DeliveryObjectIndex": 3,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_Tj6QIHcF7e1kOFCz.json.gz",
+        "RetainedEventIndex": 5,
+        "EventID": "0bb44333-a157-4db7-acd7-fdc93d0a5f25",
+        "RequestID": "7WA6WFGT27JB6R1J"
+      },
+      "Headers": {},
+      "AbsentHeaders": [
+        "x-amz-object-lock-mode",
+        "x-amz-object-lock-retain-until-date",
+        "x-amz-object-lock-legal-hold"
+      ],
+      "ErrorFromSequence": 62
+    },
+    {
+      "Label": "repeat-audit-full-get",
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "full",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "ContentLength": 29,
+        "ObjectLockLegalHoldStatus": "ON",
+        "ObjectLockMode": "GOVERNANCE",
+        "ObjectLockRetainUntilDate": "2026-09-24T07:23:56Z",
+        "VersionId": "${explicitVersion}"
+      },
+      "Sequence": 64,
+      "Source": "object_lock_audit_evidence.json.gz:observations[63]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 29,
+          "endTime": 1789975444094,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975437414,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790234636000
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975444067,
+          "turnAroundTime": 27,
+          "x-amz-id-2": "isL7+ZBYzu8Ca/BE2xTRe9eFNZNC5/Gk1r7FNVOzw2wwVh9Hcs+g2bhkwT15O3Z3VyNSrMq8bDkdLfu28hwZyr9dqTkSHSfn"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "793b666c-53ea-4ac9-b393-f6889ff95416",
+        "eventName": "GetObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:04Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "MYP0XCAXEDVMKVT4",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.get-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/full",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:full",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:16Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:24:04.067Z",
+      "RecordSource": {
+        "ObservationIndex": 63,
+        "ObservationLabel": "repeat-audit-full-get",
+        "DeliveredIndex": 15,
+        "DeliveryObjectIndex": 4,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_0uHHrcdt54SODJ5N.json.gz",
+        "RetainedEventIndex": 3,
+        "EventID": "793b666c-53ea-4ac9-b393-f6889ff95416",
+        "RequestID": "MYP0XCAXEDVMKVT4"
+      },
+      "Absent": [],
+      "Plaintext": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+      "Headers": {
+        "x-amz-object-lock-legal-hold": "ON",
+        "x-amz-object-lock-mode": "GOVERNANCE",
+        "x-amz-object-lock-retain-until-date": "2026-09-24T07:23:56Z",
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "AbsentHeaders": [],
+      "ModifiedFrom": {
+        "legalHoldInfo": 55,
+        "retentionInfo": 55
+      }
+    },
+    {
+      "Label": "repeat-audit-full-head",
+      "Service": "s3",
+      "Operation": "HeadObject",
+      "Actor": "full",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "ContentLength": 29,
+        "ObjectLockLegalHoldStatus": "ON",
+        "ObjectLockMode": "GOVERNANCE",
+        "ObjectLockRetainUntilDate": "2026-09-24T07:23:56Z",
+        "VersionId": "${explicitVersion}"
+      },
+      "Sequence": 65,
+      "Source": "object_lock_audit_evidence.json.gz:observations[64]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975444896,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975437414,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790234636000
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975444867,
+          "x-amz-id-2": "QR0V/SLaedAZPYd3+DEBZziCfGIra4lYGwsdN2QqW961dFsRSzEnh0OVsD09CbTIwyvQDk4JE7mCQ1gAnziSP/86iFa6Bnj2"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "1b07f24b-395d-47c4-bfff-b076820864ff",
+        "eventName": "HeadObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:04Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "MYPD1JKFV4DQ769G",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.head-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/full",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:full",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:16Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:24:04.867Z",
+      "RecordSource": {
+        "ObservationIndex": 64,
+        "ObservationLabel": "repeat-audit-full-head",
+        "DeliveredIndex": 16,
+        "DeliveryObjectIndex": 4,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_0uHHrcdt54SODJ5N.json.gz",
+        "RetainedEventIndex": 4,
+        "EventID": "1b07f24b-395d-47c4-bfff-b076820864ff",
+        "RequestID": "MYPD1JKFV4DQ769G"
+      },
+      "Absent": [],
+      "Headers": {
+        "x-amz-object-lock-legal-hold": "ON",
+        "x-amz-object-lock-mode": "GOVERNANCE",
+        "x-amz-object-lock-retain-until-date": "2026-09-24T07:23:56Z",
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "AbsentHeaders": [],
+      "ModifiedFrom": {
+        "legalHoldInfo": 55,
+        "retentionInfo": 55
+      }
+    },
+    {
+      "Label": "repeat-audit-get-retention",
+      "Service": "s3",
+      "Operation": "GetObjectRetention",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "Retention": {
+          "Mode": "GOVERNANCE",
+          "RetainUntilDate": "2026-09-24T07:23:56Z"
+        }
+      },
+      "Sequence": 66,
+      "Source": "object_lock_audit_evidence.json.gz:observations[65]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 192,
+          "endTime": 1789975445638,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "retentionInfo": {
+              "lastModifiedTime": 1789975437414,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790234636000
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975445614,
+          "x-amz-id-2": "4nvsAlz5JMBfxLwfxBwfE1kckbb/GtVU8sQxwXYr0l2/2TDGqK6PMMn27n1xRq/jXWtL02ElodeWxbN9YcTm8EyFslKY5377"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "2bc59405-75bc-4d77-b8f9-ed1b7ac93532",
+        "eventName": "GetObjectLockRetention",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:05Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "CFNKDBNYY68KVY8W",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "retention": "",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.get-object-retention]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:24:05.614Z",
+      "RecordSource": {
+        "ObservationIndex": 65,
+        "ObservationLabel": "repeat-audit-get-retention",
+        "DeliveredIndex": 22,
+        "DeliveryObjectIndex": 6,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_RWQLaJkUy5aVeNQj.json.gz",
+        "RetainedEventIndex": 0,
+        "EventID": "2bc59405-75bc-4d77-b8f9-ed1b7ac93532",
+        "RequestID": "CFNKDBNYY68KVY8W"
+      },
+      "Headers": {},
+      "ModifiedFrom": {
+        "retentionInfo": 55
+      }
+    },
+    {
+      "Label": "repeat-audit-put-retention",
+      "Service": "s3",
+      "Operation": "PutObjectRetention",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "Retention": {
+          "Mode": "GOVERNANCE",
+          "RetainUntilDate": "2026-09-25T07:24:05.756Z"
+        },
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {},
+      "Sequence": 67,
+      "Source": "object_lock_audit_evidence.json.gz:observations[66]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 156,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975446361,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975446337,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790321045756
+            }
+          },
+          "startTime": 1789975446320,
+          "x-amz-id-2": "iaxfUieaiUMPHbEHgwHzsTUZiRQMX0TI0kQwBwIUB2/cJsmS1WWKnIb9qNpAQ9kyOR8dFhPUcjcZB3xTFzLBD56ZlY4N7RC/"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "75b18ea2-8a58-4e76-86da-8a29e11824a1",
+        "eventName": "PutObjectLockRetention",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:06Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "D2HESD6XMQGY9CTY",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "retention": "",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": {
+          "x-amz-version-id": "${explicitVersion}"
+        },
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.put-object-retention]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:24:06.320Z",
+      "RecordSource": {
+        "ObservationIndex": 66,
+        "ObservationLabel": "repeat-audit-put-retention",
+        "DeliveredIndex": 17,
+        "DeliveryObjectIndex": 4,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_0uHHrcdt54SODJ5N.json.gz",
+        "RetainedEventIndex": 5,
+        "EventID": "75b18ea2-8a58-4e76-86da-8a29e11824a1",
+        "RequestID": "D2HESD6XMQGY9CTY"
+      },
+      "Headers": {
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "ModifiedFrom": {
+        "legalHoldInfo": 55,
+        "retentionInfo": 67
+      }
+    },
+    {
+      "Label": "repeat-audit-get-legal",
+      "Service": "s3",
+      "Operation": "GetObjectLegalHold",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "LegalHold": {
+          "Status": "ON"
+        }
+      },
+      "Sequence": 68,
+      "Source": "object_lock_audit_evidence.json.gz:observations[67]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 129,
+          "endTime": 1789975447082,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": true,
+              "lastModifiedTime": 1789975437414
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975447058,
+          "x-amz-id-2": "pNdKzIfFPM1XAtqj5YRCQDgYmUmvgOaTiPXsKc6OdOoL04Ks6wt3+af/cPnHAhyFJ97BbivvFAN8fl01s1kOT3UDDvh8XvnP"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "bda59604-8b3e-48e0-b257-787b8362ad62",
+        "eventName": "GetObjectLockLegalHold",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:07Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "WJRX7YW3WMQ3D412",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "legal-hold": "",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.get-object-legal-hold]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:24:07.058Z",
+      "RecordSource": {
+        "ObservationIndex": 67,
+        "ObservationLabel": "repeat-audit-get-legal",
+        "DeliveredIndex": 21,
+        "DeliveryObjectIndex": 5,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_6uQ5HC3DPwjsVoyx.json.gz",
+        "RetainedEventIndex": 0,
+        "EventID": "bda59604-8b3e-48e0-b257-787b8362ad62",
+        "RequestID": "WJRX7YW3WMQ3D412"
+      },
+      "Headers": {},
+      "ModifiedFrom": {
+        "legalHoldInfo": 55
+      },
+      "Reopen": true
+    },
+    {
+      "Label": "repeat-audit-put-legal",
+      "Service": "s3",
+      "Operation": "PutObjectLegalHold",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "LegalHold": {
+          "Status": "OFF"
+        },
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {},
+      "Sequence": 69,
+      "Source": "object_lock_audit_evidence.json.gz:observations[68]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 91,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975447819,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": false,
+              "lastModifiedTime": 1789975447794
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975447776,
+          "x-amz-id-2": "5jV6zcW6LuhrPEy4/IMNvCUtavg4v/09Vov8WZVOegE+yjfa//174i+M6UadO7muH9Nr1BBspWSZCrDHalsDUjS3N5YAalXq"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "68be54b4-26c9-4c3e-a9e2-5f2ca691f410",
+        "eventName": "PutObjectLockLegalHold",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:07Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "WJRNFEQKC16XGE2S",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "legal-hold": "",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": {
+          "x-amz-version-id": "${explicitVersion}"
+        },
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.put-object-legal-hold]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:24:07.776Z",
+      "RecordSource": {
+        "ObservationIndex": 68,
+        "ObservationLabel": "repeat-audit-put-legal",
+        "DeliveredIndex": 18,
+        "DeliveryObjectIndex": 4,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_0uHHrcdt54SODJ5N.json.gz",
+        "RetainedEventIndex": 6,
+        "EventID": "68be54b4-26c9-4c3e-a9e2-5f2ca691f410",
+        "RequestID": "WJRNFEQKC16XGE2S"
+      },
+      "Headers": {
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "ModifiedFrom": {
+        "legalHoldInfo": 69
+      }
+    },
+    {
+      "Label": "repeat-audit-denied-governance-delete",
+      "Service": "s3",
+      "Operation": "DeleteObject",
+      "Actor": "audit-user",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {},
+      "Sequence": 70,
+      "Source": "object_lock_audit_evidence.json.gz:observations[69]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 304,
+          "endTime": 1789975448541,
+          "httpStatusCode": 403,
+          "startTime": 1789975448517,
+          "x-amz-id-2": "o8Z3dgOschtRKFLl1k6L/E/t7YmY4YPzPOhNt1XOi2H5u1FRlTOvl1YRnDioOzood5SC5rTLD2noZOW9nQRZtLKkkOX2Jgdb"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "AccessDenied",
+        "errorMessage": "Access Denied because object protected by object lock.",
+        "eventCategory": "Data",
+        "eventID": "714f23bb-53a8-4bbe-9335-3d1cf8e5483e",
+        "eventName": "DeleteObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:08Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "AJWYBFBJ7Q47Z8BQ",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.delete-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:24:08.517Z",
+      "RecordSource": {
+        "ObservationIndex": 69,
+        "ObservationLabel": "repeat-audit-denied-governance-delete",
+        "DeliveredIndex": 11,
+        "DeliveryObjectIndex": 3,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_Tj6QIHcF7e1kOFCz.json.gz",
+        "RetainedEventIndex": 6,
+        "EventID": "714f23bb-53a8-4bbe-9335-3d1cf8e5483e",
+        "RequestID": "AJWYBFBJ7Q47Z8BQ"
+      },
+      "Headers": {}
+    },
+    {
+      "Label": "repeat-audit-remove-default",
+      "Service": "s3",
+      "Operation": "PutObjectLockConfiguration",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "ObjectLockConfiguration": {
+          "ObjectLockEnabled": "Enabled"
+        }
+      },
+      "Output": {},
+      "Sequence": 71,
+      "Source": "object_lock_audit_evidence.json.gz:observations[70]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 145,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975449351,
+          "httpStatusCode": 200,
+          "startTime": 1789975449244,
+          "x-amz-id-2": "WnEn95SQhoWNctTBqtjkF7UE4Fk21f4vg57SnoMk7bqHjN2uaLeDOZQJY6uzqPkkWHmRmrH8Cd2mj8u94B9EJnzTzq6rzkfh"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "4f91a064-6d61-49b6-9412-e2deffed1a2e",
+        "eventName": "PutBucketObjectLockConfiguration",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:09Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "3BHSDGCZJ0K0GR28",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "ObjectLockConfiguration": {
+            "ObjectLockEnabled": "Enabled",
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "bucketName": "object-lock-audit-replay",
+          "object-lock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.put-object-lock-configuration]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:24:09.244Z",
+      "RecordSource": {
+        "ObservationIndex": 70,
+        "ObservationLabel": "repeat-audit-remove-default",
+        "DeliveredIndex": 4,
+        "DeliveryObjectIndex": 0,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_X3PJTnvtcIuXb5cf.json.gz",
+        "RetainedEventIndex": 4,
+        "EventID": "4f91a064-6d61-49b6-9412-e2deffed1a2e",
+        "RequestID": "3BHSDGCZJ0K0GR28"
+      },
+      "Headers": {}
+    },
+    {
+      "Label": "repeat-audit-unlocked-write",
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-unlocked",
+        "ChecksumAlgorithm": "CRC64NVME"
+      },
+      "Output": {
+        "ServerSideEncryption": "AES256"
+      },
+      "Sequence": 72,
+      "Source": "object_lock_audit_evidence.json.gz:observations[71]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SSEApplied": "Default_SSE_S3",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 79,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975450217,
+          "httpStatusCode": 200,
+          "objectSize": 29,
+          "startTime": 1789975450080,
+          "turnAroundTime": 21,
+          "x-amz-id-2": "1IDdVuXWjiVU1DK7C7LxAaZQXGsOo3BuBTdusRdG5Cn2NO8+cOWz9byABAroyw6T524ek+2tOELaHAXYfpUtvpzqqpSP6bQX"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "c27ec897-26ca-4b40-ab93-9490ca296133",
+        "eventName": "PutObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:10Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "ZZ3GPSCW2YC81XY0",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-unlocked"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-unlocked",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256",
+          "x-amz-version-id": "${unlockedVersion}"
+        },
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.put-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:24:10.080Z",
+      "RecordSource": {
+        "ObservationIndex": 71,
+        "ObservationLabel": "repeat-audit-unlocked-write",
+        "DeliveredIndex": 19,
+        "DeliveryObjectIndex": 4,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_0uHHrcdt54SODJ5N.json.gz",
+        "RetainedEventIndex": 7,
+        "EventID": "c27ec897-26ca-4b40-ab93-9490ca296133",
+        "RequestID": "ZZ3GPSCW2YC81XY0"
+      },
+      "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+      "Bind": {
+        "unlockedVersion": "VersionId"
+      },
+      "Headers": {
+        "x-amz-version-id": "${unlockedVersion}"
+      }
+    },
+    {
+      "Label": "repeat-audit-batch-partial-failure",
+      "Service": "s3",
+      "Operation": "DeleteObjects",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Delete": {
+          "Objects": [
+            {
+              "Key": "repeat-explicit",
+              "VersionId": "${explicitVersion}"
+            },
+            {
+              "Key": "repeat-unlocked",
+              "VersionId": "${unlockedVersion}"
+            }
+          ],
+          "Quiet": false
+        }
+      },
+      "Output": {
+        "Deleted": [
+          {
+            "Key": "repeat-unlocked",
+            "VersionId": "${unlockedVersion}"
+          }
+        ],
+        "Errors": [
+          {
+            "Code": "AccessDenied",
+            "Key": "repeat-explicit",
+            "VersionId": "${explicitVersion}"
+          }
+        ]
+      },
+      "Sequence": 73,
+      "Source": "object_lock_audit_evidence.json.gz:observations[72]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975450973,
+          "httpStatusCode": 200,
+          "startTime": 1789975450920,
+          "x-amz-id-2": "/JlilMX71KzW2g/76aUoGTsuJe8+oiEitYBV6MyG/j4gJVS4fgU9FJbJ/6dGIzuA8W4hLyD//9KijlLhhoorAApqu25lJBJN"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "7d3df101-2c83-42a5-ba8a-e41d57a93c0a",
+        "eventName": "DeleteObjects",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:10Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "ZZ3S25HK0ZG5SFW3",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "delete": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARNPrefix": "arn:aws:s3:::object-lock-audit-replay/",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,W,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.delete-objects]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:24:10.920Z",
+      "RecordSource": {
+        "ObservationIndex": 72,
+        "ObservationLabel": "repeat-audit-batch-partial-failure",
+        "DeliveredIndex": 20,
+        "DeliveryObjectIndex": 4,
+        "DeliveryKey": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/21/000000000000_CloudTrail_us-east-1_20260921T0725Z_0uHHrcdt54SODJ5N.json.gz",
+        "RetainedEventIndex": 8,
+        "EventID": "7d3df101-2c83-42a5-ba8a-e41d57a93c0a",
+        "RequestID": "ZZ3S25HK0ZG5SFW3"
+      },
+      "Headers": {}
+    }
+  ],
+  "Verify": [
+    {
+      "Label": "reopened-HeadObject",
+      "Service": "s3",
+      "Operation": "HeadObject",
+      "Actor": "full",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "ContentLength": 29,
+        "ObjectLockLegalHoldStatus": "OFF",
+        "ObjectLockMode": "GOVERNANCE",
+        "ObjectLockRetainUntilDate": "2026-09-25T07:24:05.756Z",
+        "VersionId": "${explicitVersion}"
+      },
+      "Sequence": 101,
+      "Source": "Derived persistence assertion: native projection from observations[64], values from delivered mutations observations[66] and observations[68]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789975444896,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": false,
+              "lastModifiedTime": 1789975447794
+            },
+            "retentionInfo": {
+              "lastModifiedTime": 1789975446337,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790321045756
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975444867,
+          "x-amz-id-2": "QR0V/SLaedAZPYd3+DEBZziCfGIra4lYGwsdN2QqW961dFsRSzEnh0OVsD09CbTIwyvQDk4JE7mCQ1gAnziSP/86iFa6Bnj2"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "1b07f24b-395d-47c4-bfff-b076820864ff",
+        "eventName": "HeadObject",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:04Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "MYPD1JKFV4DQ769G",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,Z,g,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.head-object]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:sts::123456789012:assumed-role/object-lock-audit-replay-role/full",
+          "principalId": "AROAQAAAAAAAML22OZ2RZ:full",
+          "sessionContext": {
+            "attributes": {
+              "creationDate": "2026-09-21T07:21:16Z",
+              "mfaAuthenticated": "false"
+            },
+            "sessionIssuer": {
+              "accountId": "123456789012",
+              "arn": "arn:aws:iam::123456789012:role/object-lock-audit-replay-role",
+              "principalId": "AROAQAAAAAAAML22OZ2RZ",
+              "type": "Role",
+              "userName": "object-lock-audit-replay-role"
+            }
+          },
+          "type": "AssumedRole"
+        }
+      },
+      "At": "2026-09-21T07:25:00.123Z",
+      "Absent": [],
+      "Headers": {
+        "x-amz-object-lock-legal-hold": "OFF",
+        "x-amz-object-lock-mode": "GOVERNANCE",
+        "x-amz-version-id": "${explicitVersion}"
+      },
+      "AbsentHeaders": [],
+      "ModifiedFrom": {
+        "legalHoldInfo": 69,
+        "retentionInfo": 67
+      }
+    },
+    {
+      "Label": "reopened-GetObjectRetention",
+      "Service": "s3",
+      "Operation": "GetObjectRetention",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "Retention": {
+          "Mode": "GOVERNANCE",
+          "RetainUntilDate": "2026-09-25T07:24:05.756Z"
+        }
+      },
+      "Sequence": 102,
+      "Source": "Derived persistence assertion: native projection from observations[65], values from delivered mutations observations[66] and observations[68]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 192,
+          "endTime": 1789975445638,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "retentionInfo": {
+              "lastModifiedTime": 1789975446337,
+              "retainUntilMode": "GOVERNANCE",
+              "retainUntilTime": 1790321045756
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975445614,
+          "x-amz-id-2": "4nvsAlz5JMBfxLwfxBwfE1kckbb/GtVU8sQxwXYr0l2/2TDGqK6PMMn27n1xRq/jXWtL02ElodeWxbN9YcTm8EyFslKY5377"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "2bc59405-75bc-4d77-b8f9-ed1b7ac93532",
+        "eventName": "GetObjectLockRetention",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:05Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "CFNKDBNYY68KVY8W",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "retention": "",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.get-object-retention]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:25:01.123Z",
+      "Headers": {},
+      "ModifiedFrom": {
+        "retentionInfo": 67
+      }
+    },
+    {
+      "Label": "reopened-GetObjectLegalHold",
+      "Service": "s3",
+      "Operation": "GetObjectLegalHold",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "object-lock-audit-replay",
+        "Key": "repeat-explicit",
+        "VersionId": "${explicitVersion}"
+      },
+      "Output": {
+        "LegalHold": {
+          "Status": "OFF"
+        }
+      },
+      "Sequence": 103,
+      "Source": "Derived persistence assertion: native projection from observations[67], values from delivered mutations observations[66] and observations[68]",
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 129,
+          "endTime": 1789975447082,
+          "httpStatusCode": 200,
+          "objectRetentionInfo": {
+            "legalHoldInfo": {
+              "isUnderLegalHold": false,
+              "lastModifiedTime": 1789975447794
+            }
+          },
+          "objectSize": 29,
+          "startTime": 1789975447058,
+          "x-amz-id-2": "pNdKzIfFPM1XAtqj5YRCQDgYmUmvgOaTiPXsKc6OdOoL04Ks6wt3+af/cPnHAhyFJ97BbivvFAN8fl01s1kOT3UDDvh8XvnP"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "bda59604-8b3e-48e0-b257-787b8362ad62",
+        "eventName": "GetObjectLockLegalHold",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-21T07:24:07Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "WJRX7YW3WMQ3D412",
+        "requestParameters": {
+          "Host": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "object-lock-audit-replay",
+          "key": "repeat-explicit",
+          "legal-hold": "",
+          "versionId": "${explicitVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::object-lock-audit-replay/repeat-explicit",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "object-lock-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#s3api.get-object-legal-hold]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "At": "2026-09-21T07:25:02.123Z",
+      "Headers": {},
+      "ModifiedFrom": {
+        "legalHoldInfo": 69
+      }
+    }
+  ],
+  "SDKTransport": "Explicit CRC64NVME preserves native CLI upload-checksum intent; actual SDK wire transfer length is measured instead of copying native aws-chunked length."
+}

@@ -1,0 +1,1154 @@
+{
+  "account": "000000000000",
+  "region": "us-east-1",
+  "prefix": "stackd-sns-cwctx-d4c69e518cca",
+  "started_ms": 1790133864088,
+  "source_references": [
+    "https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_SetAlarmState.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Notify_Users_Alarm_Changes.html"
+  ],
+  "source_revisions": {
+    "stackd": "6c8e6a39e279a7bd64483c78d788cf5fc2a2e9cf",
+    "prior_native_fixtures": [
+      "testdata/aws/sns/encryption.json",
+      "testdata/aws/sns/encryption_service_sources.json",
+      "testdata/aws/cloudwatch/sns_publications.json"
+    ]
+  },
+  "observations": [
+    {
+      "label": "identity-before-mutation",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790133864088,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      },
+      "response_observed_ms": 1790133864783
+    },
+    {
+      "label": "create-key",
+      "service": "kms",
+      "operation": "create-key",
+      "input": {
+        "Description": "stackd-sns-cwctx-d4c69e518cca",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"CloudWatchPublisher\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudwatch.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\"}}}]}",
+        "Tags": [
+          {
+            "TagKey": "stackd-probe",
+            "TagValue": "stackd-sns-cwctx-d4c69e518cca"
+          }
+        ]
+      },
+      "request_started_ms": 1790133864783,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "38fcb72d-b096-477d-ba3f-5834b944b528",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528",
+            "CreationDate": "2026-09-23T04:24:25.389000+01:00",
+            "Enabled": true,
+            "Description": "stackd-sns-cwctx-d4c69e518cca",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "Enabled",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "816d6b87f04b5e7d83300f63338e9b4918a442b8f0e3513587185889f95640e3"
+          }
+        }
+      },
+      "response_observed_ms": 1790133865616
+    },
+    {
+      "label": "read-key-policy",
+      "service": "kms",
+      "operation": "get-key-policy",
+      "input": {
+        "KeyId": "38fcb72d-b096-477d-ba3f-5834b944b528",
+        "PolicyName": "default"
+      },
+      "request_started_ms": 1790133865616,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Policy": "{\n  \"Version\" : \"2012-10-17\",\n  \"Statement\" : [ {\n    \"Sid\" : \"OwnerAdministration\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"AWS\" : \"arn:aws:iam::000000000000:root\"\n    },\n    \"Action\" : \"kms:*\",\n    \"Resource\" : \"*\"\n  }, {\n    \"Sid\" : \"CloudWatchPublisher\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"Service\" : \"cloudwatch.amazonaws.com\"\n    },\n    \"Action\" : [ \"kms:GenerateDataKey\", \"kms:Decrypt\" ],\n    \"Resource\" : \"*\",\n    \"Condition\" : {\n      \"StringEquals\" : {\n        \"kms:EncryptionContext:aws:sns:topicArn\" : \"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\"\n      }\n    }\n  } ]\n}",
+          "PolicyName": "default"
+        }
+      },
+      "response_observed_ms": 1790133866284
+    },
+    {
+      "label": "create-topic",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-sns-cwctx-d4c69e518cca",
+        "Attributes": {
+          "KmsMasterKeyId": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528"
+        }
+      },
+      "request_started_ms": 1790133866285,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+        }
+      },
+      "response_observed_ms": 1790133867055
+    },
+    {
+      "label": "topic-policy",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca",
+        "AttributeName": "Policy",
+        "AttributeValue": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudwatch.amazonaws.com\"}, \"Action\": \"sns:Publish\", \"Resource\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm\"}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+      },
+      "request_started_ms": 1790133867056,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133867768
+    },
+    {
+      "label": "create-queue",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-sns-cwctx-d4c69e518cca-collector",
+        "Attributes": {
+          "SqsManagedSseEnabled": "false"
+        }
+      },
+      "request_started_ms": 1790133867768,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-cwctx-d4c69e518cca-collector"
+        }
+      },
+      "response_observed_ms": 1790133868503
+    },
+    {
+      "label": "read-queue",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-cwctx-d4c69e518cca-collector",
+        "AttributeNames": [
+          "QueueArn",
+          "SqsManagedSseEnabled"
+        ]
+      },
+      "request_started_ms": 1790133868503,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca-collector",
+            "SqsManagedSseEnabled": "false"
+          }
+        }
+      },
+      "response_observed_ms": 1790133869148
+    },
+    {
+      "label": "queue-policy",
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-cwctx-d4c69e518cca-collector",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca-collector\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\"}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+        }
+      },
+      "request_started_ms": 1790133869148,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133869838
+    },
+    {
+      "label": "subscribe-raw",
+      "service": "sns",
+      "operation": "subscribe",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca",
+        "Protocol": "sqs",
+        "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca-collector",
+        "Attributes": {
+          "RawMessageDelivery": "true"
+        },
+        "ReturnSubscriptionArn": true
+      },
+      "request_started_ms": 1790133869839,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca:99230a8f-2078-4dfa-8f68-843df4f1e312"
+        }
+      },
+      "response_observed_ms": 1790133870736
+    },
+    {
+      "label": "verify-topic-encryption-policy",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+      },
+      "request_started_ms": 1790133870736,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"cloudwatch.amazonaws.com\"},\"Action\":\"sns:Publish\",\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"000000000000\"},\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm\"}}}]}",
+            "Owner": "000000000000",
+            "SubscriptionsPending": "0",
+            "KmsMasterKeyId": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca",
+            "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+            "SubscriptionsConfirmed": "0",
+            "DisplayName": "",
+            "SubscriptionsDeleted": "0"
+          }
+        }
+      },
+      "response_observed_ms": 1790133871408
+    },
+    {
+      "label": "verify-raw-subscription",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca:99230a8f-2078-4dfa-8f68-843df4f1e312"
+      },
+      "request_started_ms": 1790133871408,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+            "Owner": "000000000000",
+            "RawMessageDelivery": "true",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca",
+            "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca-collector",
+            "Protocol": "sqs",
+            "PendingConfirmation": "false",
+            "ConfirmationWasAuthenticated": "true",
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca:99230a8f-2078-4dfa-8f68-843df4f1e312"
+          }
+        }
+      },
+      "response_observed_ms": 1790133872088
+    },
+    {
+      "label": "create-alarm",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+        "AlarmDescription": "stackd-sns-cwctx-d4c69e518cca encrypted SNS source context capture",
+        "ActionsEnabled": true,
+        "AlarmActions": [
+          "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+        ],
+        "Namespace": "stackd-sns-cwctx-d4c69e518cca",
+        "MetricName": "NeverPublished",
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 1,
+        "Threshold": 1,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "ignore",
+        "Tags": [
+          {
+            "Key": "stackd-probe",
+            "Value": "stackd-sns-cwctx-d4c69e518cca"
+          }
+        ]
+      },
+      "request_started_ms": 1790133872088,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133872870
+    },
+    {
+      "label": "verify-alarm",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-sns-cwctx-d4c69e518cca-alarm"
+        ]
+      },
+      "request_started_ms": 1790133872870,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm",
+              "AlarmDescription": "stackd-sns-cwctx-d4c69e518cca encrypted SNS source context capture",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T04:24:32.743000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [
+                "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+              ],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T04:24:32.743000+01:00",
+              "MetricName": "NeverPublished",
+              "Namespace": "stackd-sns-cwctx-d4c69e518cca",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 300,
+              "EvaluationPeriods": 1,
+              "Threshold": 1.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-23T04:24:32.743000+01:00"
+            }
+          ],
+          "CompositeAlarms": [],
+          "LogAlarms": []
+        }
+      },
+      "response_observed_ms": 1790133873582
+    },
+    {
+      "label": "set-ok-attempt-1",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+        "StateValue": "OK",
+        "StateReason": "stackd-sns-cwctx-d4c69e518cca prepare attempt-1"
+      },
+      "request_started_ms": 1790133873582,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133874268
+    },
+    {
+      "label": "set-alarm-attempt-1",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+        "StateValue": "ALARM",
+        "StateReason": "stackd-sns-cwctx-d4c69e518cca attempt-1 nonce 4cc0998d4b914e3695a497a9c27b4fb8"
+      },
+      "request_started_ms": 1790133874268,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133874965
+    },
+    {
+      "label": "receive-attempt-1",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-cwctx-d4c69e518cca-collector",
+        "WaitTimeSeconds": 5,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790133874966,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "5cda21cb-44f2-4b96-8dfb-bee574dde8e8",
+              "ReceiptHandle": "AQEBZzng/IrGn1uX2Gd74Vh7hMaDgaGVLyheGFfxhmj8uMLePcHo5cSbILIlYDBf6kSbH7aHg2Yq6m/OLaQwbxyqsVcY94t4Prun5ZWcLEPIzTZHueBfDZ5SI3cehPGnMSyM1ZDEe2iNe9Mx9GpDY9SY+85CxflctB1uSPkPHS/kRuioeVFkUJmcOgCF/uskXy71mYbzs0TpsczkJS+IIEpmc1ajmNvr88ME4tJb0bKkkk+PGdgKuthrc3NAorVkKMJx6Tp4Pkqr6isDUYDAy4gMBaGmepKHLnUw7pb/dUYXPnlcs/Q4rDHsYJTHUwgn/jPTTFCGsA5+hwVjVt61igLtkbDNtWfN6uMn00AN9DYQWGxbKBcjFzurOjsN+lUusILHd6mqVGn4uSmwgIen7Sy1M/ibcs+ZO5CVUNpeiSiNyUc=",
+              "MD5OfBody": "e1d21d4daf78b1d45c06b1ef176b08ae",
+              "Body": "{\"AlarmName\":\"stackd-sns-cwctx-d4c69e518cca-alarm\",\"AlarmDescription\":\"stackd-sns-cwctx-d4c69e518cca encrypted SNS source context capture\",\"AWSAccountId\":\"000000000000\",\"AlarmConfigurationUpdatedTimestamp\":\"2026-09-23T03:24:32.743+0000\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"stackd-sns-cwctx-d4c69e518cca attempt-1 nonce 4cc0998d4b914e3695a497a9c27b4fb8\",\"StateChangeTime\":\"2026-09-23T03:24:34.849+0000\",\"Region\":\"US East (N. Virginia)\",\"AlarmArn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm\",\"OldStateValue\":\"OK\",\"ActionExecutedAfterMuteWindow\":false,\"OKActions\":[],\"AlarmActions\":[\"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\"],\"InsufficientDataActions\":[],\"Trigger\":{\"MetricName\":\"NeverPublished\",\"Namespace\":\"stackd-sns-cwctx-d4c69e518cca\",\"StatisticType\":\"Statistic\",\"Statistic\":\"AVERAGE\",\"Unit\":null,\"Dimensions\":[],\"Period\":300,\"EvaluationPeriods\":1,\"ComparisonOperator\":\"GreaterThanThreshold\",\"Threshold\":1.0,\"TreatMissingData\":\"ignore\",\"EvaluateLowSampleCountPercentile\":\"\"}}",
+              "Attributes": {
+                "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                "ApproximateFirstReceiveTimestamp": "1790133875674",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790133874942"
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790133875803
+    },
+    {
+      "label": "delete-receipt-attempt-1",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-cwctx-d4c69e518cca-collector",
+        "ReceiptHandle": "AQEBZzng/IrGn1uX2Gd74Vh7hMaDgaGVLyheGFfxhmj8uMLePcHo5cSbILIlYDBf6kSbH7aHg2Yq6m/OLaQwbxyqsVcY94t4Prun5ZWcLEPIzTZHueBfDZ5SI3cehPGnMSyM1ZDEe2iNe9Mx9GpDY9SY+85CxflctB1uSPkPHS/kRuioeVFkUJmcOgCF/uskXy71mYbzs0TpsczkJS+IIEpmc1ajmNvr88ME4tJb0bKkkk+PGdgKuthrc3NAorVkKMJx6Tp4Pkqr6isDUYDAy4gMBaGmepKHLnUw7pb/dUYXPnlcs/Q4rDHsYJTHUwgn/jPTTFCGsA5+hwVjVt61igLtkbDNtWfN6uMn00AN9DYQWGxbKBcjFzurOjsN+lUusILHd6mqVGn4uSmwgIen7Sy1M/ibcs+ZO5CVUNpeiSiNyUc="
+      },
+      "request_started_ms": 1790133875804,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133876471
+    },
+    {
+      "label": "alarm-history-attempt-1",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1790133876481,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T04:24:34.904000+01:00",
+              "HistoryItemType": "Action",
+              "HistorySummary": "Successfully executed action arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca",
+              "HistoryData": "{\"actionState\":\"Succeeded\",\"stateUpdateTimestamp\":1790133874849,\"notificationResource\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\",\"publishedMessage\":\"{\\\"default\\\":\\\"{\\\\\\\"AlarmName\\\\\\\":\\\\\\\"stackd-sns-cwctx-d4c69e518cca-alarm\\\\\\\",\\\\\\\"AlarmDescription\\\\\\\":\\\\\\\"stackd-sns-cwctx-d4c69e518cca encrypted SNS source context capture\\\\\\\",\\\\\\\"AWSAccountId\\\\\\\":\\\\\\\"000000000000\\\\\\\",\\\\\\\"AlarmConfigurationUpdatedTimestamp\\\\\\\":\\\\\\\"2026-09-23T03:24:32.743+0000\\\\\\\",\\\\\\\"NewStateValue\\\\\\\":\\\\\\\"ALARM\\\\\\\",\\\\\\\"NewStateReason\\\\\\\":\\\\\\\"stackd-sns-cwctx-d4c69e518cca attempt-1 nonce 4cc0998d4b914e3695a497a9c27b4fb8\\\\\\\",\\\\\\\"StateChangeTime\\\\\\\":\\\\\\\"2026-09-23T03:24:34.849+0000\\\\\\\",\\\\\\\"Region\\\\\\\":\\\\\\\"US East (N. Virginia)\\\\\\\",\\\\\\\"AlarmArn\\\\\\\":\\\\\\\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm\\\\\\\",\\\\\\\"OldStateValue\\\\\\\":\\\\\\\"OK\\\\\\\",\\\\\\\"ActionExecutedAfterMuteWindow\\\\\\\":false,\\\\\\\"OKActions\\\\\\\":[],\\\\\\\"AlarmActions\\\\\\\":[\\\\\\\"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\\\\\\\"],\\\\\\\"InsufficientDataActions\\\\\\\":[],\\\\\\\"Trigger\\\\\\\":{\\\\\\\"MetricName\\\\\\\":\\\\\\\"NeverPublished\\\\\\\",\\\\\\\"Namespace\\\\\\\":\\\\\\\"stackd-sns-cwctx-d4c69e518cca\\\\\\\",\\\\\\\"StatisticType\\\\\\\":\\\\\\\"Statistic\\\\\\\",\\\\\\\"Statistic\\\\\\\":\\\\\\\"AVERAGE\\\\\\\",\\\\\\\"Unit\\\\\\\":null,\\\\\\\"Dimensions\\\\\\\":[],\\\\\\\"Period\\\\\\\":300,\\\\\\\"EvaluationPeriods\\\\\\\":1,\\\\\\\"ComparisonOperator\\\\\\\":\\\\\\\"GreaterThanThreshold\\\\\\\",\\\\\\\"Threshold\\\\\\\":1.0,\\\\\\\"TreatMissingData\\\\\\\":\\\\\\\"ignore\\\\\\\",\\\\\\\"EvaluateLowSampleCountPercentile\\\\\\\":\\\\\\\"\\\\\\\"}}\\\",\\\"sms\\\":\\\"ALARM: \\\\\\\"stackd-sns-cwctx-d4c69e518cca-alarm\\\\\\\" in US East (N. Virginia)\\\",\\\"email\\\":\\\"You are receiving this email because your Amazon CloudWatch Alarm \\\\\\\"stackd-sns-cwctx-d4c69e518cca-alarm\\\\\\\" in the US East (N. Virginia) region has entered the ALARM state, because \\\\\\\"stackd-sns-cwctx-d4c69e518cca attempt-1 nonce 4cc0998d4b914e3695a497a9c27b4fb8\\\\\\\" at \\\\\\\"Wednesday 23 September, 2026 03:24:34 UTC\\\\\\\".\\\\n\\\\nView this alarm in the AWS Management Console:\\\\nhttps://us-east-1.console.aws.amazon.com/cloudwatch/deeplink.js?region=us-east-1#alarmsV2:alarm/stackd-sns-cwctx-d4c69e518cca-alarm\\\\n\\\\nAlarm Details:\\\\n- Name:                       stackd-sns-cwctx-d4c69e518cca-alarm\\\\n- Description:                stackd-sns-cwctx-d4c69e518cca encrypted SNS source context capture\\\\n- State Change:               OK -> ALARM\\\\n- Reason for State Change:    stackd-sns-cwctx-d4c69e518cca attempt-1 nonce 4cc0998d4b914e3695a497a9c27b4fb8\\\\n- Timestamp:                  Wednesday 23 September, 2026 03:24:34 UTC\\\\n- AWS Account:                000000000000\\\\n- Alarm Arn:                  arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm\\\\n\\\\nThreshold:\\\\n- The alarm is in the ALARM state when the metric is GreaterThanThreshold 1.0 for at least 1 of the last 1 period(s) of 300 seconds. \\\\n\\\\nMonitored Metric:\\\\n- MetricNamespace:                     stackd-sns-cwctx-d4c69e518cca\\\\n- MetricName:                          NeverPublished\\\\n- Dimensions:                          \\\\n- Period:                              300 seconds\\\\n- Statistic:                           Average\\\\n- Unit:                                not specified\\\\n- TreatMissingData:                    ignore\\\\n\\\\n\\\\nState Change Actions:\\\\n- OK: \\\\n- ALARM: [arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca]\\\\n- INSUFFICIENT_DATA: \\\\n\\\"}\",\"error\":null,\"muteWindowEndTimestamp\":null}"
+            },
+            {
+              "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T04:24:34.849000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from OK to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"stackd-sns-cwctx-d4c69e518cca prepare attempt-1\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"stackd-sns-cwctx-d4c69e518cca attempt-1 nonce 4cc0998d4b914e3695a497a9c27b4fb8\"}}"
+            },
+            {
+              "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T04:24:34.154000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"stackd-sns-cwctx-d4c69e518cca prepare attempt-1\"}}"
+            },
+            {
+              "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T04:24:32.743000+01:00",
+              "HistoryItemType": "ConfigurationUpdate",
+              "HistorySummary": "Alarm \"stackd-sns-cwctx-d4c69e518cca-alarm\" created",
+              "HistoryData": "{\"version\":\"1.0\",\"type\":\"Create\",\"createdAlarm\":{\"alarmName\":\"stackd-sns-cwctx-d4c69e518cca-alarm\",\"alarmDescription\":\"stackd-sns-cwctx-d4c69e518cca encrypted SNS source context capture\",\"alarmArn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm\",\"alarmConfigurationUpdatedTimestamp\":\"2026-09-23T03:24:32.743+0000\",\"namespace\":\"stackd-sns-cwctx-d4c69e518cca\",\"metricName\":\"NeverPublished\",\"extendedStatistic\":\"AVERAGE\",\"period\":300,\"dimensions\":[],\"threshold\":1.0,\"comparisonOperator\":\"GreaterThanThreshold\",\"evaluationPeriods\":1,\"treatMissingData\":\"ignore\",\"stateValue\":\"INSUFFICIENT_DATA\",\"stateUpdatedTimestamp\":\"2026-09-23T03:24:32.743+0000\",\"actionsEnabled\":true,\"alarmActions\":[\"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\"],\"insufficientDataActions\":[],\"okactions\":[]}}"
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790133877157
+    }
+  ],
+  "receipts": [
+    {
+      "round": "attempt-1",
+      "observed_ms": 1790133875804,
+      "message": {
+        "MessageId": "5cda21cb-44f2-4b96-8dfb-bee574dde8e8",
+        "ReceiptHandle": "AQEBZzng/IrGn1uX2Gd74Vh7hMaDgaGVLyheGFfxhmj8uMLePcHo5cSbILIlYDBf6kSbH7aHg2Yq6m/OLaQwbxyqsVcY94t4Prun5ZWcLEPIzTZHueBfDZ5SI3cehPGnMSyM1ZDEe2iNe9Mx9GpDY9SY+85CxflctB1uSPkPHS/kRuioeVFkUJmcOgCF/uskXy71mYbzs0TpsczkJS+IIEpmc1ajmNvr88ME4tJb0bKkkk+PGdgKuthrc3NAorVkKMJx6Tp4Pkqr6isDUYDAy4gMBaGmepKHLnUw7pb/dUYXPnlcs/Q4rDHsYJTHUwgn/jPTTFCGsA5+hwVjVt61igLtkbDNtWfN6uMn00AN9DYQWGxbKBcjFzurOjsN+lUusILHd6mqVGn4uSmwgIen7Sy1M/ibcs+ZO5CVUNpeiSiNyUc=",
+        "MD5OfBody": "e1d21d4daf78b1d45c06b1ef176b08ae",
+        "Body": "{\"AlarmName\":\"stackd-sns-cwctx-d4c69e518cca-alarm\",\"AlarmDescription\":\"stackd-sns-cwctx-d4c69e518cca encrypted SNS source context capture\",\"AWSAccountId\":\"000000000000\",\"AlarmConfigurationUpdatedTimestamp\":\"2026-09-23T03:24:32.743+0000\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"stackd-sns-cwctx-d4c69e518cca attempt-1 nonce 4cc0998d4b914e3695a497a9c27b4fb8\",\"StateChangeTime\":\"2026-09-23T03:24:34.849+0000\",\"Region\":\"US East (N. Virginia)\",\"AlarmArn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm\",\"OldStateValue\":\"OK\",\"ActionExecutedAfterMuteWindow\":false,\"OKActions\":[],\"AlarmActions\":[\"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\"],\"InsufficientDataActions\":[],\"Trigger\":{\"MetricName\":\"NeverPublished\",\"Namespace\":\"stackd-sns-cwctx-d4c69e518cca\",\"StatisticType\":\"Statistic\",\"Statistic\":\"AVERAGE\",\"Unit\":null,\"Dimensions\":[],\"Period\":300,\"EvaluationPeriods\":1,\"ComparisonOperator\":\"GreaterThanThreshold\",\"Threshold\":1.0,\"TreatMissingData\":\"ignore\",\"EvaluateLowSampleCountPercentile\":\"\"}}",
+        "Attributes": {
+          "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+          "ApproximateFirstReceiveTimestamp": "1790133875674",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790133874942"
+        }
+      },
+      "decoded_notification": {
+        "AlarmName": "stackd-sns-cwctx-d4c69e518cca-alarm",
+        "AlarmDescription": "stackd-sns-cwctx-d4c69e518cca encrypted SNS source context capture",
+        "AWSAccountId": "000000000000",
+        "AlarmConfigurationUpdatedTimestamp": "2026-09-23T03:24:32.743+0000",
+        "NewStateValue": "ALARM",
+        "NewStateReason": "stackd-sns-cwctx-d4c69e518cca attempt-1 nonce 4cc0998d4b914e3695a497a9c27b4fb8",
+        "StateChangeTime": "2026-09-23T03:24:34.849+0000",
+        "Region": "US East (N. Virginia)",
+        "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm",
+        "OldStateValue": "OK",
+        "ActionExecutedAfterMuteWindow": false,
+        "OKActions": [],
+        "AlarmActions": [
+          "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+        ],
+        "InsufficientDataActions": [],
+        "Trigger": {
+          "MetricName": "NeverPublished",
+          "Namespace": "stackd-sns-cwctx-d4c69e518cca",
+          "StatisticType": "Statistic",
+          "Statistic": "AVERAGE",
+          "Unit": null,
+          "Dimensions": [],
+          "Period": 300,
+          "EvaluationPeriods": 1,
+          "ComparisonOperator": "GreaterThanThreshold",
+          "Threshold": 1.0,
+          "TreatMissingData": "ignore",
+          "EvaluateLowSampleCountPercentile": ""
+        }
+      },
+      "correlated": true
+    }
+  ],
+  "windows": [
+    {
+      "kind": "consumer-receipt",
+      "round": "attempt-1",
+      "started_ms": 1790133874966,
+      "ended_ms": 1790133876472,
+      "maximum_seconds": 75,
+      "correlated_receipt": true
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "delete-alarm",
+      "service": "cloudwatch",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-sns-cwctx-d4c69e518cca-alarm"
+        ]
+      },
+      "request_started_ms": 1790133877167,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133877926
+    },
+    {
+      "label": "verify-alarm-absent",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-sns-cwctx-d4c69e518cca-alarm"
+        ]
+      },
+      "request_started_ms": 1790133877927,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricAlarms": [],
+          "CompositeAlarms": [],
+          "LogAlarms": []
+        }
+      },
+      "response_observed_ms": 1790133878624
+    },
+    {
+      "label": "unsubscribe",
+      "service": "sns",
+      "operation": "unsubscribe",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca:99230a8f-2078-4dfa-8f68-843df4f1e312"
+      },
+      "request_started_ms": 1790133878624,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133879391
+    },
+    {
+      "label": "verify-subscription-absent",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca:99230a8f-2078-4dfa-8f68-843df4f1e312"
+      },
+      "request_started_ms": 1790133879392,
+      "result": {
+        "code": "NotFound",
+        "error": {
+          "Code": "NotFound",
+          "Message": "Subscription does not exist"
+        }
+      },
+      "response_observed_ms": 1790133880060
+    },
+    {
+      "label": "delete-topic",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+      },
+      "request_started_ms": 1790133880061,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133880794
+    },
+    {
+      "label": "verify-topic-absent",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+      },
+      "request_started_ms": 1790133880794,
+      "result": {
+        "code": "NotFound",
+        "error": {
+          "Code": "NotFound",
+          "Message": "Topic does not exist"
+        }
+      },
+      "response_observed_ms": 1790133881469
+    },
+    {
+      "label": "delete-queue",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-cwctx-d4c69e518cca-collector"
+      },
+      "request_started_ms": 1790133881470,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133882208
+    },
+    {
+      "label": "verify-queue-absent",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-cwctx-d4c69e518cca-collector",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "request_started_ms": 1790133882209,
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "error": {
+          "Message": "The specified queue does not exist.",
+          "Code": "AWS.SimpleQueueService.NonExistentQueue"
+        }
+      },
+      "response_observed_ms": 1790133882871
+    },
+    {
+      "label": "schedule-key-deletion",
+      "service": "kms",
+      "operation": "schedule-key-deletion",
+      "input": {
+        "KeyId": "38fcb72d-b096-477d-ba3f-5834b944b528",
+        "PendingWindowInDays": 7
+      },
+      "request_started_ms": 1790133882872,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyId": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528",
+          "DeletionDate": "2026-09-30T04:24:43.476000+01:00",
+          "KeyState": "PendingDeletion",
+          "PendingWindowInDays": 7
+        }
+      },
+      "response_observed_ms": 1790133883590
+    },
+    {
+      "label": "verify-key-pending-deletion",
+      "service": "kms",
+      "operation": "describe-key",
+      "input": {
+        "KeyId": "38fcb72d-b096-477d-ba3f-5834b944b528"
+      },
+      "request_started_ms": 1790133883592,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "38fcb72d-b096-477d-ba3f-5834b944b528",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528",
+            "CreationDate": "2026-09-23T04:24:25.389000+01:00",
+            "Enabled": false,
+            "Description": "stackd-sns-cwctx-d4c69e518cca",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "PendingDeletion",
+            "DeletionDate": "2026-09-30T04:24:43.476000+01:00",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "816d6b87f04b5e7d83300f63338e9b4918a442b8f0e3513587185889f95640e3"
+          }
+        }
+      },
+      "response_observed_ms": 1790133884275
+    }
+  ],
+  "cloudtrail": {
+    "events": [
+      {
+        "first_observed_ms": 1790133977279,
+        "lookup_event_id": "68a330a7-0ea0-3f43-86f9-8bccc687639d",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T03:24:34Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "Decrypt",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "encryptionContext": {
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:sourceArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+            },
+            "encryptionAlgorithm": "SYMMETRIC_DEFAULT"
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "816d6b87f04b5e7d83300f63338e9b4918a442b8f0e3513587185889f95640e3"
+          },
+          "requestID": "361f1f98-4ddc-4b27-ba1a-5061607f4998",
+          "eventID": "68a330a7-0ea0-3f43-86f9-8bccc687639d",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "f3695f7b-9d85-4344-a9ff-ec49f7619e7a",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790133977279,
+        "lookup_event_id": "bd41843a-c27f-32ff-bf26-7de6c30ff5a6",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T03:24:34Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GenerateDataKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "sns.amazonaws.com",
+          "userAgent": "sns.amazonaws.com",
+          "requestParameters": {
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528",
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+            },
+            "keySpec": "AES_256"
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "816d6b87f04b5e7d83300f63338e9b4918a442b8f0e3513587185889f95640e3"
+          },
+          "requestID": "3b397dba-c33e-4a68-b535-ddb11d8e2af3",
+          "eventID": "bd41843a-c27f-32ff-bf26-7de6c30ff5a6",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "50f4b82f-b9d3-4050-813a-9e01f0ff4fcb",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790133977279,
+        "lookup_event_id": "e8476f7b-c826-4829-a972-ed22d6cab526",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "REDACTED_CALLER_ACCESS_KEY_SHA256_1b508f0c73e08565",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T03:24:26Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GetKeyPolicy",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.get-key-policy",
+          "requestParameters": {
+            "keyId": "38fcb72d-b096-477d-ba3f-5834b944b528",
+            "policyName": "default"
+          },
+          "responseElements": null,
+          "requestID": "bf19fb17-0852-4106-a6c0-4306b74f9a59",
+          "eventID": "e8476f7b-c826-4829-a972-ed22d6cab526",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "first_observed_ms": 1790133977279,
+        "lookup_event_id": "68ffdb8a-08dd-421d-8a4a-72d93488ac2f",
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "REDACTED_CALLER_ACCESS_KEY_SHA256_1b508f0c73e08565",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T03:24:25Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "CreateKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.create-key",
+          "requestParameters": {
+            "tags": [
+              {
+                "tagKey": "stackd-probe",
+                "tagValue": "stackd-sns-cwctx-d4c69e518cca"
+              }
+            ],
+            "keySpec": "SYMMETRIC_DEFAULT",
+            "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"CloudWatchPublisher\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudwatch.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca\"}}}]}",
+            "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "origin": "AWS_KMS",
+            "description": "stackd-sns-cwctx-d4c69e518cca",
+            "bypassPolicyLockoutSafetyCheck": false,
+            "keyUsage": "ENCRYPT_DECRYPT"
+          },
+          "responseElements": {
+            "keyMetadata": {
+              "aWSAccountId": "000000000000",
+              "keyId": "38fcb72d-b096-477d-ba3f-5834b944b528",
+              "arn": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528",
+              "creationDate": "2026-09-23T03:24:25Z",
+              "enabled": true,
+              "description": "stackd-sns-cwctx-d4c69e518cca",
+              "keyUsage": "ENCRYPT_DECRYPT",
+              "keyState": "Enabled",
+              "origin": "AWS_KMS",
+              "keyManager": "CUSTOMER",
+              "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+              "keySpec": "SYMMETRIC_DEFAULT",
+              "encryptionAlgorithms": [
+                "SYMMETRIC_DEFAULT"
+              ],
+              "multiRegion": false,
+              "currentKeyMaterialId": "816d6b87f04b5e7d83300f63338e9b4918a442b8f0e3513587185889f95640e3"
+            }
+          },
+          "requestID": "99d2406c-170e-452d-8757-aaf683c39804",
+          "eventID": "68ffdb8a-08dd-421d-8a4a-72d93488ac2f",
+          "readOnly": false,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      }
+    ],
+    "lookups": [
+      {
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "EventSource",
+              "AttributeValue": "kms.amazonaws.com"
+            }
+          ],
+          "StartTime": "2026-09-23T03:24:19.088600+00:00",
+          "EndTime": "2026-09-23T03:24:42.158000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790133884284,
+        "response_observed_ms": 1790133885037,
+        "result_code": "Success",
+        "returned_event_count": 0,
+        "next_token": null,
+        "matched_owned_event_ids": []
+      },
+      {
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "EventSource",
+              "AttributeValue": "kms.amazonaws.com"
+            }
+          ],
+          "StartTime": "2026-09-23T03:24:19.088600+00:00",
+          "EndTime": "2026-09-23T03:24:42.158000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790133915037,
+        "response_observed_ms": 1790133915737,
+        "result_code": "Success",
+        "returned_event_count": 0,
+        "next_token": null,
+        "matched_owned_event_ids": []
+      },
+      {
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "EventSource",
+              "AttributeValue": "kms.amazonaws.com"
+            }
+          ],
+          "StartTime": "2026-09-23T03:24:19.088600+00:00",
+          "EndTime": "2026-09-23T03:24:42.158000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790133945738,
+        "response_observed_ms": 1790133946529,
+        "result_code": "Success",
+        "returned_event_count": 0,
+        "next_token": null,
+        "matched_owned_event_ids": []
+      },
+      {
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "EventSource",
+              "AttributeValue": "kms.amazonaws.com"
+            }
+          ],
+          "StartTime": "2026-09-23T03:24:19.088600+00:00",
+          "EndTime": "2026-09-23T03:24:42.158000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790133976530,
+        "response_observed_ms": 1790133977279,
+        "result_code": "Success",
+        "returned_event_count": 4,
+        "next_token": null,
+        "matched_owned_event_ids": [
+          "68a330a7-0ea0-3f43-86f9-8bccc687639d",
+          "bd41843a-c27f-32ff-bf26-7de6c30ff5a6",
+          "e8476f7b-c826-4829-a972-ed22d6cab526",
+          "68ffdb8a-08dd-421d-8a4a-72d93488ac2f"
+        ]
+      }
+    ],
+    "window": {
+      "start": "2026-09-23T03:24:19.088600+00:00",
+      "end": "2026-09-23T03:24:42.158000+00:00",
+      "poll_started_ms": 1790133884284,
+      "maximum_poll_seconds": 660,
+      "poll_finished_ms": 1790133977280,
+      "missing_successful_operations": []
+    }
+  },
+  "owned_resources": {
+    "key": {
+      "AWSAccountId": "000000000000",
+      "KeyId": "38fcb72d-b096-477d-ba3f-5834b944b528",
+      "Arn": "arn:aws:kms:us-east-1:000000000000:key/38fcb72d-b096-477d-ba3f-5834b944b528",
+      "CreationDate": "2026-09-23T04:24:25.389000+01:00",
+      "Enabled": true,
+      "Description": "stackd-sns-cwctx-d4c69e518cca",
+      "KeyUsage": "ENCRYPT_DECRYPT",
+      "KeyState": "Enabled",
+      "Origin": "AWS_KMS",
+      "KeyManager": "CUSTOMER",
+      "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+      "KeySpec": "SYMMETRIC_DEFAULT",
+      "EncryptionAlgorithms": [
+        "SYMMETRIC_DEFAULT"
+      ],
+      "MultiRegion": false,
+      "CurrentKeyMaterialId": "816d6b87f04b5e7d83300f63338e9b4918a442b8f0e3513587185889f95640e3"
+    },
+    "topic": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca",
+    "queue": {
+      "name": "stackd-sns-cwctx-d4c69e518cca-collector",
+      "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-cwctx-d4c69e518cca-collector",
+      "arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca-collector"
+    },
+    "subscription": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca:99230a8f-2078-4dfa-8f68-843df4f1e312",
+    "alarm": {
+      "name": "stackd-sns-cwctx-d4c69e518cca-alarm",
+      "arn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm"
+    }
+  },
+  "limitations": [
+    "One standard topic, one raw unencrypted SQS subscriber and one metric alarm in us-east-1. SetAlarmState exercises an actual alarm action, not a metric evaluator; no metric data is published.",
+    "Only CloudWatch receives service-principal KMS GenerateDataKey/Decrypt rights. Its grant is topic encryption-context bound, with no SNS service grant. This is a positive publication/context capture, not a negative KMS-principal authorization matrix.",
+    "CloudTrail management event-history availability is asynchronous; absence is bounded by recorded poll window. No changes to any standing trail or organization settings.",
+    "KMS identity accessKeyId values, when present, are replaced by stable category-prefixed SHA256 aliases; other userIdentity fields and complete encryption contexts are retained. CloudTrail lookups retain complete matching owned events plus all query inputs, page counts and continuation tokens, not unrelated account events."
+  ],
+  "identity": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated"
+  },
+  "delivery_finished_ms": 1790133877158,
+  "cleanup_finished_ms": 1790133884275,
+  "probe_source": {
+    "filename": "sns_cloudwatch_source_probe.py",
+    "sha256": "a34833bd0dc531b778609644140f9d52c44e1c691274cd592c8647c2d9f92ed9",
+    "content": "#!/usr/bin/env python3\nimport datetime, hashlib, json, os, sys, time, uuid\nfrom pathlib import Path\nsys.path.insert(0, str(Path.cwd() / 'scripts/aws'))\nfrom aws_cli import observe\n\nACCOUNT='000000000000'\nREGION='us-east-1'\nPREFIX='stackd-sns-cwctx-'+uuid.uuid4().hex[:12]\nOUT=Path('testdata/aws/sns/encryption_cloudwatch_source.json')\nENV=dict(os.environ,AWS_DEFAULT_REGION=REGION,AWS_REGION=REGION,AWS_MAX_ATTEMPTS='2',AWS_PAGER='')\nSTART=time.time()\nTOPIC='arn:aws:sns:'+REGION+':'+ACCOUNT+':'+PREFIX\nALARM=PREFIX+'-alarm'\nALARM_ARN='arn:aws:cloudwatch:'+REGION+':'+ACCOUNT+':alarm:'+ALARM\nCAP={'account':ACCOUNT,'region':REGION,'prefix':PREFIX,'started_ms':int(START*1000),'source_references':['https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html','https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_SetAlarmState.html'],'source_revisions':{'stackd':'6c8e6a39e279a7bd64483c78d788cf5fc2a2e9cf','prior_native_fixtures':['testdata/aws/sns/encryption.json','testdata/aws/sns/encryption_service_sources.json','testdata/aws/cloudwatch/sns_publications.json']},'observations':[],'receipts':[],'windows':[],'cleanup':[],'cloudtrail':{'events':[],'lookups':[]},'owned_resources':{},'limitations':['One standard topic, one raw unencrypted SQS subscriber and one metric alarm in us-east-1. SetAlarmState exercises an actual alarm action, not a metric evaluator; no metric data is published.','Only CloudWatch receives service-principal KMS GenerateDataKey/Decrypt rights. Its grant is topic encryption-context bound, with no SNS service grant. This is a positive publication/context capture, not a negative KMS-principal authorization matrix.','CloudTrail management event-history availability is asynchronous; absence is bounded by recorded poll window. No changes to any standing trail or organization settings.']}\nR=CAP['owned_resources']\n\ndef ms(): return int(time.time()*1000)\ndef save(): OUT.write_text(json.dumps(CAP,indent=2)+'\\n')\ndef call(label,service,operation,args=None,strict=True,cleanup=False):\n    item={'label':label,'service':service,'operation':operation,'input':args or {},'request_started_ms':ms()}\n    try: result=observe(service,operation,args,ENV)\n    except Exception as e:\n        item.update(transport_error=str(e),response_observed_ms=ms()); CAP['cleanup' if cleanup else 'observations'].append(item); save()\n        if strict: raise\n        return {'code':'TransportError','message':str(e)}\n    item.update(result=result,response_observed_ms=ms()); CAP['cleanup' if cleanup else 'observations'].append(item); save()\n    if strict and result['code']!='Success': raise RuntimeError(label+': '+json.dumps(result))\n    return result.get('output',{}) if strict else result\n\ndef policy(statements): return json.dumps({'Version':'2012-10-17','Statement':statements})\ndef receive(round_name,reason,seconds):\n    started=ms(); deadline=time.monotonic()+seconds; found=False\n    while time.monotonic()<deadline and not found:\n        out=call('receive-'+round_name,'sqs','receive-message',{'QueueUrl':R['queue']['url'],'WaitTimeSeconds':5,'MaxNumberOfMessages':10,'MessageAttributeNames':['All'],'MessageSystemAttributeNames':['All']})\n        for message in out.get('Messages',[]):\n            decoded=json.loads(message['Body'])\n            correlated=decoded.get('AlarmArn')==ALARM_ARN and decoded.get('AlarmName')==ALARM and decoded.get('AWSAccountId')==ACCOUNT and decoded.get('NewStateValue')=='ALARM' and decoded.get('NewStateReason')==reason\n            CAP['receipts'].append({'round':round_name,'observed_ms':ms(),'message':message,'decoded_notification':decoded,'correlated':correlated})\n            call('delete-receipt-'+round_name,'sqs','delete-message',{'QueueUrl':R['queue']['url'],'ReceiptHandle':message['ReceiptHandle']})\n            found=found or correlated\n    CAP['windows'].append({'kind':'consumer-receipt','round':round_name,'started_ms':started,'ended_ms':ms(),'maximum_seconds':seconds,'correlated_receipt':found}); save()\n    return found\n\ntry:\n    CAP['identity']=call('identity-before-mutation','sts','get-caller-identity')\n    if CAP['identity']['Account']!=ACCOUNT: raise RuntimeError('Unexpected account; mutations forbidden')\n    statements=[{'Sid':'OwnerAdministration','Effect':'Allow','Principal':{'AWS':'arn:aws:iam::'+ACCOUNT+':root'},'Action':'kms:*','Resource':'*'},{'Sid':'CloudWatchPublisher','Effect':'Allow','Principal':{'Service':'cloudwatch.amazonaws.com'},'Action':['kms:GenerateDataKey','kms:Decrypt'],'Resource':'*','Condition':{'StringEquals':{'kms:EncryptionContext:aws:sns:topicArn':TOPIC}}}]\n    R['key']=call('create-key','kms','create-key',{'Description':PREFIX,'Policy':policy(statements),'Tags':[{'TagKey':'stackd-probe','TagValue':PREFIX}]})['KeyMetadata']\n    call('read-key-policy','kms','get-key-policy',{'KeyId':R['key']['KeyId'],'PolicyName':'default'})\n    R['topic']=call('create-topic','sns','create-topic',{'Name':PREFIX,'Attributes':{'KmsMasterKeyId':R['key']['Arn']}})['TopicArn']\n    assert R['topic']==TOPIC\n    call('topic-policy','sns','set-topic-attributes',{'TopicArn':TOPIC,'AttributeName':'Policy','AttributeValue':policy([{'Effect':'Allow','Principal':{'Service':'cloudwatch.amazonaws.com'},'Action':'sns:Publish','Resource':TOPIC,'Condition':{'ArnEquals':{'aws:SourceArn':ALARM_ARN},'StringEquals':{'aws:SourceAccount':ACCOUNT}}}])})\n    R['queue']={'name':PREFIX+'-collector','url':call('create-queue','sqs','create-queue',{'QueueName':PREFIX+'-collector','Attributes':{'SqsManagedSseEnabled':'false'}})['QueueUrl']}\n    R['queue']['arn']=call('read-queue','sqs','get-queue-attributes',{'QueueUrl':R['queue']['url'],'AttributeNames':['QueueArn','SqsManagedSseEnabled']})['Attributes']['QueueArn']\n    call('queue-policy','sqs','set-queue-attributes',{'QueueUrl':R['queue']['url'],'Attributes':{'Policy':policy([{'Effect':'Allow','Principal':{'Service':'sns.amazonaws.com'},'Action':'sqs:SendMessage','Resource':R['queue']['arn'],'Condition':{'ArnEquals':{'aws:SourceArn':TOPIC},'StringEquals':{'aws:SourceAccount':ACCOUNT}}}])}})\n    R['subscription']=call('subscribe-raw','sns','subscribe',{'TopicArn':TOPIC,'Protocol':'sqs','Endpoint':R['queue']['arn'],'Attributes':{'RawMessageDelivery':'true'},'ReturnSubscriptionArn':True})['SubscriptionArn']\n    call('verify-topic-encryption-policy','sns','get-topic-attributes',{'TopicArn':TOPIC})\n    call('verify-raw-subscription','sns','get-subscription-attributes',{'SubscriptionArn':R['subscription']})\n    call('create-alarm','cloudwatch','put-metric-alarm',{'AlarmName':ALARM,'AlarmDescription':PREFIX+' encrypted SNS source context capture','ActionsEnabled':True,'AlarmActions':[TOPIC],'Namespace':PREFIX,'MetricName':'NeverPublished','Statistic':'Average','Period':300,'EvaluationPeriods':1,'Threshold':1,'ComparisonOperator':'GreaterThanThreshold','TreatMissingData':'ignore','Tags':[{'Key':'stackd-probe','Value':PREFIX}]})\n    R['alarm']={'name':ALARM,'arn':ALARM_ARN}\n    call('verify-alarm','cloudwatch','describe-alarms',{'AlarmNames':[ALARM]})\n    for attempt in range(3):\n        round_name='attempt-'+str(attempt+1)\n        reason=PREFIX+' '+round_name+' nonce '+uuid.uuid4().hex\n        call('set-ok-'+round_name,'cloudwatch','set-alarm-state',{'AlarmName':ALARM,'StateValue':'OK','StateReason':PREFIX+' prepare '+round_name})\n        call('set-alarm-'+round_name,'cloudwatch','set-alarm-state',{'AlarmName':ALARM,'StateValue':'ALARM','StateReason':reason})\n        found=receive(round_name,reason,75)\n        call('alarm-history-'+round_name,'cloudwatch','describe-alarm-history',{'AlarmName':ALARM,'MaxRecords':100})\n        if found: break\n    if not any(r['correlated'] for r in CAP['receipts']): CAP['limitations'].append('No correlated receipt in three recorded 75-second receive windows; action history preserves any service publication failures.')\n    CAP['delivery_finished_ms']=ms(); save()\nexcept Exception as e:\n    CAP['failure']=str(e); save()\nfinally:\n    if 'alarm' in R:\n        call('delete-alarm','cloudwatch','delete-alarms',{'AlarmNames':[ALARM]},strict=False,cleanup=True)\n        call('verify-alarm-absent','cloudwatch','describe-alarms',{'AlarmNames':[ALARM]},strict=False,cleanup=True)\n    if 'subscription' in R:\n        call('unsubscribe','sns','unsubscribe',{'SubscriptionArn':R['subscription']},strict=False,cleanup=True)\n        call('verify-subscription-absent','sns','get-subscription-attributes',{'SubscriptionArn':R['subscription']},strict=False,cleanup=True)\n    if 'topic' in R:\n        call('delete-topic','sns','delete-topic',{'TopicArn':TOPIC},strict=False,cleanup=True)\n        call('verify-topic-absent','sns','get-topic-attributes',{'TopicArn':TOPIC},strict=False,cleanup=True)\n    if 'queue' in R:\n        call('delete-queue','sqs','delete-queue',{'QueueUrl':R['queue']['url']},strict=False,cleanup=True)\n        call('verify-queue-absent','sqs','get-queue-attributes',{'QueueUrl':R['queue']['url'],'AttributeNames':['QueueArn']},strict=False,cleanup=True)\n    if 'key' in R:\n        call('schedule-key-deletion','kms','schedule-key-deletion',{'KeyId':R['key']['KeyId'],'PendingWindowInDays':7},strict=False,cleanup=True)\n        call('verify-key-pending-deletion','kms','describe-key',{'KeyId':R['key']['KeyId']},strict=False,cleanup=True)\n    CAP['cleanup_finished_ms']=ms(); save()\n\nif 'key' in R:\n    end=CAP.get('delivery_finished_ms',CAP['cleanup_finished_ms'])/1000\n    args={'LookupAttributes':[{'AttributeKey':'EventSource','AttributeValue':'kms.amazonaws.com'}],'StartTime':datetime.datetime.fromtimestamp(START-5,datetime.timezone.utc).isoformat(),'EndTime':datetime.datetime.fromtimestamp(end+5,datetime.timezone.utc).isoformat(),'MaxResults':50}\n    deadline=time.monotonic()+660; seen=set()\n    CAP['cloudtrail']['window']={'start':args['StartTime'],'end':args['EndTime'],'poll_started_ms':ms(),'maximum_poll_seconds':660}\n    while True:\n        page_args=dict(args)\n        while True:\n            started=ms(); res=observe('cloudtrail','lookup-events',page_args,ENV); ended=ms()\n            lookup={'input':page_args,'request_started_ms':started,'response_observed_ms':ended,'result_code':res['code']}\n            if res['code']!='Success':\n                lookup['error']=res; CAP['cloudtrail']['lookups'].append(lookup); save(); break\n            out=res['output']; lookup['returned_event_count']=len(out.get('Events',[])); lookup['next_token']=out.get('NextToken'); lookup['matched_owned_event_ids']=[]\n            for item in out.get('Events',[]):\n                event=json.loads(item['CloudTrailEvent'])\n                if R['key']['KeyId'] not in json.dumps(event): continue\n                lookup['matched_owned_event_ids'].append(event['eventID'])\n                if event['eventID'] in seen: continue\n                seen.add(event['eventID'])\n                ident=event.get('userIdentity',{})\n                if ident.get('accessKeyId'):\n                    category='AWS_INTERNAL_FAS' if ident.get('invokedBy') in ['sns.amazonaws.com','cloudwatch.amazonaws.com'] or ident.get('type')=='AWSService' else 'CALLER'\n                    ident['accessKeyId']='REDACTED_'+category+'_ACCESS_KEY_SHA256_'+hashlib.sha256(ident['accessKeyId'].encode()).hexdigest()[:16]\n                CAP['cloudtrail']['events'].append({'first_observed_ms':ended,'lookup_event_id':item.get('EventId'),'event':event})\n            CAP['cloudtrail']['lookups'].append(lookup); save()\n            if not out.get('NextToken'): break\n            page_args=dict(args,NextToken=out['NextToken']); time.sleep(0.6)\n        successful={x['event']['eventName'] for x in CAP['cloudtrail']['events'] if not x['event'].get('errorCode') and x['event'].get('requestParameters',{}).get('encryptionContext',{}).get('aws:sns:topicArn')==TOPIC}\n        print(json.dumps({'kms_successful_operations':sorted(successful),'owned_events':len(seen),'receipts':len(CAP['receipts'])}),flush=True)\n        if {'GenerateDataKey','Decrypt'} <= successful or time.monotonic()>=deadline: break\n        time.sleep(min(30,max(0,deadline-time.monotonic())))\n    CAP['cloudtrail']['window']['poll_finished_ms']=ms()\n    CAP['cloudtrail']['window']['missing_successful_operations']=sorted({'GenerateDataKey','Decrypt'}-successful)\n    if CAP['cloudtrail']['window']['missing_successful_operations']: CAP['limitations'].append('Successful KMS operations missing after bounded polling: '+', '.join(CAP['cloudtrail']['window']['missing_successful_operations']))\nCAP['probe_source']={'filename':Path(__file__).name,'sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'content':Path(__file__).read_text(),'aws_cli_helper_sha256':hashlib.sha256(Path('scripts/aws/aws_cli.py').read_bytes()).hexdigest()}\nCAP['finished_ms']=ms(); save()\nprint(json.dumps({'fixture':str(OUT),'failure':CAP.get('failure'),'receipts':len(CAP['receipts']),'key_id':R.get('key',{}).get('KeyId')}),flush=True)\n",
+    "aws_cli_helper_sha256": "5485753631883a7f99c7efabf3f5ceeb9175caffb2319a425a8d86d31640196d"
+  },
+  "finished_ms": 1790133977280,
+  "findings": [
+    {
+      "receipt_message_id": "5cda21cb-44f2-4b96-8dfb-bee574dde8e8",
+      "round": "attempt-1",
+      "notification_alarm_arn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm",
+      "trigger_observation_label": "set-alarm-attempt-1",
+      "successful_action_history_matches": [
+        {
+          "timestamp": "2026-09-23T04:24:34.904000+01:00",
+          "summary": "Successfully executed action arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca",
+          "history_observation_label": "alarm-history-attempt-1"
+        }
+      ],
+      "successful_kms_events": [
+        {
+          "event_id": "68a330a7-0ea0-3f43-86f9-8bccc687639d",
+          "request_id": "361f1f98-4ddc-4b27-ba1a-5061607f4998",
+          "event_name": "Decrypt",
+          "event_time": "2026-09-23T03:24:34Z",
+          "encryption_context": {
+            "aws:sns:sourceAccount": "000000000000",
+            "aws:sns:sourceArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm",
+            "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+          },
+          "user_identity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "source_ip_address": "sns.amazonaws.com",
+          "user_agent": "sns.amazonaws.com"
+        },
+        {
+          "event_id": "bd41843a-c27f-32ff-bf26-7de6c30ff5a6",
+          "request_id": "3b397dba-c33e-4a68-b535-ddb11d8e2af3",
+          "event_name": "GenerateDataKey",
+          "event_time": "2026-09-23T03:24:34Z",
+          "encryption_context": {
+            "aws:sns:sourceArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-sns-cwctx-d4c69e518cca-alarm",
+            "aws:sns:sourceAccount": "000000000000",
+            "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-cwctx-d4c69e518cca"
+          },
+          "user_identity": {
+            "type": "AWSService",
+            "invokedBy": "sns.amazonaws.com"
+          },
+          "source_ip_address": "sns.amazonaws.com",
+          "user_agent": "sns.amazonaws.com"
+        }
+      ],
+      "correlation": "Unique owned CMK and topic, exact alarm ARN/account/reason nonce in raw SQS receipt, exact receipt equality with successful alarm action published default payload, KMS encryption-context topic ARN and event timestamps within triggering call to receipt interval. KMS records do not expose the SNS or SQS message ID."
+    }
+  ],
+  "cleanup_summary": {
+    "alarm_absent": true,
+    "subscription_absent": true,
+    "topic_absent": true,
+    "queue_absent": true,
+    "key_id": "38fcb72d-b096-477d-ba3f-5834b944b528",
+    "key_state": "PendingDeletion",
+    "deletion_date": "2026-09-30T04:24:43.476000+01:00",
+    "pending_window_days": 7
+  },
+  "setup_failures": [],
+  "analysis_source": {
+    "filename": "sns_cloudwatch_source_finalize.py",
+    "sha256": "964d4f412cedd0f8b0704aa5b5fd98c8f5ff7683cc7feb144c75ef6242f92fa8",
+    "content": "import datetime, hashlib, json\nfrom pathlib import Path\np=Path('testdata/aws/sns/encryption_cloudwatch_source.json')\ns=json.loads(p.read_text())\nassert s.get('finished_ms'), 'Capture must be complete'\nassert not s.get('failure'), s.get('failure')\nr=s['owned_resources']\nobservations={x['label']:x for x in s['observations']}\ncleanup={x['label']:x for x in s['cleanup']}\nreceipts=[x for x in s['receipts'] if x['correlated']]\nassert receipts, 'Expected actual native receipt'\nfindings=[]\nfor receipt in receipts:\n    trigger=observations['set-alarm-'+receipt['round']]\n    notification=receipt['decoded_notification']\n    assert notification['NewStateReason']==trigger['input']['StateReason']\n    assert notification['AlarmArn']==r['alarm']['arn']\n    assert notification['AlarmActions']==[r['topic']]\n    matched_history=[]\n    history=observations['alarm-history-'+receipt['round']]['result']['output']['AlarmHistoryItems']\n    for item in history:\n        if item['HistoryItemType']!='Action': continue\n        data=json.loads(item['HistoryData'])\n        if data.get('actionState')!='Succeeded' or data.get('notificationResource')!=r['topic'] or not data.get('publishedMessage'): continue\n        messages=json.loads(data['publishedMessage'])\n        default=json.loads(messages['default'])\n        if default==notification: matched_history.append({'timestamp':item['Timestamp'],'summary':item['HistorySummary'],'history_observation_label':'alarm-history-'+receipt['round']})\n    assert matched_history, 'Receipt must exactly match successful alarm action published default payload'\n    kms=[]\n    for item in s['cloudtrail']['events']:\n        event=item['event']; context=event.get('requestParameters',{}).get('encryptionContext',{})\n        if event.get('errorCode') or event['eventName'] not in ['GenerateDataKey','Decrypt'] or context.get('aws:sns:topicArn')!=r['topic']: continue\n        event_ms=int(datetime.datetime.fromisoformat(event['eventTime'].replace('Z','+00:00')).timestamp()*1000)\n        assert trigger['request_started_ms']-1000 <= event_ms <= receipt['observed_ms']+1000, (event['eventTime'],trigger['request_started_ms'],receipt['observed_ms'])\n        kms.append({'event_id':event['eventID'],'request_id':event['requestID'],'event_name':event['eventName'],'event_time':event['eventTime'],'encryption_context':context,'user_identity':event.get('userIdentity'),'source_ip_address':event.get('sourceIPAddress'),'user_agent':event.get('userAgent')})\n    findings.append({'receipt_message_id':receipt['message']['MessageId'],'round':receipt['round'],'notification_alarm_arn':notification['AlarmArn'],'trigger_observation_label':trigger['label'],'successful_action_history_matches':matched_history,'successful_kms_events':kms,'correlation':'Unique owned CMK and topic, exact alarm ARN/account/reason nonce in raw SQS receipt, exact receipt equality with successful alarm action published default payload, KMS encryption-context topic ARN and event timestamps within triggering call to receipt interval. KMS records do not expose the SNS or SQS message ID.'})\nassert cleanup['verify-alarm-absent']['result']['code']=='Success'\nassert not cleanup['verify-alarm-absent']['result']['output']['MetricAlarms']\nassert not cleanup['verify-alarm-absent']['result']['output']['CompositeAlarms']\nassert cleanup['verify-subscription-absent']['result']['code']=='NotFound'\nassert cleanup['verify-topic-absent']['result']['code']=='NotFound'\nassert cleanup['verify-queue-absent']['result']['code']=='AWS.SimpleQueueService.NonExistentQueue'\nkey=cleanup['verify-key-pending-deletion']['result']['output']['KeyMetadata']\nassert key['KeyState']=='PendingDeletion'\nassert cleanup['schedule-key-deletion']['input']['PendingWindowInDays']==7\ns['findings']=findings\ns['cleanup_summary']={'alarm_absent':True,'subscription_absent':True,'topic_absent':True,'queue_absent':True,'key_id':key['KeyId'],'key_state':key['KeyState'],'deletion_date':key['DeletionDate'],'pending_window_days':7}\ns['source_references'].append('https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Notify_Users_Alarm_Changes.html')\ns['limitations'].append('KMS identity accessKeyId values, when present, are replaced by stable category-prefixed SHA256 aliases; other userIdentity fields and complete encryption contexts are retained. CloudTrail lookups retain complete matching owned events plus all query inputs, page counts and continuation tokens, not unrelated account events.')\ns['setup_failures']=[{'label':x['label'],'result':x.get('result'),'transport_error':x.get('transport_error')} for x in s['observations'] if x.get('result',{}).get('code')!='Success']\ns['analysis_source']={'filename':Path(__file__).name,'sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'content':Path(__file__).read_text()}\np.write_text(json.dumps(s,indent=2)+'\\n')\nprint(json.dumps({'findings':findings,'cleanup_summary':s['cleanup_summary'],'setup_failures':s['setup_failures']},indent=2))\n"
+  }
+}

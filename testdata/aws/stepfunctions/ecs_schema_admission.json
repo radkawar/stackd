@@ -1,0 +1,195 @@
+{
+  "service": "stepfunctions",
+  "source": "Native AWS public endpoints through scripts/aws/aws_cli.py",
+  "captured_at": "2026-09-24T12:50:01.287810+00:00",
+  "region": "us-east-1",
+  "prefix": "stackd-sfn-ecs-921ff151ed",
+  "documentation": [
+    "https://docs.aws.amazon.com/step-functions/latest/dg/connect-ecs.html"
+  ],
+  "transport": "AWS CLI modeled outer timestamps; native history/output JSON string bytes retained.",
+  "redaction": "Actual task tokens replaced by SHA256-labeled placeholders, including embedded history JSON.",
+  "bounds": {
+    "max_executions": 0,
+    "max_tasks": 0,
+    "task_vcpu": 0.25,
+    "task_memory_mib": 512,
+    "execution_timeout_seconds": 240,
+    "task_state_timeout_seconds": 210
+  },
+  "resources": {
+    "roles": [],
+    "machines": [],
+    "definitions": []
+  },
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_at": "2026-09-24T12:50:01.287892+00:00",
+      "finished_at": "2026-09-24T12:50:02.622429+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      }
+    },
+    {
+      "label": "sync-started-by",
+      "service": "stepfunctions",
+      "operation": "validate-state-machine-definition",
+      "input": {
+        "definition": "{\"StartAt\": \"Task\", \"TimeoutSeconds\": 240, \"States\": {\"Task\": {\"Type\": \"Task\", \"Resource\": \"arn:aws:states:::ecs:runTask.sync\", \"Parameters\": {\"Cluster\": \"probe\", \"TaskDefinition\": \"probe:1\", \"LaunchType\": \"FARGATE\", \"StartedBy\": \"customer-value\"}, \"TimeoutSeconds\": 210, \"End\": true}}}"
+      },
+      "started_at": "2026-09-24T12:50:02.622710+00:00",
+      "finished_at": "2026-09-24T12:50:04.060447+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "result": "FAIL",
+          "diagnostics": [
+            {
+              "severity": "ERROR",
+              "code": "SCHEMA_VALIDATION_FAILED",
+              "message": "The field 'StartedBy' is not supported by Step Functions",
+              "location": "/States/Task/Parameters"
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "label": "sync-count-path",
+      "service": "stepfunctions",
+      "operation": "validate-state-machine-definition",
+      "input": {
+        "definition": "{\"StartAt\": \"Task\", \"TimeoutSeconds\": 240, \"States\": {\"Task\": {\"Type\": \"Task\", \"Resource\": \"arn:aws:states:::ecs:runTask.sync\", \"Parameters\": {\"Cluster\": \"probe\", \"TaskDefinition\": \"probe:1\", \"LaunchType\": \"FARGATE\", \"Count.$\": \"$.count\"}, \"TimeoutSeconds\": 210, \"End\": true}}}"
+      },
+      "started_at": "2026-09-24T12:50:04.060888+00:00",
+      "finished_at": "2026-09-24T12:50:04.838095+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "result": "FAIL",
+          "diagnostics": [
+            {
+              "severity": "ERROR",
+              "code": "SCHEMA_VALIDATION_FAILED",
+              "message": "The field 'Count' is not supported by Step Functions",
+              "location": "/States/Task/Parameters"
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "label": "callback-count-two",
+      "service": "stepfunctions",
+      "operation": "validate-state-machine-definition",
+      "input": {
+        "definition": "{\"StartAt\": \"Task\", \"TimeoutSeconds\": 240, \"States\": {\"Task\": {\"Type\": \"Task\", \"Resource\": \"arn:aws:states:::ecs:runTask.waitForTaskToken\", \"Parameters\": {\"Cluster\": \"probe\", \"TaskDefinition\": \"probe:1\", \"LaunchType\": \"FARGATE\", \"Count\": 2}, \"TimeoutSeconds\": 210, \"End\": true}}}"
+      },
+      "started_at": "2026-09-24T12:50:04.838546+00:00",
+      "finished_at": "2026-09-24T12:50:06.112726+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "result": "OK",
+          "diagnostics": [],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "label": "sync-jsonata-count",
+      "service": "stepfunctions",
+      "operation": "validate-state-machine-definition",
+      "input": {
+        "definition": "{\"QueryLanguage\": \"JSONata\", \"StartAt\": \"Task\", \"States\": {\"Task\": {\"Type\": \"Task\", \"Resource\": \"arn:aws:states:::ecs:runTask.sync\", \"Arguments\": {\"Cluster\": \"probe\", \"TaskDefinition\": \"probe:1\", \"LaunchType\": \"FARGATE\", \"Count\": 2}, \"End\": true}}}"
+      },
+      "started_at": "2026-09-24T12:50:06.113206+00:00",
+      "finished_at": "2026-09-24T12:50:06.868703+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "result": "FAIL",
+          "diagnostics": [
+            {
+              "severity": "ERROR",
+              "code": "SCHEMA_VALIDATION_FAILED",
+              "message": "The field 'Count' is not supported by Step Functions",
+              "location": "/States/Task/Arguments"
+            }
+          ],
+          "truncated": false
+        }
+      }
+    }
+  ],
+  "cases": {},
+  "cleanup": {
+    "no_resources_created": true
+  },
+  "limitations": [
+    "No EC2 instances, VPCs, subnets, routes, NAT gateways, or load balancers were created. Runtime captures created only a no-ingress security group on an existing public subnet; admission-only capture created nothing.",
+    "Placement capacity Failures may not be reachable without EC2/capacity changes; documentation remains authoritative where uncaptured.",
+    "No exact fleet latency, billing duration, cross-account or partition claims."
+  ],
+  "probe_source": {
+    "path": "/home/r/dev/minor/stackd/scripts/aws/stepfunctions_ecs_probe.py",
+    "text": "#!/usr/bin/env python3\n\"\"\"Capture bounded optimized ECS workflows using existing public AWS networking.\n\nRequires an explicitly selected existing public subnet. Creates no VPC, routes,\nNAT, EC2 instances, or persistent compute. Reuses aws_cli and the existing native\nworkflow capture/ownership-cleanup conventions. --cleanup resumes after a crash.\n\"\"\"\nimport argparse\nimport datetime\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport time\nimport traceback\nimport uuid\n\nfrom aws_cli import observe\n\nRULE = \"StepFunctionsGetEventsForECSTaskRule\"\nIMAGE = \"public.ecr.aws/lambda/python:3.12\"\n\n\ndef now():\n    return datetime.datetime.now(datetime.timezone.utc).isoformat()\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"--region\", default=\"us-east-1\")\n    parser.add_argument(\"--subnet\", required=True)\n    parser.add_argument(\"--output\", type=Path, default=Path(\"testdata/aws/stepfunctions/ecs_workflows.json\"))\n    parser.add_argument(\"--cleanup\", action=\"store_true\")\n    parser.add_argument(\"--admission-only\", action=\"store_true\", help=\"Read-only schema cases; subnet is only an unused syntactic fixture value\")\n    args = parser.parse_args()\n    env = dict(os.environ, AWS_REGION=args.region, AWS_DEFAULT_REGION=args.region, AWS_MAX_ATTEMPTS=\"2\")\n    if args.output.exists() and not args.cleanup:\n        raise RuntimeError(\"Refusing to overwrite existing evidence; use a new output or --cleanup\")\n    f = json.loads(args.output.read_text()) if args.cleanup else {\n        \"service\": \"stepfunctions\", \"source\": \"Native AWS public endpoints through scripts/aws/aws_cli.py\",\n        \"captured_at\": now(), \"region\": args.region, \"prefix\": \"stackd-sfn-ecs-\" + uuid.uuid4().hex[:10],\n        \"documentation\": [\"https://docs.aws.amazon.com/step-functions/latest/dg/connect-ecs.html\"],\n        \"transport\": \"AWS CLI modeled outer timestamps; native history/output JSON string bytes retained.\",\n        \"redaction\": \"Actual task tokens replaced by SHA256-labeled placeholders, including embedded history JSON.\",\n        \"bounds\": {\"max_executions\": 8, \"max_tasks\": 9, \"task_vcpu\": 0.25, \"task_memory_mib\": 512,\n                   \"execution_timeout_seconds\": 240, \"task_state_timeout_seconds\": 210},\n        \"resources\": {\"roles\": [], \"machines\": [], \"definitions\": []}, \"observations\": [], \"cases\": {},\n        \"cleanup\": {}, \"limitations\": [\n            \"No EC2 instances, VPCs, subnets, routes, NAT gateways, or load balancers are created; only an owned no-ingress security group uses the existing public subnet.\",\n            \"Placement capacity Failures may not be reachable without EC2/capacity changes; documentation remains authoritative where uncaptured.\",\n            \"No exact fleet latency, billing duration, cross-account or partition claims.\"],\n        \"probe_source\": {\"path\": str(Path(__file__)), \"text\": Path(__file__).read_text()}}\n    r = f[\"resources\"]\n    prefix = f[\"prefix\"]\n    secrets = {}\n\n    def discover(value):\n        if isinstance(value, dict):\n            for key, item in value.items():\n                if key.lower() == \"tasktoken\" and isinstance(item, str):\n                    secrets[item] = \"<redacted-tasktoken-\" + hashlib.sha256(item.encode()).hexdigest()[:12] + \">\"\n                if key in (\"Name\", \"name\") and item == \"TASK_TOKEN\":\n                    token = value.get(\"Value\", value.get(\"value\", \"\"))\n                    if token and not token.startswith(\"<redacted-\"):\n                        secrets[token] = \"<redacted-tasktoken-\" + hashlib.sha256(token.encode()).hexdigest()[:12] + \">\"\n                discover(item)\n        elif isinstance(value, list):\n            for item in value:\n                discover(item)\n        elif isinstance(value, str) and value[:1] in (\"{\", \"[\"):\n            try:\n                discover(json.loads(value))\n            except json.JSONDecodeError:\n                pass\n\n    def save():\n        discover(f)\n        text = json.dumps(f, indent=2)\n        for secret, replacement in secrets.items():\n            text = text.replace(json.dumps(secret)[1:-1], replacement)\n            text = text.replace(json.dumps(json.dumps(secret)[1:-1])[1:-1], replacement)\n        args.output.parent.mkdir(parents=True, exist_ok=True)\n        args.output.write_text(text + \"\\n\")\n\n    def record(label, service, operation, parameters=None):\n        started = now()\n        result = observe(service, operation, parameters or {}, env)\n        f[\"observations\"].append({\"label\": label, \"service\": service, \"operation\": operation,\n                                  \"input\": parameters or {}, \"started_at\": started, \"finished_at\": now(), \"result\": result})\n        save()\n        print(label + \": \" + result[\"code\"], flush=True)\n        return result\n\n    def required(label, service, operation, parameters=None):\n        result = record(label, service, operation, parameters)\n        if result[\"code\"] != \"Success\":\n            raise RuntimeError(label + \": \" + json.dumps(result))\n        return result[\"output\"]\n\n    def make_role(suffix, principal, statements):\n        name = prefix + \"-\" + suffix\n        arn = required(\"create-role-\" + suffix, \"iam\", \"create-role\", {\n            \"RoleName\": name, \"AssumeRolePolicyDocument\": json.dumps({\"Version\": \"2012-10-17\", \"Statement\": [\n                {\"Effect\": \"Allow\", \"Principal\": {\"Service\": principal}, \"Action\": \"sts:AssumeRole\"}]})})[\"Role\"][\"Arn\"]\n        r[\"roles\"].append(name)\n        save()\n        required(\"policy-\" + suffix, \"iam\", \"put-role-policy\", {\"RoleName\": name, \"PolicyName\": \"owned\",\n                 \"PolicyDocument\": json.dumps({\"Version\": \"2012-10-17\", \"Statement\": statements})})\n        return arn\n\n    def create_machine(label, definition, role):\n        result = record(\"create-machine-\" + label, \"stepfunctions\", \"create-state-machine\", {\n            \"name\": prefix + \"-\" + label, \"roleArn\": role, \"definition\": json.dumps(definition), \"type\": \"STANDARD\"})\n        if result[\"code\"] == \"Success\":\n            arn = result[\"output\"][\"stateMachineArn\"]\n            r[\"machines\"].append(arn)\n            save()\n            return arn\n        return None\n\n    def state(resource, parameters):\n        return {\"StartAt\": \"Task\", \"TimeoutSeconds\": 240, \"States\": {\"Task\": {\n            \"Type\": \"Task\", \"Resource\": \"arn:aws:states:::ecs:runTask\" + resource,\n            \"Parameters\": parameters, \"TimeoutSeconds\": 210, \"End\": True}}}\n\n    def run_case(label, resource, parameters, role):\n        if len(f[\"cases\"]) >= f[\"bounds\"][\"max_executions\"]:\n            raise RuntimeError(\"Execution bound reached\")\n        definition = state(resource, parameters)\n        arn = create_machine(label, definition, role)\n        if arn is None:\n            return\n        execution = required(label + \"-start\", \"stepfunctions\", \"start-execution\", {\n            \"stateMachineArn\": arn, \"name\": label, \"input\": \"{}\"})[\"executionArn\"]\n        f[\"cases\"][label] = {\"executionArn\": execution, \"definition\": definition}\n        save()\n        return execution\n\n    def finish(label, execution):\n        deadline = time.monotonic() + 255\n        while True:\n            out = required(label + \"-describe\", \"stepfunctions\", \"describe-execution\", {\"executionArn\": execution})\n            if out[\"status\"] != \"RUNNING\":\n                break\n            if time.monotonic() >= deadline:\n                required(label + \"-bounded-stop\", \"stepfunctions\", \"stop-execution\", {\"executionArn\": execution, \"error\": \"ProbeDeadline\"})\n                out = required(label + \"-after-stop\", \"stepfunctions\", \"describe-execution\", {\"executionArn\": execution})\n                break\n            time.sleep(4)\n        f[\"cases\"][label].update({k: out[k] for k in (\"status\", \"output\", \"error\", \"cause\") if k in out})\n        required(label + \"-history\", \"stepfunctions\", \"get-execution-history\", {\"executionArn\": execution, \"maxResults\": 1000})\n        save()\n\n    def cleanup():\n        for arn in r[\"machines\"]:\n            listed = record(\"cleanup-executions\", \"stepfunctions\", \"list-executions\", {\"stateMachineArn\": arn})\n            for execution in listed.get(\"output\", {}).get(\"executions\", []):\n                if execution[\"status\"] == \"RUNNING\":\n                    record(\"cleanup-stop-execution\", \"stepfunctions\", \"stop-execution\", {\"executionArn\": execution[\"executionArn\"], \"error\": \"ProbeCleanup\"})\n            record(\"cleanup-machine\", \"stepfunctions\", \"delete-state-machine\", {\"stateMachineArn\": arn})\n        if r.get(\"cluster\"):\n            for attempt in range(40):\n                running = required(\"cleanup-running-tasks\", \"ecs\", \"list-tasks\", {\"cluster\": r[\"cluster\"], \"desiredStatus\": \"RUNNING\"})[\"taskArns\"]\n                if not running:\n                    f[\"cleanup\"][\"no_running_tasks\"] = True\n                    break\n                for task in running:\n                    record(\"cleanup-stop-task\", \"ecs\", \"stop-task\", {\"cluster\": r[\"cluster\"], \"task\": task, \"reason\": \"Owned probe cleanup\"})\n                time.sleep(3)\n            stopped = required(\"cleanup-stopped-tasks\", \"ecs\", \"list-tasks\", {\"cluster\": r[\"cluster\"], \"desiredStatus\": \"STOPPED\"})[\"taskArns\"]\n            if stopped:\n                required(\"cleanup-task-descriptions\", \"ecs\", \"describe-tasks\", {\"cluster\": r[\"cluster\"], \"tasks\": stopped})\n            deleted = record(\"cleanup-cluster\", \"ecs\", \"delete-cluster\", {\"cluster\": r[\"cluster\"]})\n            f[\"cleanup\"][\"cluster_inactive\"] = deleted.get(\"output\", {}).get(\"cluster\", {}).get(\"status\") == \"INACTIVE\"\n        for arn in r[\"definitions\"]:\n            record(\"cleanup-deregister-definition\", \"ecs\", \"deregister-task-definition\", {\"taskDefinition\": arn})\n            deleted = record(\"cleanup-delete-definition\", \"ecs\", \"delete-task-definitions\", {\"taskDefinitions\": [arn]})\n            f[\"cleanup\"][\"definition_delete_accepted_\" + arn] = deleted[\"code\"] == \"Success\" and not deleted[\"output\"].get(\"failures\")\n        for name in r[\"roles\"]:\n            record(\"cleanup-policy\", \"iam\", \"delete-role-policy\", {\"RoleName\": name, \"PolicyName\": \"owned\"})\n            record(\"cleanup-role\", \"iam\", \"delete-role\", {\"RoleName\": name})\n            f[\"cleanup\"][\"role_absent_\" + name] = record(\"cleanup-role-absent\", \"iam\", \"get-role\", {\"RoleName\": name})[\"code\"] == \"NoSuchEntity\"\n        if r.get(\"security_group\"):\n            for attempt in range(40):\n                deleted = record(\"cleanup-security-group\", \"ec2\", \"delete-security-group\", {\"GroupId\": r[\"security_group\"]})\n                if deleted[\"code\"] in (\"Success\", \"InvalidGroup.NotFound\"):\n                    break\n                time.sleep(3)\n            f[\"cleanup\"][\"security_group_absent\"] = record(\"cleanup-security-group-absent\", \"ec2\", \"describe-security-groups\", {\"GroupIds\": [r[\"security_group\"]]})[\"code\"] == \"InvalidGroup.NotFound\"\n        pending = list(r[\"machines\"])\n        for attempt in range(60):\n            for arn in list(pending):\n                if record(\"cleanup-machine-absent\", \"stepfunctions\", \"describe-state-machine\", {\"stateMachineArn\": arn})[\"code\"] == \"StateMachineDoesNotExist\":\n                    pending.remove(arn)\n            if not pending:\n                break\n            time.sleep(3)\n        f[\"cleanup\"][\"machines_absent\"] = not pending\n        current = record(\"cleanup-managed-rule\", \"events\", \"describe-rule\", {\"Name\": RULE})\n        if current[\"code\"] == \"Success\" and f.get(\"managed_rule_owned\") and not pending:\n            targets = required(\"cleanup-managed-targets\", \"events\", \"list-targets-by-rule\", {\"Rule\": RULE})\n            if current[\"output\"].get(\"ManagedBy\") == \"states.amazonaws.com\" and targets == f.get(\"managed_targets_created\"):\n                if targets.get(\"Targets\"):\n                    removed = required(\"cleanup-remove-targets\", \"events\", \"remove-targets\", {\"Rule\": RULE, \"Ids\": [target[\"Id\"] for target in targets[\"Targets\"]], \"Force\": True})\n                    if removed.get(\"FailedEntryCount\"):\n                        raise RuntimeError(\"Managed target cleanup failed\")\n                required(\"cleanup-delete-rule\", \"events\", \"delete-rule\", {\"Name\": RULE, \"Force\": True})\n        f[\"cleanup\"][\"managed_rule_absent\"] = record(\"cleanup-managed-rule-absent\", \"events\", \"describe-rule\", {\"Name\": RULE})[\"code\"] == \"ResourceNotFoundException\"\n        f[\"cleanup_complete\"] = all(f[\"cleanup\"].values())\n        f[\"finished_at\"] = now()\n        save()\n        if not f[\"cleanup_complete\"]:\n            raise RuntimeError(\"Incomplete cleanup; inspect capture and resume --cleanup\")\n\n    if args.admission_only:\n        f[\"account\"] = required(\"identity\", \"sts\", \"get-caller-identity\")[\"Account\"]\n        f[\"bounds\"].update(max_executions=0, max_tasks=0)\n        base = {\"Cluster\": \"probe\", \"TaskDefinition\": \"probe:1\", \"LaunchType\": \"FARGATE\"}\n        definitions = {\n            \"sync-started-by\": state(\".sync\", dict(base, StartedBy=\"customer-value\")),\n            \"sync-count-path\": state(\".sync\", dict(base, **{\"Count.$\": \"$.count\"})),\n            \"callback-count-two\": state(\".waitForTaskToken\", dict(base, Count=2)),\n            \"sync-jsonata-count\": {\"QueryLanguage\": \"JSONata\", \"StartAt\": \"Task\", \"States\": {\"Task\": {\n                \"Type\": \"Task\", \"Resource\": \"arn:aws:states:::ecs:runTask.sync\", \"Arguments\": dict(base, Count=2), \"End\": True}}},\n        }\n        for label, definition in definitions.items():\n            required(label, \"stepfunctions\", \"validate-state-machine-definition\", {\"definition\": json.dumps(definition)})\n        f[\"cleanup_complete\"] = True\n        f[\"cleanup\"] = {\"no_resources_created\": True}\n        f[\"finished_at\"] = now()\n        save()\n        return\n\n    if args.cleanup:\n        cleanup()\n        return\n    try:\n        identity = required(\"identity\", \"sts\", \"get-caller-identity\")\n        f[\"account\"] = identity[\"Account\"]\n        subnet = required(\"existing-subnet\", \"ec2\", \"describe-subnets\", {\"SubnetIds\": [args.subnet]})[\"Subnets\"][0]\n        routes = required(\"existing-routes\", \"ec2\", \"describe-route-tables\", {\"Filters\": [{\"Name\": \"association.subnet-id\", \"Values\": [args.subnet]}]})\n        if not any(route.get(\"DestinationCidrBlock\") == \"0.0.0.0/0\" and route.get(\"GatewayId\", \"\").startswith(\"igw-\") and route.get(\"State\") == \"active\" for table in routes[\"RouteTables\"] for route in table[\"Routes\"]):\n            raise RuntimeError(\"Existing subnet lacks an explicit active Internet Gateway route\")\n        before = record(\"managed-rule-before\", \"events\", \"describe-rule\", {\"Name\": RULE})\n        if before[\"code\"] != \"ResourceNotFoundException\":\n            raise RuntimeError(\"Refusing to change an existing shared ECS managed rule\")\n        f[\"managed_rule_owned\"] = True\n        r[\"security_group\"] = required(\"create-security-group\", \"ec2\", \"create-security-group\", {\"GroupName\": prefix, \"Description\": \"Owned bounded Step Functions ECS probe; no inbound rules\", \"VpcId\": subnet[\"VpcId\"]})[\"GroupId\"]\n        r[\"cluster\"] = required(\"create-cluster\", \"ecs\", \"create-cluster\", {\"clusterName\": prefix})[\"cluster\"][\"clusterArn\"]\n        save()\n        task_role = make_role(\"task\", \"ecs-tasks.amazonaws.com\", [{\"Effect\": \"Allow\", \"Action\": [\"states:SendTaskSuccess\", \"states:SendTaskFailure\"], \"Resource\": \"*\"}])\n        for label, image, compat, mode in ((\"good\", IMAGE, [\"FARGATE\"], \"awsvpc\"), (\"bad\", \"public.ecr.aws/lambda/python:stackd-probe-missing\", [\"FARGATE\"], \"awsvpc\"), (\"ec2\", IMAGE, [\"EC2\"], \"bridge\")):\n            definition = required(\"register-\" + label, \"ecs\", \"register-task-definition\", {\"family\": prefix + \"-\" + label, \"taskRoleArn\": task_role,\n                \"networkMode\": mode, \"requiresCompatibilities\": compat, \"cpu\": \"256\", \"memory\": \"512\", \"containerDefinitions\": [\n                    {\"name\": \"work\", \"image\": image, \"essential\": True, \"entryPoint\": [\"/var/lang/bin/python3\"], \"command\": [\"-c\", \"import time;time.sleep(1)\"]}]})[\"taskDefinition\"][\"taskDefinitionArn\"]\n            r[\"definitions\"].append(definition)\n            r[label + \"_definition\"] = definition\n            save()\n        statements = [{\"Effect\": \"Allow\", \"Action\": \"ecs:RunTask\", \"Resource\": r[\"definitions\"]},\n                      {\"Effect\": \"Allow\", \"Action\": [\"ecs:DescribeTasks\", \"ecs:StopTask\"], \"Resource\": \"*\"},\n                      {\"Effect\": \"Allow\", \"Action\": \"iam:PassRole\", \"Resource\": task_role}]\n        noevents_role = make_role(\"noevents\", \"states.amazonaws.com\", statements)\n        rule_arn = \"arn:aws:events:\" + args.region + \":\" + f[\"account\"] + \":rule/\" + RULE\n        full_role = make_role(\"full\", \"states.amazonaws.com\", statements + [{\"Effect\": \"Allow\", \"Action\": [\"events:PutRule\", \"events:PutTargets\", \"events:DescribeRule\"], \"Resource\": rule_arn}])\n        time.sleep(12)\n        base = {\"Cluster\": r[\"cluster\"], \"TaskDefinition\": r[\"good_definition\"], \"LaunchType\": \"FARGATE\",\n                \"NetworkConfiguration\": {\"AwsvpcConfiguration\": {\"Subnets\": [args.subnet], \"SecurityGroups\": [r[\"security_group\"]], \"AssignPublicIp\": \"ENABLED\"}}}\n        create_machine(\"noevents-sync\", state(\".sync\", base), noevents_role)\n        # An empty EC2 cluster is a bounded capacity-failure candidate; never register fake instances.\n        record(\"direct-empty-ec2\", \"ecs\", \"run-task\", {\"cluster\": r[\"cluster\"], \"taskDefinition\": r[\"ec2_definition\"], \"launchType\": \"EC2\", \"count\": 1})\n        cases = [(\"request-response-two\", \"\", dict(base, Count=2), noevents_role),\n                 (\"sync-zero\", \".sync\", base, full_role),\n                 (\"sync-nonzero\", \".sync\", dict(base, Overrides={\"ContainerOverrides\": [{\"Name\": \"work\", \"Command\": [\"-c\", \"import sys;sys.exit(42)\"]}]}), full_role),\n                 (\"sync-two\", \".sync\", dict(base, Count=2), full_role),\n                 (\"sync-start-failure\", \".sync\", dict(base, TaskDefinition=r[\"bad_definition\"]), full_role)]\n        callback_code = \"import boto3,os,time;time.sleep(1);boto3.client('stepfunctions',region_name='\" + args.region + \"').send_task_success(taskToken=os.environ['TASK_TOKEN'],output='\\\"real-container-callback\\\"')\"\n        cases.append((\"callback\", \".waitForTaskToken\", dict(base, Overrides={\"ContainerOverrides\": [{\"Name\": \"work\", \"Command\": [\"-c\", callback_code], \"Environment\": [{\"Name\": \"TASK_TOKEN\", \"Value.$\": \"$$.Task.Token\"}]}]}), noevents_role))\n        started = []\n        for label, suffix, params, role in cases:\n            execution = run_case(label, suffix, params, role)\n            if execution:\n                started.append((label, execution))\n        f[\"managed_rule_created\"] = record(\"managed-rule-created\", \"events\", \"describe-rule\", {\"Name\": RULE})\n        if f[\"managed_rule_created\"][\"code\"] == \"Success\":\n            f[\"managed_targets_created\"] = required(\"managed-targets-created\", \"events\", \"list-targets-by-rule\", {\"Rule\": RULE})\n        for label, execution in started:\n            finish(label, execution)\n    except Exception:\n        f.setdefault(\"probe_errors\", []).append({\"at\": now(), \"traceback\": traceback.format_exc()})\n        save()\n        raise\n    finally:\n        cleanup()\n\n\nif __name__ == \"__main__\":\n    main()\n"
+  },
+  "account": "000000000000",
+  "cleanup_complete": true,
+  "finished_at": "2026-09-24T12:50:06.869208+00:00",
+  "findings": {
+    "sync-started-by": {
+      "result": "FAIL",
+      "diagnostics": [
+        {
+          "severity": "ERROR",
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "message": "The field 'StartedBy' is not supported by Step Functions",
+          "location": "/States/Task/Parameters"
+        }
+      ],
+      "truncated": false
+    },
+    "sync-count-path": {
+      "result": "FAIL",
+      "diagnostics": [
+        {
+          "severity": "ERROR",
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "message": "The field 'Count' is not supported by Step Functions",
+          "location": "/States/Task/Parameters"
+        }
+      ],
+      "truncated": false
+    },
+    "callback-count-two": {
+      "result": "OK",
+      "diagnostics": [],
+      "truncated": false
+    },
+    "sync-jsonata-count": {
+      "result": "FAIL",
+      "diagnostics": [
+        {
+          "severity": "ERROR",
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "message": "The field 'Count' is not supported by Step Functions",
+          "location": "/States/Task/Arguments"
+        }
+      ],
+      "truncated": false
+    }
+  }
+}

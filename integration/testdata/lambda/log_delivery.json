@@ -1,0 +1,12 @@
+{
+  "scope": "Local Docker runtime-to-Logs authorization and byte-preservation scenarios; not a native AWS capture.",
+  "handler_source": "import os, sys\nprint('cold initialization', flush=True)\ndef handler(event, context):\n    print(event['prefix'] + event['text'] * event['repeat'], flush=True)\n    sys.stderr.write('stderr:' + event['prefix'] + '\\n')\n    sys.stderr.flush()\n    sys.stdout.write(event.get('partial', ''))\n    sys.stdout.flush()\n    return {'group': os.environ['AWS_LAMBDA_LOG_GROUP_NAME'], 'stream': os.environ['AWS_LAMBDA_LOG_STREAM_NAME']}\n",
+  "invocations": [
+    {"prefix": "first:", "text": "é", "repeat": 6000},
+    {"prefix": "second:", "text": "z", "repeat": 9000, "partial": "final partial output"}
+  ],
+  "cases": [
+    {"name": "allowed", "source_suffix": "", "delivered": true},
+    {"name": "denied-source", "source_suffix": "-wrong-function", "delivered": false}
+  ]
+}

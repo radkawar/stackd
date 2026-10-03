@@ -1,0 +1,245 @@
+{
+  "Documentation": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html"
+  ],
+  "EvidenceClass": "documented-contract-local-replay-not-native-write-capture",
+  "Notes": [
+    "Scheduled delivery executes the verified logging.s3.amazonaws.com service principal against a public destination policy while account RestrictPublicBuckets is enabled. The owner consumes actual delivered objects through the existing logging replay.",
+    "An explicit destination Deny first prevents delivery despite the service Allow. Removing only Deny after reopen must release the pending source request with account restriction still enabled. Six-minute advances exercise local scheduling, not an AWS delivery guarantee.",
+    "Legacy ObjectWriter destination and the existing logging ACL assertion verify the real service owns delivered log objects and grants bucket owner FULL_CONTROL. No native account mutations were captured."
+  ],
+  "Scenarios": [
+    {
+      "Name": "verified-service-exception-and-explicit-deny-precedence",
+      "Start": "2026-09-20T12:00:00Z",
+      "Source": "account-service-source",
+      "Destinations": [
+        "account-service-logs"
+      ],
+      "Setup": [
+        {
+          "Label": "create log source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "account-service-source"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "create legacy log destination",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "account-service-logs",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "permit public policy for classification",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-service-logs",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "seed source before logging",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "account-service-source",
+            "Key": "source"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Body": "YWJj"
+        },
+        {
+          "Label": "public destination with verified service allow and explicit deny",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "account-service-logs",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":[\"arn:aws:s3:::account-service-logs\",\"arn:aws:s3:::account-service-logs/*\"]},{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${otherAccount}:root\"},\"Action\":\"s3:GetObject\",\"Resource\":[\"arn:aws:s3:::account-service-logs\",\"arn:aws:s3:::account-service-logs/*\"]},{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"logging.s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::account-service-logs/*\",\"Condition\":{\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:s3:::account-service-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"${account}\"}}},{\"Effect\":\"Deny\",\"Principal\":{\"Service\":\"logging.s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::account-service-logs/*\"}]}"
+          },
+          "Code": "Success",
+          "Status": 204
+        },
+        {
+          "Label": "enable account public-policy restriction",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "enable actual source logging",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Input": {
+            "Bucket": "account-service-source",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "account-service-logs",
+                "TargetPrefix": "account/",
+                "TargetObjectKeyFormat": {
+                  "SimplePrefix": {}
+                }
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        }
+      ],
+      "Steps": [
+        {
+          "Label": "service-deny-retains-pending-delivery",
+          "Calls": [
+            {
+              "Label": "read source to create actual log record",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+              "Service": "s3",
+              "Actor": "signed",
+              "Operation": "GetObject",
+              "Input": {
+                "Bucket": "account-service-source",
+                "Key": "source"
+              },
+              "Code": "Success",
+              "Status": 200,
+              "Plaintext": "YWJj"
+            }
+          ],
+          "Advance": "6m",
+          "Denied": true
+        },
+        {
+          "Label": "verified-service-delivers-under-account-restriction-after-deny-removed",
+          "Reopen": true,
+          "Calls": [
+            {
+              "Label": "remove only explicit deny",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "PutBucketPolicy",
+              "Input": {
+                "Bucket": "account-service-logs",
+                "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":[\"arn:aws:s3:::account-service-logs\",\"arn:aws:s3:::account-service-logs/*\"]},{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${otherAccount}:root\"},\"Action\":\"s3:GetObject\",\"Resource\":[\"arn:aws:s3:::account-service-logs\",\"arn:aws:s3:::account-service-logs/*\"]},{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"logging.s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::account-service-logs/*\",\"Condition\":{\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:s3:::account-service-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"${account}\"}}}]}"
+              },
+              "Code": "Success",
+              "Status": 204
+            },
+            {
+              "Label": "account restriction persists",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+              "Service": "s3control",
+              "Actor": "caller",
+              "Operation": "GetPublicAccessBlock",
+              "Input": {
+                "AccountId": "${account}"
+              },
+              "Code": "Success",
+              "Status": 200,
+              "Output": {
+                "PublicAccessBlockConfiguration": {
+                  "BlockPublicAcls": false,
+                  "IgnorePublicAcls": false,
+                  "BlockPublicPolicy": false,
+                  "RestrictPublicBuckets": true
+                }
+              }
+            },
+            {
+              "Label": "public policy remains classified public",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketPolicyStatus",
+              "Input": {
+                "Bucket": "account-service-logs"
+              },
+              "Code": "Success",
+              "Status": 200,
+              "Output": {
+                "PolicyStatus": {
+                  "IsPublic": true
+                }
+              }
+            }
+          ],
+          "Advance": "6m",
+          "Verify": true,
+          "LocalRecords": [
+            {
+              "Destination": "account-service-logs",
+              "Bucket": "account-service-source",
+              "Operation": "REST.GET.OBJECT",
+              "Key": "source",
+              "Fields": {
+                "9": "200",
+                "10": "-",
+                "12": "3"
+              }
+            }
+          ]
+        },
+        {
+          "Label": "delivered-service-owned-log-survives-reopen",
+          "Reopen": true,
+          "Verify": true,
+          "LocalRecords": [
+            {
+              "Destination": "account-service-logs",
+              "Bucket": "account-service-source",
+              "Operation": "REST.GET.OBJECT",
+              "Key": "source",
+              "Fields": {
+                "9": "200",
+                "10": "-",
+                "12": "3"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

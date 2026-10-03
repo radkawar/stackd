@@ -1,0 +1,2888 @@
+{
+  "source": "Native AWS CLI captures, projected without a local evaluation oracle. Case expected/prior_state objects are copied from parsed HistoryData newState/oldState; the retention contrast is copied from DescribeAlarms. Source indices and JSON pointers are zero-based.",
+  "sources": {
+    "evaluation": {
+      "path": "/tmp/stackd-native-alarm-evaluation.json",
+      "sha256": "355fd8b8134af79bfb01df8904f450ff888f1fa50b66cad70bd38bd0c6700a60",
+      "cleanup": {
+        "owned_alarm_names": [
+          "stackd-native-alarm-evaluation-d9c45aea86-missing3",
+          "stackd-native-alarm-evaluation-d9c45aea86-ignore3",
+          "stackd-native-alarm-evaluation-d9c45aea86-breaching3",
+          "stackd-native-alarm-evaluation-d9c45aea86-notBreaching3",
+          "stackd-native-alarm-evaluation-d9c45aea86-missing2",
+          "stackd-native-alarm-evaluation-d9c45aea86-period20",
+          "stackd-native-alarm-evaluation-d9c45aea86-period30",
+          "stackd-native-alarm-evaluation-d9c45aea86-period60"
+        ],
+        "undeletable_published_metric_points": 11,
+        "metric_deletion_available": false,
+        "delete_result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        },
+        "verification_result": {
+          "code": "Success",
+          "output": {
+            "CompositeAlarms": [],
+            "MetricAlarms": [],
+            "LogAlarms": []
+          },
+          "http_status": 200
+        },
+        "all_owned_alarms_confirmed_deleted": true,
+        "initial_attempt_all_owned_alarms_confirmed_deleted": true,
+        "history_pagination_tokens_returned": []
+      },
+      "limitations": [
+        "No automatic retries or pagination.",
+        "Metric points cannot be deleted; account-owned alarms will be deleted in finally.",
+        "Observed evaluation ranges are specific to these configurations; no universal N+2 inference.",
+        "Only single-metric static-threshold sliding-window alarms; no external actions or namespace special cases.",
+        "Initial baseline interrupted by shared Python-kernel function-name collision. No metric data had been published; all eight owned alarms were deleted successfully. Experiment resumed in an isolated namespace; raw requests from both attempts retained.",
+        "Following the initial kernel interruption, later deliberate windows were bounded at 150/120/150/110 seconds to keep combined attempts within 20 minutes plus cleanup; individual reasonData/histories establish visibility, not a universal timing guarantee.",
+        "Initial isolated-breach publication did not include an independent metric retrieval: its first few seconds of missing snapshots cannot alone distinguish ingestion lag from evaluation delay; simultaneous M2/M3 contrast and later histories establish the observed difference.",
+        "DescribeAlarms StateReasonData may remain unchanged while alarm state is unchanged. History records transitions/configuration, not every internal evaluation; inferred lookback slot counts are bounded observations, not a documented exact retrieval algorithm.",
+        "Period60 control retained older history across phases; it establishes aggregation and observed transitions but does not isolate a complete no-data expiration range.",
+        "Raw CLI timestamp offsets (+01:00) and UTC StateReasonData strings are preserved as received for later normalization."
+      ]
+    },
+    "percentiles": {
+      "path": "/tmp/stackd-native-alarm-percentiles.json",
+      "sha256": "357de4a06c5a47cffa3c5fdad36eba71f98fecaafaba0cdd872533a8b75a2e87",
+      "cleanup": {
+        "dependencyOrder": "No alarm-to-alarm dependencies; delete owned query and both scalar alarms together after capturing history.",
+        "delete": {
+          "code": "Success",
+          "output": {}
+        },
+        "absenceByNames": {
+          "code": "Success",
+          "output": {
+            "MetricAlarms": [],
+            "CompositeAlarms": [],
+            "LogAlarms": []
+          }
+        },
+        "absenceByPrefix": {
+          "code": "Success",
+          "output": {
+            "MetricAlarms": [],
+            "CompositeAlarms": [],
+            "LogAlarms": []
+          }
+        },
+        "alarmsAbsent": true,
+        "undeletableMetricFootprint": {
+          "account": "000000000000",
+          "region": "us-east-1",
+          "namespace": "StackdNativePercentileProbe",
+          "metricName": "stackd-native-pctl-e48caf21603c",
+          "dimensions": [],
+          "storageResolution": 1,
+          "metricIdentities": 1,
+          "datumCount": 3,
+          "weightedSampleCount": 300,
+          "data": [
+            {
+              "timestamp": "2026-09-14T06:43:01+00:00",
+              "Values": [
+                10
+              ],
+              "Counts": [
+                99
+              ]
+            },
+            {
+              "timestamp": "2026-09-14T06:45:41+00:00",
+              "Values": [
+                0
+              ],
+              "Counts": [
+                100
+              ]
+            },
+            {
+              "timestamp": "2026-09-14T06:46:11+00:00",
+              "Values": [
+                10
+              ],
+              "Counts": [
+                101
+              ]
+            }
+          ],
+          "reason": "CloudWatch custom metric samples have no delete API; samples age out under CloudWatch retention. No ongoing publisher remains."
+        },
+        "finishedAt": "2026-09-14T06:47:05.651641+00:00"
+      },
+      "documentation": {
+        "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/percentiles-with-low-samples.html",
+        "readAt": "2026-09-14T06:41:07.680068+00:00",
+        "text": "For percentiles between 0.5 (inclusive) and 1.00 (exclusive), low-sample setting is used with fewer than 10/(1-percentile) data points during evaluation period. p90 nominal boundary 100 samples.",
+        "fullBoundaryText": "For percentiles between 0.5 (inclusive) and 1.00 (exclusive), this setting is used when there are fewer than 10/(1-percentile) data points during the evaluation period. For example, this setting would be used if there were fewer than 1000 samples for an alarm on a p99 percentile. For percentiles between 0 and 0.5 (exclusive), the setting is used when there are fewer than 10/percentile data points."
+      }
+    },
+    "query-admission": {
+      "path": "testdata/aws/cloudwatch/alarm_query_admission.json",
+      "note": "Independent empty-data transitions; no metric publication. Full call history and bounded timing limitations are retained in the source fixture."
+    }
+  },
+  "identity_relationships": {
+    "expected_caller_account": "000000000000"
+  },
+  "region": "us-east-1",
+  "replay_notes": [
+    "Each case is independent. Create one evaluation cadence before captured StateReasonData.queryDate, publish every successful native PutMetricData completed before that queryDate (including old publications), seed captured oldState when noninitial, advance to queryDate and drain production jobs through the SDK-created alarm.",
+    "Publications are replayed synchronously at setup time with their original sample timestamps. Their original request start/finish times are provenance and determine inclusion, not an ingestion-lag simulator.",
+    "Compare state and structured reason data, including actual recent/evaluated values, null gaps, counts, timestamps and presence/absence of scalar statistic/unit/sampleCount fields. Ignore StateReason prose and AWS processing/state-update latency.",
+    "queryDate is the evaluation instant, never the later DescribeAlarms or DescribeAlarmHistory request time. Retained unchanged state does not expose every native evaluation.",
+    "Expression and scalar evidence have different query phases; retain exact native queryDates rather than shifting them to fit one local window.",
+    "No universal N+2 lookback or AWS latency guarantee is inferred from these bounded configurations."
+  ],
+  "observations": [
+    {
+      "label": "evaluation:36",
+      "native_label": "dense-nonconsecutive-m-out-of-n",
+      "source": "evaluation",
+      "source_index": 36,
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmEvaluation",
+        "MetricData": [
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:42:25Z",
+            "Value": 100,
+            "Unit": "Count",
+            "StorageResolution": 1
+          },
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:42:35Z",
+            "Value": 0,
+            "Unit": "Count",
+            "StorageResolution": 1
+          },
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:42:45Z",
+            "Value": 100,
+            "Unit": "Count",
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started_ms": 1789364575571,
+      "request_finished_ms": 1789364576566,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "evaluation:21",
+      "native_label": "create:missing2",
+      "source": "evaluation",
+      "source_index": 21,
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-evaluation-d9c45aea86-missing2",
+        "ActionsEnabled": false,
+        "Namespace": "Stackd/NativeAlarmEvaluation",
+        "MetricName": "Signal",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+          }
+        ],
+        "Statistic": "Average",
+        "Unit": "Count",
+        "Period": 10,
+        "EvaluationPeriods": 3,
+        "DatapointsToAlarm": 2,
+        "Threshold": 50,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing"
+      },
+      "request_started_ms": 1789364475548,
+      "request_finished_ms": 1789364476342,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "evaluation:19",
+      "native_label": "create:breaching3",
+      "source": "evaluation",
+      "source_index": 19,
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-evaluation-d9c45aea86-breaching3",
+        "ActionsEnabled": false,
+        "Namespace": "Stackd/NativeAlarmEvaluation",
+        "MetricName": "Signal",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+          }
+        ],
+        "Statistic": "Average",
+        "Unit": "Count",
+        "Period": 10,
+        "EvaluationPeriods": 3,
+        "DatapointsToAlarm": 3,
+        "Threshold": 50,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "breaching"
+      },
+      "request_started_ms": 1789364443398,
+      "request_finished_ms": 1789364474720,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "evaluation:18",
+      "native_label": "create:ignore3",
+      "source": "evaluation",
+      "source_index": 18,
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-evaluation-d9c45aea86-ignore3",
+        "ActionsEnabled": false,
+        "Namespace": "Stackd/NativeAlarmEvaluation",
+        "MetricName": "Signal",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+          }
+        ],
+        "Statistic": "Average",
+        "Unit": "Count",
+        "Period": 10,
+        "EvaluationPeriods": 3,
+        "DatapointsToAlarm": 3,
+        "Threshold": 50,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "ignore"
+      },
+      "request_started_ms": 1789364442442,
+      "request_finished_ms": 1789364443397,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "evaluation:17",
+      "native_label": "create:missing3",
+      "source": "evaluation",
+      "source_index": 17,
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-evaluation-d9c45aea86-missing3",
+        "ActionsEnabled": false,
+        "Namespace": "Stackd/NativeAlarmEvaluation",
+        "MetricName": "Signal",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+          }
+        ],
+        "Statistic": "Average",
+        "Unit": "Count",
+        "Period": 10,
+        "EvaluationPeriods": 3,
+        "DatapointsToAlarm": 3,
+        "Threshold": 50,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing"
+      },
+      "request_started_ms": 1789364441649,
+      "request_finished_ms": 1789364442441,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "evaluation:67",
+      "native_label": "isolated-fresh-breach",
+      "source": "evaluation",
+      "source_index": 67,
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmEvaluation",
+        "MetricData": [
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:46:55Z",
+            "Value": 100,
+            "Unit": "Count",
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started_ms": 1789364822738,
+      "request_finished_ms": 1789364823449,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "evaluation:90",
+      "native_label": "dense-recovery",
+      "source": "evaluation",
+      "source_index": 90,
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmEvaluation",
+        "MetricData": [
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:49:05Z",
+            "Value": 0,
+            "Unit": "Count",
+            "StorageResolution": 1
+          },
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:49:15Z",
+            "Value": 0,
+            "Unit": "Count",
+            "StorageResolution": 1
+          },
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:49:25Z",
+            "Value": 0,
+            "Unit": "Count",
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started_ms": 1789364979347,
+      "request_finished_ms": 1789364980098,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "evaluation:112",
+      "native_label": "sparse-extra-lookback",
+      "source": "evaluation",
+      "source_index": 112,
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmEvaluation",
+        "MetricData": [
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:50:55Z",
+            "Value": 0,
+            "Unit": "Count",
+            "StorageResolution": 1
+          },
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:51:15Z",
+            "Value": 100,
+            "Unit": "Count",
+            "StorageResolution": 1
+          },
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:51:35Z",
+            "Value": 100,
+            "Unit": "Count",
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started_ms": 1789365106768,
+      "request_finished_ms": 1789365107454,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "evaluation:137",
+      "native_label": "single-real-good",
+      "source": "evaluation",
+      "source_index": 137,
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/NativeAlarmEvaluation",
+        "MetricData": [
+          {
+            "MetricName": "Signal",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+              }
+            ],
+            "Timestamp": "2026-09-14T05:54:15Z",
+            "Value": 0,
+            "Unit": "Count",
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started_ms": 1789365264248,
+      "request_finished_ms": 1789365264990,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "percentiles:17",
+      "native_label": "publish-count-99",
+      "source": "percentiles",
+      "source_index": 17,
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "StackdNativePercentileProbe",
+        "MetricData": [
+          {
+            "MetricName": "stackd-native-pctl-e48caf21603c",
+            "Timestamp": "2026-09-14T06:43:01+00:00",
+            "Values": [
+              10
+            ],
+            "Counts": [
+              99
+            ],
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started_ms": 1789368187887,
+      "request_finished_ms": 1789368188603,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "percentiles:33",
+      "native_label": "publish-count-100",
+      "source": "percentiles",
+      "source_index": 33,
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "StackdNativePercentileProbe",
+        "MetricData": [
+          {
+            "MetricName": "stackd-native-pctl-e48caf21603c",
+            "Timestamp": "2026-09-14T06:45:41+00:00",
+            "Values": [
+              0
+            ],
+            "Counts": [
+              100
+            ],
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started_ms": 1789368349199,
+      "request_finished_ms": 1789368349882,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "percentiles:36",
+      "native_label": "publish-count-101",
+      "source": "percentiles",
+      "source_index": 36,
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "StackdNativePercentileProbe",
+        "MetricData": [
+          {
+            "MetricName": "stackd-native-pctl-e48caf21603c",
+            "Timestamp": "2026-09-14T06:46:11+00:00",
+            "Values": [
+              10
+            ],
+            "Counts": [
+              101
+            ],
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started_ms": 1789368372243,
+      "request_finished_ms": 1789368373120,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "percentiles:1",
+      "native_label": "create-query",
+      "source": "percentiles",
+      "source_index": 1,
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-pctl-e48caf21603c-query",
+        "ActionsEnabled": false,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 5,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "ignore",
+        "Metrics": [
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "StackdNativePercentileProbe",
+                "MetricName": "stackd-native-pctl-e48caf21603c"
+              },
+              "Period": 10,
+              "Stat": "Average"
+            },
+            "ReturnData": false
+          },
+          {
+            "Id": "e1",
+            "Expression": "m1 + 1",
+            "Label": "Owned returned expression",
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1789368082047,
+      "request_finished_ms": 1789368082982,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "percentiles:14",
+      "native_label": "create-percentile-ignore",
+      "source": "percentiles",
+      "source_index": 14,
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-pctl-e48caf21603c-ignore",
+        "ActionsEnabled": false,
+        "Namespace": "StackdNativePercentileProbe",
+        "MetricName": "stackd-native-pctl-e48caf21603c",
+        "ExtendedStatistic": "p90",
+        "Period": 10,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 5,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "ignore",
+        "EvaluateLowSampleCountPercentile": "ignore"
+      },
+      "request_started_ms": 1789368119990,
+      "request_finished_ms": 1789368120822,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "percentiles:15",
+      "native_label": "create-percentile-evaluate",
+      "source": "percentiles",
+      "source_index": 15,
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-pctl-e48caf21603c-evaluate",
+        "ActionsEnabled": false,
+        "Namespace": "StackdNativePercentileProbe",
+        "MetricName": "stackd-native-pctl-e48caf21603c",
+        "ExtendedStatistic": "p90",
+        "Period": 10,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 5,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "ignore",
+        "EvaluateLowSampleCountPercentile": "evaluate"
+      },
+      "request_started_ms": 1789368120823,
+      "request_finished_ms": 1789368121527,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "query-admission:2",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-query-admission-bf3f28c773e0-a",
+        "AlarmDescription": "Native empty-data query admission control",
+        "ActionsEnabled": false,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "breaching",
+        "Metrics": [
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeAlarmQueryAdmission",
+                "MetricName": "stackd-native-alarm-query-admission-bf3f28c773e0-unpublished"
+              },
+              "Period": 10,
+              "Stat": "Average"
+            },
+            "ReturnData": false
+          },
+          {
+            "Id": "e1",
+            "Expression": "m1+1",
+            "Period": 10,
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1789372702717,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789372703585,
+      "native_label": "control-put",
+      "source": "query-admission",
+      "source_index": 2
+    },
+    {
+      "label": "query-admission:6",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-query-admission-bf3f28c773e0-a",
+        "AlarmDescription": "Native empty-data query admission constant-before-remove",
+        "ActionsEnabled": false,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "breaching",
+        "Metrics": [
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeAlarmQueryAdmission",
+                "MetricName": "stackd-native-alarm-query-admission-bf3f28c773e0-unpublished"
+              },
+              "Period": 10,
+              "Stat": "Average"
+            },
+            "ReturnData": false
+          },
+          {
+            "Id": "e1",
+            "Expression": "TIME_SERIES(0)",
+            "Period": 10,
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1789372724988,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789372725762,
+      "native_label": "constant-before-remove-put",
+      "source": "query-admission",
+      "source_index": 6
+    },
+    {
+      "label": "query-admission:12",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-query-admission-bf3f28c773e0-a",
+        "AlarmDescription": "Native empty-data query admission remove-empty",
+        "ActionsEnabled": false,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "breaching",
+        "Metrics": [
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeAlarmQueryAdmission",
+                "MetricName": "stackd-native-alarm-query-admission-bf3f28c773e0-unpublished"
+              },
+              "Period": 10,
+              "Stat": "Average"
+            },
+            "ReturnData": false
+          },
+          {
+            "Id": "e1",
+            "Expression": "FIRST(REMOVE_EMPTY(METRICS()))",
+            "Period": 10,
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1789372780327,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789372781164,
+      "native_label": "remove-empty-put",
+      "source": "query-admission",
+      "source_index": 12
+    },
+    {
+      "label": "query-admission:23",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-alarm-query-admission-bf3f28c773e0-a",
+        "AlarmDescription": "Native empty-data query admission sort",
+        "ActionsEnabled": false,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "breaching",
+        "Metrics": [
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeAlarmQueryAdmission",
+                "MetricName": "stackd-native-alarm-query-admission-bf3f28c773e0-unpublished"
+              },
+              "Period": 10,
+              "Stat": "Average"
+            },
+            "ReturnData": false
+          },
+          {
+            "Id": "e1",
+            "Expression": "FIRST(SORT(METRICS(),MAX,DESC))",
+            "Period": 10,
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1789372874552,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789372875446,
+      "native_label": "sort-put",
+      "source": "query-admission",
+      "source_index": 23
+    }
+  ],
+  "cases": [
+    {
+      "name": "dense-nonconsecutive-m2",
+      "creation": "evaluation:21",
+      "publications": [
+        "evaluation:36"
+      ],
+      "evaluation_time": "2026-09-14T05:43:07.551+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:42:30)] was not greater than the threshold (50.0) (minimum 2 datapoints for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:42:57.551+0000",
+          "startDate": "2026-09-14T05:42:20.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100,
+            0
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:42:30.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            },
+            {
+              "timestamp": "2026-09-14T05:42:10.000+0000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 2 out of the last 3 datapoints [100.0 (14/09/26 05:42:40), 100.0 (14/09/26 05:42:20)] were greater than the threshold (50.0) (minimum 2 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:43:07.551+0000",
+          "startDate": "2026-09-14T05:42:20.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100,
+            0,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:42:40.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            },
+            {
+              "timestamp": "2026-09-14T05:42:20.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 63,
+        "label": "dense-real-precedence-and-expiration:history:missing2",
+        "request_started_ms": 1789364819850,
+        "request_finished_ms": 1789364820554,
+        "history_item_index": 4,
+        "history_timestamp": "2026-09-14T06:43:07.552000+01:00",
+        "state_pointer": "/observations/63/result/output/AlarmHistoryItems/4/HistoryData"
+      }
+    },
+    {
+      "name": "dense-real-over-breaching",
+      "creation": "evaluation:19",
+      "publications": [
+        "evaluation:36"
+      ],
+      "evaluation_time": "2026-09-14T05:43:04.472+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: no datapoints were received for 3 periods and 3 missing datapoints were treated as [Breaching].",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:40:54.474+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:40:30.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:40:20.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:40:10.000+0000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:42:30)] was not greater than the threshold (50.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:43:04.472+0000",
+          "startDate": "2026-09-14T05:42:20.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100,
+            0,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:42:30.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 61,
+        "label": "dense-real-precedence-and-expiration:history:breaching3",
+        "request_started_ms": 1789364818297,
+        "request_finished_ms": 1789364819050,
+        "history_item_index": 5,
+        "history_timestamp": "2026-09-14T06:43:04.474000+01:00",
+        "state_pointer": "/observations/61/result/output/AlarmHistoryItems/5/HistoryData"
+      }
+    },
+    {
+      "name": "dense-real-over-ignore",
+      "creation": "evaluation:18",
+      "publications": [
+        "evaluation:36"
+      ],
+      "evaluation_time": "2026-09-14T05:43:00.813+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Unchecked: Initial alarm creation"
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:42:30)] was not greater than the threshold (50.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:43:00.813+0000",
+          "startDate": "2026-09-14T05:42:20.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100,
+            0,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:42:30.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 60,
+        "label": "dense-real-precedence-and-expiration:history:ignore3",
+        "request_started_ms": 1789364817425,
+        "request_finished_ms": 1789364818291,
+        "history_item_index": 3,
+        "history_timestamp": "2026-09-14T06:43:00.814000+01:00",
+        "state_pointer": "/observations/60/result/output/AlarmHistoryItems/3/HistoryData"
+      }
+    },
+    {
+      "name": "dense-m3-good-point",
+      "creation": "evaluation:17",
+      "publications": [
+        "evaluation:36"
+      ],
+      "evaluation_time": "2026-09-14T05:42:58.775+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Unchecked: Initial alarm creation"
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:42:30)] was not greater than the threshold (50.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:42:58.775+0000",
+          "startDate": "2026-09-14T05:42:20.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100,
+            0
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:42:30.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 59,
+        "label": "dense-real-precedence-and-expiration:history:missing3",
+        "request_started_ms": 1789364816581,
+        "request_finished_ms": 1789364817408,
+        "history_item_index": 3,
+        "history_timestamp": "2026-09-14T06:42:58.778000+01:00",
+        "state_pointer": "/observations/59/result/output/AlarmHistoryItems/3/HistoryData"
+      }
+    },
+    {
+      "name": "dense-oldest-breach-expires",
+      "creation": "evaluation:21",
+      "publications": [
+        "evaluation:36"
+      ],
+      "evaluation_time": "2026-09-14T05:44:17.553+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 2 out of the last 3 datapoints [100.0 (14/09/26 05:42:40), 100.0 (14/09/26 05:42:20)] were greater than the threshold (50.0) (minimum 2 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:43:07.551+0000",
+          "startDate": "2026-09-14T05:42:20.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100,
+            0,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:42:40.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            },
+            {
+              "timestamp": "2026-09-14T05:42:20.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:42:30)] was not greater than the threshold (50.0) (minimum 2 datapoints for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:44:17.553+0000",
+          "startDate": "2026-09-14T05:42:30.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            0,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:43:50.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:42:30.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 63,
+        "label": "dense-real-precedence-and-expiration:history:missing2",
+        "request_started_ms": 1789364819850,
+        "request_finished_ms": 1789364820554,
+        "history_item_index": 5,
+        "history_timestamp": "2026-09-14T06:44:17.555000+01:00",
+        "state_pointer": "/observations/63/result/output/AlarmHistoryItems/5/HistoryData"
+      }
+    },
+    {
+      "name": "dense-last-breach-ages",
+      "creation": "evaluation:21",
+      "publications": [
+        "evaluation:36"
+      ],
+      "evaluation_time": "2026-09-14T05:44:27.550+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:42:30)] was not greater than the threshold (50.0) (minimum 2 datapoints for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:44:17.553+0000",
+          "startDate": "2026-09-14T05:42:30.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            0,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:43:50.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:42:30.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [100.0 (14/09/26 05:42:40)] was greater than the threshold (50.0) (minimum 2 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:44:27.550+0000",
+          "startDate": "2026-09-14T05:42:40.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:44:00.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:42:40.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 63,
+        "label": "dense-real-precedence-and-expiration:history:missing2",
+        "request_started_ms": 1789364819850,
+        "request_finished_ms": 1789364820554,
+        "history_item_index": 6,
+        "history_timestamp": "2026-09-14T06:44:27.553000+01:00",
+        "state_pointer": "/observations/63/result/output/AlarmHistoryItems/6/HistoryData"
+      }
+    },
+    {
+      "name": "dense-all-points-expire",
+      "creation": "evaluation:17",
+      "publications": [
+        "evaluation:36"
+      ],
+      "evaluation_time": "2026-09-14T05:44:38.775+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [100.0 (14/09/26 05:42:40)] was greater than the threshold (50.0) (minimum 3 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:44:28.774+0000",
+          "startDate": "2026-09-14T05:42:40.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:44:00.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:43:50.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:42:40.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Insufficient Data: 3 datapoints were unknown.",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:44:38.775+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:44:10.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:44:00.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:43:50.000+0000"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 59,
+        "label": "dense-real-precedence-and-expiration:history:missing3",
+        "request_started_ms": 1789364816581,
+        "request_finished_ms": 1789364817408,
+        "history_item_index": 5,
+        "history_timestamp": "2026-09-14T06:44:38.777000+01:00",
+        "state_pointer": "/observations/59/result/output/AlarmHistoryItems/5/HistoryData"
+      }
+    },
+    {
+      "name": "isolated-premature-m2",
+      "creation": "evaluation:21",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67"
+      ],
+      "evaluation_time": "2026-09-14T05:47:27.551+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Insufficient Data: 3 datapoints were unknown.",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:44:37.552+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:44:10.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:44:00.000+0000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [100.0 (14/09/26 05:46:50)] was greater than the threshold (50.0) (minimum 2 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:47:27.551+0000",
+          "startDate": "2026-09-14T05:46:50.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:47:00.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:46:50.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 86,
+        "label": "premature-alarm-avoidance-and-expiration:history:missing2",
+        "request_started_ms": 1789364976407,
+        "request_finished_ms": 1789364977127,
+        "history_item_index": 8,
+        "history_timestamp": "2026-09-14T06:47:27.553000+01:00",
+        "state_pointer": "/observations/86/result/output/AlarmHistoryItems/8/HistoryData"
+      }
+    },
+    {
+      "name": "isolated-premature-m3",
+      "creation": "evaluation:17",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67"
+      ],
+      "evaluation_time": "2026-09-14T05:47:38.775+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Insufficient Data: 3 datapoints were unknown.",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:44:38.775+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:44:10.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:44:00.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:43:50.000+0000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [100.0 (14/09/26 05:46:50)] was greater than the threshold (50.0) (minimum 3 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:47:38.775+0000",
+          "startDate": "2026-09-14T05:46:50.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:47:10.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:47:00.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:46:50.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 82,
+        "label": "premature-alarm-avoidance-and-expiration:history:missing3",
+        "request_started_ms": 1789364973463,
+        "request_finished_ms": 1789364974174,
+        "history_item_index": 6,
+        "history_timestamp": "2026-09-14T06:47:38.777000+01:00",
+        "state_pointer": "/observations/82/result/output/AlarmHistoryItems/6/HistoryData"
+      }
+    },
+    {
+      "name": "isolated-breach-expires",
+      "creation": "evaluation:17",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67"
+      ],
+      "evaluation_time": "2026-09-14T05:48:48.774+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [100.0 (14/09/26 05:46:50)] was greater than the threshold (50.0) (minimum 3 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:47:38.775+0000",
+          "startDate": "2026-09-14T05:46:50.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:47:10.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:47:00.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:46:50.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Insufficient Data: 3 datapoints were unknown.",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:48:48.774+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:48:20.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:48:10.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:48:00.000+0000"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 82,
+        "label": "premature-alarm-avoidance-and-expiration:history:missing3",
+        "request_started_ms": 1789364973463,
+        "request_finished_ms": 1789364974174,
+        "history_item_index": 7,
+        "history_timestamp": "2026-09-14T06:48:48.776000+01:00",
+        "state_pointer": "/observations/82/result/output/AlarmHistoryItems/7/HistoryData"
+      }
+    },
+    {
+      "name": "sparse-partial-window",
+      "creation": "evaluation:17",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67",
+        "evaluation:90",
+        "evaluation:112"
+      ],
+      "evaluation_time": "2026-09-14T05:51:48.775+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Insufficient Data: 3 datapoints were unknown.",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:51:18.776+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:50:50.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:50:40.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:50:30.000+0000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:50:50)] was not greater than the threshold (50.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:51:48.775+0000",
+          "startDate": "2026-09-14T05:50:50.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            0,
+            null,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:50:50.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 129,
+        "label": "sparse-extra-lookback-and-expiration:history:missing3",
+        "request_started_ms": 1789365258196,
+        "request_finished_ms": 1789365258897,
+        "history_item_index": 10,
+        "history_timestamp": "2026-09-14T06:51:48.776000+01:00",
+        "state_pointer": "/observations/129/result/output/AlarmHistoryItems/10/HistoryData"
+      }
+    },
+    {
+      "name": "sparse-real-over-breaching",
+      "creation": "evaluation:19",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67",
+        "evaluation:90",
+        "evaluation:112"
+      ],
+      "evaluation_time": "2026-09-14T05:51:54.473+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: no datapoints were received for 3 periods and 3 missing datapoints were treated as [Breaching].",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:51:14.474+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:50:50.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:50:40.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:50:30.000+0000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:50:50)] was not greater than the threshold (50.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:51:54.473+0000",
+          "startDate": "2026-09-14T05:50:50.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            0,
+            null,
+            100,
+            null,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:50:50.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 131,
+        "label": "sparse-extra-lookback-and-expiration:history:breaching3",
+        "request_started_ms": 1789365259742,
+        "request_finished_ms": 1789365260573,
+        "history_item_index": 9,
+        "history_timestamp": "2026-09-14T06:51:54.474000+01:00",
+        "state_pointer": "/observations/131/result/output/AlarmHistoryItems/9/HistoryData"
+      }
+    },
+    {
+      "name": "sparse-nonconsecutive-m2",
+      "creation": "evaluation:21",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67",
+        "evaluation:90",
+        "evaluation:112"
+      ],
+      "evaluation_time": "2026-09-14T05:51:57.551+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Insufficient Data: 3 datapoints were unknown.",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:51:17.556+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:50:50.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:50:40.000+0000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 2 out of the last 3 datapoints [100.0 (14/09/26 05:51:30), 100.0 (14/09/26 05:51:10)] were greater than the threshold (50.0) (minimum 2 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:51:57.551+0000",
+          "startDate": "2026-09-14T05:50:50.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            0,
+            null,
+            100,
+            null,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:51:30.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            },
+            {
+              "timestamp": "2026-09-14T05:51:10.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 133,
+        "label": "sparse-extra-lookback-and-expiration:history:missing2",
+        "request_started_ms": 1789365261325,
+        "request_finished_ms": 1789365262054,
+        "history_item_index": 12,
+        "history_timestamp": "2026-09-14T06:51:57.553000+01:00",
+        "state_pointer": "/observations/133/result/output/AlarmHistoryItems/12/HistoryData"
+      }
+    },
+    {
+      "name": "sparse-old-good-expires",
+      "creation": "evaluation:17",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67",
+        "evaluation:90",
+        "evaluation:112"
+      ],
+      "evaluation_time": "2026-09-14T05:52:48.775+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:50:50)] was not greater than the threshold (50.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:51:48.775+0000",
+          "startDate": "2026-09-14T05:50:50.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            0,
+            null,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:50:50.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 2 out of the last 3 datapoints [100.0 (14/09/26 05:51:30), 100.0 (14/09/26 05:51:10)] were greater than the threshold (50.0) (minimum 3 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:52:48.775+0000",
+          "startDate": "2026-09-14T05:51:10.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100,
+            null,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:52:20.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:51:30.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            },
+            {
+              "timestamp": "2026-09-14T05:51:10.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 129,
+        "label": "sparse-extra-lookback-and-expiration:history:missing3",
+        "request_started_ms": 1789365258196,
+        "request_finished_ms": 1789365258897,
+        "history_item_index": 11,
+        "history_timestamp": "2026-09-14T06:52:48.776000+01:00",
+        "state_pointer": "/observations/129/result/output/AlarmHistoryItems/11/HistoryData"
+      }
+    },
+    {
+      "name": "sparse-all-points-expire",
+      "creation": "evaluation:17",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67",
+        "evaluation:90",
+        "evaluation:112"
+      ],
+      "evaluation_time": "2026-09-14T05:53:28.775+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 2 out of the last 3 datapoints [100.0 (14/09/26 05:51:30), 100.0 (14/09/26 05:51:10)] were greater than the threshold (50.0) (minimum 3 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:52:48.775+0000",
+          "startDate": "2026-09-14T05:51:10.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100,
+            null,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:52:20.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:51:30.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            },
+            {
+              "timestamp": "2026-09-14T05:51:10.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Insufficient Data: 3 datapoints were unknown.",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:53:28.775+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:53:00.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:52:50.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:52:40.000+0000"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 129,
+        "label": "sparse-extra-lookback-and-expiration:history:missing3",
+        "request_started_ms": 1789365258196,
+        "request_finished_ms": 1789365258897,
+        "history_item_index": 12,
+        "history_timestamp": "2026-09-14T06:53:28.776000+01:00",
+        "state_pointer": "/observations/129/result/output/AlarmHistoryItems/12/HistoryData"
+      }
+    },
+    {
+      "name": "single-good-over-breaching",
+      "creation": "evaluation:19",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67",
+        "evaluation:90",
+        "evaluation:112",
+        "evaluation:137"
+      ],
+      "evaluation_time": "2026-09-14T05:54:34.473+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 2 out of the last 3 datapoints [100.0 (14/09/26 05:51:30), 100.0 (14/09/26 05:51:10)] were greater than the threshold (50.0) and 1 missing datapoint was treated as [Breaching] (minimum 3 datapoints for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:52:44.472+0000",
+          "startDate": "2026-09-14T05:51:10.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            100,
+            null,
+            100
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:52:20.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:51:30.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            },
+            {
+              "timestamp": "2026-09-14T05:51:10.000+0000",
+              "sampleCount": 1,
+              "value": 100
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:54:10)] was not greater than the threshold (50.0) and 2 missing datapoints were treated as [Breaching] (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:54:34.473+0000",
+          "startDate": "2026-09-14T05:54:10.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:54:10.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 152,
+        "label": "single-real-good-missing-precedence:history:breaching3",
+        "request_started_ms": 1789365377237,
+        "request_finished_ms": 1789365378004,
+        "history_item_index": 11,
+        "history_timestamp": "2026-09-14T06:54:34.474000+01:00",
+        "state_pointer": "/observations/152/result/output/AlarmHistoryItems/11/HistoryData"
+      }
+    },
+    {
+      "name": "single-good-m2",
+      "creation": "evaluation:21",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67",
+        "evaluation:90",
+        "evaluation:112",
+        "evaluation:137"
+      ],
+      "evaluation_time": "2026-09-14T05:54:37.550+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Insufficient Data: 3 datapoints were unknown.",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:53:27.553+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:53:00.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:52:50.000+0000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:54:10)] was not greater than the threshold (50.0) (minimum 2 datapoints for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:54:37.550+0000",
+          "startDate": "2026-09-14T05:54:10.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:54:10.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            },
+            {
+              "timestamp": "2026-09-14T05:54:00.000+0000"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 154,
+        "label": "single-real-good-missing-precedence:history:missing2",
+        "request_started_ms": 1789365378735,
+        "request_finished_ms": 1789365379421,
+        "history_item_index": 14,
+        "history_timestamp": "2026-09-14T06:54:37.552000+01:00",
+        "state_pointer": "/observations/154/result/output/AlarmHistoryItems/14/HistoryData"
+      }
+    },
+    {
+      "name": "single-good-expires-to-breaching",
+      "creation": "evaluation:19",
+      "publications": [
+        "evaluation:36",
+        "evaluation:67",
+        "evaluation:90",
+        "evaluation:112",
+        "evaluation:137"
+      ],
+      "evaluation_time": "2026-09-14T05:56:04.474+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 3 datapoints [0.0 (14/09/26 05:54:10)] was not greater than the threshold (50.0) and 2 missing datapoints were treated as [Breaching] (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:54:34.473+0000",
+          "startDate": "2026-09-14T05:54:10.000+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:54:10.000+0000",
+              "sampleCount": 1,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: no datapoints were received for 3 periods and 3 missing datapoints were treated as [Breaching].",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T05:56:04.474+0000",
+          "unit": "Count",
+          "statistic": "Average",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 50,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T05:55:40.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:55:30.000+0000"
+            },
+            {
+              "timestamp": "2026-09-14T05:55:20.000+0000"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "evaluation",
+        "source_call_index": 152,
+        "label": "single-real-good-missing-precedence:history:breaching3",
+        "request_started_ms": 1789365377237,
+        "request_finished_ms": 1789365378004,
+        "history_item_index": 12,
+        "history_timestamp": "2026-09-14T06:56:04.476000+01:00",
+        "state_pointer": "/observations/152/result/output/AlarmHistoryItems/12/HistoryData"
+      }
+    },
+    {
+      "name": "expression-101",
+      "creation": "percentiles:1",
+      "publications": [
+        "percentiles:17",
+        "percentiles:33",
+        "percentiles:36"
+      ],
+      "evaluation_time": "2026-09-14T06:46:28.197+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [1.0 (14/09/26 06:45:40)] was not greater than the threshold (5.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:45:58.197+0000",
+          "startDate": "2026-09-14T06:45:40.000+0000",
+          "period": 10,
+          "recentDatapoints": [
+            1
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:45:40.000+0000",
+              "value": 1
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [11.0 (14/09/26 06:46:10)] was greater than the threshold (5.0) (minimum 1 datapoint for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:46:28.197+0000",
+          "startDate": "2026-09-14T06:46:10.000+0000",
+          "period": 10,
+          "recentDatapoints": [
+            11
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:46:10.000+0000",
+              "value": 11
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "percentiles",
+        "source_call_index": 42,
+        "label": "final-history-query",
+        "request_started_ms": 1789368421256,
+        "request_finished_ms": 1789368421999,
+        "history_item_index": 0,
+        "history_timestamp": "2026-09-14T07:46:28.199000+01:00",
+        "state_pointer": "/calls/42/result/output/AlarmHistoryItems/0/HistoryData"
+      }
+    },
+    {
+      "name": "expression-100",
+      "creation": "percentiles:1",
+      "publications": [
+        "percentiles:17",
+        "percentiles:33"
+      ],
+      "evaluation_time": "2026-09-14T06:45:58.197+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [11.0 (14/09/26 06:43:00)] was greater than the threshold (5.0) (minimum 1 datapoint for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:43:18.195+0000",
+          "startDate": "2026-09-14T06:43:00.000+0000",
+          "period": 10,
+          "recentDatapoints": [
+            11
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:43:00.000+0000",
+              "value": 11
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [1.0 (14/09/26 06:45:40)] was not greater than the threshold (5.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:45:58.197+0000",
+          "startDate": "2026-09-14T06:45:40.000+0000",
+          "period": 10,
+          "recentDatapoints": [
+            1
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:45:40.000+0000",
+              "value": 1
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "percentiles",
+        "source_call_index": 42,
+        "label": "final-history-query",
+        "request_started_ms": 1789368421256,
+        "request_finished_ms": 1789368421999,
+        "history_item_index": 1,
+        "history_timestamp": "2026-09-14T07:45:58.198000+01:00",
+        "state_pointer": "/calls/42/result/output/AlarmHistoryItems/1/HistoryData"
+      }
+    },
+    {
+      "name": "expression-99",
+      "creation": "percentiles:1",
+      "publications": [
+        "percentiles:17"
+      ],
+      "evaluation_time": "2026-09-14T06:43:18.195+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Unchecked: Initial alarm creation"
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [11.0 (14/09/26 06:43:00)] was greater than the threshold (5.0) (minimum 1 datapoint for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:43:18.195+0000",
+          "startDate": "2026-09-14T06:43:00.000+0000",
+          "period": 10,
+          "recentDatapoints": [
+            11
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:43:00.000+0000",
+              "value": 11
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "percentiles",
+        "source_call_index": 42,
+        "label": "final-history-query",
+        "request_started_ms": 1789368421256,
+        "request_finished_ms": 1789368421999,
+        "history_item_index": 2,
+        "history_timestamp": "2026-09-14T07:43:18.196000+01:00",
+        "state_pointer": "/calls/42/result/output/AlarmHistoryItems/2/HistoryData"
+      }
+    },
+    {
+      "name": "percentile-ignore-101",
+      "creation": "percentiles:14",
+      "publications": [
+        "percentiles:17",
+        "percentiles:33",
+        "percentiles:36"
+      ],
+      "evaluation_time": "2026-09-14T06:46:34.128+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [0.0 (14/09/26 06:45:40)] was not greater than the threshold (5.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:46:04.128+0000",
+          "startDate": "2026-09-14T06:45:40.000+0000",
+          "statistic": "p90",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:45:40.000+0000",
+              "sampleCount": 100,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [10.0 (14/09/26 06:46:10)] was greater than the threshold (5.0) (minimum 1 datapoint for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:46:34.128+0000",
+          "startDate": "2026-09-14T06:46:10.000+0000",
+          "statistic": "p90",
+          "period": 10,
+          "recentDatapoints": [
+            10
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:46:10.000+0000",
+              "sampleCount": 101,
+              "value": 10
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "percentiles",
+        "source_call_index": 43,
+        "label": "final-history-ignore",
+        "request_started_ms": 1789368422000,
+        "request_finished_ms": 1789368422705,
+        "history_item_index": 0,
+        "history_timestamp": "2026-09-14T07:46:34.129000+01:00",
+        "state_pointer": "/calls/43/result/output/AlarmHistoryItems/0/HistoryData"
+      }
+    },
+    {
+      "name": "percentile-ignore-100",
+      "creation": "percentiles:14",
+      "publications": [
+        "percentiles:17",
+        "percentiles:33"
+      ],
+      "evaluation_time": "2026-09-14T06:46:04.128+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Unchecked: Initial alarm creation"
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [0.0 (14/09/26 06:45:40)] was not greater than the threshold (5.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:46:04.128+0000",
+          "startDate": "2026-09-14T06:45:40.000+0000",
+          "statistic": "p90",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:45:40.000+0000",
+              "sampleCount": 100,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "percentiles",
+        "source_call_index": 43,
+        "label": "final-history-ignore",
+        "request_started_ms": 1789368422000,
+        "request_finished_ms": 1789368422705,
+        "history_item_index": 1,
+        "history_timestamp": "2026-09-14T07:46:04.130000+01:00",
+        "state_pointer": "/calls/43/result/output/AlarmHistoryItems/1/HistoryData"
+      }
+    },
+    {
+      "name": "percentile-evaluate-101",
+      "creation": "percentiles:15",
+      "publications": [
+        "percentiles:17",
+        "percentiles:33",
+        "percentiles:36"
+      ],
+      "evaluation_time": "2026-09-14T06:46:35.741+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [0.0 (14/09/26 06:45:40)] was not greater than the threshold (5.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:46:05.740+0000",
+          "startDate": "2026-09-14T06:45:40.000+0000",
+          "statistic": "p90",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:45:40.000+0000",
+              "sampleCount": 100,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [10.0 (14/09/26 06:46:10)] was greater than the threshold (5.0) (minimum 1 datapoint for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:46:35.741+0000",
+          "startDate": "2026-09-14T06:46:10.000+0000",
+          "statistic": "p90",
+          "period": 10,
+          "recentDatapoints": [
+            10
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:46:10.000+0000",
+              "sampleCount": 101,
+              "value": 10
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "percentiles",
+        "source_call_index": 44,
+        "label": "final-history-evaluate",
+        "request_started_ms": 1789368422707,
+        "request_finished_ms": 1789368423385,
+        "history_item_index": 0,
+        "history_timestamp": "2026-09-14T07:46:35.742000+01:00",
+        "state_pointer": "/calls/44/result/output/AlarmHistoryItems/0/HistoryData"
+      }
+    },
+    {
+      "name": "percentile-evaluate-100",
+      "creation": "percentiles:15",
+      "publications": [
+        "percentiles:17",
+        "percentiles:33"
+      ],
+      "evaluation_time": "2026-09-14T06:46:05.740+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [10.0 (14/09/26 06:43:00)] was greater than the threshold (5.0) (minimum 1 datapoint for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:43:25.741+0000",
+          "startDate": "2026-09-14T06:43:00.000+0000",
+          "statistic": "p90",
+          "period": 10,
+          "recentDatapoints": [
+            10
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:43:00.000+0000",
+              "sampleCount": 99,
+              "value": 10
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [0.0 (14/09/26 06:45:40)] was not greater than the threshold (5.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:46:05.740+0000",
+          "startDate": "2026-09-14T06:45:40.000+0000",
+          "statistic": "p90",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:45:40.000+0000",
+              "sampleCount": 100,
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "percentiles",
+        "source_call_index": 44,
+        "label": "final-history-evaluate",
+        "request_started_ms": 1789368422707,
+        "request_finished_ms": 1789368423385,
+        "history_item_index": 1,
+        "history_timestamp": "2026-09-14T07:46:05.741000+01:00",
+        "state_pointer": "/calls/44/result/output/AlarmHistoryItems/1/HistoryData"
+      }
+    },
+    {
+      "name": "percentile-evaluate-99",
+      "creation": "percentiles:15",
+      "publications": [
+        "percentiles:17"
+      ],
+      "evaluation_time": "2026-09-14T06:43:25.741+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Unchecked: Initial alarm creation"
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [10.0 (14/09/26 06:43:00)] was greater than the threshold (5.0) (minimum 1 datapoint for OK -> ALARM transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T06:43:25.741+0000",
+          "startDate": "2026-09-14T06:43:00.000+0000",
+          "statistic": "p90",
+          "period": 10,
+          "recentDatapoints": [
+            10
+          ],
+          "threshold": 5,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T06:43:00.000+0000",
+              "sampleCount": 99,
+              "value": 10
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "percentiles",
+        "source_call_index": 44,
+        "label": "final-history-evaluate",
+        "request_started_ms": 1789368422707,
+        "request_finished_ms": 1789368423385,
+        "history_item_index": 2,
+        "history_timestamp": "2026-09-14T07:43:25.742000+01:00",
+        "state_pointer": "/calls/44/result/output/AlarmHistoryItems/2/HistoryData"
+      }
+    },
+    {
+      "name": "percentile-ignore-99-retains-prior",
+      "creation": "percentiles:14",
+      "publications": [
+        "percentiles:17"
+      ],
+      "evaluation_time": "2026-09-14T06:43:25.741+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Unchecked: Initial alarm creation"
+      },
+      "expected": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Unchecked: Initial alarm creation"
+      },
+      "evidence": {
+        "source": "percentiles",
+        "source_call_index": 21,
+        "label": "poll-count-99",
+        "prior_pointer": "/calls/16/result/output/MetricAlarms/1",
+        "state_pointer": "/calls/21/result/output/MetricAlarms/1",
+        "limitation": "Ignore retained its initial state and exposes no queryDate. Replay is anchored to the evaluate control queryDate in the same DescribeAlarms response, not an invented ignore evaluation timestamp. This asserts state retention only; it does not claim simultaneous internal evaluation."
+      }
+    },
+    {
+      "name": "empty-query-control",
+      "creation": "query-admission:2",
+      "publications": [],
+      "evaluation_time": "2026-09-14T07:58:33.125+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "INSUFFICIENT_DATA",
+        "stateReason": "Unchecked: Initial alarm creation"
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [Breaching].",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T07:58:33.125+0000",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 10,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T07:58:20.000+0000"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "query-admission",
+        "source_call_index": 5,
+        "label": "control-history",
+        "history_item_index": 0,
+        "state_pointer": "/observations/5/result/output/AlarmHistoryItems/0/HistoryData",
+        "limitation": "Uses native queryDate, not post-Put polling latency. No metric samples were published."
+      }
+    },
+    {
+      "name": "empty-query-constant-before-remove",
+      "creation": "query-admission:6",
+      "publications": [],
+      "evaluation_time": "2026-09-14T07:59:20.482+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [Breaching].",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T07:58:33.125+0000",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 10,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T07:58:20.000+0000"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [0.0 (14/09/26 07:59:10)] was not greater than the threshold (10.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T07:59:20.482+0000",
+          "startDate": "2026-09-14T07:59:10.000+0000",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 10,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T07:59:10.000+0000",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "query-admission",
+        "source_call_index": 11,
+        "label": "constant-before-remove-history",
+        "history_item_index": 0,
+        "state_pointer": "/observations/11/result/output/AlarmHistoryItems/0/HistoryData",
+        "limitation": "Uses native queryDate, not post-Put polling latency. No metric samples were published."
+      }
+    },
+    {
+      "name": "empty-query-remove-empty",
+      "creation": "query-admission:12",
+      "publications": [],
+      "evaluation_time": "2026-09-14T08:00:23.879+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [0.0 (14/09/26 07:59:10)] was not greater than the threshold (10.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T07:59:20.482+0000",
+          "startDate": "2026-09-14T07:59:10.000+0000",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 10,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T07:59:10.000+0000",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [Breaching].",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T08:00:23.879+0000",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 10,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T08:00:10.000+0000"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "query-admission",
+        "source_call_index": 17,
+        "label": "remove-empty-history",
+        "history_item_index": 0,
+        "state_pointer": "/observations/17/result/output/AlarmHistoryItems/0/HistoryData",
+        "limitation": "Uses native queryDate, not post-Put polling latency. No metric samples were published."
+      }
+    },
+    {
+      "name": "empty-query-sort",
+      "creation": "query-admission:23",
+      "publications": [],
+      "evaluation_time": "2026-09-14T08:01:47.557+0000",
+      "cadence_seconds": 10,
+      "prior_state": {
+        "stateValue": "OK",
+        "stateReason": "Threshold Crossed: 1 out of the last 1 datapoints [0.0 (14/09/26 08:00:40)] was not greater than the threshold (10.0) (minimum 1 datapoint for ALARM -> OK transition).",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T08:00:57.948+0000",
+          "startDate": "2026-09-14T08:00:40.000+0000",
+          "period": 10,
+          "recentDatapoints": [
+            0
+          ],
+          "threshold": 10,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T08:00:40.000+0000",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "expected": {
+        "stateValue": "ALARM",
+        "stateReason": "Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [Breaching].",
+        "stateReasonData": {
+          "version": "1.0",
+          "queryDate": "2026-09-14T08:01:47.557+0000",
+          "period": 10,
+          "recentDatapoints": [],
+          "threshold": 10,
+          "evaluatedDatapoints": [
+            {
+              "timestamp": "2026-09-14T08:01:30.000+0000"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "source": "query-admission",
+        "source_call_index": 27,
+        "label": "sort-history",
+        "history_item_index": 0,
+        "state_pointer": "/observations/27/result/output/AlarmHistoryItems/0/HistoryData",
+        "limitation": "Uses native queryDate, not post-Put polling latency. No metric samples were published."
+      }
+    }
+  ],
+  "evidence_only": [
+    {
+      "name": "isolated-breach-early-missing-snapshot",
+      "source": "evaluation",
+      "source_call_index": 68,
+      "request_started_ms": 1789364823461,
+      "request_finished_ms": 1789364824212,
+      "alarms": [
+        {
+          "AlarmName": "stackd-native-alarm-evaluation-d9c45aea86-missing2",
+          "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-alarm-evaluation-d9c45aea86-missing2",
+          "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:41:16.223000+01:00",
+          "ActionsEnabled": false,
+          "OKActions": [],
+          "AlarmActions": [],
+          "InsufficientDataActions": [],
+          "StateValue": "INSUFFICIENT_DATA",
+          "StateReason": "Insufficient Data: 3 datapoints were unknown.",
+          "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-14T05:44:37.552+0000\",\"unit\":\"Count\",\"statistic\":\"Average\",\"period\":10,\"recentDatapoints\":[],\"threshold\":50.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-14T05:44:10.000+0000\"},{\"timestamp\":\"2026-09-14T05:44:00.000+0000\"}]}",
+          "StateUpdatedTimestamp": "2026-09-14T06:44:37.554000+01:00",
+          "MetricName": "Signal",
+          "Namespace": "Stackd/NativeAlarmEvaluation",
+          "Statistic": "Average",
+          "Dimensions": [
+            {
+              "Name": "Probe",
+              "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+            }
+          ],
+          "Period": 10,
+          "Unit": "Count",
+          "EvaluationPeriods": 3,
+          "DatapointsToAlarm": 2,
+          "Threshold": 50,
+          "ComparisonOperator": "GreaterThanThreshold",
+          "TreatMissingData": "missing",
+          "StateTransitionedTimestamp": "2026-09-14T06:44:37.554000+01:00"
+        },
+        {
+          "AlarmName": "stackd-native-alarm-evaluation-d9c45aea86-missing3",
+          "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-alarm-evaluation-d9c45aea86-missing3",
+          "AlarmConfigurationUpdatedTimestamp": "2026-09-14T06:40:42.293000+01:00",
+          "ActionsEnabled": false,
+          "OKActions": [],
+          "AlarmActions": [],
+          "InsufficientDataActions": [],
+          "StateValue": "INSUFFICIENT_DATA",
+          "StateReason": "Insufficient Data: 3 datapoints were unknown.",
+          "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-14T05:44:38.775+0000\",\"unit\":\"Count\",\"statistic\":\"Average\",\"period\":10,\"recentDatapoints\":[],\"threshold\":50.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-14T05:44:10.000+0000\"},{\"timestamp\":\"2026-09-14T05:44:00.000+0000\"},{\"timestamp\":\"2026-09-14T05:43:50.000+0000\"}]}",
+          "StateUpdatedTimestamp": "2026-09-14T06:44:38.777000+01:00",
+          "MetricName": "Signal",
+          "Namespace": "Stackd/NativeAlarmEvaluation",
+          "Statistic": "Average",
+          "Dimensions": [
+            {
+              "Name": "Probe",
+              "Value": "stackd-native-alarm-evaluation-d9c45aea86"
+            }
+          ],
+          "Period": 10,
+          "Unit": "Count",
+          "EvaluationPeriods": 3,
+          "DatapointsToAlarm": 3,
+          "Threshold": 50,
+          "ComparisonOperator": "GreaterThanThreshold",
+          "TreatMissingData": "missing",
+          "StateTransitionedTimestamp": "2026-09-14T06:44:38.777000+01:00"
+        }
+      ],
+      "limitation": "The first DescribeAlarms after successful isolated-breach publication still exposes older missing-state reason data. No independent retrieval established immediate ingestion, and unchanged state does not expose the current evaluator queryDate. This snapshot cannot be replayed as a new evaluation at Describe request time without inventing ingestion lag or evaluation timing; retained here, not asserted as a deterministic empty window. Later actual transition queryDates are exercised by isolated-premature-m2/m3 and isolated-breach-expires."
+    }
+  ]
+}

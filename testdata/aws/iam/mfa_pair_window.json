@@ -1,0 +1,2225 @@
+{
+  "schema_version": 1,
+  "source": "Real AWS IAM and STS APIs, commercial partition",
+  "probe": "scripts/aws/iam_mfa_pair_window_probe.py",
+  "aws_cli_version": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+  "started_at": "2026-09-11T20:11:05.948906+00:00",
+  "finished_at": "2026-09-11T20:13:18.182623+00:00",
+  "documentation": [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateVirtualMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_EnableMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeactivateMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ResyncMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListVirtualMFADevices.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetMFADevice.html"
+  ],
+  "model_source": "clones/aws-sdk-go-v2/codegen/sdk-codegen/aws-models/{iam,sts}.json",
+  "eligibility": {
+    "positive": {
+      "accepted_offset": 1000,
+      "rejected_offset": 1001
+    },
+    "negative": {
+      "accepted_offset": -998,
+      "rejected_offset": -999
+    }
+  },
+  "setup": [
+    {
+      "service": "iam",
+      "operation": "CreateUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "Path": "/org-access/"
+      },
+      "output": {
+        "User": {
+          "Path": "/org-access/",
+          "UserName": "stackd-mfa-fixture-pair-window",
+          "UserId": "<user-id:pair-window>",
+          "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-mfa-fixture-pair-window",
+          "CreateDate": "2026-09-11T20:11:08+00:00"
+        }
+      }
+    }
+  ],
+  "observations": [
+    {
+      "case": "create_1",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-1"
+      },
+      "observed_at": "2026-09-11T20:11:09.523943+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-1"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_0_1",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-1"
+      },
+      "observed_at": "2026-09-11T20:11:10.417347+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_1",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-1"
+      },
+      "observed_at": "2026-09-11T20:11:11.150344+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_1",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-1"
+      },
+      "observed_at": "2026-09-11T20:11:11.935491+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_2",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-2"
+      },
+      "observed_at": "2026-09-11T20:11:12.726412+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-2"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_1440_2",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-2"
+      },
+      "observed_at": "2026-09-11T20:11:13.459778+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": 1440,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_2",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-2"
+      },
+      "observed_at": "2026-09-11T20:11:14.219343+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_3",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-3"
+      },
+      "observed_at": "2026-09-11T20:11:14.990267+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-3"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_720_3",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-3"
+      },
+      "observed_at": "2026-09-11T20:11:15.770953+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 720,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_3",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-3"
+      },
+      "observed_at": "2026-09-11T20:11:16.588576+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_3",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-3"
+      },
+      "observed_at": "2026-09-11T20:11:17.338627+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_4",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-4"
+      },
+      "observed_at": "2026-09-11T20:11:18.100330+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-4"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_1080_4",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-4"
+      },
+      "observed_at": "2026-09-11T20:11:18.990597+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": 1080,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_4",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-4"
+      },
+      "observed_at": "2026-09-11T20:11:19.756691+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_5",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-5"
+      },
+      "observed_at": "2026-09-11T20:11:20.533786+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-5"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_900_5",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-5"
+      },
+      "observed_at": "2026-09-11T20:11:21.376782+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 900,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_5",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-5"
+      },
+      "observed_at": "2026-09-11T20:11:22.154834+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_5",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-5"
+      },
+      "observed_at": "2026-09-11T20:11:22.914789+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_6",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-6"
+      },
+      "observed_at": "2026-09-11T20:11:23.666389+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-6"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_990_6",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-6"
+      },
+      "observed_at": "2026-09-11T20:11:24.511131+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 990,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_6",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-6"
+      },
+      "observed_at": "2026-09-11T20:11:25.306421+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_6",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-6"
+      },
+      "observed_at": "2026-09-11T20:11:26.044875+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_7",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-7"
+      },
+      "observed_at": "2026-09-11T20:11:26.844893+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-7"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_1035_7",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-7"
+      },
+      "observed_at": "2026-09-11T20:11:27.582947+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": 1035,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_7",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-7"
+      },
+      "observed_at": "2026-09-11T20:11:28.347476+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_8",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-8"
+      },
+      "observed_at": "2026-09-11T20:11:29.265315+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-8"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_1012_8",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-8"
+      },
+      "observed_at": "2026-09-11T20:11:30.944279+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": 1012,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_8",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-8"
+      },
+      "observed_at": "2026-09-11T20:11:31.702158+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_9",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-9"
+      },
+      "observed_at": "2026-09-11T20:11:32.475861+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-9"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_1001_9",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-9"
+      },
+      "observed_at": "2026-09-11T20:11:33.222352+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": 1001,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_9",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-9"
+      },
+      "observed_at": "2026-09-11T20:11:34.016850+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_10",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-10"
+      },
+      "observed_at": "2026-09-11T20:11:34.795926+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-10"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_995_10",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-10"
+      },
+      "observed_at": "2026-09-11T20:11:35.641963+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 995,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_10",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-10"
+      },
+      "observed_at": "2026-09-11T20:11:36.415650+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_10",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-10"
+      },
+      "observed_at": "2026-09-11T20:11:37.149451+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_11",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-11"
+      },
+      "observed_at": "2026-09-11T20:11:37.962268+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-11"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_998_11",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-11"
+      },
+      "observed_at": "2026-09-11T20:11:38.753819+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 998,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_11",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-11"
+      },
+      "observed_at": "2026-09-11T20:11:39.626396+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_11",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-11"
+      },
+      "observed_at": "2026-09-11T20:11:40.417752+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_12",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-12"
+      },
+      "observed_at": "2026-09-11T20:11:41.164493+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-12"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_999_12",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-12"
+      },
+      "observed_at": "2026-09-11T20:11:41.924431+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 999,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_12",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-12"
+      },
+      "observed_at": "2026-09-11T20:11:42.669072+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_12",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-12"
+      },
+      "observed_at": "2026-09-11T20:11:43.413670+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_13",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-13"
+      },
+      "observed_at": "2026-09-11T20:11:44.182247+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-13"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_1000_13",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-13"
+      },
+      "observed_at": "2026-09-11T20:11:44.954507+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 1000,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_13",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-13"
+      },
+      "observed_at": "2026-09-11T20:11:45.702415+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_13",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-13"
+      },
+      "observed_at": "2026-09-11T20:11:46.559961+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_14",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-14"
+      },
+      "observed_at": "2026-09-11T20:11:47.367697+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-14"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_1000_14",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-14"
+      },
+      "observed_at": "2026-09-11T20:11:48.130491+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 1000,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_14",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-14"
+      },
+      "observed_at": "2026-09-11T20:11:48.862845+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_14",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-14"
+      },
+      "observed_at": "2026-09-11T20:11:49.620092+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_15",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-15"
+      },
+      "observed_at": "2026-09-11T20:11:50.520243+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-15"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_1001_15",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-15"
+      },
+      "observed_at": "2026-09-11T20:11:51.292422+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": 1001,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_15",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-15"
+      },
+      "observed_at": "2026-09-11T20:11:52.058982+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_16",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-16"
+      },
+      "observed_at": "2026-09-11T20:11:52.846763+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-16"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_0_16",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-16"
+      },
+      "observed_at": "2026-09-11T20:11:53.642877+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_16",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-16"
+      },
+      "observed_at": "2026-09-11T20:11:54.460335+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_16",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-16"
+      },
+      "observed_at": "2026-09-11T20:11:55.203947+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_17",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-17"
+      },
+      "observed_at": "2026-09-11T20:11:55.961229+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-17"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-1440_17",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-17"
+      },
+      "observed_at": "2026-09-11T20:11:56.717123+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": -1440,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_17",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-17"
+      },
+      "observed_at": "2026-09-11T20:11:57.479048+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_18",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-18"
+      },
+      "observed_at": "2026-09-11T20:11:58.256051+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-18"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-720_18",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-18"
+      },
+      "observed_at": "2026-09-11T20:12:01.153190+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": -720,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_18",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-18"
+      },
+      "observed_at": "2026-09-11T20:12:01.912200+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_18",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-18"
+      },
+      "observed_at": "2026-09-11T20:12:02.728304+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_19",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-19"
+      },
+      "observed_at": "2026-09-11T20:12:03.510610+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-19"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-1080_19",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-19"
+      },
+      "observed_at": "2026-09-11T20:12:04.268602+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": -1080,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_19",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-19"
+      },
+      "observed_at": "2026-09-11T20:12:05.036306+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_20",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-20"
+      },
+      "observed_at": "2026-09-11T20:12:05.851932+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-20"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-900_20",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-20"
+      },
+      "observed_at": "2026-09-11T20:12:06.635484+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": -900,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_20",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-20"
+      },
+      "observed_at": "2026-09-11T20:12:07.375967+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_20",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-20"
+      },
+      "observed_at": "2026-09-11T20:12:08.180685+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_21",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-21"
+      },
+      "observed_at": "2026-09-11T20:12:08.947688+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-21"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-990_21",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-21"
+      },
+      "observed_at": "2026-09-11T20:12:09.726659+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": -990,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_21",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-21"
+      },
+      "observed_at": "2026-09-11T20:12:10.469657+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_21",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-21"
+      },
+      "observed_at": "2026-09-11T20:12:11.315629+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_22",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-22"
+      },
+      "observed_at": "2026-09-11T20:12:12.072200+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-22"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-1035_22",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-22"
+      },
+      "observed_at": "2026-09-11T20:12:12.865183+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": -1035,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_22",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-22"
+      },
+      "observed_at": "2026-09-11T20:12:13.630359+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_23",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-23"
+      },
+      "observed_at": "2026-09-11T20:12:14.408652+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-23"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-1012_23",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-23"
+      },
+      "observed_at": "2026-09-11T20:12:15.206550+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": -1012,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_23",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-23"
+      },
+      "observed_at": "2026-09-11T20:12:15.959734+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_24",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-24"
+      },
+      "observed_at": "2026-09-11T20:12:16.734960+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-24"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-1001_24",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-24"
+      },
+      "observed_at": "2026-09-11T20:12:17.513039+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": -1001,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_24",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-24"
+      },
+      "observed_at": "2026-09-11T20:12:18.293629+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_25",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-25"
+      },
+      "observed_at": "2026-09-11T20:12:19.209418+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-25"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-995_25",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-25"
+      },
+      "observed_at": "2026-09-11T20:12:20.195773+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": -995,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_25",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-25"
+      },
+      "observed_at": "2026-09-11T20:12:21.185074+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_25",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-25"
+      },
+      "observed_at": "2026-09-11T20:12:22.247704+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_26",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-26"
+      },
+      "observed_at": "2026-09-11T20:12:23.096173+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-26"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-998_26",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-26"
+      },
+      "observed_at": "2026-09-11T20:12:23.886956+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": -998,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_26",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-26"
+      },
+      "observed_at": "2026-09-11T20:12:24.645225+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_26",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-26"
+      },
+      "observed_at": "2026-09-11T20:12:25.501884+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_27",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-27"
+      },
+      "observed_at": "2026-09-11T20:12:26.280701+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-27"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-999_27",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-27"
+      },
+      "observed_at": "2026-09-11T20:12:27.083358+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": -999,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_27",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-27"
+      },
+      "observed_at": "2026-09-11T20:12:27.860194+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_28",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-28"
+      },
+      "observed_at": "2026-09-11T20:12:28.636252+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-28"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-998_28",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-28"
+      },
+      "observed_at": "2026-09-11T20:12:30.993634+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": -998,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "deactivate_28",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-28"
+      },
+      "observed_at": "2026-09-11T20:12:31.767795+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_28",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-28"
+      },
+      "observed_at": "2026-09-11T20:12:32.792109+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_29",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-29"
+      },
+      "observed_at": "2026-09-11T20:12:33.556145+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-29"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "offset_-999_29",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-29"
+      },
+      "observed_at": "2026-09-11T20:12:34.352957+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step_offset": -999,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "delete_29",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-29"
+      },
+      "observed_at": "2026-09-11T20:12:35.137148+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    }
+  ],
+  "cleanup": [
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-29"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-29"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-28"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-28"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-27"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-27"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-26"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-26"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-25"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-25"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-24"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-24"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-23"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-23"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-22"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-22"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-21"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-21"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-20"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-20"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-19"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-19"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-18"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-18"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-17"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-17"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-16"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-16"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-15"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-15"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-14"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-14"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-13"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-13"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-12"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-12"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-11"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-11"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-10"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-10"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-9"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-9"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-8"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-8"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-7"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-7"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-6"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-6"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-5"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-5"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-4"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-4"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-3"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-3"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-2"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-2"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-1"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-1"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-pair-window"
+      },
+      "code": "NoSuchEntity"
+    }
+  ],
+  "capture_complete": true,
+  "cleanup_verified": true,
+  "sanitization": "Owned names/IDs/account normalized; original caller identity redacted; no bearer tokens, credential secrets or debug logs retained.",
+  "limitations": [
+    "Only uniquely owned users, keys and virtual devices are changed. Root MFA and existing devices are unchanged.",
+    "Seeds, QR payloads, authentication codes and issued credentials remain in memory. List results retain only owned devices.",
+    "Hardware and FIDO registration are not covered. Time windows are observations, not undocumented latency guarantees."
+  ]
+}

@@ -1,0 +1,897 @@
+{
+  "source": "Native AWS CLI through scripts/aws/aws_cli.py run/result; actual signed SNS notifications delivered through SQS; observations, not guarantees",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "limitations": [
+    "One owned us-east-1 account; captures are observations, not guarantees. No SMS/email endpoints: protocol strings are from successful Action HistoryData, not asserted transport delivery.",
+    "Subject printable-ASCII character class is an inference beyond the captured contiguous Chinese/accented Unicode run. Observed SMS long-name truncation retains 90 name characters including ellipsis; its generalization to other states/regions is unprobed.",
+    "Email dimension rendering with nonempty dimensions, absent query labels, multi-action lists and noncommercial console domains is not established by these captures.",
+    "Replay compares semantic JSON fields, subject/SMS transformations and email detail fields, not UUIDs, asynchronous latency or generic prose. Child timestamp is compared to the actual child state retained at transition."
+  ],
+  "observations": [
+    {
+      "label": "create-owned-topic",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-native-cw-sns-4b229becf207"
+      },
+      "request_started_ms": 1789384715340,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384716284
+    },
+    {
+      "label": "create-owned-queue",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-native-cw-sns-4b229becf207"
+      },
+      "request_started_ms": 1789384717215,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-cw-sns-4b229becf207"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384718203
+    },
+    {
+      "label": "owned-queue-arn",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-cw-sns-4b229becf207",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "request_started_ms": 1789384718203,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384719129
+    },
+    {
+      "label": "grant-exact-owned-topic",
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-cw-sns-4b229becf207",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"ExactOwnedSnsSource\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\"}}}]}"
+        }
+      },
+      "request_started_ms": 1789384719129,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384720010
+    },
+    {
+      "label": "subscribe-signed-envelope",
+      "service": "sns",
+      "operation": "subscribe",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207",
+        "Protocol": "sqs",
+        "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207",
+        "ReturnSubscriptionArn": true
+      },
+      "request_started_ms": 1789384720010,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207:8e0ebeef-3438-4f2b-9b21-1081a8ee92d9"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384721036
+    },
+    {
+      "label": "put-long-ascii",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "AlarmDescription": "stackd-native-cw-sns-4b229becf207 long-ascii",
+        "ActionsEnabled": true,
+        "AlarmActions": [
+          "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+        ],
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Threshold": 50.0,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "TreatMissingData": "ignore",
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUUtilization",
+        "Period": 300,
+        "Statistic": "Average",
+        "Unit": "Percent"
+      },
+      "request_started_ms": 1789384722760,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384723639
+    },
+    {
+      "label": "trigger-long-ascii",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "StateValue": "ALARM",
+        "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM"
+      },
+      "request_started_ms": 1789384723639,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384724542
+    },
+    {
+      "label": "put-long-unicode",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é",
+        "AlarmDescription": "stackd-native-cw-sns-4b229becf207 long-unicode",
+        "ActionsEnabled": true,
+        "AlarmActions": [
+          "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+        ],
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Threshold": 50.0,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "TreatMissingData": "ignore",
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUUtilization",
+        "Period": 300,
+        "Statistic": "Average",
+        "Unit": "Percent"
+      },
+      "request_started_ms": 1789384724552,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384725480
+    },
+    {
+      "label": "trigger-long-unicode",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é",
+        "StateValue": "ALARM",
+        "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM"
+      },
+      "request_started_ms": 1789384725481,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384726384
+    },
+    {
+      "label": "put-metric-query",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-metric-query",
+        "AlarmDescription": "stackd-native-cw-sns-4b229becf207 metric-query",
+        "ActionsEnabled": true,
+        "AlarmActions": [
+          "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+        ],
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Threshold": 50.0,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "TreatMissingData": "ignore",
+        "Metrics": [
+          {
+            "Id": "m1",
+            "AccountId": "000000000000",
+            "Label": "Explicit CPU metric label",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "AWS/EC2",
+                "MetricName": "CPUUtilization"
+              },
+              "Period": 60,
+              "Stat": "Average",
+              "Unit": "Percent"
+            },
+            "ReturnData": false
+          },
+          {
+            "Id": "e1",
+            "Expression": "m1 + 0",
+            "Label": "Explicit expression label",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1789384726390,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384727305
+    },
+    {
+      "label": "trigger-metric-query",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-metric-query",
+        "StateValue": "ALARM",
+        "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM"
+      },
+      "request_started_ms": 1789384727306,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384728165
+    },
+    {
+      "label": "put-child",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-child",
+        "AlarmDescription": "stackd-native-cw-sns-4b229becf207 child",
+        "ActionsEnabled": true,
+        "AlarmActions": [],
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Threshold": 50.0,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "TreatMissingData": "ignore",
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUUtilization",
+        "Period": 300,
+        "Statistic": "Average",
+        "Unit": "Percent"
+      },
+      "request_started_ms": 1789384728167,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384729022
+    },
+    {
+      "label": "initialize-child-ok",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-child",
+        "StateValue": "OK",
+        "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to OK"
+      },
+      "request_started_ms": 1789384729023,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384729928
+    },
+    {
+      "label": "put-composite",
+      "service": "cloudwatch",
+      "operation": "put-composite-alarm",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+        "AlarmDescription": "stackd-native-cw-sns-4b229becf207 real child transition",
+        "AlarmRule": "ALARM(\"stackd-native-cw-sns-4b229becf207-child\")",
+        "ActionsEnabled": true,
+        "AlarmActions": [
+          "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+        ]
+      },
+      "request_started_ms": 1789384729929,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384730831
+    },
+    {
+      "label": "composite-before-child-transition",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-cw-sns-4b229becf207-composite",
+          "stackd-native-cw-sns-4b229becf207-child"
+        ],
+        "AlarmTypes": [
+          "CompositeAlarm",
+          "MetricAlarm"
+        ]
+      },
+      "request_started_ms": 1789384730831,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [
+            {
+              "ActionsEnabled": true,
+              "AlarmActions": [
+                "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+              ],
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-composite",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T12:18:50.658000+01:00",
+              "AlarmDescription": "stackd-native-cw-sns-4b229becf207 real child transition",
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+              "AlarmRule": "ALARM(\"stackd-native-cw-sns-4b229becf207-child\")",
+              "InsufficientDataActions": [],
+              "OKActions": [],
+              "StateReason": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-composite was created and its alarm rule evaluates to OK",
+              "StateReasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T11:18:49.787+0000\"}}]}",
+              "StateUpdatedTimestamp": "2026-09-14T12:18:50.658000+01:00",
+              "StateValue": "OK",
+              "StateTransitionedTimestamp": "2026-09-14T12:18:50.658000+01:00"
+            }
+          ],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-child",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child",
+              "AlarmDescription": "stackd-native-cw-sns-4b229becf207 child",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T12:18:48.875000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to OK",
+              "StateUpdatedTimestamp": "2026-09-14T12:18:49.787000+01:00",
+              "MetricName": "CPUUtilization",
+              "Namespace": "AWS/EC2",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 300,
+              "Unit": "Percent",
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 50.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T12:18:49.787000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384731675
+    },
+    {
+      "label": "trigger-child-actual-alarm-transition",
+      "service": "cloudwatch",
+      "operation": "set-alarm-state",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-child",
+        "StateValue": "ALARM",
+        "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM"
+      },
+      "request_started_ms": 1789384731676,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384732661
+    },
+    {
+      "label": "describe-after-triggers",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+          "stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é",
+          "stackd-native-cw-sns-4b229becf207-metric-query",
+          "stackd-native-cw-sns-4b229becf207-child",
+          "stackd-native-cw-sns-4b229becf207-composite"
+        ],
+        "AlarmTypes": [
+          "CompositeAlarm",
+          "MetricAlarm"
+        ]
+      },
+      "request_started_ms": 1789384732662,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [
+            {
+              "ActionsEnabled": true,
+              "AlarmActions": [
+                "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+              ],
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-composite",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T12:18:50.658000+01:00",
+              "AlarmDescription": "stackd-native-cw-sns-4b229becf207 real child transition",
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+              "AlarmRule": "ALARM(\"stackd-native-cw-sns-4b229becf207-child\")",
+              "InsufficientDataActions": [],
+              "OKActions": [],
+              "StateReason": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child transitioned to ALARM at Monday 14 September, 2026 11:18:52 UTC",
+              "StateReasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T11:18:52.496+0000\"}}]}",
+              "StateUpdatedTimestamp": "2026-09-14T12:18:52.496000+01:00",
+              "StateValue": "ALARM",
+              "StateTransitionedTimestamp": "2026-09-14T12:18:52.496000+01:00"
+            }
+          ],
+          "MetricAlarms": [
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+              "AlarmDescription": "stackd-native-cw-sns-4b229becf207 long-ascii",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T12:18:43.496000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [
+                "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+              ],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM",
+              "StateUpdatedTimestamp": "2026-09-14T12:18:44.401000+01:00",
+              "MetricName": "CPUUtilization",
+              "Namespace": "AWS/EC2",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 300,
+              "Unit": "Percent",
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 50.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T12:18:44.401000+01:00"
+            },
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-child",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child",
+              "AlarmDescription": "stackd-native-cw-sns-4b229becf207 child",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T12:18:48.875000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM",
+              "StateUpdatedTimestamp": "2026-09-14T12:18:52.496000+01:00",
+              "MetricName": "CPUUtilization",
+              "Namespace": "AWS/EC2",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 300,
+              "Unit": "Percent",
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 50.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T12:18:52.496000+01:00"
+            },
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-metric-query",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-metric-query",
+              "AlarmDescription": "stackd-native-cw-sns-4b229becf207 metric-query",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T12:18:47.129000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [
+                "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+              ],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM",
+              "StateUpdatedTimestamp": "2026-09-14T12:18:48.031000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 50.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "Metrics": [
+                {
+                  "Id": "m1",
+                  "MetricStat": {
+                    "Metric": {
+                      "Namespace": "AWS/EC2",
+                      "MetricName": "CPUUtilization",
+                      "Dimensions": []
+                    },
+                    "Period": 60,
+                    "Stat": "Average",
+                    "Unit": "Percent"
+                  },
+                  "Label": "Explicit CPU metric label",
+                  "ReturnData": false,
+                  "AccountId": "000000000000"
+                },
+                {
+                  "Id": "e1",
+                  "Expression": "m1 + 0",
+                  "Label": "Explicit expression label",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-14T12:18:48.031000+01:00"
+            },
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é",
+              "AlarmArn": "arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é",
+              "AlarmDescription": "stackd-native-cw-sns-4b229becf207 long-unicode",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-14T12:18:45.336000+01:00",
+              "ActionsEnabled": true,
+              "OKActions": [],
+              "AlarmActions": [
+                "arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207"
+              ],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM",
+              "StateUpdatedTimestamp": "2026-09-14T12:18:46.252000+01:00",
+              "MetricName": "CPUUtilization",
+              "Namespace": "AWS/EC2",
+              "Statistic": "Average",
+              "Dimensions": [],
+              "Period": 300,
+              "Unit": "Percent",
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 50.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "StateTransitionedTimestamp": "2026-09-14T12:18:46.252000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384733590
+    },
+    {
+      "label": "action-history-long-ascii",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "HistoryItemType": "Action",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789384740731,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T12:18:44.432000+01:00",
+              "HistoryItemType": "Action",
+              "HistorySummary": "Successfully executed action arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207",
+              "HistoryData": "{\"actionState\":\"Succeeded\",\"stateUpdateTimestamp\":1789384724401,\"notificationResource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\",\"publishedMessage\":\"{\\\"default\\\":\\\"{\\\\\\\"AlarmName\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\\\\\\\",\\\\\\\"AlarmDescription\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207 long-ascii\\\\\\\",\\\\\\\"AWSAccountId\\\\\\\":\\\\\\\"000000000000\\\\\\\",\\\\\\\"AlarmConfigurationUpdatedTimestamp\\\\\\\":\\\\\\\"2026-09-14T11:18:43.496+0000\\\\\\\",\\\\\\\"NewStateValue\\\\\\\":\\\\\\\"ALARM\\\\\\\",\\\\\\\"NewStateReason\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\\\\\\\",\\\\\\\"StateChangeTime\\\\\\\":\\\\\\\"2026-09-14T11:18:44.401+0000\\\\\\\",\\\\\\\"Region\\\\\\\":\\\\\\\"US East (N. Virginia)\\\\\\\",\\\\\\\"AlarmArn\\\\\\\":\\\\\\\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\\\\\\\",\\\\\\\"OldStateValue\\\\\\\":\\\\\\\"INSUFFICIENT_DATA\\\\\\\",\\\\\\\"ActionExecutedAfterMuteWindow\\\\\\\":false,\\\\\\\"OKActions\\\\\\\":[],\\\\\\\"AlarmActions\\\\\\\":[\\\\\\\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\\\\\\\"],\\\\\\\"InsufficientDataActions\\\\\\\":[],\\\\\\\"Trigger\\\\\\\":{\\\\\\\"MetricName\\\\\\\":\\\\\\\"CPUUtilization\\\\\\\",\\\\\\\"Namespace\\\\\\\":\\\\\\\"AWS/EC2\\\\\\\",\\\\\\\"StatisticType\\\\\\\":\\\\\\\"Statistic\\\\\\\",\\\\\\\"Statistic\\\\\\\":\\\\\\\"AVERAGE\\\\\\\",\\\\\\\"Unit\\\\\\\":\\\\\\\"Percent\\\\\\\",\\\\\\\"Dimensions\\\\\\\":[],\\\\\\\"Period\\\\\\\":300,\\\\\\\"EvaluationPeriods\\\\\\\":1,\\\\\\\"DatapointsToAlarm\\\\\\\":1,\\\\\\\"ComparisonOperator\\\\\\\":\\\\\\\"GreaterThanThreshold\\\\\\\",\\\\\\\"Threshold\\\\\\\":50.0,\\\\\\\"TreatMissingData\\\\\\\":\\\\\\\"ignore\\\\\\\",\\\\\\\"EvaluateLowSampleCountPercentile\\\\\\\":\\\\\\\"\\\\\\\"}}\\\",\\\"sms\\\":\\\"ALARM: \\\\\\\"stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJK...\\\\\\\" in US East (N. Virginia)\\\",\\\"email\\\":\\\"You are receiving this email because your Amazon CloudWatch Alarm \\\\\\\"stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\\\\\\\" in the US East (N. Virginia) region has entered the ALARM state, because \\\\\\\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\\\\\\\" at \\\\\\\"Monday 14 September, 2026 11:18:44 UTC\\\\\\\".\\\\n\\\\nView this alarm in the AWS Management Console:\\\\nhttps://us-east-1.console.aws.amazon.com/cloudwatch/deeplink.js?region=us-east-1#alarmsV2:alarm/stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\\\\n\\\\nAlarm Details:\\\\n- Name:                       stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\\\\n- Description:                stackd-native-cw-sns-4b229becf207 long-ascii\\\\n- State Change:               INSUFFICIENT_DATA -> ALARM\\\\n- Reason for State Change:    stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\\\\n- Timestamp:                  Monday 14 September, 2026 11:18:44 UTC\\\\n- AWS Account:                000000000000\\\\n- Alarm Arn:                  arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\\\\n\\\\nThreshold:\\\\n- The alarm is in the ALARM state when the metric is GreaterThanThreshold 50.0 for at least 1 of the last 1 period(s) of 300 seconds. \\\\n\\\\nMonitored Metric:\\\\n- MetricNamespace:                     AWS/EC2\\\\n- MetricName:                          CPUUtilization\\\\n- Dimensions:                          \\\\n- Period:                              300 seconds\\\\n- Statistic:                           Average\\\\n- Unit:                                Percent\\\\n- TreatMissingData:                    ignore\\\\n\\\\n\\\\nState Change Actions:\\\\n- OK: \\\\n- ALARM: [arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207]\\\\n- INSUFFICIENT_DATA: \\\\n\\\"}\",\"error\":null,\"muteWindowEndTimestamp\":null}"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384741560
+    },
+    {
+      "label": "action-history-long-unicode",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é",
+        "HistoryItemType": "Action",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789384741571,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T12:18:46.289000+01:00",
+              "HistoryItemType": "Action",
+              "HistorySummary": "Successfully executed action arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207",
+              "HistoryData": "{\"actionState\":\"Succeeded\",\"stateUpdateTimestamp\":1789384726252,\"notificationResource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\",\"publishedMessage\":\"{\\\"default\\\":\\\"{\\\\\\\"AlarmName\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é\\\\\\\",\\\\\\\"AlarmDescription\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207 long-unicode\\\\\\\",\\\\\\\"AWSAccountId\\\\\\\":\\\\\\\"000000000000\\\\\\\",\\\\\\\"AlarmConfigurationUpdatedTimestamp\\\\\\\":\\\\\\\"2026-09-14T11:18:45.336+0000\\\\\\\",\\\\\\\"NewStateValue\\\\\\\":\\\\\\\"ALARM\\\\\\\",\\\\\\\"NewStateReason\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\\\\\\\",\\\\\\\"StateChangeTime\\\\\\\":\\\\\\\"2026-09-14T11:18:46.252+0000\\\\\\\",\\\\\\\"Region\\\\\\\":\\\\\\\"US East (N. Virginia)\\\\\\\",\\\\\\\"AlarmArn\\\\\\\":\\\\\\\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é\\\\\\\",\\\\\\\"OldStateValue\\\\\\\":\\\\\\\"INSUFFICIENT_DATA\\\\\\\",\\\\\\\"ActionExecutedAfterMuteWindow\\\\\\\":false,\\\\\\\"OKActions\\\\\\\":[],\\\\\\\"AlarmActions\\\\\\\":[\\\\\\\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\\\\\\\"],\\\\\\\"InsufficientDataActions\\\\\\\":[],\\\\\\\"Trigger\\\\\\\":{\\\\\\\"MetricName\\\\\\\":\\\\\\\"CPUUtilization\\\\\\\",\\\\\\\"Namespace\\\\\\\":\\\\\\\"AWS/EC2\\\\\\\",\\\\\\\"StatisticType\\\\\\\":\\\\\\\"Statistic\\\\\\\",\\\\\\\"Statistic\\\\\\\":\\\\\\\"AVERAGE\\\\\\\",\\\\\\\"Unit\\\\\\\":\\\\\\\"Percent\\\\\\\",\\\\\\\"Dimensions\\\\\\\":[],\\\\\\\"Period\\\\\\\":300,\\\\\\\"EvaluationPeriods\\\\\\\":1,\\\\\\\"DatapointsToAlarm\\\\\\\":1,\\\\\\\"ComparisonOperator\\\\\\\":\\\\\\\"GreaterThanThreshold\\\\\\\",\\\\\\\"Threshold\\\\\\\":50.0,\\\\\\\"TreatMissingData\\\\\\\":\\\\\\\"ignore\\\\\\\",\\\\\\\"EvaluateLowSampleCountPercentile\\\\\\\":\\\\\\\"\\\\\\\"}}\\\",\\\"sms\\\":\\\"ALARM: \\\\\\\"stackd-native-cw-sns-4b229becf207-unicode-_\\\\\\\" in US East (N. Virginia)\\\",\\\"email\\\":\\\"You are receiving this email because your Amazon CloudWatch Alarm \\\\\\\"stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é\\\\\\\" in the US East (N. Virginia) region has entered the ALARM state, because \\\\\\\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\\\\\\\" at \\\\\\\"Monday 14 September, 2026 11:18:46 UTC\\\\\\\".\\\\n\\\\nView this alarm in the AWS Management Console:\\\\nhttps://us-east-1.console.aws.amazon.com/cloudwatch/deeplink.js?region=us-east-1#alarmsV2:alarm/stackd-native-cw-sns-4b229becf207-unicode-%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9%E7%95%8C%C3%A9\\\\n\\\\nAlarm Details:\\\\n- Name:                       stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é\\\\n- Description:                stackd-native-cw-sns-4b229becf207 long-unicode\\\\n- State Change:               INSUFFICIENT_DATA -> ALARM\\\\n- Reason for State Change:    stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\\\\n- Timestamp:                  Monday 14 September, 2026 11:18:46 UTC\\\\n- AWS Account:                000000000000\\\\n- Alarm Arn:                  arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é\\\\n\\\\nThreshold:\\\\n- The alarm is in the ALARM state when the metric is GreaterThanThreshold 50.0 for at least 1 of the last 1 period(s) of 300 seconds. \\\\n\\\\nMonitored Metric:\\\\n- MetricNamespace:                     AWS/EC2\\\\n- MetricName:                          CPUUtilization\\\\n- Dimensions:                          \\\\n- Period:                              300 seconds\\\\n- Statistic:                           Average\\\\n- Unit:                                Percent\\\\n- TreatMissingData:                    ignore\\\\n\\\\n\\\\nState Change Actions:\\\\n- OK: \\\\n- ALARM: [arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207]\\\\n- INSUFFICIENT_DATA: \\\\n\\\"}\",\"error\":null,\"muteWindowEndTimestamp\":null}"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384742343
+    },
+    {
+      "label": "action-history-metric-query",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-metric-query",
+        "HistoryItemType": "Action",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789384742345,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-metric-query",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T12:18:48.065000+01:00",
+              "HistoryItemType": "Action",
+              "HistorySummary": "Successfully executed action arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207",
+              "HistoryData": "{\"actionState\":\"Succeeded\",\"stateUpdateTimestamp\":1789384728031,\"notificationResource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\",\"publishedMessage\":\"{\\\"default\\\":\\\"{\\\\\\\"AlarmName\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207-metric-query\\\\\\\",\\\\\\\"AlarmDescription\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207 metric-query\\\\\\\",\\\\\\\"AWSAccountId\\\\\\\":\\\\\\\"000000000000\\\\\\\",\\\\\\\"AlarmConfigurationUpdatedTimestamp\\\\\\\":\\\\\\\"2026-09-14T11:18:47.129+0000\\\\\\\",\\\\\\\"NewStateValue\\\\\\\":\\\\\\\"ALARM\\\\\\\",\\\\\\\"NewStateReason\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\\\\\\\",\\\\\\\"StateChangeTime\\\\\\\":\\\\\\\"2026-09-14T11:18:48.031+0000\\\\\\\",\\\\\\\"Region\\\\\\\":\\\\\\\"US East (N. Virginia)\\\\\\\",\\\\\\\"AlarmArn\\\\\\\":\\\\\\\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-metric-query\\\\\\\",\\\\\\\"OldStateValue\\\\\\\":\\\\\\\"INSUFFICIENT_DATA\\\\\\\",\\\\\\\"ActionExecutedAfterMuteWindow\\\\\\\":false,\\\\\\\"OKActions\\\\\\\":[],\\\\\\\"AlarmActions\\\\\\\":[\\\\\\\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\\\\\\\"],\\\\\\\"InsufficientDataActions\\\\\\\":[],\\\\\\\"Trigger\\\\\\\":{\\\\\\\"Period\\\\\\\":60,\\\\\\\"EvaluationPeriods\\\\\\\":1,\\\\\\\"DatapointsToAlarm\\\\\\\":1,\\\\\\\"ComparisonOperator\\\\\\\":\\\\\\\"GreaterThanThreshold\\\\\\\",\\\\\\\"Threshold\\\\\\\":50.0,\\\\\\\"TreatMissingData\\\\\\\":\\\\\\\"ignore\\\\\\\",\\\\\\\"EvaluateLowSampleCountPercentile\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"Metrics\\\\\\\":[{\\\\\\\"Id\\\\\\\":\\\\\\\"m1\\\\\\\",\\\\\\\"Label\\\\\\\":\\\\\\\"Explicit CPU metric label\\\\\\\",\\\\\\\"MetricStat\\\\\\\":{\\\\\\\"Metric\\\\\\\":{\\\\\\\"Dimensions\\\\\\\":[],\\\\\\\"MetricName\\\\\\\":\\\\\\\"CPUUtilization\\\\\\\",\\\\\\\"Namespace\\\\\\\":\\\\\\\"AWS/EC2\\\\\\\"},\\\\\\\"Period\\\\\\\":60,\\\\\\\"Stat\\\\\\\":\\\\\\\"Average\\\\\\\",\\\\\\\"Unit\\\\\\\":\\\\\\\"Percent\\\\\\\"},\\\\\\\"ReturnData\\\\\\\":false,\\\\\\\"AccountId\\\\\\\":\\\\\\\"000000000000\\\\\\\"},{\\\\\\\"Expression\\\\\\\":\\\\\\\"m1 + 0\\\\\\\",\\\\\\\"Id\\\\\\\":\\\\\\\"e1\\\\\\\",\\\\\\\"Label\\\\\\\":\\\\\\\"Explicit expression label\\\\\\\",\\\\\\\"ReturnData\\\\\\\":true,\\\\\\\"Period\\\\\\\":60}]}}\\\",\\\"sms\\\":\\\"ALARM: \\\\\\\"stackd-native-cw-sns-4b229becf207-metric-query\\\\\\\" in US East (N. Virginia)\\\",\\\"email\\\":\\\"You are receiving this email because your Amazon CloudWatch Alarm \\\\\\\"stackd-native-cw-sns-4b229becf207-metric-query\\\\\\\" in the US East (N. Virginia) region has entered the ALARM state, because \\\\\\\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\\\\\\\" at \\\\\\\"Monday 14 September, 2026 11:18:48 UTC\\\\\\\".\\\\n\\\\nView this alarm in the AWS Management Console:\\\\nhttps://us-east-1.console.aws.amazon.com/cloudwatch/deeplink.js?region=us-east-1#alarmsV2:alarm/stackd-native-cw-sns-4b229becf207-metric-query\\\\n\\\\nAlarm Details:\\\\n- Name:                       stackd-native-cw-sns-4b229becf207-metric-query\\\\n- Description:                stackd-native-cw-sns-4b229becf207 metric-query\\\\n- State Change:               INSUFFICIENT_DATA -> ALARM\\\\n- Reason for State Change:    stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\\\\n- Timestamp:                  Monday 14 September, 2026 11:18:48 UTC\\\\n- AWS Account:                000000000000\\\\n- Alarm Arn:                  arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-metric-query\\\\n\\\\nThreshold:\\\\n- The alarm is in the ALARM state when the metric is GreaterThanThreshold 50.0 for at least 1 of the last 1 period(s) of 60 seconds. \\\\n\\\\nMonitored Metrics:\\\\n- MetricExpression:           m1 + 0\\\\n- MetricLabel:                Explicit expression label\\\\n\\\\nState Change Actions:\\\\n- OK: \\\\n- ALARM: [arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207]\\\\n- INSUFFICIENT_DATA: \\\\n\\\"}\",\"error\":null,\"muteWindowEndTimestamp\":null}"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384743207
+    },
+    {
+      "label": "action-history-composite",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+        "HistoryItemType": "Action",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789384743208,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384744069
+    },
+    {
+      "label": "child-state-update-history",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-child",
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789384744070,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-child",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T12:18:52.496000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from OK to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"stackd-native-cw-sns-4b229becf207 observed manual transition to OK\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\"}}"
+            },
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-child",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T12:18:49.787000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"stackd-native-cw-sns-4b229becf207 observed manual transition to OK\"}}"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384744917
+    },
+    {
+      "label": "composite-state-update-history",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789384744918,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384745815
+    },
+    {
+      "label": "recovery-composite-action-history",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+        "AlarmTypes": [
+          "CompositeAlarm"
+        ],
+        "HistoryItemType": "Action",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789384821538,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+              "AlarmType": "CompositeAlarm",
+              "Timestamp": "2026-09-14T12:18:52.537000+01:00",
+              "HistoryItemType": "Action",
+              "HistorySummary": "Successfully executed action arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207",
+              "HistoryData": "{\"actionState\":\"Succeeded\",\"stateUpdateTimestamp\":1789384732496,\"notificationResource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\",\"publishedMessage\":\"{\\\"default\\\":\\\"{\\\\\\\"AlarmName\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207-composite\\\\\\\",\\\\\\\"AlarmDescription\\\\\\\":\\\\\\\"stackd-native-cw-sns-4b229becf207 real child transition\\\\\\\",\\\\\\\"AWSAccountId\\\\\\\":\\\\\\\"000000000000\\\\\\\",\\\\\\\"NewStateValue\\\\\\\":\\\\\\\"ALARM\\\\\\\",\\\\\\\"NewStateReason\\\\\\\":\\\\\\\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child transitioned to ALARM at Monday 14 September, 2026 11:18:52 UTC\\\\\\\",\\\\\\\"StateChangeTime\\\\\\\":\\\\\\\"2026-09-14T11:18:52.496+0000\\\\\\\",\\\\\\\"Region\\\\\\\":\\\\\\\"US East (N. Virginia)\\\\\\\",\\\\\\\"AlarmArn\\\\\\\":\\\\\\\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-composite\\\\\\\",\\\\\\\"OKActions\\\\\\\":[],\\\\\\\"AlarmActions\\\\\\\":[\\\\\\\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\\\\\\\"],\\\\\\\"InsufficientDataActions\\\\\\\":[],\\\\\\\"ActionExecutedAfterMuteWindow\\\\\\\":false,\\\\\\\"OldStateValue\\\\\\\":\\\\\\\"OK\\\\\\\",\\\\\\\"AlarmRule\\\\\\\":\\\\\\\"ALARM(\\\\\\\\\\\\\\\"stackd-native-cw-sns-4b229becf207-child\\\\\\\\\\\\\\\")\\\\\\\",\\\\\\\"TriggeringChildren\\\\\\\":[{\\\\\\\"Arn\\\\\\\":\\\\\\\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child\\\\\\\",\\\\\\\"State\\\\\\\":{\\\\\\\"Value\\\\\\\":\\\\\\\"ALARM\\\\\\\",\\\\\\\"Timestamp\\\\\\\":\\\\\\\"2026-09-14T11:18:52.496+0000\\\\\\\"}}]}\\\",\\\"sms\\\":\\\"ALARM: \\\\\\\"stackd-native-cw-sns-4b229becf207-composite\\\\\\\" in US East (N. Virginia)\\\",\\\"email\\\":\\\"You are receiving this email because your Amazon CloudWatch Alarm \\\\\\\"stackd-native-cw-sns-4b229becf207-composite\\\\\\\" in the US East (N. Virginia) region has transitioned to ALARM state on Monday 14 September, 2026 11:18:52 UTC, because \\\\\\\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child transitioned to ALARM at Monday 14 September, 2026 11:18:52 UTC\\\\\\\".\\\\n\\\\nView this alarm in the AWS Management Console:\\\\nhttps://us-east-1.console.aws.amazon.com/cloudwatch/deeplink.js?region=us-east-1#alarmsV2:alarm/stackd-native-cw-sns-4b229becf207-composite\\\\n\\\\nAlarm Details:\\\\n- Name:                       stackd-native-cw-sns-4b229becf207-composite\\\\n- Description:                stackd-native-cw-sns-4b229becf207 real child transition\\\\n- State Change:               OK -> ALARM\\\\n- Alarm Rule:                 ALARM(\\\\\\\"stackd-native-cw-sns-4b229becf207-child\\\\\\\")\\\\n- Reason for State Change:    arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child transitioned to ALARM at Monday 14 September, 2026 11:18:52 UTC\\\\n- Timestamp:                  Monday 14 September, 2026 11:18:52 UTC\\\\n- AWS Account:                000000000000\\\\n- Alarm Arn:                  arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-composite\\\\n\\\\nTriggering children (max. 10):\\\\n- arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child   ALARM               Monday 14 September, 2026 11:18:52 UTC\\\\n\\\\nState Change Actions:\\\\n- OK: \\\\n- ALARM: [arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207]\\\\n- INSUFFICIENT_DATA: \\\\n\\\"}\",\"error\":null,\"muteWindowEndTimestamp\":null}"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384822348
+    },
+    {
+      "label": "recovery-composite-stateupdate-history",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+        "AlarmTypes": [
+          "CompositeAlarm"
+        ],
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789384822350,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+              "AlarmType": "CompositeAlarm",
+              "Timestamp": "2026-09-14T12:18:52.496000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from OK to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-composite was created and its alarm rule evaluates to OK\",\"stateReasonData\":{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T11:18:49.787+0000\"}}]}},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child transitioned to ALARM at Monday 14 September, 2026 11:18:52 UTC\",\"stateReasonData\":{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T11:18:52.496+0000\"}}]}}}"
+            },
+            {
+              "AlarmName": "stackd-native-cw-sns-4b229becf207-composite",
+              "AlarmType": "CompositeAlarm",
+              "Timestamp": "2026-09-14T12:18:50.658000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-composite was created and its alarm rule evaluates to OK\",\"stateReasonData\":{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T11:18:49.787+0000\"}}]}}}"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789384823281
+    }
+  ],
+  "deliveries": [
+    {
+      "source_label": "action-delivery-poll-0",
+      "case": "metric-query",
+      "envelope": {
+        "Subject": "ALARM: \"stackd-native-cw-sns-4b229becf207-metric-query\" in US East (N. Virginia)",
+        "Message": "{\"AlarmName\":\"stackd-native-cw-sns-4b229becf207-metric-query\",\"AlarmDescription\":\"stackd-native-cw-sns-4b229becf207 metric-query\",\"AWSAccountId\":\"000000000000\",\"AlarmConfigurationUpdatedTimestamp\":\"2026-09-14T11:18:47.129+0000\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\",\"StateChangeTime\":\"2026-09-14T11:18:48.031+0000\",\"Region\":\"US East (N. Virginia)\",\"AlarmArn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-metric-query\",\"OldStateValue\":\"INSUFFICIENT_DATA\",\"ActionExecutedAfterMuteWindow\":false,\"OKActions\":[],\"AlarmActions\":[\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\"],\"InsufficientDataActions\":[],\"Trigger\":{\"Period\":60,\"EvaluationPeriods\":1,\"DatapointsToAlarm\":1,\"ComparisonOperator\":\"GreaterThanThreshold\",\"Threshold\":50.0,\"TreatMissingData\":\"ignore\",\"EvaluateLowSampleCountPercentile\":\"\",\"Metrics\":[{\"Id\":\"m1\",\"Label\":\"Explicit CPU metric label\",\"MetricStat\":{\"Metric\":{\"Dimensions\":[],\"MetricName\":\"CPUUtilization\",\"Namespace\":\"AWS/EC2\"},\"Period\":60,\"Stat\":\"Average\",\"Unit\":\"Percent\"},\"ReturnData\":false,\"AccountId\":\"000000000000\"},{\"Expression\":\"m1 + 0\",\"Id\":\"e1\",\"Label\":\"Explicit expression label\",\"ReturnData\":true,\"Period\":60}]}}"
+      }
+    },
+    {
+      "source_label": "action-delivery-poll-1",
+      "case": "composite",
+      "envelope": {
+        "Subject": "ALARM: \"stackd-native-cw-sns-4b229becf207-composite\" in US East (N. Virginia)",
+        "Message": "{\"AlarmName\":\"stackd-native-cw-sns-4b229becf207-composite\",\"AlarmDescription\":\"stackd-native-cw-sns-4b229becf207 real child transition\",\"AWSAccountId\":\"000000000000\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child transitioned to ALARM at Monday 14 September, 2026 11:18:52 UTC\",\"StateChangeTime\":\"2026-09-14T11:18:52.496+0000\",\"Region\":\"US East (N. Virginia)\",\"AlarmArn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-composite\",\"OKActions\":[],\"AlarmActions\":[\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\"],\"InsufficientDataActions\":[],\"ActionExecutedAfterMuteWindow\":false,\"OldStateValue\":\"OK\",\"AlarmRule\":\"ALARM(\\\"stackd-native-cw-sns-4b229becf207-child\\\")\",\"TriggeringChildren\":[{\"Arn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-child\",\"State\":{\"Value\":\"ALARM\",\"Timestamp\":\"2026-09-14T11:18:52.496+0000\"}}]}"
+      }
+    },
+    {
+      "source_label": "action-delivery-poll-2",
+      "case": "long-ascii",
+      "envelope": {
+        "Subject": "ALARM: \"stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVW...\" in US East (N. Virginia)",
+        "Message": "{\"AlarmName\":\"stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\",\"AlarmDescription\":\"stackd-native-cw-sns-4b229becf207 long-ascii\",\"AWSAccountId\":\"000000000000\",\"AlarmConfigurationUpdatedTimestamp\":\"2026-09-14T11:18:43.496+0000\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\",\"StateChangeTime\":\"2026-09-14T11:18:44.401+0000\",\"Region\":\"US East (N. Virginia)\",\"AlarmArn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-ascii-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\",\"OldStateValue\":\"INSUFFICIENT_DATA\",\"ActionExecutedAfterMuteWindow\":false,\"OKActions\":[],\"AlarmActions\":[\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\"],\"InsufficientDataActions\":[],\"Trigger\":{\"MetricName\":\"CPUUtilization\",\"Namespace\":\"AWS/EC2\",\"StatisticType\":\"Statistic\",\"Statistic\":\"AVERAGE\",\"Unit\":\"Percent\",\"Dimensions\":[],\"Period\":300,\"EvaluationPeriods\":1,\"DatapointsToAlarm\":1,\"ComparisonOperator\":\"GreaterThanThreshold\",\"Threshold\":50.0,\"TreatMissingData\":\"ignore\",\"EvaluateLowSampleCountPercentile\":\"\"}}"
+      }
+    },
+    {
+      "source_label": "action-delivery-poll-3",
+      "case": "long-unicode",
+      "envelope": {
+        "Subject": "ALARM: \"stackd-native-cw-sns-4b229becf207-unicode-_\" in US East (N. Virginia)",
+        "Message": "{\"AlarmName\":\"stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é\",\"AlarmDescription\":\"stackd-native-cw-sns-4b229becf207 long-unicode\",\"AWSAccountId\":\"000000000000\",\"AlarmConfigurationUpdatedTimestamp\":\"2026-09-14T11:18:45.336+0000\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"stackd-native-cw-sns-4b229becf207 observed manual transition to ALARM\",\"StateChangeTime\":\"2026-09-14T11:18:46.252+0000\",\"Region\":\"US East (N. Virginia)\",\"AlarmArn\":\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-cw-sns-4b229becf207-unicode-界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é界é\",\"OldStateValue\":\"INSUFFICIENT_DATA\",\"ActionExecutedAfterMuteWindow\":false,\"OKActions\":[],\"AlarmActions\":[\"arn:aws:sns:us-east-1:000000000000:stackd-native-cw-sns-4b229becf207\"],\"InsufficientDataActions\":[],\"Trigger\":{\"MetricName\":\"CPUUtilization\",\"Namespace\":\"AWS/EC2\",\"StatisticType\":\"Statistic\",\"Statistic\":\"AVERAGE\",\"Unit\":\"Percent\",\"Dimensions\":[],\"Period\":300,\"EvaluationPeriods\":1,\"DatapointsToAlarm\":1,\"ComparisonOperator\":\"GreaterThanThreshold\",\"Threshold\":50.0,\"TreatMissingData\":\"ignore\",\"EvaluateLowSampleCountPercentile\":\"\"}}"
+      }
+    }
+  ],
+  "dependency_evidence": [
+    {
+      "label": "recovery-alarm-authorized-history-0",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "stackd-native-sns-fde5a5ebdc164e179618-scalar",
+        "HistoryItemType": "Action",
+        "MaxRecords": 100
+      },
+      "request_started_ms": 1789376809846,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "stackd-native-sns-fde5a5ebdc164e179618-scalar",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T10:06:48.257000+01:00",
+              "HistoryItemType": "Action",
+              "HistorySummary": "Successfully executed action arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm",
+              "HistoryData": "{\"actionState\":\"Succeeded\",\"stateUpdateTimestamp\":1789376808232,\"notificationResource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm\",\"publishedMessage\":\"{\\\"default\\\":\\\"{\\\\\\\"AlarmName\\\\\\\":\\\\\\\"stackd-native-sns-fde5a5ebdc164e179618-scalar\\\\\\\",\\\\\\\"AlarmDescription\\\\\\\":\\\\\\\"Owned native SNS dependency experiment\\\\\\\",\\\\\\\"AWSAccountId\\\\\\\":\\\\\\\"000000000000\\\\\\\",\\\\\\\"AlarmConfigurationUpdatedTimestamp\\\\\\\":\\\\\\\"2026-09-14T09:06:26.165+0000\\\\\\\",\\\\\\\"NewStateValue\\\\\\\":\\\\\\\"ALARM\\\\\\\",\\\\\\\"NewStateReason\\\\\\\":\\\\\\\"owned authorized SNS action\\\\\\\",\\\\\\\"StateChangeTime\\\\\\\":\\\\\\\"2026-09-14T09:06:48.232+0000\\\\\\\",\\\\\\\"Region\\\\\\\":\\\\\\\"US East (N. Virginia)\\\\\\\",\\\\\\\"AlarmArn\\\\\\\":\\\\\\\"arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-sns-fde5a5ebdc164e179618-scalar\\\\\\\",\\\\\\\"OldStateValue\\\\\\\":\\\\\\\"OK\\\\\\\",\\\\\\\"ActionExecutedAfterMuteWindow\\\\\\\":false,\\\\\\\"OKActions\\\\\\\":[],\\\\\\\"AlarmActions\\\\\\\":[\\\\\\\"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm\\\\\\\"],\\\\\\\"InsufficientDataActions\\\\\\\":[],\\\\\\\"Trigger\\\\\\\":{\\\\\\\"MetricName\\\\\\\":\\\\\\\"stackd-native-sns-fde5a5ebdc164e179618\\\\\\\",\\\\\\\"Namespace\\\\\\\":\\\\\\\"Stackd/NativeSNSProbe\\\\\\\",\\\\\\\"StatisticType\\\\\\\":\\\\\\\"Statistic\\\\\\\",\\\\\\\"Statistic\\\\\\\":\\\\\\\"SUM\\\\\\\",\\\\\\\"Unit\\\\\\\":null,\\\\\\\"Dimensions\\\\\\\":[],\\\\\\\"Period\\\\\\\":60,\\\\\\\"EvaluationPeriods\\\\\\\":1,\\\\\\\"DatapointsToAlarm\\\\\\\":1,\\\\\\\"ComparisonOperator\\\\\\\":\\\\\\\"GreaterThanThreshold\\\\\\\",\\\\\\\"Threshold\\\\\\\":1.0,\\\\\\\"TreatMissingData\\\\\\\":\\\\\\\"ignore\\\\\\\",\\\\\\\"EvaluateLowSampleCountPercentile\\\\\\\":\\\\\\\"\\\\\\\"}}\\\",\\\"sms\\\":\\\"ALARM: \\\\\\\"stackd-native-sns-fde5a5ebdc164e179618-scalar\\\\\\\" in US East (N. Virginia)\\\",\\\"email\\\":\\\"You are receiving this email because your Amazon CloudWatch Alarm \\\\\\\"stackd-native-sns-fde5a5ebdc164e179618-scalar\\\\\\\" in the US East (N. Virginia) region has entered the ALARM state, because \\\\\\\"owned authorized SNS action\\\\\\\" at \\\\\\\"Monday 14 September, 2026 09:06:48 UTC\\\\\\\".\\\\n\\\\nView this alarm in the AWS Management Console:\\\\nhttps://us-east-1.console.aws.amazon.com/cloudwatch/deeplink.js?region=us-east-1#alarmsV2:alarm/stackd-native-sns-fde5a5ebdc164e179618-scalar\\\\n\\\\nAlarm Details:\\\\n- Name:                       stackd-native-sns-fde5a5ebdc164e179618-scalar\\\\n- Description:                Owned native SNS dependency experiment\\\\n- State Change:               OK -> ALARM\\\\n- Reason for State Change:    owned authorized SNS action\\\\n- Timestamp:                  Monday 14 September, 2026 09:06:48 UTC\\\\n- AWS Account:                000000000000\\\\n- Alarm Arn:                  arn:aws:cloudwatch:us-east-1:000000000000:alarm:stackd-native-sns-fde5a5ebdc164e179618-scalar\\\\n\\\\nThreshold:\\\\n- The alarm is in the ALARM state when the metric is GreaterThanThreshold 1.0 for at least 1 of the last 1 period(s) of 60 seconds. \\\\n\\\\nMonitored Metric:\\\\n- MetricNamespace:                     Stackd/NativeSNSProbe\\\\n- MetricName:                          stackd-native-sns-fde5a5ebdc164e179618\\\\n- Dimensions:                          \\\\n- Period:                              60 seconds\\\\n- Statistic:                           Sum\\\\n- Unit:                                not specified\\\\n- TreatMissingData:                    ignore\\\\n\\\\n\\\\nState Change Actions:\\\\n- OK: \\\\n- ALARM: [arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm]\\\\n- INSUFFICIENT_DATA: \\\\n\\\"}\",\"error\":null,\"muteWindowEndTimestamp\":null}"
+            },
+            {
+              "AlarmName": "stackd-native-sns-fde5a5ebdc164e179618-scalar",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-14T10:06:27.689000+01:00",
+              "HistoryItemType": "Action",
+              "HistorySummary": "Failed to execute action arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm",
+              "HistoryData": "{\"actionState\":\"Failed\",\"stateUpdateTimestamp\":1789376787666,\"notificationResource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm\",\"publishedMessage\":null,\"error\":\"CloudWatch Alarms is not authorized to perform: SNS:Publish on resource:arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm\",\"muteWindowEndTimestamp\":null}"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376810553
+    }
+  ]
+}

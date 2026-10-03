@@ -1,0 +1,84 @@
+{
+  "source_capture": "lambda_msk_mapping.json",
+  "provisioning_capture": "lambda_msk_mapping_prerequisite.json",
+  "network_amendment_capture": "lambda_msk_mapping_network.json",
+  "role_permission_capture": "lambda_msk_mapping_permissions.json",
+  "scope": "Native us-east-1 CloudFormation control plane on one exact-created two-AZ provisioned MSK cluster. Every mapping remained disabled and the Lambda function had reserved concurrency zero. No topic creation, Kafka client, producer, records or Lambda invocations occurred.",
+  "measured": {
+    "missing_topic_admission": "Fresh disabled CFN mapping reached CREATE_COMPLETE although the requested topic was never created.",
+    "creation": {
+      "finding": "fresh-defaults-omitted-position",
+      "omitted_starting_position": "TRIM_HORIZON",
+      "batch_size": 100,
+      "maximum_batching_window_output": "absent",
+      "filter_criteria_output": "absent",
+      "source_access_configurations_output": "absent",
+      "outputs": ["MappingRef", "MappingId", "MappingArn"]
+    },
+    "settings_removal": {
+      "finding": "remove-settings-transition",
+      "status": "UPDATE_COMPLETE",
+      "same_uuid": true,
+      "batch_size": "17 to 100",
+      "maximum_batching_window": "2 retained at 2",
+      "filter_criteria": "removed from native response"
+    },
+    "consumer_group": {
+      "public_plan_finding": "group-public-plan",
+      "public_action": "Modify",
+      "public_replacement": "False",
+      "public_requires_recreation": "Never",
+      "execution_findings": ["change-consumer-group-transition", "remove-consumer-group-transition"],
+      "execution": "Both request a new physical resource, then Lambda409 duplicate cluster+function+topics. Both UPDATE_ROLLBACK_COMPLETE; original UUID retained."
+    },
+    "topics": {
+      "findings": ["change-topic-transition", "remove-topics-transition"],
+      "execution": "Both fail in resource with InvalidRequest: Parameter 'Topics' can not be updated. Both UPDATE_ROLLBACK_COMPLETE and same UUID."
+    },
+    "qualified_function_targets": {
+      "findings": ["retarget-owned-first-transition", "retarget-owned-second-transition", "retarget-unqualified-transition"],
+      "execution": "Base function to first alias to second alias to base all UPDATE_COMPLETE in place with returned FunctionArn changed and UUID retained."
+    },
+    "position_replacement": {
+      "findings": ["explicit-latest-transition", "explicit-trim-transition", "timestamp-present-transition"],
+      "execution": "Changing an omitted starting position to explicit LATEST or explicit TRIM_HORIZON, or AT_TIMESTAMP with a valid timestamp, requests replacement and collides on cluster+consumerGroupId. Original mapping survives rollback."
+    },
+    "timestamp_required": {
+      "finding": "timestamp-missing-transition",
+      "execution": "AT_TIMESTAMP without timestamp requests replacement then native Lambda400 requires starting position timestamp; rollback preserves original."
+    },
+    "successful_replacement": {
+      "finding": "replace-position-group-topic-transition",
+      "status": "UPDATE_COMPLETE",
+      "old_uuid": "a3d659a6-b694-43f1-948b-7f5508dc10c3",
+      "new_uuid": "5fefcbf2-0bc4-4e8e-8af8-867b9342c423",
+      "changes": "AT_TIMESTAMP with timestamp plus new consumer group plus new topic",
+      "old_uuid_absence_verified": true,
+      "native_starting_position": "AT_TIMESTAMP",
+      "native_timestamp_returned": true
+    },
+    "timestamp_change_and_removal": {
+      "findings": ["timestamp-only-after-replacement-transition", "remove-position-and-timestamp-transition"],
+      "execution": "Changing only timestamp on the successful AT_TIMESTAMP mapping, and removing position plus timestamp, both request replacement then collide on cluster+group. Both roll back with surviving UUID."
+    },
+    "source_access_introduction": {
+      "findings": ["add-source-access-transition", "remove-source-access-transition", "restore-source-access-transition"],
+      "execution": "All UPDATE_COMPLETE in place, but SourceAccessConfigurations remains absent from native response. Introduction from absent template property is ignored. This does not measure removal of observed credentials."
+    },
+    "combined_property_precedence": {
+      "finding": "authentication-present-on-replacement-transition",
+      "execution": "Changing group and topic with an authentication property, without a create-only change, fails in-resource Topics-can-not-be-updated before replacing. The finding label describes an attempted contrast, not successful replacement or authentication rejection."
+    },
+    "deletion": "Owned stack reached DELETE_COMPLETE, both observed mapping UUIDs returned ResourceNotFoundException. Owned function, aliases, published version, execution role/policy and dummy secret were verified absent. Cluster, security group, both subnets and VPC were verified absent. Exact-created service-linked role ARN+RoleId was fenced before deletion; role absence and native deletion-task SUCCEEDED were both observed."
+  },
+  "unknown": [
+    "Omitted Enabled behavior was not exercised: mappings stayed explicitly disabled for safety.",
+    "Removal/retention of genuinely observed MSK SCRAM credentials was not established. Do not transfer the self-managed Kafka result or infer it from absent authentication controls.",
+    "The combined group/topic/authentication attempt did not reach fresh authenticated creation; it failed immutable-topic validation. It is not evidence that MSK SCRAM authentication is unsupported.",
+    "Actual data-plane connectivity, delivery, offsets, consumer-group progress and Lambda invocation were intentionally not exercised.",
+    "The native omitted batching window response does not expose a numerical 500ms value; 500ms is a primary-documentation statement, not a returned native field.",
+    "No direct published-version target update was measured; qualified-target transitions used two aliases of the owned published version."
+  ],
+  "recovery": "A reviewed durable-inventory handoff observed the already submitted explicit-latest update to terminal without resubmission. A native service-linked-role deletion-status NoSuchEntity immediately after DeleteServiceLinkedRole was retained; later IN_PROGRESS, terminal SUCCEEDED and role absence were observed. No unrelated resources were modified to satisfy cleanup.",
+  "cleanup_complete": true
+}

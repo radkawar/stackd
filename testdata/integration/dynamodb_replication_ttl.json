@@ -1,0 +1,378 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Documented TTL Streams identity distinction: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html. Deterministic regional scanner selection is emulator scheduling, not an AWS timing claim.",
+  "steps": [
+    {
+      "name": "create-stackd-replication-ttl-origin",
+      "operation": "CreateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "ready-stackd-replication-ttl-origin-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "create-us-east-2-from-us-east-1",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "ready-stackd-replication-ttl-origin-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ready-stackd-replication-ttl-origin-us-east-2",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "enable-ttl",
+      "operation": "UpdateTimeToLive",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin",
+        "TimeToLiveSpecification": {
+          "Enabled": true,
+          "AttributeName": "expires"
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "insert-expiring-item",
+      "operation": "PutItem",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin",
+        "Item": {
+          "pk": {
+            "S": "ttl"
+          },
+          "expires": {
+            "N": "1789689610"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "item-reaches-peer-before-expiry",
+      "operation": "GetItem",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin",
+        "Key": {
+          "pk": {
+            "S": "ttl"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item.pk.S": "ttl"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "stream-arn-SOURCE",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin"
+      },
+      "want": {},
+      "bind": {
+        "$SOURCE_STREAM": "Table.LatestStreamArn"
+      }
+    },
+    {
+      "name": "stream-shard-SOURCE",
+      "operation": "DescribeStream",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "StreamArn": "$SOURCE_STREAM"
+      },
+      "want": {
+        "StreamDescription.StreamStatus": "ENABLED"
+      },
+      "bind": {
+        "$SOURCE_SHARD": "StreamDescription.Shards.0.ShardId"
+      }
+    },
+    {
+      "name": "stream-iterator-SOURCE",
+      "operation": "GetShardIterator",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "StreamArn": "$SOURCE_STREAM",
+        "ShardId": "$SOURCE_SHARD",
+        "ShardIteratorType": "TRIM_HORIZON"
+      },
+      "want": {},
+      "bind": {
+        "$SOURCE_ITERATOR": "ShardIterator"
+      }
+    },
+    {
+      "name": "stream-arn-PEER",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin"
+      },
+      "want": {},
+      "bind": {
+        "$PEER_STREAM": "Table.LatestStreamArn"
+      }
+    },
+    {
+      "name": "stream-shard-PEER",
+      "operation": "DescribeStream",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "StreamArn": "$PEER_STREAM"
+      },
+      "want": {
+        "StreamDescription.StreamStatus": "ENABLED"
+      },
+      "bind": {
+        "$PEER_SHARD": "StreamDescription.Shards.0.ShardId"
+      }
+    },
+    {
+      "name": "stream-iterator-PEER",
+      "operation": "GetShardIterator",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "StreamArn": "$PEER_STREAM",
+        "ShardId": "$PEER_SHARD",
+        "ShardIteratorType": "TRIM_HORIZON"
+      },
+      "want": {},
+      "bind": {
+        "$PEER_ITERATOR": "ShardIterator"
+      }
+    },
+    {
+      "name": "expire-original",
+      "operation": "GetItem",
+      "region": "us-east-1",
+      "advance": "1m",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin",
+        "Key": {
+          "pk": {
+            "S": "ttl"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "expire-peer",
+      "operation": "GetItem",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin",
+        "Key": {
+          "pk": {
+            "S": "ttl"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "remove-observed-SOURCE",
+      "operation": "GetRecords",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "ShardIterator": "$SOURCE_ITERATOR"
+      },
+      "want": {
+        "Records.1.eventName": "REMOVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ttl-identity-SOURCE",
+      "operation": "GetRecords",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "ShardIterator": "$SOURCE_ITERATOR"
+      },
+      "want": {
+        "Records.1.userIdentity": {
+          "Type": "Service",
+          "PrincipalId": "dynamodb.amazonaws.com"
+        }
+      }
+    },
+    {
+      "name": "remove-observed-PEER",
+      "operation": "GetRecords",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "ShardIterator": "$PEER_ITERATOR"
+      },
+      "want": {
+        "Records.1.eventName": "REMOVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ttl-identity-PEER",
+      "operation": "GetRecords",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "ShardIterator": "$PEER_ITERATOR"
+      },
+      "want": {
+        "Records.1.userIdentity": null
+      }
+    },
+    {
+      "name": "delete-us-east-2-from-us-east-1",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "absent-stackd-replication-ttl-origin-us-east-2",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "ready-stackd-replication-ttl-origin-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-ttl-source",
+      "operation": "DeleteTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin"
+      },
+      "want": {}
+    },
+    {
+      "name": "absent-stackd-replication-ttl-origin-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-ttl-origin"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    }
+  ]
+}

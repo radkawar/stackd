@@ -1,0 +1,534 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-26T14:39:59.773Z",
+  "scope_rule": "Reviewed operation semantics and bounded native captures, not a complete service operation inventory or a support claim. The generated service inventory records the chosen-service operation target.",
+  "sources": [
+    {
+      "kind": "AWS SDK transport/model",
+      "repository": "/home/r/dev/minor/stackd/clones/aws-sdk-go-v2",
+      "revision": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+    }
+  ],
+  "primary_revision": {
+    "revision": "AWS latest published documentation; API reference publication date recorded below, no immutable commit supplied",
+    "retrieved_date": "2026-09-26",
+    "api_reference_published_date": "2026-09-25",
+    "publication_source": "https://docs.aws.amazon.com/codebuild/latest/APIReference/Welcome.html"
+  },
+  "native_scope": {
+    "account": "000000000000",
+    "region": "us-east-1",
+    "partition": "aws"
+  },
+  "evidence_contract": {
+    "observations": "Ordered case/operation/parameters plus native code/output or error and HTTP/request ID when raw signed transport is used.",
+    "secrets": "Authorization tokens, passwords, credentials and presigned layer URLs are never retained. Upload IDs and digests are nonsecret.",
+    "cleanup": "Each capture retains owned resource names and observed deletion/not-found outcomes; KMS pending deletion is not immediate physical removal."
+  },
+  "native_capture_summary": "capture_summary.json",
+  "local_completion_evidence": "../../integration/ecr_codebuild_completion.json",
+  "service": "codebuild",
+  "groups": {
+    "projects": {
+      "operations": [
+        "CreateProject",
+        "UpdateProject",
+        "DeleteProject",
+        "BatchGetProjects",
+        "ListProjects"
+      ],
+      "semantics": [
+        "Project retains source, environment, role, artifact/cache/log settings and regional/account identity. Updating rejected fields must preserve prior state.",
+        "Source retrieval, role assumption and artifact/log delivery use owning AWS services rather than parallel stores.",
+        "Name-scoped probes never enumerate standing projects. ListProjects pagination/sort needs separate behavioral evidence."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_CreateProject.html",
+        "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_UpdateProject.html",
+        "https://docs.aws.amazon.com/codebuild/latest/userguide/setting-up-service-role.html"
+      ]
+    },
+    "build_execution": {
+      "operations": [
+        "StartBuild",
+        "BatchGetBuilds",
+        "StopBuild"
+      ],
+      "semantics": [
+        "StartBuild accepts asynchronous execution, not success. Actual commands establish succeeded/failed/stopped/timed-out status, phase contexts, timestamps and buildComplete.",
+        "Start overrides apply to one build only; environment precedence is start override > project > buildspec.",
+        "StartBuild idempotency token is case-sensitive and valid five minutes; same token with changed parameters is a mismatch.",
+        "Buildspec 0.2 preserves shell state; 0.1 executes commands separately. Finally runs after failed commands. UPLOAD_ARTIFACTS is always attempted even when BUILD fails.",
+        "StopBuild attempts cancellation; observe terminal state, do not treat request acceptance as completed cancellation.",
+        "Curated CodeBuild images use CODEBUILD pull credentials; cross-account/private images require SERVICE_ROLE."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StartBuild.html",
+        "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StopBuild.html",
+        "https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html",
+        "https://docs.aws.amazon.com/codebuild/latest/userguide/view-build-details-phases.html"
+      ]
+    },
+    "history": {
+      "operations": [
+        "BatchDeleteBuilds",
+        "ListBuilds",
+        "ListBuildsForProject"
+      ],
+      "semantics": [
+        "Build history and partial batch deletion failures are real state, not a list of projects. Build deletion does not delete S3 artifacts or CloudWatch logs.",
+        "Owned probes query only the owned project history; account-wide build enumeration is not needed."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchDeleteBuilds.html",
+        "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListBuildsForProject.html"
+      ]
+    },
+    "fleets": {
+      "operations": [
+        "CreateFleet",
+        "DeleteFleet",
+        "ListFleets"
+      ],
+      "semantics": [
+        "Reserved fleets provision real dedicated capacity and keep charging while idle; configuration metadata alone is not a fleet.",
+        "No native fleet created under the one-dollar bound; fleet Create/Delete/List remain part of the sixteen-operation target.",
+        "BatchGetFleets and UpdateFleet are outside coverage target but real consumers may require them."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/codebuild/latest/userguide/fleets.html"
+      ]
+    },
+    "source_credentials": {
+      "operations": [
+        "ImportSourceCredentials",
+        "DeleteSourceCredentials",
+        "ListSourceCredentials"
+      ],
+      "semantics": [
+        "Source credentials configure authenticated external source access; tokens must not appear in returned metadata/logs/fixtures.",
+        "No external source secrets imported and no standing credential configuration changed; these enterprise operations remain unproven by native captures.",
+        "ImportSourceCredentials OAUTH is console-only, not supported through the API. shouldOverwrite defaults true. token contains a connectionArn or secretArn for CODECONNECTIONS and SECRETS_MANAGER respectively."
+      ],
+      "primary": [
+        "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ImportSourceCredentials.html",
+        "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListSourceCredentials.html"
+      ]
+    }
+  },
+  "operations": [
+    {
+      "operation": "BatchDeleteBuilds",
+      "workload_required": false,
+      "semantic_group": "history",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchDeleteBuilds.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetBuildBatches",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchGetBuildBatches.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetBuilds",
+      "workload_required": false,
+      "semantic_group": "build_execution",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchGetBuilds.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetCommandExecutions",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchGetCommandExecutions.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetFleets",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchGetFleets.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetProjects",
+      "workload_required": false,
+      "semantic_group": "projects",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchGetProjects.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetReportGroups",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchGetReportGroups.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetReports",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchGetReports.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "BatchGetSandboxes",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_BatchGetSandboxes.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "CreateFleet",
+      "workload_required": false,
+      "semantic_group": "fleets",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_CreateFleet.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "CreateProject",
+      "workload_required": false,
+      "semantic_group": "projects",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_CreateProject.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "CreateReportGroup",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_CreateReportGroup.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "CreateWebhook",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_CreateWebhook.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteBuildBatch",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DeleteBuildBatch.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteFleet",
+      "workload_required": false,
+      "semantic_group": "fleets",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DeleteFleet.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteProject",
+      "workload_required": false,
+      "semantic_group": "projects",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DeleteProject.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteReport",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DeleteReport.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteReportGroup",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DeleteReportGroup.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteResourcePolicy",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DeleteResourcePolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteSourceCredentials",
+      "workload_required": false,
+      "semantic_group": "source_credentials",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DeleteSourceCredentials.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DeleteWebhook",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DeleteWebhook.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribeCodeCoverages",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DescribeCodeCoverages.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "DescribeTestCases",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_DescribeTestCases.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetReportGroupTrend",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_GetReportGroupTrend.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "GetResourcePolicy",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_GetResourcePolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ImportSourceCredentials",
+      "workload_required": false,
+      "semantic_group": "source_credentials",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ImportSourceCredentials.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "InvalidateProjectCache",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_InvalidateProjectCache.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListBuildBatches",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListBuildBatches.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListBuildBatchesForProject",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListBuildBatchesForProject.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListBuilds",
+      "workload_required": false,
+      "semantic_group": "history",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListBuilds.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListBuildsForProject",
+      "workload_required": false,
+      "semantic_group": "history",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListBuildsForProject.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListCommandExecutionsForSandbox",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListCommandExecutionsForSandbox.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListCuratedEnvironmentImages",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListCuratedEnvironmentImages.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListFleets",
+      "workload_required": false,
+      "semantic_group": "fleets",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListFleets.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListProjects",
+      "workload_required": false,
+      "semantic_group": "projects",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListProjects.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListReportGroups",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListReportGroups.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListReports",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListReports.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListReportsForReportGroup",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListReportsForReportGroup.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListSandboxes",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListSandboxes.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListSandboxesForProject",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListSandboxesForProject.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListSharedProjects",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListSharedProjects.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListSharedReportGroups",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListSharedReportGroups.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "ListSourceCredentials",
+      "workload_required": false,
+      "semantic_group": "source_credentials",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ListSourceCredentials.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "PutResourcePolicy",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_PutResourcePolicy.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "RetryBuild",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_RetryBuild.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "RetryBuildBatch",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_RetryBuildBatch.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StartBuild",
+      "workload_required": false,
+      "semantic_group": "build_execution",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StartBuild.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StartBuildBatch",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StartBuildBatch.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StartCommandExecution",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StartCommandExecution.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StartSandbox",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StartSandbox.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StartSandboxConnection",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StartSandboxConnection.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StopBuild",
+      "workload_required": true,
+      "semantic_group": "build_execution",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StopBuild.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StopBuildBatch",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StopBuildBatch.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "StopSandbox",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_StopSandbox.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UpdateFleet",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_UpdateFleet.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UpdateProject",
+      "workload_required": false,
+      "semantic_group": "projects",
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_UpdateProject.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UpdateProjectVisibility",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_UpdateProjectVisibility.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UpdateReportGroup",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_UpdateReportGroup.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    },
+    {
+      "operation": "UpdateWebhook",
+      "workload_required": false,
+      "semantic_group": null,
+      "primary_api": "https://docs.aws.amazon.com/codebuild/latest/APIReference/API_UpdateWebhook.html",
+      "native_evidence": "See uniquely owned capture JSON; this inventory is not native behavioral evidence."
+    }
+  ]
+}

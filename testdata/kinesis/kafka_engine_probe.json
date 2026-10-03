@@ -1,0 +1,72 @@
+{
+  "purpose": "Alternative imported record engine experiment, not AWS Kinesis semantic conformance.",
+  "image": "apache/kafka@sha256:ed74d7d115968d5e8b00ba6822ac6a384cbaaf54ca38991828647000d7089b68",
+  "configuration": {
+    "CLUSTER_ID": "MkU3OEVBNTcwNTJENDM2Qk",
+    "KAFKA_NODE_ID": "1",
+    "KAFKA_PROCESS_ROLES": "broker,controller",
+    "KAFKA_LISTENERS": "PLAINTEXT://:9092,CONTROLLER://:9093",
+    "KAFKA_ADVERTISED_LISTENERS": "PLAINTEXT://127.0.0.1:9092",
+    "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT",
+    "KAFKA_CONTROLLER_LISTENER_NAMES": "CONTROLLER",
+    "KAFKA_CONTROLLER_QUORUM_VOTERS": "1@127.0.0.1:9093",
+    "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
+    "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR": "1",
+    "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR": "1",
+    "KAFKA_LOG_DIRS": "/var/lib/kafka/data",
+    "KAFKA_LOG_RETENTION_MS": "-1",
+    "KAFKA_LOG_FLUSH_INTERVAL_MESSAGES": "1",
+    "KAFKA_MESSAGE_MAX_BYTES": "12582912",
+    "KAFKA_REPLICA_FETCH_MAX_BYTES": "12582912",
+    "KAFKA_HEAP_OPTS": "-Xms256m -Xmx512m"
+  },
+  "payload": {
+    "largeBytes": 10485760,
+    "byteAtIndex": "index modulo251",
+    "verification": "Every returned byte compared, not just length"
+  },
+  "observations": [
+    {
+      "operation": "create-topic",
+      "output": "Created topic owned-stream."
+    },
+    {
+      "operation": "put-record",
+      "output": "ACK key=baseline offset=0 timestamp=1609459200123 bytes=64"
+    },
+    {
+      "operation": "put-record",
+      "output": "ACK key=large offset=1 timestamp=1609459201123 bytes=10485760"
+    },
+    {
+      "operation": "read-before-crash",
+      "output": "READ key=baseline offset=0 timestamp=1609459200123 bytes=64 exact=true\nREAD key=large offset=1 timestamp=1609459201123 bytes=10485760 exact=true\nTIMESTAMP_LOOKUP offset=1 timestamp=1609459201123"
+    },
+    {
+      "operation": "acknowledged-before-kill",
+      "output": "ACK key=crash offset=2 timestamp=1609459202123 bytes=64"
+    },
+    {
+      "operation": "read-after-sigkill-same-volume",
+      "output": "READ key=baseline offset=0 timestamp=1609459200123 bytes=64 exact=true\nREAD key=large offset=1 timestamp=1609459201123 bytes=10485760 exact=true\nREAD key=crash offset=2 timestamp=1609459202123 bytes=64 exact=true\nTIMESTAMP_LOOKUP offset=1 timestamp=1609459201123"
+    },
+    {
+      "operation": "native-delete-prefix",
+      "output": "Executing records delete operation\nRecords delete operation completed:\npartition: owned-stream-0\tlow_watermark: 1"
+    },
+    {
+      "operation": "read-after-prefix-deletion",
+      "output": "READ key=large offset=1 timestamp=1609459201123 bytes=10485760 exact=true\nREAD key=crash offset=2 timestamp=1609459202123 bytes=64 exact=true\nTIMESTAMP_LOOKUP offset=1 timestamp=1609459201123"
+    }
+  ],
+  "cleanup": {
+    "containersRemaining": 0,
+    "volumesRemaining": 0,
+    "verifiedAt": "2026-09-19T01:20:54.118Z"
+  },
+  "limitations": [
+    "One broker and one partition, replication factor1; no host-power-cut or disk-failure test.",
+    "Container was SIGKILLed after the acknowledged producer call returned; normal producer close completed before the kill.",
+    "No Kinesis frontend, shard semantics, IAM, quotas or cross-service adapter implemented in this experiment."
+  ]
+}

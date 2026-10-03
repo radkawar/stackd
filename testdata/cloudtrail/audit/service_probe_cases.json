@@ -1,0 +1,33 @@
+{
+  "cases": [
+    {"label":"object-write","service":"s3","operation":"put_object","category":"Data","input":{"Bucket":"${data_bucket}","Key":"public.txt","Body":"synthetic audit payload\n"}},
+    {"label":"object-read","service":"s3","operation":"get_object","category":"Data","input":{"Bucket":"${data_bucket}","Key":"public.txt"}},
+    {"label":"object-missing","service":"s3","operation":"get_object","category":"Data","code":"NoSuchKey","input":{"Bucket":"${data_bucket}","Key":"missing.txt"}},
+    {"label":"object-private-write","service":"s3","operation":"put_object","category":"Data","input":{"Bucket":"${data_bucket}","Key":"private.txt","Body":"synthetic private payload\n"}},
+    {"label":"role-object-read","service":"s3","operation":"get_object","caller":"reader","category":"Data","input":{"Bucket":"${data_bucket}","Key":"public.txt"}},
+    {"label":"role-object-denied","service":"s3","operation":"get_object","caller":"reader","category":"Data","code":"AccessDenied","input":{"Bucket":"${data_bucket}","Key":"private.txt"}},
+    {"label":"queue-send","service":"sqs","operation":"send_message","category":"Data","input":{"QueueUrl":"${queue_url}","MessageBody":"synthetic CloudTrail message"}},
+    {"label":"queue-receive","service":"sqs","operation":"receive_message","category":"Data","input":{"QueueUrl":"${queue_url}","MaxNumberOfMessages":1,"WaitTimeSeconds":5},"bind":{"receipt":"Messages.0.ReceiptHandle"}},
+    {"label":"queue-delete-message","service":"sqs","operation":"delete_message","category":"Data","input":{"QueueUrl":"${queue_url}","ReceiptHandle":"${receipt}"}},
+    {"label":"role-queue-send","service":"sqs","operation":"send_message","caller":"reader","category":"Data","input":{"QueueUrl":"${queue_url}","MessageBody":"synthetic assumed-role message"}},
+    {"label":"queue-attributes","service":"sqs","operation":"get_queue_attributes","category":"Data","input":{"QueueUrl":"${queue_url}","AttributeNames":["QueueArn"]}},
+    {"label":"database-get","service":"glue","operation":"get_database","category":"Management","input":{"Name":"${database}"}},
+    {"label":"database-missing","service":"glue","operation":"get_database","category":"Management","code":"EntityNotFoundException","input":{"Name":"${database}_missing"}},
+    {"label":"role-database-get","service":"glue","operation":"get_database","caller":"reader","category":"Management","input":{"Name":"${database}"}},
+    {"label":"database-update","service":"glue","operation":"update_database","category":"Management","input":{"Name":"${database}","DatabaseInput":{"Name":"${database}","Description":"synthetic audit description"}}},
+    {"label":"table-create","service":"glue","operation":"create_table","category":"Management","input":{"DatabaseName":"${database}","TableInput":{"Name":"items","TableType":"EXTERNAL_TABLE","StorageDescriptor":{"Columns":[{"Name":"value","Type":"string"}],"Location":"s3://${data_bucket}/input/","InputFormat":"org.apache.hadoop.mapred.TextInputFormat","OutputFormat":"org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat","SerdeInfo":{"SerializationLibrary":"org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"}}}}},
+    {"label":"table-get","service":"glue","operation":"get_table","category":"Management","input":{"DatabaseName":"${database}","Name":"items"}},
+    {"label":"tables-list","service":"glue","operation":"get_tables","category":"Management","input":{"DatabaseName":"${database}"}},
+    {"label":"table-missing","service":"glue","operation":"get_table","category":"Management","code":"EntityNotFoundException","input":{"DatabaseName":"${database}","Name":"missing"}},
+    {"label":"workgroup-get","service":"athena","operation":"get_work_group","category":"Management","input":{"WorkGroup":"${workgroup}"}},
+    {"label":"role-workgroup-get","service":"athena","operation":"get_work_group","caller":"reader","category":"Management","input":{"WorkGroup":"${workgroup}"}},
+    {"label":"workgroup-update","service":"athena","operation":"update_work_group","category":"Management","input":{"WorkGroup":"${workgroup}","Description":"synthetic audit description"}},
+    {"label":"workgroup-missing","service":"athena","operation":"get_work_group","category":"Management","code":"InvalidRequestException","input":{"WorkGroup":"${workgroup}-missing"}},
+    {"label":"named-query-create","service":"athena","operation":"create_named_query","category":"Management","input":{"Name":"${prefix}-query","Database":"${database}","WorkGroup":"${workgroup}","QueryString":"SELECT 'synthetic-cloudtrail-query-marker'"},"bind":{"named_query_id":"NamedQueryId"}},
+    {"label":"named-query-get","service":"athena","operation":"get_named_query","category":"Management","input":{"NamedQueryId":"${named_query_id}"}},
+    {"label":"prepared-create","service":"athena","operation":"create_prepared_statement","category":"Management","input":{"StatementName":"audit_statement","WorkGroup":"${workgroup}","QueryStatement":"SELECT 1 WHERE 1 = ?"}},
+    {"label":"prepared-get","service":"athena","operation":"get_prepared_statement","category":"Management","input":{"StatementName":"audit_statement","WorkGroup":"${workgroup}"}},
+    {"label":"query-start","service":"athena","operation":"start_query_execution","category":"Management","input":{"QueryString":"SELECT CAST(7 AS BIGINT) AS answer","WorkGroup":"${workgroup}","ClientRequestToken":"${query_token}","ResultConfiguration":{"OutputLocation":"s3://${data_bucket}/results/"}},"bind":{"query_id":"QueryExecutionId"}},
+    {"label":"query-rejected","service":"athena","operation":"start_query_execution","category":"Management","code":"InvalidRequestException","input":{"QueryString":"SELECT 'synthetic-rejected-query-marker'","WorkGroup":"${workgroup}-missing","ClientRequestToken":"${rejected_query_token}"}}
+  ]
+}

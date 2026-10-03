@@ -1,0 +1,1349 @@
+{
+  "Source": "s3/replication_authority_evidence.json.gz",
+  "Start": "2026-09-21T08:50:00Z",
+  "AuditBucket": "stackd-repl-audit-replay",
+  "AuditPrefix": "AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "All evidence array indices are zero-based. AuditRoleExecutionRecords retains authoritative native gzip-delivered records; this fixture projects their semantic fields and does not replace the raw evidence.",
+    "Same-account us-east-1 source and destination records only: the native role array does not establish cross-account destination or cross-region audit parity. Unused cross-account replication rules and policy-denial scenarios are omitted.",
+    "Manual one-minute replication and six-minute CloudTrail drain boundaries plus reopen are local lifecycle controls, not native timing, internal ordering, exactly-once or latency assertions. Positive records must be newly delivered in their own phase.",
+    "Role/account IDs and object versions rebind to actual create/put responses; source canonical owner is observed through GetBucketAcl. Record identity, resources, region, response, error code, size presence and subresources are semantic assertions.",
+    "Request/event IDs and host/network/TLS encoding vary. Request projection deliberately covers bucket/key/version/subresources, not native internal ACL/encryption/storage-class header encoding. Metadata XML lengths, internal operation ordering and error wording are not pinned.",
+    "KMS setup creates real keys; role has S3 authority but no kms:Decrypt. Accepted source SSE-KMS upload must fail replication, leave no destination and retain readable source bytes. KMS Decrypt AuditRoleExecutionRecords[21] corroborates the cause; this data-only trail validates S3 denial [18], not KMS management delivery.",
+    "Metadata mutation Observations[282] and completed tag readback [294] are native; the post-mutation unchanged-body check is an explicit local invariant. Delete marker [118] is replayed without its unrelated older version, and destination marker fields project [251]."
+  ],
+  "Setup": [
+    {
+      "Label": "create-stackd-repl-auth-src-a01e66f850c0",
+      "Source": "s3/replication_authority_evidence.json.gz:Observations[25]",
+      "Sequence": 26,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+        "ObjectLockEnabledForBucket": true
+      },
+      "Output": {
+        "Location": "/stackd-repl-auth-src-a01e66f850c0",
+        "BucketArn": "arn:${partition}:s3:::stackd-repl-auth-src-a01e66f850c0"
+      }
+    },
+    {
+      "Label": "version-stackd-repl-auth-src-a01e66f850c0",
+      "Source": "s3/replication_authority_evidence.json.gz:Observations[26]",
+      "Sequence": 27,
+      "Service": "s3",
+      "Operation": "PutBucketVersioning",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-stackd-repl-auth-dst-a01e66f850c0",
+      "Source": "s3/replication_authority_evidence.json.gz:Observations[27]",
+      "Sequence": 28,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-repl-auth-dst-a01e66f850c0",
+        "ObjectLockEnabledForBucket": true
+      },
+      "Output": {
+        "Location": "/stackd-repl-auth-dst-a01e66f850c0",
+        "BucketArn": "arn:${partition}:s3:::stackd-repl-auth-dst-a01e66f850c0"
+      }
+    },
+    {
+      "Label": "version-stackd-repl-auth-dst-a01e66f850c0",
+      "Source": "s3/replication_authority_evidence.json.gz:Observations[28]",
+      "Sequence": 29,
+      "Service": "s3",
+      "Operation": "PutBucketVersioning",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-repl-auth-dst-a01e66f850c0",
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-role",
+      "Source": "s3/replication_authority_evidence.json.gz:Observations[29]",
+      "Sequence": 30,
+      "Service": "iam",
+      "Operation": "CreateRole",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "stackd-repl-auth-a01e66f850c0",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "Output": {
+        "Role": {
+          "Path": "/",
+          "RoleName": "stackd-repl-auth-a01e66f850c0",
+          "RoleId": "${replicationRoleId}",
+          "Arn": "${replicationRole}"
+        }
+      },
+      "Bind": {
+        "replicationRole": "Role.Arn",
+        "replicationRoleId": "Role.RoleId"
+      }
+    },
+    {
+      "Label": "role-policy",
+      "Source": "s3/replication_authority_evidence.json.gz:Observations[30]",
+      "Sequence": 31,
+      "Service": "iam",
+      "Operation": "PutRolePolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "stackd-repl-auth-a01e66f850c0",
+        "PolicyName": "owned-replication",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetReplicationConfiguration\", \"s3:ListBucket\"], \"Resource\": \"arn:${partition}:s3:::stackd-repl-auth-src-a01e66f850c0\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersionForReplication\", \"s3:GetObjectVersionAcl\", \"s3:GetObjectVersionTagging\", \"s3:GetObjectRetention\", \"s3:GetObjectLegalHold\"], \"Resource\": \"arn:${partition}:s3:::stackd-repl-auth-src-a01e66f850c0/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:ReplicateObject\", \"s3:ReplicateDelete\", \"s3:ReplicateTags\"], \"Resource\": \"arn:${partition}:s3:::stackd-repl-auth-dst-a01e66f850c0/*\"}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-kms-source",
+      "Source": "s3/replication_authority_evidence.json.gz:Observations[143]",
+      "Sequence": 144,
+      "Service": "kms",
+      "Operation": "CreateKey",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Description": "Owned stackd-repl-auth a01e66f850c0 source",
+        "Tags": [
+          {
+            "TagKey": "stackd-probe",
+            "TagValue": "a01e66f850c0"
+          }
+        ]
+      },
+      "Output": {
+        "KeyMetadata": {
+          "AWSAccountId": "${account}",
+          "KeyId": "${sourceKeyId}",
+          "Arn": "${sourceKeyArn}",
+          "Enabled": true,
+          "Description": "Owned stackd-repl-auth a01e66f850c0 source",
+          "KeyUsage": "ENCRYPT_DECRYPT",
+          "KeyState": "Enabled",
+          "Origin": "AWS_KMS",
+          "KeyManager": "CUSTOMER",
+          "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+          "KeySpec": "SYMMETRIC_DEFAULT",
+          "EncryptionAlgorithms": [
+            "SYMMETRIC_DEFAULT"
+          ],
+          "MultiRegion": false,
+          "CurrentKeyMaterialId": "${sourceKeyMaterial}"
+        }
+      },
+      "Bind": {
+        "sourceKeyArn": "KeyMetadata.Arn",
+        "sourceKeyId": "KeyMetadata.KeyId",
+        "sourceKeyMaterial": "KeyMetadata.CurrentKeyMaterialId"
+      }
+    },
+    {
+      "Label": "create-kms-destination",
+      "Source": "s3/replication_authority_evidence.json.gz:Observations[145]",
+      "Sequence": 146,
+      "Service": "kms",
+      "Operation": "CreateKey",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Description": "Owned stackd-repl-auth a01e66f850c0 destination",
+        "Tags": [
+          {
+            "TagKey": "stackd-probe",
+            "TagValue": "a01e66f850c0"
+          }
+        ]
+      },
+      "Output": {
+        "KeyMetadata": {
+          "AWSAccountId": "${account}",
+          "KeyId": "${destinationKeyId}",
+          "Arn": "${destinationKeyArn}",
+          "Enabled": true,
+          "Description": "Owned stackd-repl-auth a01e66f850c0 destination",
+          "KeyUsage": "ENCRYPT_DECRYPT",
+          "KeyState": "Enabled",
+          "Origin": "AWS_KMS",
+          "KeyManager": "CUSTOMER",
+          "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+          "KeySpec": "SYMMETRIC_DEFAULT",
+          "EncryptionAlgorithms": [
+            "SYMMETRIC_DEFAULT"
+          ],
+          "MultiRegion": false,
+          "CurrentKeyMaterialId": "${destinationKeyMaterial}"
+        }
+      },
+      "Bind": {
+        "destinationKeyArn": "KeyMetadata.Arn",
+        "destinationKeyId": "KeyMetadata.KeyId",
+        "destinationKeyMaterial": "KeyMetadata.CurrentKeyMaterialId"
+      }
+    },
+    {
+      "Label": "CreateBucket",
+      "Source": "local-fixture",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "Bucket": "stackd-repl-audit-replay"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "trail-bucket-policy",
+      "Source": "local-fixture:CloudTrail delivery setup following restore_delivery_replay.json",
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "stackd-repl-audit-replay",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-repl-audit-replay\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/stackd-repl-audit-trail\"}}}, {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-repl-audit-replay/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-acl\": \"bucket-owner-full-control\", \"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/stackd-repl-audit-trail\"}}}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-trail",
+      "Source": "local-fixture:CloudTrail delivery setup following restore_delivery_replay.json",
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-repl-audit-trail",
+        "S3BucketName": "stackd-repl-audit-replay",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false
+      },
+      "Output": {}
+    },
+    {
+      "Label": "trail-selectors",
+      "Source": "local-fixture:CloudTrail delivery setup following restore_delivery_replay.json",
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "TrailName": "stackd-repl-audit-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "owned-objects",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::S3::Object"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0/",
+                  "arn:aws:s3:::stackd-repl-auth-dst-a01e66f850c0/"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start-trail",
+      "Source": "local-fixture:CloudTrail delivery setup following restore_delivery_replay.json",
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-repl-audit-trail"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "kms-opt-in-config",
+      "Source": "s3/replication_authority_evidence.json.gz:Observations[147]",
+      "Sequence": 148,
+      "Service": "s3",
+      "Operation": "PutBucketReplication",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+        "ReplicationConfiguration": {
+          "Role": "${replicationRole}",
+          "Rules": [
+            {
+              "ID": "same-account",
+              "Priority": 1,
+              "Filter": {
+                "Prefix": "same/"
+              },
+              "Status": "Enabled",
+              "DeleteMarkerReplication": {
+                "Status": "Enabled"
+              },
+              "Destination": {
+                "Bucket": "arn:${partition}:s3:::stackd-repl-auth-dst-a01e66f850c0"
+              }
+            },
+            {
+              "ID": "kms-opt-in",
+              "Priority": 5,
+              "Filter": {
+                "Prefix": "kms/"
+              },
+              "Status": "Enabled",
+              "DeleteMarkerReplication": {
+                "Status": "Enabled"
+              },
+              "Destination": {
+                "Bucket": "arn:${partition}:s3:::stackd-repl-auth-dst-a01e66f850c0",
+                "EncryptionConfiguration": {
+                  "ReplicaKmsKeyID": "${destinationKeyArn}"
+                }
+              },
+              "SourceSelectionCriteria": {
+                "SseKmsEncryptedObjects": {
+                  "Status": "Enabled"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "GetBucketAcl",
+      "Source": "local-fixture",
+      "Service": "s3",
+      "Operation": "GetBucketAcl",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "Bucket": "stackd-repl-auth-src-a01e66f850c0"
+      },
+      "Output": {},
+      "Bind": {
+        "sourceOwner": "Owner.ID"
+      }
+    }
+  ],
+  "Phases": [
+    {
+      "Label": "successful-copy",
+      "Calls": [
+        {
+          "Label": "put-same/baseline",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[38]",
+          "Sequence": 39,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+            "Key": "same/baseline",
+            "Tagging": "probe=authority",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "Output": {
+            "ETag": "\"91f86a5f139da1bbed0c8fc1a9de19ba\"",
+            "ChecksumCRC64NVME": "8hipOmM38OY=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${v39}"
+          },
+          "Body": "c3RhY2tkIG5hdGl2ZSBhdXRob3JpdHkgcmVwbGljYXRpb24gc21hbGwgcGF5bG9hZAo=",
+          "Bind": {
+            "v39": "VersionId"
+          }
+        },
+        {
+          "Label": "put-same/policy-recovery",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[142]",
+          "Sequence": 143,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+            "Key": "same/policy-recovery",
+            "Tagging": "probe=authority",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "Output": {
+            "ETag": "\"91f86a5f139da1bbed0c8fc1a9de19ba\"",
+            "ChecksumCRC64NVME": "8hipOmM38OY=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${v143}"
+          },
+          "Body": "c3RhY2tkIG5hdGl2ZSBhdXRob3JpdHkgcmVwbGljYXRpb24gc21hbGwgcGF5bG9hZAo=",
+          "Bind": {
+            "v143": "VersionId"
+          }
+        }
+      ],
+      "Checks": [
+        {
+          "Label": "source-state-same/baseline",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[41]",
+          "Sequence": 42,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+            "Key": "same/baseline",
+            "VersionId": "${v39}"
+          },
+          "Output": {
+            "VersionId": "${v39}",
+            "ReplicationStatus": "COMPLETED"
+          }
+        },
+        {
+          "Label": "source-state-same/policy-recovery",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[175]",
+          "Sequence": 176,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+            "Key": "same/policy-recovery",
+            "VersionId": "${v143}"
+          },
+          "Output": {
+            "VersionId": "${v143}",
+            "ReplicationStatus": "COMPLETED"
+          }
+        },
+        {
+          "Label": "verified-content-same/policy-recovery",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[302]",
+          "Sequence": 303,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-dst-a01e66f850c0",
+            "Key": "same/policy-recovery",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "ContentLength": 50,
+            "VersionId": "${v143}",
+            "ReplicationStatus": "REPLICA"
+          },
+          "Plaintext": "c3RhY2tkIG5hdGl2ZSBhdXRob3JpdHkgcmVwbGljYXRpb24gc21hbGwgcGF5bG9hZAo="
+        },
+        {
+          "Label": "replica-tags-same/baseline",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[43]",
+          "Sequence": 44,
+          "Service": "s3",
+          "Operation": "GetObjectTagging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-dst-a01e66f850c0",
+            "Key": "same/baseline"
+          },
+          "Output": {
+            "VersionId": "${v39}",
+            "TagSet": [
+              {
+                "Key": "probe",
+                "Value": "authority"
+              }
+            ]
+          }
+        }
+      ],
+      "Records": [
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[11]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "GetObject",
+            "awsRegion": "us-east-1",
+            "requestParameters": {
+              "bucketName": "stackd-repl-auth-src-a01e66f850c0",
+              "versionId": "${v143}",
+              "key": "same/policy-recovery"
+            },
+            "responseElements": null,
+            "additionalEventData": {
+              "objectSize": 50,
+              "httpStatusCode": 200
+            },
+            "readOnly": true,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0/same/policy-recovery"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        },
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[16]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "GetObjectTagging",
+            "awsRegion": "us-east-1",
+            "requestParameters": {
+              "tagging": "",
+              "bucketName": "stackd-repl-auth-src-a01e66f850c0",
+              "versionId": "${v143}",
+              "key": "same/policy-recovery"
+            },
+            "responseElements": null,
+            "additionalEventData": {
+              "httpStatusCode": 200
+            },
+            "readOnly": true,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0/same/policy-recovery"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        },
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[24]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "PutObject",
+            "awsRegion": "us-east-1",
+            "requestParameters": {
+              "bucketName": "stackd-repl-auth-dst-a01e66f850c0",
+              "x-amz-version-id": "${v143}",
+              "key": "same/policy-recovery"
+            },
+            "responseElements": {
+              "x-amz-server-side-encryption": "AES256",
+              "x-amz-version-id": "${v143}"
+            },
+            "additionalEventData": {
+              "objectSize": 50,
+              "httpStatusCode": 200
+            },
+            "readOnly": false,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-dst-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-dst-a01e66f850c0/same/policy-recovery"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        },
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[26]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "GetObjectAcl",
+            "awsRegion": "us-east-1",
+            "requestParameters": {
+              "bucketName": "stackd-repl-auth-src-a01e66f850c0",
+              "versionId": "${v143}",
+              "acl": "",
+              "key": "same/policy-recovery"
+            },
+            "responseElements": null,
+            "additionalEventData": {
+              "httpStatusCode": 200
+            },
+            "readOnly": true,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0/same/policy-recovery"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        }
+      ]
+    },
+    {
+      "Label": "source-metadata-update",
+      "Calls": [
+        {
+          "Label": "mutate-source-baseline-tags",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[282]",
+          "Sequence": 283,
+          "Service": "s3",
+          "Operation": "PutObjectTagging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+            "Key": "same/baseline",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "probe",
+                  "Value": "authority"
+                },
+                {
+                  "Key": "metadata",
+                  "Value": "source-updated"
+                }
+              ]
+            }
+          },
+          "Output": {
+            "VersionId": "${v39}"
+          }
+        }
+      ],
+      "Checks": [
+        {
+          "Label": "replicated-metadata-observation",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[294]",
+          "Sequence": 295,
+          "Service": "s3",
+          "Operation": "GetObjectTagging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-dst-a01e66f850c0",
+            "Key": "same/baseline"
+          },
+          "Output": {
+            "VersionId": "${v39}",
+            "TagSet": [
+              {
+                "Key": "metadata",
+                "Value": "source-updated"
+              },
+              {
+                "Key": "probe",
+                "Value": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "verified-content-same/baseline",
+          "Source": "local-fixture:unchanged replica body after native metadata mutation; payload from Observations[283]",
+          "Sequence": 284,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-dst-a01e66f850c0",
+            "Key": "same/baseline",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "ContentLength": 50,
+            "VersionId": "${v39}",
+            "ReplicationStatus": "REPLICA"
+          },
+          "Plaintext": "c3RhY2tkIG5hdGl2ZSBhdXRob3JpdHkgcmVwbGljYXRpb24gc21hbGwgcGF5bG9hZAo="
+        }
+      ],
+      "Records": [
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[4]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "PutObjectTagging",
+            "awsRegion": "us-east-1",
+            "requestParameters": {
+              "tagging": "",
+              "bucketName": "stackd-repl-auth-dst-a01e66f850c0",
+              "versionId": "${v39}",
+              "key": "same/baseline"
+            },
+            "responseElements": {
+              "x-amz-version-id": "${v39}"
+            },
+            "additionalEventData": {
+              "httpStatusCode": 200
+            },
+            "readOnly": false,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-dst-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-dst-a01e66f850c0/same/baseline"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        },
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[5]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "HeadObject",
+            "awsRegion": "us-east-1",
+            "requestParameters": {
+              "bucketName": "stackd-repl-auth-src-a01e66f850c0",
+              "versionId": "${v39}",
+              "key": "same/baseline"
+            },
+            "responseElements": null,
+            "additionalEventData": {
+              "objectSize": 50,
+              "httpStatusCode": 200
+            },
+            "readOnly": true,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0/same/baseline"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        },
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[6]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "GetObjectTagging",
+            "awsRegion": "us-east-1",
+            "requestParameters": {
+              "tagging": "",
+              "bucketName": "stackd-repl-auth-src-a01e66f850c0",
+              "versionId": "${v39}",
+              "key": "same/baseline"
+            },
+            "responseElements": null,
+            "additionalEventData": {
+              "httpStatusCode": 200
+            },
+            "readOnly": true,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0/same/baseline"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        }
+      ]
+    },
+    {
+      "Label": "delete-marker-and-kms-denied-read",
+      "Calls": [
+        {
+          "Label": "delete-denied-marker",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[118]",
+          "Sequence": 119,
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+            "Key": "same/deny-delete"
+          },
+          "Output": {
+            "DeleteMarker": true,
+            "VersionId": "${marker}"
+          },
+          "Bind": {
+            "marker": "VersionId"
+          }
+        },
+        {
+          "Label": "put-kms/missing-grants",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[149]",
+          "Sequence": 150,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+            "Key": "kms/missing-grants",
+            "Tagging": "probe=authority",
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": "${sourceKeyArn}",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "Output": {
+            "ETag": "${etag150}",
+            "ChecksumCRC64NVME": "8hipOmM38OY=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "aws:kms",
+            "VersionId": "${v150}",
+            "SSEKMSKeyId": "${sourceKeyArn}"
+          },
+          "Body": "c3RhY2tkIG5hdGl2ZSBhdXRob3JpdHkgcmVwbGljYXRpb24gc21hbGwgcGF5bG9hZAo=",
+          "Bind": {
+            "v150": "VersionId",
+            "etag150": "ETag"
+          }
+        }
+      ],
+      "Checks": [
+        {
+          "Label": "ListObjectVersions",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[251] (DeleteMarkers projection; original pre-marker version omitted from this focused setup)",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-repl-auth-dst-a01e66f850c0",
+            "Prefix": "same/deny-delete"
+          },
+          "Output": {
+            "DeleteMarkers": [
+              {
+                "Key": "same/deny-delete",
+                "VersionId": "${marker}",
+                "IsLatest": true
+              }
+            ]
+          }
+        },
+        {
+          "Label": "source-state-kms/missing-grants",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[180]",
+          "Sequence": 181,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+            "Key": "kms/missing-grants",
+            "VersionId": "${v150}"
+          },
+          "Output": {
+            "VersionId": "${v150}",
+            "ReplicationStatus": "FAILED"
+          }
+        },
+        {
+          "Label": "destination-state-kms/missing-grants",
+          "Source": "s3/replication_authority_evidence.json.gz:Observations[181]",
+          "Sequence": 182,
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "stackd-repl-auth-dst-a01e66f850c0",
+            "Key": "kms/missing-grants"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "GetObject",
+          "Source": "local-fixture",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-repl-auth-src-a01e66f850c0",
+            "Key": "kms/missing-grants",
+            "VersionId": "${v150}"
+          },
+          "Output": {
+            "VersionId": "${v150}",
+            "ReplicationStatus": "FAILED"
+          },
+          "Plaintext": "c3RhY2tkIG5hdGl2ZSBhdXRob3JpdHkgcmVwbGljYXRpb24gc21hbGwgcGF5bG9hZAo="
+        }
+      ],
+      "Records": [
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[0]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "HeadObject",
+            "awsRegion": "us-east-1",
+            "errorCode": "MethodNotAllowed",
+            "requestParameters": {
+              "bucketName": "stackd-repl-auth-src-a01e66f850c0",
+              "versionId": "${marker}",
+              "key": "same/deny-delete"
+            },
+            "responseElements": null,
+            "additionalEventData": {
+              "httpStatusCode": 405
+            },
+            "readOnly": true,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0/same/deny-delete"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        },
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[1]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "DeleteObject",
+            "awsRegion": "us-east-1",
+            "requestParameters": {
+              "bucketName": "stackd-repl-auth-dst-a01e66f850c0",
+              "x-amz-version-id": "${marker}",
+              "key": "same/deny-delete"
+            },
+            "responseElements": {
+              "x-amz-delete-marker": "true",
+              "x-amz-version-id": "${marker}"
+            },
+            "additionalEventData": {
+              "httpStatusCode": 204
+            },
+            "readOnly": false,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-dst-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-dst-a01e66f850c0/same/deny-delete"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        },
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[17]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "GetObjectAcl",
+            "awsRegion": "us-east-1",
+            "requestParameters": {
+              "bucketName": "stackd-repl-auth-src-a01e66f850c0",
+              "versionId": "${v150}",
+              "acl": "",
+              "key": "kms/missing-grants"
+            },
+            "responseElements": null,
+            "additionalEventData": {
+              "httpStatusCode": 200
+            },
+            "readOnly": true,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0/kms/missing-grants"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        },
+        {
+          "Source": "s3/replication_authority_evidence.json.gz:AuditRoleExecutionRecords[18]",
+          "Record": {
+            "eventVersion": "1.11",
+            "userIdentity": {
+              "type": "AssumedRole",
+              "principalId": "${replicationRoleId}:s3-replication",
+              "arn": "arn:aws:sts::${account}:assumed-role/stackd-repl-auth-a01e66f850c0/s3-replication",
+              "accountId": "${account}",
+              "sessionContext": {
+                "sessionIssuer": {
+                  "type": "Role",
+                  "principalId": "${replicationRoleId}",
+                  "arn": "arn:aws:iam::${account}:role/stackd-repl-auth-a01e66f850c0",
+                  "accountId": "${account}",
+                  "userName": "stackd-repl-auth-a01e66f850c0"
+                },
+                "attributes": {
+                  "mfaAuthenticated": "false"
+                }
+              },
+              "invokedBy": "s3.amazonaws.com"
+            },
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "GetObject",
+            "awsRegion": "us-east-1",
+            "errorCode": "AccessDenied",
+            "requestParameters": {
+              "bucketName": "stackd-repl-auth-src-a01e66f850c0",
+              "versionId": "${v150}",
+              "key": "kms/missing-grants"
+            },
+            "responseElements": null,
+            "additionalEventData": {
+              "httpStatusCode": 403
+            },
+            "readOnly": true,
+            "resources": [
+              {
+                "accountId": "${account}",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0"
+              },
+              {
+                "type": "AWS::S3::Object",
+                "ARN": "arn:aws:s3:::stackd-repl-auth-src-a01e66f850c0/kms/missing-grants"
+              }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": false,
+            "recipientAccountId": "${account}",
+            "eventCategory": "Data"
+          }
+        }
+      ]
+    }
+  ]
+}

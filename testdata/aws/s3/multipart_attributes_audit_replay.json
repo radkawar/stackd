@@ -1,0 +1,1293 @@
+{
+  "Source": "multipart_attributes_audit_evidence.json.gz",
+  "Sources": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObjectAttributes.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/cloudtrail-logging-s3-info.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/get-and-view-cloudtrail-log-files.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html"
+  ],
+  "Bucket": "attributes-audit-replay",
+  "AuditBucket": "attributes-audit-replay-logs",
+  "AuditPrefix": "owned/AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Eight actually delivered primary outcomes selected by requestID from full embedded cloudtrail_logs[].records across initial/post_adoption captures; neither bounded900s capture delivered InvalidArgument for BogusAttribute, so that request is excluded, not asserted permanently absent.",
+    "All raw evidence, 195 observations, source provenance and verified cleanup remain in the immutable evidence gzip. IDs/account/bucket are rebound; error and field presence remain native.",
+    "InvalidPart alone had audit605/raw567 bytes. This one observation does not establish a universal38-byte correction; local audit counts the actual serialized response body.",
+    "Pagination marker values are decimal strings in the generated Go SDK, although the native boto3 capture exposes JSON numbers.",
+    "Payload recipes replay the captured ordinary object and multipart bytes exactly."
+  ],
+  "Payloads": {
+    "ordinary": [
+      {
+        "Base64": "b3duZWQgb3JkaW5hcnkgYXR0cmlidXRlcyBhdWRpdAo=",
+        "Repeat": 1
+      }
+    ],
+    "part1": [
+      {
+        "Base64": "YQ==",
+        "Repeat": 5242880
+      }
+    ],
+    "part2": [
+      {
+        "Base64": "b3duZWQgZmluYWwgcGFydAo=",
+        "Repeat": 1
+      }
+    ],
+    "predecessor": [
+      {
+        "Base64": "b3duZWQgbWFya2VyIHByZWRlY2Vzc29y",
+        "Repeat": 1
+      }
+    ],
+    "invalid": [
+      {
+        "Base64": "b3duZWQgYWRtaXR0ZWQgcGFydA==",
+        "Repeat": 1
+      }
+    ]
+  },
+  "Setup": [
+    {
+      "Label": "create-attributes-audit-replay",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[create-attributes-audit-replay]",
+      "Sequence": 2,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-attributes-audit-replay-logs",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[create-attributes-audit-replay-logs]",
+      "Sequence": 3,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay-logs"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "configure-trail-delivery-policy",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[configure-trail-delivery-policy]",
+      "Sequence": 4,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "attributes-audit-replay-logs",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AWSCloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::attributes-audit-replay-logs\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/attributes-audit-replay\"}}}, {\"Sid\": \"AWSCloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::attributes-audit-replay-logs/owned/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/attributes-audit-replay\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "enable-source-versioning",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[enable-source-versioning]",
+      "Sequence": 10,
+      "Service": "s3",
+      "Operation": "PutBucketVersioning",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "Output": {}
+    }
+  ],
+  "Objects": [
+    {
+      "Label": "put-ordinary-checksum-object",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[put-ordinary-checksum-object]",
+      "Sequence": 11,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "ChecksumAlgorithm": "SHA256",
+        "Key": "ordinary",
+        "Metadata": {
+          "private-probe-note": "should-not-be-object-attributes-output"
+        }
+      },
+      "Output": {
+        "ChecksumSHA256": "2q8K0wELbnpLFV4rOkaPS1Ui/Eu6r6gsl3U/8jbVlp8=",
+        "ChecksumType": "FULL_OBJECT",
+        "ETag": "\"1c5ec8ac2f6463813b57d37cc795426c\"",
+        "ServerSideEncryption": "AES256",
+        "VersionId": "${ordinaryVersion}"
+      },
+      "Payload": "ordinary",
+      "Bind": {
+        "ordinaryVersion": "VersionId"
+      }
+    },
+    {
+      "Label": "create-checksummed-multipart",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[create-checksummed-multipart]",
+      "Sequence": 12,
+      "Service": "s3",
+      "Operation": "CreateMultipartUpload",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "ChecksumAlgorithm": "SHA256",
+        "Key": "multipart"
+      },
+      "Output": {
+        "Bucket": "attributes-audit-replay",
+        "ChecksumAlgorithm": "SHA256",
+        "ChecksumType": "COMPOSITE",
+        "Key": "multipart",
+        "ServerSideEncryption": "AES256",
+        "UploadId": "${multipartUpload}"
+      },
+      "Bind": {
+        "multipartUpload": "UploadId"
+      }
+    },
+    {
+      "Label": "upload-part-1",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[upload-part-1]",
+      "Sequence": 13,
+      "Service": "s3",
+      "Operation": "UploadPart",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "ChecksumAlgorithm": "SHA256",
+        "Key": "multipart",
+        "PartNumber": 1,
+        "UploadId": "${multipartUpload}"
+      },
+      "Output": {
+        "ChecksumSHA256": "oplo+tLngqqfIECjXwWtuX7Yl56x9XLIyOp4Y34nXzw=",
+        "ETag": "\"79b281060d337b9b2b84ccf390adcf74\"",
+        "ServerSideEncryption": "AES256"
+      },
+      "Payload": "part1"
+    },
+    {
+      "Label": "upload-part-2",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[upload-part-2]",
+      "Sequence": 14,
+      "Service": "s3",
+      "Operation": "UploadPart",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "ChecksumAlgorithm": "SHA256",
+        "Key": "multipart",
+        "PartNumber": 2,
+        "UploadId": "${multipartUpload}"
+      },
+      "Output": {
+        "ChecksumSHA256": "yVY3HOjFSv7/KRPFP6eADg5tsADFho3vGVk38d6eJfI=",
+        "ETag": "\"dc254fa074cf321880577d2869a50aa8\"",
+        "ServerSideEncryption": "AES256"
+      },
+      "Payload": "part2"
+    },
+    {
+      "Label": "complete-checksummed-multipart",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[complete-checksummed-multipart]",
+      "Sequence": 15,
+      "Service": "s3",
+      "Operation": "CompleteMultipartUpload",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "multipart",
+        "MultipartUpload": {
+          "Parts": [
+            {
+              "ChecksumSHA256": "oplo+tLngqqfIECjXwWtuX7Yl56x9XLIyOp4Y34nXzw=",
+              "ETag": "\"79b281060d337b9b2b84ccf390adcf74\"",
+              "PartNumber": 1
+            },
+            {
+              "ChecksumSHA256": "yVY3HOjFSv7/KRPFP6eADg5tsADFho3vGVk38d6eJfI=",
+              "ETag": "\"dc254fa074cf321880577d2869a50aa8\"",
+              "PartNumber": 2
+            }
+          ]
+        },
+        "UploadId": "${multipartUpload}"
+      },
+      "Output": {
+        "Bucket": "attributes-audit-replay",
+        "ChecksumSHA256": "f6dQUPWuHL6J79q1NtfVrfwJygE61vQx+nZQEmDozaY=-2",
+        "ChecksumType": "COMPOSITE",
+        "ETag": "\"3609ef706bc79e8a805f3ebb2fbd0b32-2\"",
+        "Key": "multipart",
+        "ServerSideEncryption": "AES256",
+        "VersionId": "${multipartVersion}"
+      },
+      "Bind": {
+        "multipartVersion": "VersionId"
+      }
+    },
+    {
+      "Label": "put-marker-predecessor",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[put-marker-predecessor]",
+      "Sequence": 16,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "deleted"
+      },
+      "Output": {
+        "ChecksumCRC64NVME": "CT2fdJ1icKw=",
+        "ChecksumType": "FULL_OBJECT",
+        "ETag": "\"380e92d03265c5add0e6625a6da14b47\"",
+        "ServerSideEncryption": "AES256",
+        "VersionId": "${predecessorVersion}"
+      },
+      "Payload": "predecessor",
+      "Bind": {
+        "predecessorVersion": "VersionId"
+      }
+    },
+    {
+      "Label": "create-current-delete-marker",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[create-current-delete-marker]",
+      "Sequence": 17,
+      "Service": "s3",
+      "Operation": "DeleteObject",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "deleted"
+      },
+      "Output": {
+        "DeleteMarker": true,
+        "VersionId": "${markerVersion}"
+      },
+      "Bind": {
+        "markerVersion": "VersionId"
+      }
+    },
+    {
+      "Label": "admit-invalid-completion-upload",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[admit-invalid-completion-upload]",
+      "Sequence": 26,
+      "Service": "s3",
+      "Operation": "CreateMultipartUpload",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "invalid-completion"
+      },
+      "Output": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "invalid-completion",
+        "ServerSideEncryption": "AES256",
+        "UploadId": "${invalidUpload}"
+      },
+      "Bind": {
+        "invalidUpload": "UploadId"
+      }
+    },
+    {
+      "Label": "admit-invalid-completion-part",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[admit-invalid-completion-part]",
+      "Sequence": 27,
+      "Service": "s3",
+      "Operation": "UploadPart",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "invalid-completion",
+        "PartNumber": 1,
+        "UploadId": "${invalidUpload}"
+      },
+      "Output": {
+        "ETag": "\"d5ebeecc7430ca43644a696dd1732270\"",
+        "ServerSideEncryption": "AES256"
+      },
+      "Payload": "invalid"
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create-classic-trail",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[create-classic-trail]",
+      "Sequence": 5,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EnableLogFileValidation": false,
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "IsOrganizationTrail": false,
+        "Name": "attributes-audit-replay",
+        "S3BucketName": "attributes-audit-replay-logs",
+        "S3KeyPrefix": "owned"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "scope-owned-object-data-and-write-management",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[scope-owned-object-data-and-write-management]",
+      "Sequence": 6,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EventSelectors": [
+          {
+            "DataResources": [
+              {
+                "Type": "AWS::S3::Object",
+                "Values": [
+                  "arn:aws:s3:::attributes-audit-replay/"
+                ]
+              }
+            ],
+            "ExcludeManagementEventSources": [
+              "kms.amazonaws.com",
+              "rdsdata.amazonaws.com"
+            ],
+            "IncludeManagementEvents": true,
+            "ReadWriteType": "All"
+          }
+        ],
+        "TrailName": "attributes-audit-replay"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start-trail",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[start-trail]",
+      "Sequence": 7,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "attributes-audit-replay"
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "case-ordinary-etag-only",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[case-ordinary-etag-only]",
+      "Sequence": 1,
+      "Service": "s3",
+      "Operation": "GetObjectAttributes",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "ordinary",
+        "ObjectAttributes": [
+          "ETag"
+        ]
+      },
+      "Output": {
+        "ETag": "1c5ec8ac2f6463813b57d37cc795426c",
+        "LastModified": "2026-09-20T08:59:46+00:00",
+        "VersionId": "${ordinaryVersion}"
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 191,
+          "endTime": 1789894789971,
+          "httpStatusCode": 200,
+          "startTime": 1789894789937,
+          "turnAroundTime": 34,
+          "x-amz-id-2": "jdwPGLYrTNT2XnHCp40HcgiVThkyYxP4s23WG1JzF1+rvamNK+hsddplThJTpyv1Opnfx0o/kBkuRuGNkBGzOpdNIsPebryf"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "230f6047-9bd9-4d4f-be66-0c9246d2474a",
+        "eventName": "GetObjectAttributes",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T08:59:49Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "FZJX5AQFVNF5AVBR",
+        "requestParameters": {
+          "Host": "attributes-audit-replay.s3.amazonaws.com",
+          "attributes": "",
+          "bucketName": "attributes-audit-replay",
+          "key": "ordinary"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay/ordinary",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "attributes-audit-replay.s3.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,a,D,c cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "RecordSource": {
+        "Run": "initial",
+        "Log": 1,
+        "Record": 3,
+        "Artifact": "delivered-001.json.gz",
+        "RequestID": "FZJX5AQFVNF5AVBR"
+      },
+      "NativeResponseBytes": 191,
+      "NativeRequestBytes": 0,
+      "Absent": [
+        "Checksum",
+        "ObjectParts",
+        "ObjectSize",
+        "StorageClass",
+        "DeleteMarker"
+      ]
+    },
+    {
+      "Label": "case-ordinary-all",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[post_adoption].observations[case-ordinary-all]",
+      "Sequence": 2,
+      "Service": "s3",
+      "Operation": "GetObjectAttributes",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "ordinary",
+        "ObjectAttributes": [
+          "Checksum",
+          "ObjectParts",
+          "ETag",
+          "ObjectSize",
+          "StorageClass"
+        ]
+      },
+      "Output": {
+        "Checksum": {
+          "ChecksumSHA256": "2q8K0wELbnpLFV4rOkaPS1Ui/Eu6r6gsl3U/8jbVlp8=",
+          "ChecksumType": "FULL_OBJECT"
+        },
+        "ETag": "1c5ec8ac2f6463813b57d37cc795426c",
+        "LastModified": "2026-09-20T09:16:13+00:00",
+        "ObjectSize": 32,
+        "StorageClass": "STANDARD",
+        "VersionId": "${ordinaryVersion}"
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 393,
+          "endTime": 1789896211033,
+          "httpStatusCode": 200,
+          "startTime": 1789896210992,
+          "turnAroundTime": 40,
+          "x-amz-id-2": "i9Bohp6FtFk5WWwPIxOL0y8GWAfSHli4zf6fJu9eBvmNMP/5/ZJhulUIKAXT/WPkrPLnFapYpt8="
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "1034b8bf-e238-4433-a425-4f435a00d75b",
+        "eventName": "GetObjectAttributes",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T09:23:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "ZHD3ZH47EDAC08QM",
+        "requestParameters": {
+          "Host": "attributes-audit-replay.s3.amazonaws.com",
+          "attributes": "",
+          "bucketName": "attributes-audit-replay",
+          "key": "ordinary"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay/ordinary",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "attributes-audit-replay.s3.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/c,D,a,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "RecordSource": {
+        "Run": "post_adoption",
+        "Log": 7,
+        "Record": 2,
+        "Artifact": "run2/delivered-007.json.gz",
+        "RequestID": "ZHD3ZH47EDAC08QM"
+      },
+      "NativeResponseBytes": 393,
+      "NativeRequestBytes": 0,
+      "Absent": [
+        "ObjectParts",
+        "DeleteMarker"
+      ]
+    },
+    {
+      "Label": "case-multipart-all",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[post_adoption].observations[case-multipart-all]",
+      "Sequence": 3,
+      "Service": "s3",
+      "Operation": "GetObjectAttributes",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "multipart",
+        "ObjectAttributes": [
+          "Checksum",
+          "ObjectParts",
+          "ETag",
+          "ObjectSize",
+          "StorageClass"
+        ]
+      },
+      "Output": {
+        "Checksum": {
+          "ChecksumSHA256": "f6dQUPWuHL6J79q1NtfVrfwJygE61vQx+nZQEmDozaY=",
+          "ChecksumType": "COMPOSITE"
+        },
+        "ETag": "3609ef706bc79e8a805f3ebb2fbd0b32-2",
+        "LastModified": "2026-09-20T09:16:14+00:00",
+        "ObjectParts": {
+          "IsTruncated": false,
+          "MaxParts": 1000,
+          "NextPartNumberMarker": "2",
+          "PartNumberMarker": "0",
+          "Parts": [
+            {
+              "ChecksumSHA256": "oplo+tLngqqfIECjXwWtuX7Yl56x9XLIyOp4Y34nXzw=",
+              "PartNumber": 1,
+              "Size": 5242880
+            },
+            {
+              "ChecksumSHA256": "yVY3HOjFSv7/KRPFP6eADg5tsADFho3vGVk38d6eJfI=",
+              "PartNumber": 2,
+              "Size": 17
+            }
+          ],
+          "TotalPartsCount": 2
+        },
+        "ObjectSize": 5242897,
+        "StorageClass": "STANDARD",
+        "VersionId": "${multipartVersion}"
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 859,
+          "endTime": 1789896211180,
+          "httpStatusCode": 200,
+          "startTime": 1789896211140,
+          "turnAroundTime": 40,
+          "x-amz-id-2": "O1GpVow9ACMJpYerb/JYDMwWc51KfVxuddJNIWtCsOn9BHXc+g6IKlZWpePUo3tal3QPb5Hcxck="
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "310de54c-3e89-4d7d-ac08-2151e0694857",
+        "eventName": "GetObjectAttributes",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T09:23:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "TK9PS9KVQS6CXDE7",
+        "requestParameters": {
+          "Host": "attributes-audit-replay.s3.amazonaws.com",
+          "attributes": "",
+          "bucketName": "attributes-audit-replay",
+          "key": "multipart"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay/multipart",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "attributes-audit-replay.s3.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/c,D,a,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "RecordSource": {
+        "Run": "post_adoption",
+        "Log": 8,
+        "Record": 0,
+        "Artifact": "run2/delivered-008.json.gz",
+        "RequestID": "TK9PS9KVQS6CXDE7"
+      },
+      "NativeResponseBytes": 859,
+      "NativeRequestBytes": 0,
+      "Absent": [
+        "DeleteMarker"
+      ]
+    },
+    {
+      "Label": "case-multipart-page",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[post_adoption].observations[case-multipart-page]",
+      "Sequence": 4,
+      "Service": "s3",
+      "Operation": "GetObjectAttributes",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "multipart",
+        "MaxParts": 1,
+        "ObjectAttributes": [
+          "ObjectParts",
+          "Checksum"
+        ],
+        "PartNumberMarker": "1"
+      },
+      "Output": {
+        "Checksum": {
+          "ChecksumSHA256": "f6dQUPWuHL6J79q1NtfVrfwJygE61vQx+nZQEmDozaY=",
+          "ChecksumType": "COMPOSITE"
+        },
+        "LastModified": "2026-09-20T09:16:14+00:00",
+        "ObjectParts": {
+          "IsTruncated": false,
+          "MaxParts": 1,
+          "NextPartNumberMarker": "2",
+          "PartNumberMarker": "1",
+          "Parts": [
+            {
+              "ChecksumSHA256": "yVY3HOjFSv7/KRPFP6eADg5tsADFho3vGVk38d6eJfI=",
+              "PartNumber": 2,
+              "Size": 17
+            }
+          ],
+          "TotalPartsCount": 2
+        },
+        "VersionId": "${multipartVersion}"
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 604,
+          "endTime": 1789896211326,
+          "httpStatusCode": 200,
+          "startTime": 1789896211291,
+          "turnAroundTime": 34,
+          "x-amz-id-2": "bDPqg10BtqOYbB0wihiBFMYD18q+qCuyeXIL7RYPcCiPjSJNJUtGjDLmgZUQvsmiAHMJZFIV07k="
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "ece4a10a-e179-4638-ba3c-3040327f8ff5",
+        "eventName": "GetObjectAttributes",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T09:23:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "TK9GEA8T4NWBE860",
+        "requestParameters": {
+          "Host": "attributes-audit-replay.s3.amazonaws.com",
+          "attributes": "",
+          "bucketName": "attributes-audit-replay",
+          "key": "multipart"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay/multipart",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "attributes-audit-replay.s3.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/c,D,a,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "RecordSource": {
+        "Run": "post_adoption",
+        "Log": 7,
+        "Record": 3,
+        "Artifact": "run2/delivered-007.json.gz",
+        "RequestID": "TK9GEA8T4NWBE860"
+      },
+      "NativeResponseBytes": 604,
+      "NativeRequestBytes": 0,
+      "Absent": [
+        "ETag",
+        "ObjectSize",
+        "StorageClass",
+        "DeleteMarker"
+      ]
+    },
+    {
+      "Label": "case-missing",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[case-missing]",
+      "Sequence": 5,
+      "Service": "s3",
+      "Operation": "GetObjectAttributes",
+      "Actor": "audit-user",
+      "Code": "NoSuchKey",
+      "Status": 404,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "missing",
+        "ObjectAttributes": [
+          "Checksum",
+          "ObjectParts",
+          "ETag",
+          "ObjectSize",
+          "StorageClass"
+        ]
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 259,
+          "endTime": 1789894790457,
+          "httpStatusCode": 404,
+          "startTime": 1789894790426,
+          "turnAroundTime": 31,
+          "x-amz-id-2": "Ecm/K5RqOyFxJMWaVF7Pdhpv5ZOPUym1N13YDFRE1YPeysigKh8hmq4y9IqUxtmA4SRDXQnwYtvgqN4HBLQkLP/fO58aYaCC"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchKey",
+        "errorMessage": "The specified key does not exist.",
+        "eventCategory": "Data",
+        "eventID": "1bfc71b4-3dec-42ff-8030-38a88f71da70",
+        "eventName": "GetObjectAttributes",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T08:59:50Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "R4VNH9GYAKJ678HJ",
+        "requestParameters": {
+          "Host": "attributes-audit-replay.s3.amazonaws.com",
+          "attributes": "",
+          "bucketName": "attributes-audit-replay",
+          "key": "missing"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay/missing",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "attributes-audit-replay.s3.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,a,D,c cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "RecordSource": {
+        "Run": "initial",
+        "Log": 1,
+        "Record": 5,
+        "Artifact": "delivered-001.json.gz",
+        "RequestID": "R4VNH9GYAKJ678HJ"
+      },
+      "NativeResponseBytes": 259,
+      "NativeRequestBytes": 0
+    },
+    {
+      "Label": "case-current-delete-marker",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[case-current-delete-marker]",
+      "Sequence": 6,
+      "Service": "s3",
+      "Operation": "GetObjectAttributes",
+      "Actor": "audit-user",
+      "Code": "NoSuchKey",
+      "Status": 404,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "deleted",
+        "ObjectAttributes": [
+          "Checksum",
+          "ObjectParts",
+          "ETag",
+          "ObjectSize",
+          "StorageClass"
+        ]
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 259,
+          "endTime": 1789894790600,
+          "httpStatusCode": 404,
+          "startTime": 1789894790566,
+          "turnAroundTime": 34,
+          "x-amz-id-2": "9G1NGi9JVyqtWK6TmzsoNxBp053pmbiHsMBoz+jUHoRYuBFSE2nNDZU+QnOP6MyisrkfaWxV++r1Jwh/ylELokOrMgu7woRx"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchKey",
+        "errorMessage": "The specified key does not exist.",
+        "eventCategory": "Data",
+        "eventID": "d319654d-200c-4390-b9b0-8b1902568b5a",
+        "eventName": "GetObjectAttributes",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T08:59:50Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "R4VR1V3FDPDZW7XB",
+        "requestParameters": {
+          "Host": "attributes-audit-replay.s3.amazonaws.com",
+          "attributes": "",
+          "bucketName": "attributes-audit-replay",
+          "key": "deleted"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay/deleted",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "attributes-audit-replay.s3.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,a,D,c cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "RecordSource": {
+        "Run": "initial",
+        "Log": 1,
+        "Record": 4,
+        "Artifact": "delivered-001.json.gz",
+        "RequestID": "R4VR1V3FDPDZW7XB"
+      },
+      "NativeResponseBytes": 259,
+      "NativeRequestBytes": 0,
+      "Headers": {
+        "x-amz-delete-marker": "true"
+      }
+    },
+    {
+      "Label": "case-explicit-delete-marker",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[post_adoption].observations[case-explicit-delete-marker]",
+      "Sequence": 7,
+      "Service": "s3",
+      "Operation": "GetObjectAttributes",
+      "Actor": "audit-user",
+      "Code": "MethodNotAllowed",
+      "Status": 405,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "deleted",
+        "ObjectAttributes": [
+          "Checksum",
+          "ObjectParts",
+          "ETag",
+          "ObjectSize",
+          "StorageClass"
+        ],
+        "VersionId": "${markerVersion}"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 314,
+          "endTime": 1789896211474,
+          "httpStatusCode": 405,
+          "startTime": 1789896211439,
+          "turnAroundTime": 34,
+          "x-amz-id-2": "q6ubBUJDb30V053SKxqu5J7SjCl3GL93/7hNdgGwOcL/ovmSf4D1PTNXPNl3b0bhZueezo12AB4="
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "MethodNotAllowed",
+        "errorMessage": "The specified method is not allowed against this resource.",
+        "eventCategory": "Data",
+        "eventID": "c3a5d415-61a7-438d-9ad3-9e330e55c3bf",
+        "eventName": "GetObjectAttributes",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T09:23:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "TK9ZMYHAM6VPGTMW",
+        "requestParameters": {
+          "Host": "attributes-audit-replay.s3.amazonaws.com",
+          "attributes": "",
+          "bucketName": "attributes-audit-replay",
+          "key": "deleted",
+          "versionId": "${markerVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay/deleted",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "attributes-audit-replay.s3.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/c,D,a,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "RecordSource": {
+        "Run": "post_adoption",
+        "Log": 7,
+        "Record": 1,
+        "Artifact": "run2/delivered-007.json.gz",
+        "RequestID": "TK9ZMYHAM6VPGTMW"
+      },
+      "NativeResponseBytes": 314,
+      "NativeRequestBytes": 0,
+      "Headers": {
+        "x-amz-delete-marker": "true"
+      }
+    },
+    {
+      "Label": "case-invalid-completion",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[case-invalid-completion]",
+      "Sequence": 8,
+      "Service": "s3",
+      "Operation": "CompleteMultipartUpload",
+      "Actor": "audit-user",
+      "Code": "InvalidPart",
+      "Status": 400,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "invalid-completion",
+        "MultipartUpload": {
+          "Parts": [
+            {
+              "ETag": "\"00000000000000000000000000000000\"",
+              "PartNumber": 1
+            }
+          ]
+        },
+        "UploadId": "${invalidUpload}"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 185,
+          "bytesTransferredOut": 605,
+          "endTime": 1789894791650,
+          "httpStatusCode": 400,
+          "objectSize": -1,
+          "startTime": 1789894791625,
+          "turnAroundTime": 25,
+          "x-amz-id-2": "b4ndSrMgmsUnDga7SHs1vPMqihR1ixS18DYKZmmRE9KkrW7GBCMZ9V6gQPgca7cFnRhXY2X5VkA="
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "InvalidPart",
+        "errorMessage": "One or more of the specified parts could not be found.  The part may not have been uploaded, or the specified entity tag may not match the part's entity tag.",
+        "eventCategory": "Data",
+        "eventID": "c0d89d45-37e5-41e8-8186-292008fe8a07",
+        "eventName": "CompleteMultipartUpload",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T08:59:51Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "FX5AV9C34PD8QPJJ",
+        "requestParameters": {
+          "CompleteMultipartUpload": {
+            "Part": {
+              "ETag": "\"00000000000000000000000000000000\"",
+              "PartNumber": 1
+            },
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "Host": "attributes-audit-replay.s3.amazonaws.com",
+          "bucketName": "attributes-audit-replay",
+          "key": "invalid-completion",
+          "uploadId": "${invalidUpload}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::attributes-audit-replay/invalid-completion",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256",
+          "x-amz-version-id": "${unpublishedVersion}"
+        },
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "attributes-audit-replay.s3.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,a,D,c cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accountId": "123456789012",
+          "arn": "arn:aws:iam::123456789012:user/Delegated",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      },
+      "RecordSource": {
+        "Run": "initial",
+        "Log": 1,
+        "Record": 9,
+        "Artifact": "delivered-001.json.gz",
+        "RequestID": "FX5AV9C34PD8QPJJ"
+      },
+      "NativeResponseBytes": 567,
+      "NativeRequestBytes": 185,
+      "Headers": {
+        "x-amz-version-id": ""
+      }
+    }
+  ],
+  "Verify": [
+    {
+      "Label": "confirm-invalid-completion-upload-retained",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].observations[confirm-invalid-completion-upload-retained]",
+      "Sequence": 29,
+      "Service": "s3",
+      "Operation": "ListParts",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "invalid-completion",
+        "UploadId": "${invalidUpload}"
+      },
+      "Output": {
+        "Bucket": "attributes-audit-replay",
+        "Key": "invalid-completion",
+        "UploadId": "${invalidUpload}",
+        "Parts": [
+          {
+            "ETag": "\"d5ebeecc7430ca43644a696dd1732270\"",
+            "LastModified": "2026-09-20T08:59:52+00:00",
+            "PartNumber": 1,
+            "Size": 19
+          }
+        ],
+        "IsTruncated": false
+      }
+    },
+    {
+      "Label": "invalid-completion-created-no-version",
+      "Source": "multipart_attributes_audit_evidence.json.gz:runs[initial].cleanup.observations[cleanup-list-versions-stackd-attr-audit-20260920085810-e8420b] (native full listing contains no invalid-completion key; local prefix isolates that invariant)",
+      "Service": "s3",
+      "Operation": "ListObjectVersions",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "attributes-audit-replay",
+        "Prefix": "invalid-completion"
+      },
+      "Output": {
+        "IsTruncated": false
+      },
+      "Absent": [
+        "Versions",
+        "DeleteMarkers"
+      ]
+    }
+  ]
+}

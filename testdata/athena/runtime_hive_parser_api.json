@@ -1,0 +1,76 @@
+{
+  "scope": "Exact Docker Engine create/start/wait/logs API proof of the embedded Apache parser under NetworkMode none, readonly root,2GiB memory,2CPU,capdropALL and no-new-privileges. Original executable failure was supplied by parent; it was not rerun merely to confirm.",
+  "image": "apache/spark@sha256:9b0a6c2c860f5e7d18dd5270286fef32a09c7f5a7e2b0dbe5642de8a3a02ab3e",
+  "network_fix": "Retain the Docker none-network loopback sandbox; do not set NetworkDisabled true.",
+  "runtime_failure_fixture": "32MiB JVM driver setting intentionally induces a real native Spark startup heap failure, independently of SQL parsing. Production remains512MiB driver.",
+  "observations": [
+    {
+      "case": "hive-create-external",
+      "docker_network_disabled": false,
+      "network_mode": "none",
+      "native": {
+        "sparkVersion": "4.1.3",
+        "plan": {
+          "kind": "CREATE_TABLE",
+          "identifier": [
+            "ddl_numbers"
+          ],
+          "ifNotExists": false,
+          "external": true,
+          "properties": {},
+          "location": "s3://probe/data/",
+          "comment": "",
+          "columns": [
+            {
+              "name": "label",
+              "type": "string",
+              "trinoType": "varchar",
+              "comment": ""
+            },
+            {
+              "name": "amount",
+              "type": "bigint",
+              "trinoType": "bigint",
+              "comment": ""
+            }
+          ],
+          "partitionColumns": [],
+          "inputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+          "outputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+          "serde": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+          "serdeProperties": {
+            "field.delim": ",",
+            "serialization.format": ","
+          }
+        }
+      }
+    },
+    {
+      "case": "native-syntax-error",
+      "docker_network_disabled": false,
+      "network_mode": "none",
+      "native": {
+        "errorKind": "SYNTAX_ERROR",
+        "error": "\n[PARSE_SYNTAX_ERROR] Syntax error at or near end of input. SQLSTATE: 42601 (line 1, pos 31)\n\n== SQL ==\nCREATE EXTERNAL TABLE invalid (\n-------------------------------^^^\n"
+      }
+    },
+    {
+      "case": "unsupported-column-constraint",
+      "docker_network_disabled": false,
+      "network_mode": "none",
+      "native": {
+        "errorKind": "UNSUPPORTED_DDL",
+        "error": "Column constraints, defaults and generated values require a typed Athena projection"
+      }
+    },
+    {
+      "case": "native-runtime-startup-failure",
+      "docker_network_disabled": false,
+      "network_mode": "none",
+      "native": {
+        "errorKind": "RUNTIME_ERROR",
+        "error": "An error occurred while calling None.org.apache.spark.api.java.JavaSparkContext.\n: java.lang.OutOfMemoryError: Java heap space\n\tat java.base/java.util.Arrays.copyOfRange(Arrays.java:3822)\n\tat java.base/java.lang.String.<init>(String.java:529)\n\tat java.base/java.util.jar.Manifest.parseName(Manifest.java:364)\n\tat java.base/java.util.jar.Manifest.read(Manifest.java:318)\n\tat java.base/java.util.jar.Manifest.<init>(Manifest.java:100)\n\tat java.base/java.util.jar.Manifest.<init>(Manifest.java:87)\n\tat java.base/java.util.jar.JarFile.getManifestFromReference(JarFile.java:433)\n\tat java.base/java.util.jar.JarFile.getManifest(JarFile.java:406)\n\tat java.base/jdk.internal.loader.URLClassPath$JarLoader$2.getManifest(URLClassPath.java:886)\n\tat java.base/jdk.internal.loader.BuiltinClassLoader.defineClass(BuiltinClassLoader.java:848)\n\tat java.base/jdk.internal.loader.BuiltinClassLoader.findClassOnClassPathOrNull(BuiltinClassLoader.java:760)\n\tat java.base/jdk.internal.loader.BuiltinClassLoader.loadClassOrNull(BuiltinClassLoader.java:681)\n\tat java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:639)\n\tat java.base/jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass(ClassLoaders.java:188)\n\tat java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:525)\n\tat scala.collection.convert.AsJavaExtensions.MapHasAsJava(AsJavaExtensions.scala:95)\n\tat scala.collection.convert.AsJavaExtensions.MapHasAsJava$(AsJavaExtensions.scala:95)\n\tat scala.jdk.CollectionConverters$.MapHasAsJava(CollectionConverters.scala:95)\n\tat org.apache.spark.SparkContext.<init>(SparkContext.scala:594)\n\tat org.apache.spark.api.java.JavaSparkContext.<init>(JavaSparkContext.scala:59)\n\tat java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)\n\tat java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:77)\n\tat java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)\n\tat java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:500)\n\tat java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:481)\n\tat py4j.reflection.MethodInvoker.invoke(MethodInvoker.java:247)\n\tat py4j.reflection.ReflectionEngine.invoke(ReflectionEngine.java:374)\n\tat py4j.Gateway.invoke(Gateway.java:238)\n\tat py4j.commands.ConstructorCommand.invokeConstructor(ConstructorCommand.java:80)\n\tat py4j.commands.ConstructorCommand.execute(ConstructorCommand.java:69)\n\tat py4j.ClientServerConnection.waitForCommands(ClientServerConnection.java:184)\n\tat py4j.ClientServerConnection.run(ClientServerConnection.java:108)\n"
+      }
+    }
+  ]
+}

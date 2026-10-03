@@ -1,0 +1,1205 @@
+{
+  "source": "native AWS",
+  "retrieved_at": "2026-09-26T14:45:36.107538+00:00",
+  "region": "us-east-1",
+  "run_suffix": "7059e1b5c4fa4415",
+  "source_revisions": {
+    "aws_sdk_go_v2": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "primary_references": [
+    "https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateJob.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_GetJobRun.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_StartQueryExecution.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_GetQueryResults.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_StopQueryExecution.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_UpdateWorkGroup.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_DeleteWorkGroup.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_CreatePreparedStatement.html",
+    "https://docs.aws.amazon.com/athena/latest/ug/athena-events.html",
+    "https://docs.aws.amazon.com/glue/latest/dg/automating-awsglue-with-cloudwatch-events.html",
+    "https://aws.amazon.com/glue/pricing/",
+    "https://aws.amazon.com/athena/pricing/"
+  ],
+  "bounds": {
+    "max_calls": 260,
+    "wall_seconds": 1200,
+    "cli_timeout_seconds": 30,
+    "max_buckets": 1,
+    "max_total_object_bytes": 1048576,
+    "max_iam_roles": 2,
+    "max_databases": 1,
+    "max_tables": 1,
+    "max_workgroups": 2,
+    "max_jobs": 1,
+    "max_job_runs": 2,
+    "job_dpu": 0.0625,
+    "job_timeout_minutes": 2,
+    "job_retries": 0,
+    "max_query_submissions": 8,
+    "query_bytes_scanned_cutoff": 10485760,
+    "query_poll_deadline_seconds": 90,
+    "job_poll_deadline_seconds": 240,
+    "cost_usd_upper_estimate": 0.1,
+    "cost_basis": "Glue <=2*0.0625 DPU*2/60h*$0.44=$0.001834; Athena <=8*10MiB at $5/TB (<$0.001). Remaining conservative allowance covers <1MiB S3, catalog/API requests. No Spark/crawler/capacity reservation/EC2."
+  },
+  "normalization": "Owned names, account/caller/role/query/run IDs and pagination tokens replaced consistently; timestamps, field presence, list order, errors and data bytes retained. Credentials/debug output never persisted.",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_ms": 1790433936120,
+      "finished_ms": 1790433936874,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "OWNEDCALLERID",
+          "Account": "123456789012",
+          "Arn": "arn:aws:iam::123456789012:user/owned-caller"
+        }
+      }
+    },
+    {
+      "label": "create-event-queue",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-analytics-owned-events",
+        "Attributes": {
+          "MessageRetentionPeriod": "3600"
+        }
+      },
+      "started_ms": 1790433936897,
+      "finished_ms": 1790433937688,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events"
+        }
+      }
+    },
+    {
+      "label": "event-queue-arn",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "started_ms": 1790433937689,
+      "finished_ms": 1790433938973,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events"
+          }
+        }
+      }
+    },
+    {
+      "label": "create-event-rule-glue-job",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "stackd-analytics-owned-glue-job",
+        "EventPattern": "{\"source\": [\"aws.glue\"], \"detail\": {\"jobName\": [\"stackd-analytics-owned-job\"]}}",
+        "State": "ENABLED"
+      },
+      "started_ms": 1790433938974,
+      "finished_ms": 1790433939850,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-glue-job"
+        }
+      }
+    },
+    {
+      "label": "create-event-rule-glue-catalog",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "stackd-analytics-owned-glue-catalog",
+        "EventPattern": "{\"source\": [\"aws.glue\"], \"detail\": {\"databaseName\": [\"stackd_analytics_owned\"]}}",
+        "State": "ENABLED"
+      },
+      "started_ms": 1790433939850,
+      "finished_ms": 1790433940629,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-glue-catalog"
+        }
+      }
+    },
+    {
+      "label": "create-event-rule-athena",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "stackd-analytics-owned-athena",
+        "EventPattern": "{\"source\": [\"aws.athena\"], \"detail\": {\"workgroupName\": [\"stackd-analytics-owned-wg\"]}}",
+        "State": "ENABLED"
+      },
+      "started_ms": 1790433940629,
+      "finished_ms": 1790433941412,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-athena"
+        }
+      }
+    },
+    {
+      "label": "event-queue-policy",
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": [\"arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-glue-job\", \"arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-glue-catalog\", \"arn:aws:events:us-east-1:123456789012:rule/stackd-analytics-owned-athena\"]}}}]}"
+        }
+      },
+      "started_ms": 1790433941412,
+      "finished_ms": 1790433942111,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "attach-event-target",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "stackd-analytics-owned-glue-job",
+        "Targets": [
+          {
+            "Id": "owned",
+            "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events"
+          }
+        ]
+      },
+      "started_ms": 1790433942112,
+      "finished_ms": 1790433942846,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      }
+    },
+    {
+      "label": "attach-event-target",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "stackd-analytics-owned-glue-catalog",
+        "Targets": [
+          {
+            "Id": "owned",
+            "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events"
+          }
+        ]
+      },
+      "started_ms": 1790433942846,
+      "finished_ms": 1790433943646,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      }
+    },
+    {
+      "label": "attach-event-target",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "stackd-analytics-owned-athena",
+        "Targets": [
+          {
+            "Id": "owned",
+            "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-analytics-owned-events"
+          }
+        ]
+      },
+      "started_ms": 1790433943646,
+      "finished_ms": 1790433944466,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        }
+      }
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-analytics-owned"
+      },
+      "started_ms": 1790433944467,
+      "finished_ms": 1790433945451,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-analytics-owned",
+          "BucketArn": "arn:aws:s3:::stackd-analytics-owned"
+        }
+      }
+    },
+    {
+      "label": "put-input",
+      "service": "s3api",
+      "operation": "put-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "input/source.csv"
+      },
+      "started_ms": 1790433945452,
+      "finished_ms": 1790433946265,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ETag": "\"65e87086b1b3b1fb793e494eb0e926cf\"",
+          "ChecksumCRC64NVME": "9423O/kxYGw=",
+          "ChecksumType": "FULL_OBJECT",
+          "ServerSideEncryption": "AES256"
+        }
+      }
+    },
+    {
+      "label": "put-producer",
+      "service": "s3api",
+      "operation": "put-object",
+      "input": {
+        "Bucket": "stackd-analytics-owned",
+        "Key": "scripts/producer.py"
+      },
+      "started_ms": 1790433946266,
+      "finished_ms": 1790433947083,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ETag": "\"6f0f66091c9f8e703ec1150e83495572\"",
+          "ChecksumCRC64NVME": "N7vjnBcTdkM=",
+          "ChecksumType": "FULL_OBJECT",
+          "ServerSideEncryption": "AES256"
+        }
+      }
+    },
+    {
+      "label": "create-execution-role",
+      "service": "iam",
+      "operation": "create-role",
+      "input": {
+        "RoleName": "stackd-analytics-owned-execution",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"glue.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "started_ms": 1790433947083,
+      "finished_ms": 1790433947833,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-analytics-owned-execution",
+            "RoleId": "EXECUTION_ROLE_ID",
+            "Arn": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+            "CreateDate": "2026-09-26T14:45:47+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "glue.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "execution-policy",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-analytics-owned-execution",
+        "PolicyName": "owned",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\"], \"Resource\": [\"arn:aws:s3:::stackd-analytics-owned/scripts/*\", \"arn:aws:s3:::stackd-analytics-owned/input/*\"]}, {\"Effect\": \"Allow\", \"Action\": [\"s3:PutObject\"], \"Resource\": \"arn:aws:s3:::stackd-analytics-owned/data/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:ListBucket\", \"s3:GetBucketLocation\"], \"Resource\": \"arn:aws:s3:::stackd-analytics-owned\"}]}"
+      },
+      "started_ms": 1790433947836,
+      "finished_ms": 1790433948568,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-job",
+      "service": "glue",
+      "operation": "create-job",
+      "input": {
+        "Name": "stackd-analytics-owned-job",
+        "Role": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+        "Command": {
+          "Name": "pythonshell",
+          "PythonVersion": "3.9",
+          "ScriptLocation": "s3://stackd-analytics-owned/scripts/producer.py"
+        },
+        "MaxCapacity": 0.0625,
+        "Timeout": 2,
+        "MaxRetries": 0,
+        "ExecutionProperty": {
+          "MaxConcurrentRuns": 1
+        },
+        "DefaultArguments": {
+          "--library-set": "none",
+          "--bucket": "stackd-analytics-owned"
+        }
+      },
+      "started_ms": 1790433948568,
+      "finished_ms": 1790433949431,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-analytics-owned-job"
+        }
+      }
+    },
+    {
+      "label": "duplicate-job",
+      "service": "glue",
+      "operation": "create-job",
+      "input": {
+        "Name": "stackd-analytics-owned-job",
+        "Role": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+        "Command": {
+          "Name": "pythonshell",
+          "PythonVersion": "3.9",
+          "ScriptLocation": "s3://stackd-analytics-owned/scripts/producer.py"
+        },
+        "MaxCapacity": 0.0625,
+        "Timeout": 2,
+        "MaxRetries": 0,
+        "ExecutionProperty": {
+          "MaxConcurrentRuns": 1
+        },
+        "DefaultArguments": {
+          "--library-set": "none",
+          "--bucket": "stackd-analytics-owned"
+        }
+      },
+      "started_ms": 1790433949432,
+      "finished_ms": 1790433950181,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-analytics-owned-job"
+        }
+      }
+    },
+    {
+      "label": "get-job",
+      "service": "glue",
+      "operation": "get-job",
+      "input": {
+        "JobName": "stackd-analytics-owned-job"
+      },
+      "started_ms": 1790433950181,
+      "finished_ms": 1790433950930,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Job": {
+            "Name": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "Role": "arn:aws:iam::123456789012:role/stackd-analytics-owned-execution",
+            "CreatedOn": "2026-09-26T15:45:49.287000+01:00",
+            "LastModifiedOn": "2026-09-26T15:45:49.287000+01:00",
+            "ExecutionProperty": {
+              "MaxConcurrentRuns": 1
+            },
+            "Command": {
+              "Name": "pythonshell",
+              "ScriptLocation": "s3://stackd-analytics-owned/scripts/producer.py",
+              "PythonVersion": "3.9"
+            },
+            "DefaultArguments": {
+              "--library-set": "none",
+              "--bucket": "stackd-analytics-owned"
+            },
+            "MaxRetries": 0,
+            "AllocatedCapacity": 0,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "start-job-success",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "success"
+        }
+      },
+      "started_ms": 1790433962931,
+      "finished_ms": 1790433963769,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRunId": "JOB_SUCCESS_ID"
+        }
+      }
+    },
+    {
+      "label": "concurrent-job-run",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "success"
+        }
+      },
+      "started_ms": 1790433963778,
+      "finished_ms": 1790433964562,
+      "result": {
+        "code": "ConcurrentRunsExceededException",
+        "error": {
+          "Message": "Concurrent runs exceeded.",
+          "Code": "ConcurrentRunsExceededException"
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-0",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790433964562,
+      "finished_ms": 1790433965290,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:46:03.623000+01:00",
+            "LastModifiedOn": "2026-09-26T15:46:03.627000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 0,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-1",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790433970290,
+      "finished_ms": 1790433971067,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:46:03.623000+01:00",
+            "LastModifiedOn": "2026-09-26T15:46:06.985000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 0,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-2",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790433976068,
+      "finished_ms": 1790433976883,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:46:03.623000+01:00",
+            "LastModifiedOn": "2026-09-26T15:46:06.985000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 5,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-3",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790433981884,
+      "finished_ms": 1790433982684,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:46:03.623000+01:00",
+            "LastModifiedOn": "2026-09-26T15:46:06.985000+01:00",
+            "JobRunState": "RUNNING",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 10,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "job-success-poll-4",
+      "service": "glue",
+      "operation": "get-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "RunId": "JOB_SUCCESS_ID",
+        "PredecessorsIncluded": true
+      },
+      "started_ms": 1790433987685,
+      "finished_ms": 1790433988565,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobRun": {
+            "Id": "JOB_SUCCESS_ID",
+            "Attempt": 0,
+            "JobName": "stackd-analytics-owned-job",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "StartedOn": "2026-09-26T15:46:03.623000+01:00",
+            "LastModifiedOn": "2026-09-26T15:46:25.320000+01:00",
+            "CompletedOn": "2026-09-26T15:46:25.320000+01:00",
+            "JobRunState": "SUCCEEDED",
+            "Arguments": {
+              "--mode": "success"
+            },
+            "PredecessorRuns": [],
+            "AllocatedCapacity": 0,
+            "ExecutionTime": 13,
+            "Timeout": 2,
+            "MaxCapacity": 0.0625,
+            "LogGroupName": "/aws-glue/python-jobs",
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "start-job-failure",
+      "service": "glue",
+      "operation": "start-job-run",
+      "input": {
+        "JobName": "stackd-analytics-owned-job",
+        "Arguments": {
+          "--mode": "failure"
+        }
+      },
+      "started_ms": 1790433988567,
+      "finished_ms": 1790433989418,
+      "result": {
+        "code": "ConcurrentRunsExceededException",
+        "error": {
+          "Message": "Concurrent runs exceeded.",
+          "Code": "ConcurrentRunsExceededException"
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "cleanup-job-state",
+        "service": "glue",
+        "operation": "get-job-run",
+        "input": {
+          "JobName": "stackd-analytics-owned-job",
+          "RunId": "JOB_SUCCESS_ID"
+        },
+        "started_ms": 1790433989419,
+        "finished_ms": 1790433990195,
+        "result": {
+          "code": "Success",
+          "output": {
+            "JobRun": {
+              "Id": "JOB_SUCCESS_ID",
+              "Attempt": 0,
+              "JobName": "stackd-analytics-owned-job",
+              "JobMode": "SCRIPT",
+              "JobRunQueuingEnabled": false,
+              "StartedOn": "2026-09-26T15:46:03.623000+01:00",
+              "LastModifiedOn": "2026-09-26T15:46:25.320000+01:00",
+              "CompletedOn": "2026-09-26T15:46:25.320000+01:00",
+              "JobRunState": "SUCCEEDED",
+              "Arguments": {
+                "--mode": "success"
+              },
+              "PredecessorRuns": [],
+              "AllocatedCapacity": 0,
+              "ExecutionTime": 13,
+              "Timeout": 2,
+              "MaxCapacity": 0.0625,
+              "LogGroupName": "/aws-glue/python-jobs",
+              "GlueVersion": "6.0"
+            }
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-job",
+        "service": "glue",
+        "operation": "delete-job",
+        "input": {
+          "JobName": "stackd-analytics-owned-job"
+        },
+        "started_ms": 1790433990196,
+        "finished_ms": 1790433991012,
+        "result": {
+          "code": "Success",
+          "output": {
+            "JobName": "stackd-analytics-owned-job"
+          }
+        }
+      },
+      {
+        "label": "verify-job-absent",
+        "service": "glue",
+        "operation": "get-job",
+        "input": {
+          "JobName": "stackd-analytics-owned-job"
+        },
+        "started_ms": 1790433991013,
+        "finished_ms": 1790433991732,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Job not found.",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-list-owned-objects",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "MaxKeys": 100
+        },
+        "started_ms": 1790433991733,
+        "finished_ms": 1790433992504,
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "data/part.csv",
+                "LastModified": "2026-09-26T14:46:15+00:00",
+                "ETag": "\"e19b299c9db03f11e0a0bc673ddebf87\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 25,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "input/source.csv",
+                "LastModified": "2026-09-26T14:45:47+00:00",
+                "ETag": "\"65e87086b1b3b1fb793e494eb0e926cf\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 24,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "scripts/producer.py",
+                "LastModified": "2026-09-26T14:45:47+00:00",
+                "ETag": "\"6f0f66091c9f8e703ec1150e83495572\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 1083,
+                "StorageClass": "STANDARD"
+              }
+            ],
+            "Name": "stackd-analytics-owned",
+            "Prefix": "",
+            "MaxKeys": 100,
+            "EncodingType": "url",
+            "KeyCount": 3
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "data/part.csv"
+        },
+        "started_ms": 1790433992506,
+        "finished_ms": 1790433993229,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "input/source.csv"
+        },
+        "started_ms": 1790433993230,
+        "finished_ms": 1790433994001,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-object",
+        "service": "s3api",
+        "operation": "delete-object",
+        "input": {
+          "Bucket": "stackd-analytics-owned",
+          "Key": "scripts/producer.py"
+        },
+        "started_ms": 1790433994002,
+        "finished_ms": 1790433994764,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-bucket",
+        "service": "s3api",
+        "operation": "delete-bucket",
+        "input": {
+          "Bucket": "stackd-analytics-owned"
+        },
+        "started_ms": 1790433994765,
+        "finished_ms": 1790433995759,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-bucket-absent",
+        "service": "s3api",
+        "operation": "head-bucket",
+        "input": {
+          "Bucket": "stackd-analytics-owned"
+        },
+        "started_ms": 1790433995760,
+        "finished_ms": 1790433996448,
+        "result": {
+          "code": "404",
+          "error": {
+            "Code": "404",
+            "Message": "Not Found"
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-role-policy",
+        "service": "iam",
+        "operation": "delete-role-policy",
+        "input": {
+          "RoleName": "stackd-analytics-owned-execution",
+          "PolicyName": "owned"
+        },
+        "started_ms": 1790433996449,
+        "finished_ms": 1790433997250,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-delete-role",
+        "service": "iam",
+        "operation": "delete-role",
+        "input": {
+          "RoleName": "stackd-analytics-owned-execution"
+        },
+        "started_ms": 1790433997250,
+        "finished_ms": 1790433998069,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-role-absent",
+        "service": "iam",
+        "operation": "get-role",
+        "input": {
+          "RoleName": "stackd-analytics-owned-execution"
+        },
+        "started_ms": 1790433998070,
+        "finished_ms": 1790433998762,
+        "result": {
+          "code": "NoSuchEntity",
+          "error": {
+            "Code": "NoSuchEntity",
+            "Message": "The role with name stackd-analytics-owned-execution cannot be found."
+          }
+        }
+      },
+      {
+        "label": "cleanup-remove-event-target",
+        "service": "events",
+        "operation": "remove-targets",
+        "input": {
+          "Rule": "stackd-analytics-owned-glue-job",
+          "Ids": [
+            "owned"
+          ]
+        },
+        "started_ms": 1790433998763,
+        "finished_ms": 1790433999516,
+        "result": {
+          "code": "Success",
+          "output": {
+            "FailedEntryCount": 0,
+            "FailedEntries": []
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-event-rule",
+        "service": "events",
+        "operation": "delete-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-glue-job"
+        },
+        "started_ms": 1790433999517,
+        "finished_ms": 1790434000306,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-event-rule-absent",
+        "service": "events",
+        "operation": "describe-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-glue-job"
+        },
+        "started_ms": 1790434000307,
+        "finished_ms": 1790434001012,
+        "result": {
+          "code": "ResourceNotFoundException",
+          "error": {
+            "Message": "Rule stackd-analytics-owned-glue-job does not exist on EventBus default.",
+            "Code": "ResourceNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-remove-event-target",
+        "service": "events",
+        "operation": "remove-targets",
+        "input": {
+          "Rule": "stackd-analytics-owned-glue-catalog",
+          "Ids": [
+            "owned"
+          ]
+        },
+        "started_ms": 1790434001014,
+        "finished_ms": 1790434001694,
+        "result": {
+          "code": "Success",
+          "output": {
+            "FailedEntryCount": 0,
+            "FailedEntries": []
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-event-rule",
+        "service": "events",
+        "operation": "delete-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-glue-catalog"
+        },
+        "started_ms": 1790434001695,
+        "finished_ms": 1790434002427,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-event-rule-absent",
+        "service": "events",
+        "operation": "describe-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-glue-catalog"
+        },
+        "started_ms": 1790434002428,
+        "finished_ms": 1790434003171,
+        "result": {
+          "code": "ResourceNotFoundException",
+          "error": {
+            "Message": "Rule stackd-analytics-owned-glue-catalog does not exist on EventBus default.",
+            "Code": "ResourceNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-remove-event-target",
+        "service": "events",
+        "operation": "remove-targets",
+        "input": {
+          "Rule": "stackd-analytics-owned-athena",
+          "Ids": [
+            "owned"
+          ]
+        },
+        "started_ms": 1790434003172,
+        "finished_ms": 1790434003898,
+        "result": {
+          "code": "Success",
+          "output": {
+            "FailedEntryCount": 0,
+            "FailedEntries": []
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-event-rule",
+        "service": "events",
+        "operation": "delete-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-athena"
+        },
+        "started_ms": 1790434003899,
+        "finished_ms": 1790434004664,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-event-rule-absent",
+        "service": "events",
+        "operation": "describe-rule",
+        "input": {
+          "Name": "stackd-analytics-owned-athena"
+        },
+        "started_ms": 1790434004665,
+        "finished_ms": 1790434005350,
+        "result": {
+          "code": "ResourceNotFoundException",
+          "error": {
+            "Message": "Rule stackd-analytics-owned-athena does not exist on EventBus default.",
+            "Code": "ResourceNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-delete-event-queue",
+        "service": "sqs",
+        "operation": "delete-queue",
+        "input": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events"
+        },
+        "started_ms": 1790434005351,
+        "finished_ms": 1790434006110,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-event-queue-absent",
+        "service": "sqs",
+        "operation": "get-queue-url",
+        "input": {
+          "QueueName": "stackd-analytics-owned-events"
+        },
+        "started_ms": 1790434006111,
+        "finished_ms": 1790434006791,
+        "result": {
+          "code": "AWS.SimpleQueueService.NonExistentQueue",
+          "error": {
+            "Message": "The specified queue does not exist.",
+            "Code": "AWS.SimpleQueueService.NonExistentQueue"
+          }
+        }
+      }
+    ],
+    "remaining_owned": []
+  },
+  "completed": false,
+  "cli_calls": 49,
+  "elapsed_seconds": 70.685,
+  "account": "123456789012",
+  "uncertainty": [
+    "One account and region, Python shell 3.9 only; no Glue Spark or Athena Spark conformance claimed.",
+    "IAM role propagation observations are retained; their durations are not contractual.",
+    "Athena cancellation races execution; native terminal state is retained, never overwritten as CANCELLED.",
+    "Query history and deleted Glue job run history have no native purge API; resource deletion/terminal runs prevent ongoing compute.",
+    "No CloudWatch default log groups are created, modified or granted to job role; this run does not prove runtime log delivery.",
+    "No Lake Formation grants/defaults, global catalog lists, standing workgroups or IAM policies modified."
+  ],
+  "event_resources": {
+    "queue_name": "stackd-analytics-owned-events",
+    "queue_url": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-analytics-owned-events",
+    "rules": [
+      "stackd-analytics-owned-glue-job",
+      "stackd-analytics-owned-glue-catalog",
+      "stackd-analytics-owned-athena"
+    ]
+  },
+  "event_capture_bounds": {
+    "max_rules": 3,
+    "max_queues": 1,
+    "receive_seconds": 35,
+    "max_receive_calls": 8,
+    "delivery": "Best effort; bounded missing events are not asserted absent forever."
+  },
+  "job_transitions": {
+    "job-success": [
+      "RUNNING",
+      "RUNNING",
+      "RUNNING",
+      "RUNNING",
+      "SUCCEEDED"
+    ]
+  },
+  "job_terminal": {
+    "job-success": {
+      "Id": "JOB_SUCCESS_ID",
+      "Attempt": 0,
+      "JobName": "stackd-analytics-owned-job",
+      "JobMode": "SCRIPT",
+      "JobRunQueuingEnabled": false,
+      "StartedOn": "2026-09-26T15:46:03.623000+01:00",
+      "LastModifiedOn": "2026-09-26T15:46:25.320000+01:00",
+      "CompletedOn": "2026-09-26T15:46:25.320000+01:00",
+      "JobRunState": "SUCCEEDED",
+      "Arguments": {
+        "--mode": "success"
+      },
+      "PredecessorRuns": [],
+      "AllocatedCapacity": 0,
+      "ExecutionTime": 13,
+      "Timeout": 2,
+      "MaxCapacity": 0.0625,
+      "LogGroupName": "/aws-glue/python-jobs",
+      "GlueVersion": "6.0"
+    }
+  },
+  "failure": {
+    "type": "RuntimeError",
+    "message": "Required native operation failed: ConcurrentRunsExceededException"
+  }
+}

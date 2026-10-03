@@ -1,0 +1,682 @@
+{
+  "scope": "Local signed boto3 executable smoke; no native AWS service mutations were executed by this smoke.",
+  "complete": true,
+  "execution": {
+    "runner": "functions.eval Python cells",
+    "binary_command": [
+      "/tmp/stackd-cloudformation",
+      "-listen",
+      "127.0.0.1:60525",
+      "-public-endpoint",
+      "http://127.0.0.1:60525",
+      "-database",
+      "/tmp/stackd-cfn-messaging-zag45_xd/state.sqlite",
+      "-docker-host",
+      "unix:///var/run/docker.sock",
+      "-compute-endpoint",
+      "http://127.0.0.1:60525"
+    ],
+    "python": "3.12.3",
+    "boto3": "1.43.98",
+    "botocore": "1.43.98",
+    "endpoint": "http://127.0.0.1:60525",
+    "state_directory": "/tmp/stackd-cfn-messaging-zag45_xd",
+    "helpers": "scripts/aws/cloudformation_executable_smoke.py Application.client, wait, error; independent subprocess startup uses the same CLI options without the unrelated complete-export-native-fixture prerequisite",
+    "notes": [
+      "No temporary Python script file was created; the retained templates and observed stdout below came from executed Python tool cells.",
+      "Parent final gate supplied the built binary; this worker did not build, format, or run test suites."
+    ]
+  },
+  "owned_resources": {
+    "stack_name": "messaging-e1e9a626e66f",
+    "stack_id": "arn:aws:cloudformation:us-east-1:000000000000:stack/messaging-e1e9a626e66f/c6990b92-0823-4265-9853-1d0362764288",
+    "collision_stack_name": "messaging-e1e9a626e66f-collision",
+    "collision_stack_id": "arn:aws:cloudformation:us-east-1:000000000000:stack/messaging-e1e9a626e66f-collision/b386e24a-ac12-4713-a005-d528efbfc2d5",
+    "outputs": {
+      "Bucket": "messaging-e1e9a626e66f-bucket-f2c4aabe8e3945ca",
+      "Queue": "https://sqs.us-east-1.amazonaws.com/000000000000/messaging-e1e9a626e66f-queue-da1f46463d4b5ef9",
+      "Subscription": "arn:aws:sns:us-east-1:000000000000:messaging-e1e9a626e66f-topic-d04c9792b811c569:c6d4b757-5421-4526-93bc-c96a5a099240",
+      "Topic": "arn:aws:sns:us-east-1:000000000000:messaging-e1e9a626e66f-topic-d04c9792b811c569"
+    },
+    "external_fixture_queue_name": "messaging-e1e9a626e66f-unowned",
+    "external_fixture_queue_url": "http://127.0.0.1:60525/000000000000/messaging-e1e9a626e66f-unowned"
+  },
+  "templates": {
+    "create": {
+      "Resources": {
+        "Queue": {
+          "Type": "AWS::SQS::Queue",
+          "Properties": {
+            "VisibilityTimeout": 3,
+            "Tags": [
+              {
+                "Key": "stage",
+                "Value": "before"
+              }
+            ]
+          }
+        },
+        "Topic": {
+          "Type": "AWS::SNS::Topic",
+          "Properties": {
+            "DisplayName": "before",
+            "SignatureVersion": "2"
+          }
+        },
+        "TopicPolicy": {
+          "Type": "AWS::SNS::TopicPolicy",
+          "Properties": {
+            "Topics": [
+              {
+                "Ref": "Topic"
+              }
+            ],
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "s3.amazonaws.com"
+                  },
+                  "Action": "sns:Publish",
+                  "Resource": {
+                    "Ref": "Topic"
+                  },
+                  "Condition": {
+                    "StringEquals": {
+                      "aws:SourceAccount": {
+                        "Ref": "AWS::AccountId"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "QueuePolicy": {
+          "Type": "AWS::SQS::QueuePolicy",
+          "Properties": {
+            "Queues": [
+              {
+                "Ref": "Queue"
+              }
+            ],
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "sns.amazonaws.com"
+                  },
+                  "Action": "sqs:SendMessage",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Queue",
+                      "Arn"
+                    ]
+                  },
+                  "Condition": {
+                    "ArnEquals": {
+                      "aws:SourceArn": {
+                        "Ref": "Topic"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "Subscription": {
+          "Type": "AWS::SNS::Subscription",
+          "DependsOn": "QueuePolicy",
+          "Properties": {
+            "TopicArn": {
+              "Ref": "Topic"
+            },
+            "Protocol": "sqs",
+            "Endpoint": {
+              "Fn::GetAtt": [
+                "Queue",
+                "Arn"
+              ]
+            },
+            "RawMessageDelivery": true
+          }
+        },
+        "Bucket": {
+          "Type": "AWS::S3::Bucket",
+          "DependsOn": [
+            "TopicPolicy",
+            "Subscription"
+          ],
+          "Properties": {
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            },
+            "BucketEncryption": {
+              "ServerSideEncryptionConfiguration": [
+                {
+                  "ServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "AES256"
+                  },
+                  "BlockedEncryptionTypes": {
+                    "EncryptionType": [
+                      "SSE-C"
+                    ]
+                  }
+                }
+              ]
+            },
+            "NotificationConfiguration": {
+              "TopicConfigurations": [
+                {
+                  "Event": "s3:ObjectCreated:*",
+                  "Topic": {
+                    "Ref": "Topic"
+                  },
+                  "Filter": {
+                    "S3Key": {
+                      "Rules": [
+                        {
+                          "Name": "prefix",
+                          "Value": "incoming/"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "BucketPolicy": {
+          "Type": "AWS::S3::BucketPolicy",
+          "Properties": {
+            "Bucket": {
+              "Ref": "Bucket"
+            },
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "AWS": {
+                      "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+                    }
+                  },
+                  "Action": "s3:GetObject",
+                  "Resource": {
+                    "Fn::Sub": "${Bucket.Arn}/*"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Outputs": {
+        "Queue": {
+          "Value": {
+            "Ref": "Queue"
+          }
+        },
+        "Topic": {
+          "Value": {
+            "Ref": "Topic"
+          }
+        },
+        "Subscription": {
+          "Value": {
+            "Ref": "Subscription"
+          }
+        },
+        "Bucket": {
+          "Value": {
+            "Ref": "Bucket"
+          }
+        }
+      }
+    },
+    "update_properties": {
+      "Resources": {
+        "Queue": {
+          "Type": "AWS::SQS::Queue",
+          "Properties": {
+            "VisibilityTimeout": 8,
+            "Tags": [
+              {
+                "Key": "stage",
+                "Value": "after"
+              }
+            ]
+          }
+        },
+        "Topic": {
+          "Type": "AWS::SNS::Topic",
+          "Properties": {
+            "DisplayName": "after",
+            "SignatureVersion": "2"
+          }
+        },
+        "TopicPolicy": {
+          "Type": "AWS::SNS::TopicPolicy",
+          "Properties": {
+            "Topics": [
+              {
+                "Ref": "Topic"
+              }
+            ],
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "s3.amazonaws.com"
+                  },
+                  "Action": "sns:Publish",
+                  "Resource": {
+                    "Ref": "Topic"
+                  },
+                  "Condition": {
+                    "StringEquals": {
+                      "aws:SourceAccount": {
+                        "Ref": "AWS::AccountId"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "QueuePolicy": {
+          "Type": "AWS::SQS::QueuePolicy",
+          "Properties": {
+            "Queues": [
+              {
+                "Ref": "Queue"
+              }
+            ],
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "sns.amazonaws.com"
+                  },
+                  "Action": "sqs:SendMessage",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Queue",
+                      "Arn"
+                    ]
+                  },
+                  "Condition": {
+                    "ArnEquals": {
+                      "aws:SourceArn": {
+                        "Ref": "Topic"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "Subscription": {
+          "Type": "AWS::SNS::Subscription",
+          "DependsOn": "QueuePolicy",
+          "Properties": {
+            "TopicArn": {
+              "Ref": "Topic"
+            },
+            "Protocol": "sqs",
+            "Endpoint": {
+              "Fn::GetAtt": [
+                "Queue",
+                "Arn"
+              ]
+            },
+            "RawMessageDelivery": true,
+            "FilterPolicy": {
+              "colour": [
+                "blue"
+              ]
+            },
+            "FilterPolicyScope": "MessageBody"
+          }
+        },
+        "Bucket": {
+          "Type": "AWS::S3::Bucket",
+          "DependsOn": [
+            "TopicPolicy",
+            "Subscription"
+          ],
+          "Properties": {}
+        },
+        "BucketPolicy": {
+          "Type": "AWS::S3::BucketPolicy",
+          "Properties": {
+            "Bucket": {
+              "Ref": "Bucket"
+            },
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "AWS": {
+                      "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+                    }
+                  },
+                  "Action": "s3:GetObject",
+                  "Resource": {
+                    "Fn::Sub": "${Bucket.Arn}/*"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Outputs": {
+        "Queue": {
+          "Value": {
+            "Ref": "Queue"
+          }
+        },
+        "Topic": {
+          "Value": {
+            "Ref": "Topic"
+          }
+        },
+        "Subscription": {
+          "Value": {
+            "Ref": "Subscription"
+          }
+        },
+        "Bucket": {
+          "Value": {
+            "Ref": "Bucket"
+          }
+        }
+      }
+    },
+    "remove_policies_subscription": {
+      "Resources": {
+        "Queue": {
+          "Type": "AWS::SQS::Queue",
+          "Properties": {
+            "VisibilityTimeout": 8,
+            "Tags": [
+              {
+                "Key": "stage",
+                "Value": "after"
+              }
+            ]
+          }
+        },
+        "Topic": {
+          "Type": "AWS::SNS::Topic",
+          "Properties": {
+            "DisplayName": "after",
+            "SignatureVersion": "2"
+          }
+        },
+        "Bucket": {
+          "Type": "AWS::S3::Bucket",
+          "Properties": {}
+        }
+      },
+      "Outputs": {
+        "Queue": {
+          "Value": {
+            "Ref": "Queue"
+          }
+        },
+        "Topic": {
+          "Value": {
+            "Ref": "Topic"
+          }
+        },
+        "Bucket": {
+          "Value": {
+            "Ref": "Bucket"
+          }
+        }
+      }
+    }
+  },
+  "observations": {
+    "create_status": "CREATE_COMPLETE",
+    "delivered_s3_notification": {
+      "Records": [
+        {
+          "awsRegion": "us-east-1",
+          "eventName": "ObjectCreated:Put",
+          "eventSource": "aws:s3",
+          "eventTime": "2026-09-26T22:47:37.217Z",
+          "eventVersion": "2.6",
+          "requestParameters": {
+            "sourceIPAddress": "127.0.0.1"
+          },
+          "responseElements": {
+            "x-amz-id-2": "NzY4ZTY2NTAtOThmOS00ODgzLThhYTUtYzJlYzMyMTJjYzEz",
+            "x-amz-request-id": "4a4472453fe1d06d6cc93f74529f0ae7"
+          },
+          "s3": {
+            "bucket": {
+              "arn": "arn:aws:s3:::messaging-e1e9a626e66f-bucket-f2c4aabe8e3945ca",
+              "name": "messaging-e1e9a626e66f-bucket-f2c4aabe8e3945ca",
+              "ownerIdentity": {
+                "principalId": "AB3A869017FAA"
+              }
+            },
+            "configurationId": "cloudformation-topic-0",
+            "object": {
+              "eTag": "7c9e8168f189ef47874b798660c1ffcd",
+              "key": "incoming/ready.txt",
+              "sequencer": "000000000000000002",
+              "size": 42,
+              "versionId": "sv1_-_KJTA46jsF6WEMrRa4SpwHcVwHjCBIn"
+            },
+            "s3SchemaVersion": "1.0"
+          },
+          "userIdentity": {
+            "principalId": "AWS:000000000000"
+          }
+        }
+      ]
+    },
+    "update_status": "UPDATE_COMPLETE",
+    "queue_visibility_before": "3",
+    "queue_visibility_after": "8",
+    "queue_stage_tag_after": "after",
+    "bucket_versioning_before": "Enabled",
+    "bucket_versioning_after": "Suspended",
+    "notification_configuration_removed": true,
+    "topic_display_name_after": "after",
+    "body_filter_deliveries": [
+      {
+        "colour": "blue",
+        "id": "accepted"
+      }
+    ],
+    "green_message_rejected": true,
+    "policy_removal_status": "UPDATE_COMPLETE",
+    "bucket_policy_error": "NoSuchBucketPolicy",
+    "queue_policy_attribute_absent": true,
+    "sns_default_policy": {
+      "Id": "__default_policy_ID",
+      "Statement": [
+        {
+          "Action": [
+            "SNS:GetTopicAttributes",
+            "SNS:SetTopicAttributes",
+            "SNS:AddPermission",
+            "SNS:RemovePermission",
+            "SNS:DeleteTopic",
+            "SNS:Subscribe",
+            "SNS:ListSubscriptionsByTopic",
+            "SNS:Publish"
+          ],
+          "Condition": {
+            "StringEquals": {
+              "AWS:SourceOwner": "000000000000"
+            }
+          },
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "*"
+          },
+          "Resource": "arn:aws:sns:us-east-1:000000000000:messaging-e1e9a626e66f-topic-d04c9792b811c569",
+          "Sid": "__default_statement_ID"
+        }
+      ],
+      "Version": "2008-10-17"
+    },
+    "subscription_error": "NotFound",
+    "unowned_name_collision_status": "ROLLBACK_COMPLETE",
+    "unowned_queue_survived_collision_rollback_and_stack_deletion": true,
+    "resource_rows_before_restart": [
+      {
+        "StackName": "messaging-e1e9a626e66f",
+        "StackId": "arn:aws:cloudformation:us-east-1:000000000000:stack/messaging-e1e9a626e66f/c6990b92-0823-4265-9853-1d0362764288",
+        "LogicalResourceId": "Bucket",
+        "PhysicalResourceId": "messaging-e1e9a626e66f-bucket-f2c4aabe8e3945ca",
+        "ResourceType": "AWS::S3::Bucket",
+        "Timestamp": "2026-09-26 22:47:37.453151+00:00",
+        "ResourceStatus": "UPDATE_COMPLETE",
+        "ResourceStatusReason": ""
+      },
+      {
+        "StackName": "messaging-e1e9a626e66f",
+        "StackId": "arn:aws:cloudformation:us-east-1:000000000000:stack/messaging-e1e9a626e66f/c6990b92-0823-4265-9853-1d0362764288",
+        "LogicalResourceId": "Queue",
+        "PhysicalResourceId": "https://sqs.us-east-1.amazonaws.com/000000000000/messaging-e1e9a626e66f-queue-da1f46463d4b5ef9",
+        "ResourceType": "AWS::SQS::Queue",
+        "Timestamp": "2026-09-26 22:47:37.347016+00:00",
+        "ResourceStatus": "UPDATE_COMPLETE",
+        "ResourceStatusReason": ""
+      },
+      {
+        "StackName": "messaging-e1e9a626e66f",
+        "StackId": "arn:aws:cloudformation:us-east-1:000000000000:stack/messaging-e1e9a626e66f/c6990b92-0823-4265-9853-1d0362764288",
+        "LogicalResourceId": "Topic",
+        "PhysicalResourceId": "arn:aws:sns:us-east-1:000000000000:messaging-e1e9a626e66f-topic-d04c9792b811c569",
+        "ResourceType": "AWS::SNS::Topic",
+        "Timestamp": "2026-09-26 22:47:37.382790+00:00",
+        "ResourceStatus": "UPDATE_COMPLETE",
+        "ResourceStatusReason": ""
+      }
+    ],
+    "resource_rows_after_restart": [
+      {
+        "StackName": "messaging-e1e9a626e66f",
+        "StackId": "arn:aws:cloudformation:us-east-1:000000000000:stack/messaging-e1e9a626e66f/c6990b92-0823-4265-9853-1d0362764288",
+        "LogicalResourceId": "Bucket",
+        "PhysicalResourceId": "messaging-e1e9a626e66f-bucket-f2c4aabe8e3945ca",
+        "ResourceType": "AWS::S3::Bucket",
+        "Timestamp": "2026-09-26 22:47:37.453151+00:00",
+        "ResourceStatus": "UPDATE_COMPLETE",
+        "ResourceStatusReason": ""
+      },
+      {
+        "StackName": "messaging-e1e9a626e66f",
+        "StackId": "arn:aws:cloudformation:us-east-1:000000000000:stack/messaging-e1e9a626e66f/c6990b92-0823-4265-9853-1d0362764288",
+        "LogicalResourceId": "Queue",
+        "PhysicalResourceId": "https://sqs.us-east-1.amazonaws.com/000000000000/messaging-e1e9a626e66f-queue-da1f46463d4b5ef9",
+        "ResourceType": "AWS::SQS::Queue",
+        "Timestamp": "2026-09-26 22:47:37.347016+00:00",
+        "ResourceStatus": "UPDATE_COMPLETE",
+        "ResourceStatusReason": ""
+      },
+      {
+        "StackName": "messaging-e1e9a626e66f",
+        "StackId": "arn:aws:cloudformation:us-east-1:000000000000:stack/messaging-e1e9a626e66f/c6990b92-0823-4265-9853-1d0362764288",
+        "LogicalResourceId": "Topic",
+        "PhysicalResourceId": "arn:aws:sns:us-east-1:000000000000:messaging-e1e9a626e66f-topic-d04c9792b811c569",
+        "ResourceType": "AWS::SNS::Topic",
+        "Timestamp": "2026-09-26 22:47:37.382790+00:00",
+        "ResourceStatus": "UPDATE_COMPLETE",
+        "ResourceStatusReason": ""
+      }
+    ]
+  },
+  "cleanup": {
+    "stack_names_absent": [
+      "messaging-e1e9a626e66f",
+      "messaging-e1e9a626e66f-collision"
+    ],
+    "bucket_head_error_matched": [
+      "404",
+      "NoSuchBucket"
+    ],
+    "queue_attributes_error_matched": [
+      "QueueDoesNotExist",
+      "AWS.SimpleQueueService.NonExistentQueue"
+    ],
+    "topic_attributes_error": "NotFound",
+    "subscription_attributes_error": "NotFound",
+    "external_queue_deleted_explicitly": true,
+    "external_queue_absence_after_restart": {
+      "code": "AWS.SimpleQueueService.NonExistentQueue",
+      "status": 400
+    },
+    "all_controller_exit_codes": [
+      0,
+      0,
+      0
+    ],
+    "controller_running": false,
+    "temporary_script_files": []
+  },
+  "observed_stdout_lines": [
+    "{'state': '/tmp/stackd-cfn-messaging-zag45_xd', 'status': 'CREATE_COMPLETE', 'outputs': {'Bucket': 'messaging-e1e9a626e66f-bucket-f2c4aabe8e3945ca', 'Queue': 'https://sqs.us-east-1.amazonaws.com/000000000000/messaging-e1e9a626e66f-queue-da1f46463d4b5ef9', 'Subscription': 'arn:aws:sns:us-east-1:000000000000:messaging-e1e9a626e66f-topic-d04c9792b811c569:c6d4b757-5421-4526-93bc-c96a5a099240', 'Topic': 'arn:aws:sns:us-east-1:000000000000:messaging-e1e9a626e66f-topic-d04c9792b811c569'}}",
+    "{'notification': 'ObjectCreated:Put', 'status': 'UPDATE_COMPLETE', 'filter_delivery': [{'colour': 'blue', 'id': 'accepted'}], 'queue_visibility': 8, 'bucket_versioning': 'Suspended'}",
+    "{'policy_removal': 'S3 absent, SQS absent, SNS owner default restored', 'subscription': 'absent', 'collision': 'ROLLBACK_COMPLETE', 'restart': 'same physical IDs', 'cleanup': 'stack resources absent; external queue survived until explicit native deletion', 'controller_exit': 0, 'state': '/tmp/stackd-cfn-messaging-zag45_xd'}",
+    "{'unowned_queue_cleanup': {'code': 'AWS.SimpleQueueService.NonExistentQueue', 'status': 400}, 'controller_exit': 0}"
+  ],
+  "earlier_attempts": [
+    {
+      "step": "Complete Application harness construction",
+      "outcome": "AssertionError: requires completed native lifecycle/export-constraint fixture with verified cleanup",
+      "effects": "No controller or stack created; parent directed independent scoped harness."
+    },
+    {
+      "step": "Initial local stack name derived from tempfile suffix",
+      "outcome": "ValidationError: Stack name must start with a letter and contain only letters, numbers and hyphens, up to 128 characters",
+      "effects": "No stack created; corrected to letters/digits/hyphens."
+    },
+    {
+      "step": "PutObject immediately after CREATE_COMPLETE",
+      "outcome": "TimeoutError: S3 through SNS to SQS delivery",
+      "explanation": "The existing S3 owner applies notification configurations after a deterministic one-minute local propagation interval. Durable applied notification state was inspected before a later PutObject, which delivered the retained ObjectCreated:Put notification. No production code was changed or error suppressed.",
+      "source": "internal/services/s3/notifications.go notificationPropagation"
+    }
+  ],
+  "native_reference_evidence": {
+    "kind": "Separate primary AWS DescribeType schema captured by sibling, not local smoke output",
+    "path": "testdata/aws/cloudformation/resource_schemas.json",
+    "resource": "AWS::SNS::Subscription",
+    "primaryIdentifier": [
+      "/properties/Arn"
+    ],
+    "createOnlyProperties": [
+      "/properties/Endpoint",
+      "/properties/Protocol",
+      "/properties/TopicArn"
+    ],
+    "request_id": "0f318931-6c5a-4927-9ebc-0bcd25a45805",
+    "http_status": 200
+  },
+  "controller_log": "2026/09/26 23:45:07 INFO SQLite persistence enabled database=/tmp/stackd-cfn-messaging-zag45_xd/state.sqlite\n2026/09/26 23:45:07 INFO AWS endpoint listening address=127.0.0.1:60525 account=000000000000\n2026/09/26 23:48:21 INFO SQLite persistence enabled database=/tmp/stackd-cfn-messaging-zag45_xd/state.sqlite\n2026/09/26 23:48:22 INFO AWS endpoint listening address=127.0.0.1:60525 account=000000000000\n2026/09/26 23:50:16 INFO SQLite persistence enabled database=/tmp/stackd-cfn-messaging-zag45_xd/state.sqlite\n2026/09/26 23:50:16 INFO AWS endpoint listening address=127.0.0.1:60525 account=000000000000\n"
+}

@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-09-26T14:47:44.243004+00:00",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "owned_prefix": "stackd-buildowner-ecr-2b69d1cf0ec0",
+  "semantic_inventory": "semantic_inventory.json",
+  "primary_api_reference": {
+    "url": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/Welcome.html",
+    "published_date": "2026-09-25",
+    "retrieved_date": "2026-09-26"
+  },
+  "source_revisions": {
+    "coverage": "14444d5e84c592efe294222ac87eb3fd0a869188",
+    "sdk": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "authoritative_capture": "stackd-buildowner-ecr-2b69d1cf0ec0-resume-61a808.json",
+  "retained_failed_or_partial_captures": [
+    "stackd-buildowner-ecr-3626cb8cd3e9.json",
+    "protocol_admission.json",
+    "stackd-buildowner-ecr-2b69d1cf0ec0.json",
+    "stackd-buildowner-ecr-2b69d1cf0ec0-resume-b913ab.json",
+    "stackd-buildowner-ecr-2b69d1cf0ec0-resume-865a3a.json"
+  ],
+  "bounds_observed": {
+    "unique_repository_names": [
+      "stackd-buildowner-ecr-2b69d1cf0ec0-images",
+      "stackd-buildowner-ecr-2b69d1cf0ec0-isolated"
+    ],
+    "unique_customer_kms_keys": [
+      "68ab2c9a-47f0-41e9-b9e5-b715582c7aec"
+    ],
+    "unique_blob_bytes": 352,
+    "blob_bytes_across_three_upload_passes": 1056,
+    "max_allowed_image_bytes": 10485760,
+    "account_wide_mutations": 0,
+    "ec2_guests": 0
+  },
+  "findings": [
+    {
+      "cases": [
+        "layer_upload",
+        "layer_complete",
+        "config_upload",
+        "config_complete",
+        "layer_available",
+        "downloaded_layer_bytes"
+      ],
+      "observed": "137-byte gzip layer and 215-byte raw OCI config uploaded through ECR APIs. Availability reports exact sizes and media types after PutImage; downloaded layer bytes exactly equal uploaded bytes."
+    },
+    {
+      "cases": [
+        "registry_anonymous",
+        "registry_authenticated_manifest",
+        "registry_manifest_push",
+        "registry_tags"
+      ],
+      "observed": "Unsigned manifest read401; authenticated read200; authenticated manifest push under another tag201; tag listing200. This is native registry HTTP, not a Docker CLI execution claim."
+    },
+    {
+      "cases": [
+        "same_image_same_tag",
+        "immutable_retag_same_bytes",
+        "immutable_retag_changed_bytes",
+        "digest_mismatch",
+        "foreign_repository_layers"
+      ],
+      "observed": "Same manifest/tag returns ImageAlreadyExistsException even under IMMUTABLE. Changed immutable tag returns ImageTagAlreadyExistsException. Wrong declared digest returns ImageDigestDoesNotMatchException. Other repository missing both config and layer returns LayersNotFoundException."
+    },
+    {
+      "cases": [
+        "deny_policy_set",
+        "current_policy_api_0",
+        "current_policy_existing_token_0",
+        "policy_restored"
+      ],
+      "observed": "A user-ARN scoped deny with Resource omitted and force=true is accepted; already-issued token immediately denies existing manifest read403/DENIED and AWS API400/AccessDeniedException. Policy deletion restores API read.",
+      "boundary": "Earlier wildcard-principal policies with explicit Resource values were rejected. Several inputs changed in the accepted case; do not infer one specific rejected-field rule."
+    },
+    {
+      "cases": [
+        "lifecycle_preview_0",
+        "lifecycle_preview_2",
+        "lifecycle_invalid",
+        "lifecycle_invalid_zero_count"
+      ],
+      "observed": "Preview transitions IN_PROGRESS to COMPLETE; older http-tag image selected by rule2 EXPIRE, newer original-tag image protected by higher priority. Too-short empty rules policy fails minimum100 length; longer zero-count policy fails schema validation.",
+      "boundary": "No24-hour actual lifecycle expiry waiting or blanket policy validation parity claim."
+    },
+    {
+      "cases": [
+        "start_scan_tiny_image",
+        "describe_scan_tiny_image_0",
+        "describe_scan_tiny_image_1"
+      ],
+      "observed": "Scratch OCI image scan starts PENDING, becomes IN_PROGRESS then FAILED with UnsupportedImageError: The operating system and/or package manager are not supported. Terminal response has no imageScanFindings."
+    },
+    {
+      "cases": [
+        "delete_referenced_image",
+        "batch_delete_tag_and_missing",
+        "delete_nonempty"
+      ],
+      "observed": "Referenced child deletion returns HTTP200 with per-image ImageReferencedByManifestList failure. Missing image is a batch failure; nonforce repository deletion raises RepositoryNotEmptyException."
+    },
+    {
+      "cases": [
+        "repository_grants"
+      ],
+      "observed": "Two KMS grants have identical permission shapes, separate IDs, empty Names, ecr.us-east-1.amazonaws.com grantee and retiring principal, Decrypt+GenerateDataKey, and EncryptionContextSubset aws:ecr:arn=repository ARN. No grant tokens are retained."
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "repositories_absent": true,
+    "automatic_grant_retirement_verified": true,
+    "key_state": "PendingDeletion",
+    "key_deletion_date": "2026-10-03T15:48:37.200000+01:00",
+    "key_physical_deletion_observed": false
+  },
+  "cost": {
+    "ceiling_usd": 0.25,
+    "actual_invoice_not_observed": true,
+    "primary": "https://aws.amazon.com/kms/pricing/",
+    "pricing_revision": "2026-09-25T11:36:37.215-0700",
+    "basis": "One customer key $1/month hourly prorated; no storage charge while scheduled for deletion. Resuming cancelled only this owned key deletion and final capture rescheduled7days. Tiny ECR bytes and API requests; no standing registry configuration."
+  },
+  "not_proven": [
+    "ECR Public",
+    "registry policy changes",
+    "replication delivery",
+    "enhanced scan findings",
+    "cross-account grants",
+    "token expiry after twelve hours",
+    "KMS grant revocation during cached reads",
+    "Docker CLI push/pull or executable container from this scratch evidence image"
+  ]
+}

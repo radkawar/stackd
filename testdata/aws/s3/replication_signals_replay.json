@@ -1,0 +1,3839 @@
+{
+  "Start": "2026-09-21T09:44:00Z",
+  "Notes": [
+    "Native account 000000000000 is mapped to 123456789012; original actor is IAM user Delegated, not root. Other-account reads are derived local isolation checks, not a native second-account capture.",
+    "Evidence files retain bounded native observations, publication gaps, and cleanup. Absent native datapoints are never converted into zero. RTC and NotTracked are intentionally excluded; no native fifteen-minute RTC capture exists.",
+    "Each phase freezes service time. Explicit Drain boundaries expose pending work at a minute boundary, then finish before the next minute. Native wall-clock request-to-event latency and metric publication delay are not replay timing contracts.",
+    "Failure record equality binds the original Put sequencer, source version and eventTime as requestTime. Failure service principal/sourceIPAddress, eventVersion 2.6, rule, destination ARN and s3Operation remain measured literal values.",
+    "Source tag-read and destination tag-write denials are bounded native FAILED source / readable untagged REPLICA observations with no failure receipt and a processed-operation zero-failure counter sample, not universal suppression rules.",
+    "The supplied captures have no direct EventBridge sink or CloudTrail trail. EventBridge-to-SQS is a local routing extension with positive Object Created control and no replication-specific event; no native internal CloudTrail event shape is fabricated.",
+    "Regional gauges are observed in destination region under source account; failure statistics are observed in source region. Mixed native point has Minimum=Maximum=Sum=1, SampleCount=4, Average=0.25: extrema must not be clamped around the average.",
+    "Signals body bytes are recovered from DownloadedBody[35]; regional bytes from DownloadedBody[35,39,55,73]. Semantic projections select observed operation outcomes; generated IDs and timestamps are rebound."
+  ],
+  "Cases": [
+    {
+      "Name": "failure-notifications-and-partial-tag-failures",
+      "Setup": [
+        {
+          "Label": "local direct EventBridge CreateQueue",
+          "Source": "local extension; supplied captures have no direct EventBridge sink",
+          "Service": "sqs",
+          "Operation": "CreateQueue",
+          "Actor": "owner",
+          "Code": "Success",
+          "Input": {
+            "QueueName": "stackd-repl-signals-83f61b2ac09e-source-bridge"
+          },
+          "Output": {},
+          "Bind": {
+            "queue_eventbridge": "QueueUrl"
+          }
+        },
+        {
+          "Label": "local direct EventBridge SetQueueAttributes",
+          "Source": "local extension; supplied captures have no direct EventBridge sink",
+          "Service": "sqs",
+          "Operation": "SetQueueAttributes",
+          "Actor": "owner",
+          "Code": "Success",
+          "Input": {
+            "QueueUrl": "${queue_eventbridge}",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-repl-signals-83f61b2ac09e-source-bridge\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/stackd-repl-signals-83f61b2ac09e-source-bridge-rule\"}}}]}"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "local direct EventBridge PutRule",
+          "Source": "local extension; supplied captures have no direct EventBridge sink",
+          "Service": "eventbridge",
+          "Operation": "PutRule",
+          "Actor": "owner",
+          "Code": "Success",
+          "Input": {
+            "Name": "stackd-repl-signals-83f61b2ac09e-source-bridge-rule",
+            "EventPattern": "{\"source\": [\"aws.s3\"], \"detail\": {\"bucket\": {\"name\": [\"stackd-repl-signals-83f61b2ac09e-source\", \"stackd-repl-signals-83f61b2ac09e-assume\"]}}}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "local direct EventBridge PutTargets",
+          "Source": "local extension; supplied captures have no direct EventBridge sink",
+          "Service": "eventbridge",
+          "Operation": "PutTargets",
+          "Actor": "owner",
+          "Code": "Success",
+          "Input": {
+            "Rule": "stackd-repl-signals-83f61b2ac09e-source-bridge-rule",
+            "Targets": [
+              {
+                "Id": "queue",
+                "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-repl-signals-83f61b2ac09e-source-bridge"
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-bucket",
+          "Source": "replication_signals_evidence.json.gz:Observations[1]",
+          "Sequence": 1,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-source"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-versioning",
+          "Source": "replication_signals_evidence.json.gz:Observations[2]",
+          "Sequence": 2,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-bucket",
+          "Source": "replication_signals_evidence.json.gz:Observations[3]",
+          "Sequence": 3,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-destination"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-versioning",
+          "Source": "replication_signals_evidence.json.gz:Observations[4]",
+          "Sequence": 4,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-bucket",
+          "Source": "replication_signals_evidence.json.gz:Observations[5]",
+          "Sequence": 5,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-assume"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-versioning",
+          "Source": "replication_signals_evidence.json.gz:Observations[6]",
+          "Sequence": 6,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-assume",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-bucket",
+          "Source": "replication_signals_evidence.json.gz:Observations[7]",
+          "Sequence": 7,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-unversioned"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-versioning",
+          "Source": "replication_signals_evidence.json.gz:Observations[8]",
+          "Sequence": 8,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-unversioned",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-queue",
+          "Source": "replication_signals_evidence.json.gz:Observations[9]",
+          "Sequence": 9,
+          "Service": "sqs",
+          "Operation": "CreateQueue",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueName": "stackd-repl-signals-83f61b2ac09e-events",
+            "Attributes": {
+              "MessageRetentionPeriod": "3600",
+              "VisibilityTimeout": "30"
+            }
+          },
+          "Output": {},
+          "Bind": {
+            "queue_classic": "QueueUrl"
+          }
+        },
+        {
+          "Label": "set-queue-attributes",
+          "Source": "replication_signals_evidence.json.gz:Observations[11]",
+          "Sequence": 11,
+          "Service": "sqs",
+          "Operation": "SetQueueAttributes",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-repl-signals-83f61b2ac09e-events",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-repl-signals-83f61b2ac09e-events\", \"Condition\": {\"StringEquals\": {\"aws:SourceAccount\": \"123456789012\"}, \"ArnEquals\": {\"aws:SourceArn\": [\"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source\", \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-assume\"]}}}]}"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-notification-configuration",
+          "Source": "replication_signals_evidence.json.gz:Observations[12]",
+          "Sequence": 12,
+          "Service": "s3",
+          "Operation": "PutBucketNotificationConfiguration",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+            "NotificationConfiguration": {
+              "QueueConfigurations": [
+                {
+                  "Id": "owned-signals",
+                  "QueueArn": "arn:aws:sqs:us-east-1:123456789012:stackd-repl-signals-83f61b2ac09e-events",
+                  "Events": [
+                    "s3:ObjectCreated:*",
+                    "s3:Replication:*"
+                  ]
+                }
+              ],
+              "EventBridgeConfiguration": {}
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-notification-configuration",
+          "Source": "replication_signals_evidence.json.gz:Observations[13]",
+          "Sequence": 13,
+          "Service": "s3",
+          "Operation": "PutBucketNotificationConfiguration",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-assume",
+            "NotificationConfiguration": {
+              "QueueConfigurations": [
+                {
+                  "Id": "owned-signals",
+                  "QueueArn": "arn:aws:sqs:us-east-1:123456789012:stackd-repl-signals-83f61b2ac09e-events",
+                  "Events": [
+                    "s3:ObjectCreated:*",
+                    "s3:Replication:*"
+                  ]
+                }
+              ],
+              "EventBridgeConfiguration": {}
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-role",
+          "Source": "replication_signals_evidence.json.gz:Observations[14]",
+          "Sequence": 14,
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "stackd-repl-signals-83f61b2ac09e-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-role-policy",
+          "Source": "replication_signals_evidence.json.gz:Observations[15]",
+          "Sequence": 15,
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "stackd-repl-signals-83f61b2ac09e-role",
+            "PolicyName": "replication",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetReplicationConfiguration\", \"s3:ListBucket\"], \"Resource\": \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersionForReplication\", \"s3:GetObjectVersionAcl\", \"s3:GetObjectVersionTagging\"], \"Resource\": \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:ReplicateObject\", \"s3:ReplicateTags\", \"s3:ReplicateDelete\"], \"Resource\": [\"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination/*\", \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-unversioned/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-role",
+          "Source": "replication_signals_evidence.json.gz:Observations[16]",
+          "Sequence": 16,
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "stackd-repl-signals-83f61b2ac09e-badtrust",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ec2.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-role-policy",
+          "Source": "replication_signals_evidence.json.gz:Observations[17]",
+          "Sequence": 17,
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "stackd-repl-signals-83f61b2ac09e-badtrust",
+            "PolicyName": "replication",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetReplicationConfiguration\", \"s3:ListBucket\"], \"Resource\": \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-assume\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersionForReplication\", \"s3:GetObjectVersionAcl\", \"s3:GetObjectVersionTagging\"], \"Resource\": \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-assume/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:ReplicateObject\", \"s3:ReplicateTags\", \"s3:ReplicateDelete\"], \"Resource\": [\"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination/*\", \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-unversioned/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-replication",
+          "Source": "replication_signals_evidence.json.gz:Observations[18]",
+          "Sequence": 18,
+          "Service": "s3",
+          "Operation": "PutBucketReplication",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+            "ReplicationConfiguration": {
+              "Role": "arn:aws:iam::123456789012:role/stackd-repl-signals-83f61b2ac09e-role",
+              "Rules": [
+                {
+                  "ID": "signals-control",
+                  "Priority": 1,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "control/"
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                    "Metrics": {
+                      "Status": "Enabled"
+                    }
+                  }
+                },
+                {
+                  "ID": "signals-srcdata",
+                  "Priority": 2,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "srcdata/"
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                    "Metrics": {
+                      "Status": "Enabled"
+                    }
+                  }
+                },
+                {
+                  "ID": "signals-srcacl",
+                  "Priority": 3,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "srcacl/"
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                    "Metrics": {
+                      "Status": "Enabled"
+                    }
+                  }
+                },
+                {
+                  "ID": "signals-srctags",
+                  "Priority": 4,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "srctags/"
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                    "Metrics": {
+                      "Status": "Enabled"
+                    }
+                  }
+                },
+                {
+                  "ID": "signals-dstobj",
+                  "Priority": 5,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "dstobj/"
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                    "Metrics": {
+                      "Status": "Enabled"
+                    }
+                  }
+                },
+                {
+                  "ID": "signals-dsttags",
+                  "Priority": 6,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "dsttags/"
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                    "Metrics": {
+                      "Status": "Enabled"
+                    }
+                  }
+                },
+                {
+                  "ID": "signals-unversioned",
+                  "Priority": 7,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "unversioned/"
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-unversioned",
+                    "Metrics": {
+                      "Status": "Enabled"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-replication",
+          "Source": "replication_signals_evidence.json.gz:Observations[19]",
+          "Sequence": 19,
+          "Service": "s3",
+          "Operation": "PutBucketReplication",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-assume",
+            "ReplicationConfiguration": {
+              "Role": "arn:aws:iam::123456789012:role/stackd-repl-signals-83f61b2ac09e-badtrust",
+              "Rules": [
+                {
+                  "ID": "signals-assume",
+                  "Priority": 1,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": ""
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                    "Metrics": {
+                      "Status": "Enabled"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-policy",
+          "Source": "replication_signals_evidence.json.gz:Observations[36]",
+          "Sequence": 36,
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:role/stackd-repl-signals-83f61b2ac09e-role\"}, \"Action\": \"s3:GetObjectVersionForReplication\", \"Resource\": \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source/srcdata/*\"}, {\"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:role/stackd-repl-signals-83f61b2ac09e-role\"}, \"Action\": \"s3:GetObjectVersionAcl\", \"Resource\": \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source/srcacl/*\"}, {\"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:role/stackd-repl-signals-83f61b2ac09e-role\"}, \"Action\": \"s3:GetObjectVersionTagging\", \"Resource\": \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source/srctags/*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-policy",
+          "Source": "replication_signals_evidence.json.gz:Observations[37]",
+          "Sequence": 37,
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:role/stackd-repl-signals-83f61b2ac09e-role\"}, \"Action\": \"s3:ReplicateObject\", \"Resource\": \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination/dstobj/*\"}, {\"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:role/stackd-repl-signals-83f61b2ac09e-role\"}, \"Action\": \"s3:ReplicateTags\", \"Resource\": \"arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination/dsttags/*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-bucket-versioning",
+          "Source": "replication_signals_evidence.json.gz:Observations[38]",
+          "Sequence": 38,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-signals-83f61b2ac09e-unversioned",
+            "VersioningConfiguration": {
+              "Status": "Suspended"
+            }
+          },
+          "Output": {}
+        }
+      ],
+      "Phases": [
+        {
+          "Label": "settle-setup",
+          "At": "2026-09-21T09:45:00Z",
+          "Calls": [],
+          "Drain": true,
+          "DiscardSetup": true
+        },
+        {
+          "Label": "accept-before-minute-boundary",
+          "At": "2026-09-21T09:45:59.500Z",
+          "Calls": [
+            {
+              "Label": "tiny SSE-S3 tagged workload",
+              "Source": "replication_signals_evidence.json.gz:Observations[20]",
+              "Sequence": 20,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "control/positive",
+                "ServerSideEncryption": "AES256",
+                "Tagging": "probe=signals"
+              },
+              "Output": {
+                "ETag": "\"f5241f5bfeb26cdfc0ba81ad5f13ea7a\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Body": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK",
+              "Bind": {
+                "version20": "VersionId"
+              }
+            },
+            {
+              "Label": "tiny SSE-S3 tagged workload",
+              "Source": "replication_signals_evidence.json.gz:Observations[39]",
+              "Sequence": 39,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "srcdata/probe",
+                "ServerSideEncryption": "AES256",
+                "Tagging": "probe=signals"
+              },
+              "Output": {
+                "ETag": "\"f5241f5bfeb26cdfc0ba81ad5f13ea7a\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Body": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK",
+              "Bind": {
+                "version39": "VersionId"
+              }
+            },
+            {
+              "Label": "tiny SSE-S3 tagged workload",
+              "Source": "replication_signals_evidence.json.gz:Observations[40]",
+              "Sequence": 40,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "srcacl/probe",
+                "ServerSideEncryption": "AES256",
+                "Tagging": "probe=signals"
+              },
+              "Output": {
+                "ETag": "\"f5241f5bfeb26cdfc0ba81ad5f13ea7a\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Body": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK",
+              "Bind": {
+                "version40": "VersionId"
+              }
+            },
+            {
+              "Label": "tiny SSE-S3 tagged workload",
+              "Source": "replication_signals_evidence.json.gz:Observations[41]",
+              "Sequence": 41,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "srctags/probe",
+                "ServerSideEncryption": "AES256",
+                "Tagging": "probe=signals"
+              },
+              "Output": {
+                "ETag": "\"f5241f5bfeb26cdfc0ba81ad5f13ea7a\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Body": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK",
+              "Bind": {
+                "version41": "VersionId"
+              }
+            },
+            {
+              "Label": "tiny SSE-S3 tagged workload",
+              "Source": "replication_signals_evidence.json.gz:Observations[42]",
+              "Sequence": 42,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "dstobj/probe",
+                "ServerSideEncryption": "AES256",
+                "Tagging": "probe=signals"
+              },
+              "Output": {
+                "ETag": "\"f5241f5bfeb26cdfc0ba81ad5f13ea7a\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Body": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK",
+              "Bind": {
+                "version42": "VersionId"
+              }
+            },
+            {
+              "Label": "tiny SSE-S3 tagged workload",
+              "Source": "replication_signals_evidence.json.gz:Observations[43]",
+              "Sequence": 43,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "dsttags/probe",
+                "ServerSideEncryption": "AES256",
+                "Tagging": "probe=signals"
+              },
+              "Output": {
+                "ETag": "\"f5241f5bfeb26cdfc0ba81ad5f13ea7a\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Body": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK",
+              "Bind": {
+                "version43": "VersionId"
+              }
+            },
+            {
+              "Label": "tiny SSE-S3 tagged workload",
+              "Source": "replication_signals_evidence.json.gz:Observations[44]",
+              "Sequence": 44,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "unversioned/probe",
+                "ServerSideEncryption": "AES256",
+                "Tagging": "probe=signals"
+              },
+              "Output": {
+                "ETag": "\"f5241f5bfeb26cdfc0ba81ad5f13ea7a\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Body": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK",
+              "Bind": {
+                "version44": "VersionId"
+              }
+            },
+            {
+              "Label": "tiny SSE-S3 tagged workload",
+              "Source": "replication_signals_evidence.json.gz:Observations[46]",
+              "Sequence": 46,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-assume",
+                "Key": "assume/probe",
+                "ServerSideEncryption": "AES256",
+                "Tagging": "probe=signals"
+              },
+              "Output": {
+                "ETag": "\"f5241f5bfeb26cdfc0ba81ad5f13ea7a\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Body": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK",
+              "Bind": {
+                "version46": "VersionId"
+              }
+            }
+          ],
+          "Drain": true,
+          "OriginalSequences": [
+            20,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            46
+          ]
+        },
+        {
+          "Label": "pending-metrics-survive-reopen",
+          "At": "2026-09-21T09:46:00Z",
+          "Calls": [
+            {
+              "Label": "PENDING control/positive",
+              "Source": "replication_signals_evidence.json.gz:Observations[20]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "control/positive",
+                "VersionId": "${version20}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            },
+            {
+              "Label": "PENDING srcdata/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[39]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "srcdata/probe",
+                "VersionId": "${version39}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            },
+            {
+              "Label": "PENDING srcacl/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[40]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "srcacl/probe",
+                "VersionId": "${version40}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            },
+            {
+              "Label": "PENDING srctags/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[41]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "srctags/probe",
+                "VersionId": "${version41}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            },
+            {
+              "Label": "PENDING dstobj/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[42]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "dstobj/probe",
+                "VersionId": "${version42}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            },
+            {
+              "Label": "PENDING dsttags/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[43]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "dsttags/probe",
+                "VersionId": "${version43}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            },
+            {
+              "Label": "PENDING unversioned/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[44]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "unversioned/probe",
+                "VersionId": "${version44}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            },
+            {
+              "Label": "PENDING assume/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[46]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-assume",
+                "Key": "assume/probe",
+                "VersionId": "${version46}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            }
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Metrics": [
+            {
+              "Source": "replication_statistics_evidence.json.gz:Observations",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "BytesPendingReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-control"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "BytesPendingReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:45:00Z",
+                    "Unit": "Bytes",
+                    "SampleCount": 1,
+                    "Sum": 27,
+                    "Average": 27.0,
+                    "Minimum": 27,
+                    "Maximum": 27
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "replication_statistics_evidence.json.gz:Observations",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsPendingReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-control"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsPendingReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:45:00Z",
+                    "Unit": "Count",
+                    "SampleCount": 1,
+                    "Sum": 1,
+                    "Average": 1.0,
+                    "Minimum": 1,
+                    "Maximum": 1
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "local pending lifecycle; no processed operation yet",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-control"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local pending lifecycle; no processed operation yet",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-srcdata"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local pending lifecycle; no processed operation yet",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-srcacl"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local pending lifecycle; no processed operation yet",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-srctags"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local pending lifecycle; no processed operation yet",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-dstobj"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local pending lifecycle; no processed operation yet",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-dsttags"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local pending lifecycle; no processed operation yet",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-unversioned"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-unversioned"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local pending lifecycle; no processed operation yet",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-assume"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-assume"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:45:00Z",
+                "EndTime": "2026-09-21T09:46:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            }
+          ]
+        },
+        {
+          "Label": "terminal-cross-service-delivery",
+          "At": "2026-09-21T09:46:02Z",
+          "Calls": [
+            {
+              "Label": "COMPLETED control/positive",
+              "Source": "replication_signals_evidence.json.gz:Observations[20]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "control/positive",
+                "VersionId": "${version20}"
+              },
+              "Output": {
+                "ReplicationStatus": "COMPLETED"
+              }
+            },
+            {
+              "Label": "REPLICA control/positive",
+              "Source": "replication_signals_evidence.json.gz:Observations[20]",
+              "Service": "s3",
+              "Operation": "GetObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+                "Key": "control/positive",
+                "VersionId": "${version20}"
+              },
+              "Output": {
+                "ReplicationStatus": "REPLICA",
+                "ContentLength": 27
+              },
+              "Plaintext": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK"
+            },
+            {
+              "Label": "FAILED srcdata/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[39]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "srcdata/probe",
+                "VersionId": "${version39}"
+              },
+              "Output": {
+                "ReplicationStatus": "FAILED"
+              }
+            },
+            {
+              "Label": "REPLICA srcdata/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[39]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "404",
+              "Status": 404,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+                "Key": "srcdata/probe"
+              },
+              "Output": {}
+            },
+            {
+              "Label": "FAILED srcacl/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[40]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "srcacl/probe",
+                "VersionId": "${version40}"
+              },
+              "Output": {
+                "ReplicationStatus": "FAILED"
+              }
+            },
+            {
+              "Label": "REPLICA srcacl/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[40]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "404",
+              "Status": 404,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+                "Key": "srcacl/probe"
+              },
+              "Output": {}
+            },
+            {
+              "Label": "FAILED srctags/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[41]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "srctags/probe",
+                "VersionId": "${version41}"
+              },
+              "Output": {
+                "ReplicationStatus": "FAILED"
+              }
+            },
+            {
+              "Label": "REPLICA srctags/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[41]",
+              "Service": "s3",
+              "Operation": "GetObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+                "Key": "srctags/probe",
+                "VersionId": "${version41}"
+              },
+              "Output": {
+                "ReplicationStatus": "REPLICA",
+                "ContentLength": 27
+              },
+              "Plaintext": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK"
+            },
+            {
+              "Label": "REPLICA srctags/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[41]",
+              "Service": "s3",
+              "Operation": "GetObjectTagging",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+                "Key": "srctags/probe",
+                "VersionId": "${version41}"
+              },
+              "Output": {
+                "TagSet": []
+              }
+            },
+            {
+              "Label": "FAILED dstobj/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[42]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "dstobj/probe",
+                "VersionId": "${version42}"
+              },
+              "Output": {
+                "ReplicationStatus": "FAILED"
+              }
+            },
+            {
+              "Label": "REPLICA dstobj/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[42]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "404",
+              "Status": 404,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+                "Key": "dstobj/probe"
+              },
+              "Output": {}
+            },
+            {
+              "Label": "FAILED dsttags/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[43]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "dsttags/probe",
+                "VersionId": "${version43}"
+              },
+              "Output": {
+                "ReplicationStatus": "FAILED"
+              }
+            },
+            {
+              "Label": "REPLICA dsttags/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[43]",
+              "Service": "s3",
+              "Operation": "GetObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+                "Key": "dsttags/probe",
+                "VersionId": "${version43}"
+              },
+              "Output": {
+                "ReplicationStatus": "REPLICA",
+                "ContentLength": 27
+              },
+              "Plaintext": "bmF0aXZlIHJlcGxpY2F0aW9uIHNpZ25hbHMK"
+            },
+            {
+              "Label": "REPLICA dsttags/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[43]",
+              "Service": "s3",
+              "Operation": "GetObjectTagging",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+                "Key": "dsttags/probe",
+                "VersionId": "${version43}"
+              },
+              "Output": {
+                "TagSet": []
+              }
+            },
+            {
+              "Label": "FAILED unversioned/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[44]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-source",
+                "Key": "unversioned/probe",
+                "VersionId": "${version44}"
+              },
+              "Output": {
+                "ReplicationStatus": "FAILED"
+              }
+            },
+            {
+              "Label": "REPLICA unversioned/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[44]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "404",
+              "Status": 404,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-unversioned",
+                "Key": "unversioned/probe"
+              },
+              "Output": {}
+            },
+            {
+              "Label": "FAILED assume/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[46]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-assume",
+                "Key": "assume/probe",
+                "VersionId": "${version46}"
+              },
+              "Output": {
+                "ReplicationStatus": "FAILED"
+              }
+            },
+            {
+              "Label": "REPLICA assume/probe",
+              "Source": "replication_signals_evidence.json.gz:Observations[46]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "404",
+              "Status": 404,
+              "Input": {
+                "Bucket": "stackd-repl-signals-83f61b2ac09e-destination",
+                "Key": "assume/probe"
+              },
+              "Output": {}
+            }
+          ],
+          "Drain": true,
+          "Failures": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "replication_signals_evidence.json.gz:Deliveries[14]",
+              "SourceSequence": 39,
+              "Payload": {
+                "eventVersion": "2.6",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "2026-09-21T09:45:48.839Z",
+                "eventName": "Replication:OperationFailedReplication",
+                "userIdentity": {
+                  "principalId": "s3.amazonaws.com"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "s3.amazonaws.com"
+                },
+                "responseElements": {
+                  "x-amz-request-id": "401c61d4-fa3a-4362-a119-c62037cb967f",
+                  "x-amz-id-2": "7S60tYZeSTSi67ONUjSm05JYjfvNxPcX24kfXQnUdNvIXLDNxYg06eIc2ulT1p3dKyvjGfsjAeM="
+                },
+                "s3": {
+                  "s3SchemaVersion": "1.0",
+                  "configurationId": "owned-signals",
+                  "bucket": {
+                    "name": "stackd-repl-signals-83f61b2ac09e-source",
+                    "ownerIdentity": {
+                      "principalId": "123456789012"
+                    },
+                    "arn": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  "object": {
+                    "key": "srcdata/probe",
+                    "size": 27,
+                    "eTag": "f5241f5bfeb26cdfc0ba81ad5f13ea7a",
+                    "versionId": "${version39}",
+                    "sequencer": "${sequencer39}"
+                  }
+                },
+                "replicationEventData": {
+                  "replicationRuleId": "signals-srcdata",
+                  "destinationBucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                  "s3Operation": "OBJECT_PUT",
+                  "requestTime": "${requestTime39}",
+                  "failureReason": "SrcGetObjectNotPermitted"
+                }
+              },
+              "Dynamic": {
+                "eventTime": "time",
+                "responseElements.x-amz-request-id": "opaque",
+                "responseElements.x-amz-id-2": "opaque"
+              }
+            },
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "replication_signals_evidence.json.gz:Deliveries[5]",
+              "SourceSequence": 40,
+              "Payload": {
+                "eventVersion": "2.6",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "2026-09-21T09:45:49.153Z",
+                "eventName": "Replication:OperationFailedReplication",
+                "userIdentity": {
+                  "principalId": "s3.amazonaws.com"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "s3.amazonaws.com"
+                },
+                "responseElements": {
+                  "x-amz-request-id": "d3470c27-efc8-46f9-a00f-b664cc489f78",
+                  "x-amz-id-2": "awUZVRU1JGTLca9RFkLPKoRRDjvUkdIj7f0vIy/FgfW5OIjeS4XsU83CL+earNHtORpD7nwbnas="
+                },
+                "s3": {
+                  "s3SchemaVersion": "1.0",
+                  "configurationId": "owned-signals",
+                  "bucket": {
+                    "name": "stackd-repl-signals-83f61b2ac09e-source",
+                    "ownerIdentity": {
+                      "principalId": "123456789012"
+                    },
+                    "arn": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  "object": {
+                    "key": "srcacl/probe",
+                    "size": 27,
+                    "eTag": "f5241f5bfeb26cdfc0ba81ad5f13ea7a",
+                    "versionId": "${version40}",
+                    "sequencer": "${sequencer40}"
+                  }
+                },
+                "replicationEventData": {
+                  "replicationRuleId": "signals-srcacl",
+                  "destinationBucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                  "s3Operation": "OBJECT_PUT",
+                  "requestTime": "${requestTime40}",
+                  "failureReason": "SrcGetAclNotPermitted"
+                }
+              },
+              "Dynamic": {
+                "eventTime": "time",
+                "responseElements.x-amz-request-id": "opaque",
+                "responseElements.x-amz-id-2": "opaque"
+              }
+            },
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "replication_signals_evidence.json.gz:Deliveries[8]",
+              "SourceSequence": 42,
+              "Payload": {
+                "eventVersion": "2.6",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "2026-09-21T09:45:50.356Z",
+                "eventName": "Replication:OperationFailedReplication",
+                "userIdentity": {
+                  "principalId": "s3.amazonaws.com"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "s3.amazonaws.com"
+                },
+                "responseElements": {
+                  "x-amz-request-id": "da3c8ece-a0d0-4edb-a48a-5813e90bbeba",
+                  "x-amz-id-2": "PuMesD1KeVryGF4P7f938fb23/6QZ1haqSYYbu2JPC29hpQcLcxUgkqHI9ZpqNACcZBkXwbtF+o="
+                },
+                "s3": {
+                  "s3SchemaVersion": "1.0",
+                  "configurationId": "owned-signals",
+                  "bucket": {
+                    "name": "stackd-repl-signals-83f61b2ac09e-source",
+                    "ownerIdentity": {
+                      "principalId": "123456789012"
+                    },
+                    "arn": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  "object": {
+                    "key": "dstobj/probe",
+                    "size": 27,
+                    "eTag": "f5241f5bfeb26cdfc0ba81ad5f13ea7a",
+                    "versionId": "${version42}",
+                    "sequencer": "${sequencer42}"
+                  }
+                },
+                "replicationEventData": {
+                  "replicationRuleId": "signals-dstobj",
+                  "destinationBucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                  "s3Operation": "OBJECT_PUT",
+                  "requestTime": "${requestTime42}",
+                  "failureReason": "DstPutObjectNotPermitted"
+                }
+              },
+              "Dynamic": {
+                "eventTime": "time",
+                "responseElements.x-amz-request-id": "opaque",
+                "responseElements.x-amz-id-2": "opaque"
+              }
+            },
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "replication_signals_evidence.json.gz:Deliveries[6]",
+              "SourceSequence": 44,
+              "Payload": {
+                "eventVersion": "2.6",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "2026-09-21T09:45:51.876Z",
+                "eventName": "Replication:OperationFailedReplication",
+                "userIdentity": {
+                  "principalId": "s3.amazonaws.com"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "s3.amazonaws.com"
+                },
+                "responseElements": {
+                  "x-amz-request-id": "dcd8057b-1984-49fe-81b3-00b127938654",
+                  "x-amz-id-2": "WgMrqv5Fxj8MZO0435nFyl9+HLrePOf6TkpORAVX5kp5t5/Z5pltTSsvoTjgnqsFYc5hPUIxIIY="
+                },
+                "s3": {
+                  "s3SchemaVersion": "1.0",
+                  "configurationId": "owned-signals",
+                  "bucket": {
+                    "name": "stackd-repl-signals-83f61b2ac09e-source",
+                    "ownerIdentity": {
+                      "principalId": "123456789012"
+                    },
+                    "arn": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  "object": {
+                    "key": "unversioned/probe",
+                    "size": 27,
+                    "eTag": "f5241f5bfeb26cdfc0ba81ad5f13ea7a",
+                    "versionId": "${version44}",
+                    "sequencer": "${sequencer44}"
+                  }
+                },
+                "replicationEventData": {
+                  "replicationRuleId": "signals-unversioned",
+                  "destinationBucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-unversioned",
+                  "s3Operation": "OBJECT_PUT",
+                  "requestTime": "${requestTime44}",
+                  "failureReason": "DstBucketUnversioned"
+                }
+              },
+              "Dynamic": {
+                "eventTime": "time",
+                "responseElements.x-amz-request-id": "opaque",
+                "responseElements.x-amz-id-2": "opaque"
+              }
+            },
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "replication_signals_evidence.json.gz:Deliveries[7]",
+              "SourceSequence": 46,
+              "Payload": {
+                "eventVersion": "2.6",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "2026-09-21T09:45:53.424Z",
+                "eventName": "Replication:OperationFailedReplication",
+                "userIdentity": {
+                  "principalId": "s3.amazonaws.com"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "s3.amazonaws.com"
+                },
+                "responseElements": {
+                  "x-amz-request-id": "dbca425c-203d-4f3e-9de8-2eb2ae431c57",
+                  "x-amz-id-2": "e2wkaFsVgLlYAtAtUf9AVcPdlH1weeA8J9Ot/UCWOIsD812AYfMKEuQCuV/MHSUdfEdNi4escds="
+                },
+                "s3": {
+                  "s3SchemaVersion": "1.0",
+                  "configurationId": "owned-signals",
+                  "bucket": {
+                    "name": "stackd-repl-signals-83f61b2ac09e-assume",
+                    "ownerIdentity": {
+                      "principalId": "123456789012"
+                    },
+                    "arn": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-assume"
+                  },
+                  "object": {
+                    "key": "assume/probe",
+                    "size": 27,
+                    "eTag": "f5241f5bfeb26cdfc0ba81ad5f13ea7a",
+                    "versionId": "${version46}",
+                    "sequencer": "${sequencer46}"
+                  }
+                },
+                "replicationEventData": {
+                  "replicationRuleId": "signals-assume",
+                  "destinationBucket": "arn:aws:s3:::stackd-repl-signals-83f61b2ac09e-destination",
+                  "s3Operation": "OBJECT_PUT",
+                  "requestTime": "${requestTime46}",
+                  "failureReason": "AssumeRoleNotPermitted"
+                }
+              },
+              "Dynamic": {
+                "eventTime": "time",
+                "responseElements.x-amz-request-id": "opaque",
+                "responseElements.x-amz-id-2": "opaque"
+              }
+            }
+          ]
+        },
+        {
+          "Label": "publish-processed-statistics",
+          "At": "2026-09-21T09:47:00Z",
+          "Calls": [],
+          "Drain": true,
+          "Reopen": true,
+          "Metrics": [
+            {
+              "Source": "replication_signals_evidence.json.gz:Observations[273..305]",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-control"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "Unit": "Count",
+                    "SampleCount": 1,
+                    "Sum": 0,
+                    "Average": 0.0
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "replication_signals_evidence.json.gz:Observations[273..305]",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-srcdata"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "Unit": "Count",
+                    "SampleCount": 1,
+                    "Sum": 1,
+                    "Average": 1.0
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "replication_signals_evidence.json.gz:Observations[273..305]",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-srcacl"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "Unit": "Count",
+                    "SampleCount": 1,
+                    "Sum": 1,
+                    "Average": 1.0
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "replication_signals_evidence.json.gz:Observations[273..305]",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-srctags"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "Unit": "Count",
+                    "SampleCount": 1,
+                    "Sum": 0,
+                    "Average": 0.0
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "replication_signals_evidence.json.gz:Observations[273..305]",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-dstobj"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "Unit": "Count",
+                    "SampleCount": 1,
+                    "Sum": 1,
+                    "Average": 1.0
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "replication_signals_evidence.json.gz:Observations[273..305]",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-dsttags"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "Unit": "Count",
+                    "SampleCount": 1,
+                    "Sum": 0,
+                    "Average": 0.0
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "replication_signals_evidence.json.gz:Observations[273..305]",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-unversioned"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-unversioned"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "Unit": "Count",
+                    "SampleCount": 1,
+                    "Sum": 1,
+                    "Average": 1.0
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "replication_signals_evidence.json.gz:Observations[273..305]",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-assume"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-assume"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "Unit": "Count",
+                    "SampleCount": 1,
+                    "Sum": 1,
+                    "Average": 1.0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "Label": "idle-minute-no-new-failure-counter",
+          "At": "2026-09-21T09:48:00Z",
+          "Calls": [],
+          "Drain": true,
+          "Reopen": true,
+          "Metrics": [
+            {
+              "Source": "local idle lifecycle; no additional processed operation",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-control"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:47:00Z",
+                "EndTime": "2026-09-21T09:48:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local idle lifecycle; no additional processed operation",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-srcdata"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:47:00Z",
+                "EndTime": "2026-09-21T09:48:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local idle lifecycle; no additional processed operation",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-srcacl"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:47:00Z",
+                "EndTime": "2026-09-21T09:48:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local idle lifecycle; no additional processed operation",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-srctags"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:47:00Z",
+                "EndTime": "2026-09-21T09:48:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local idle lifecycle; no additional processed operation",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-dstobj"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:47:00Z",
+                "EndTime": "2026-09-21T09:48:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local idle lifecycle; no additional processed operation",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-dsttags"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:47:00Z",
+                "EndTime": "2026-09-21T09:48:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local idle lifecycle; no additional processed operation",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-unversioned"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-unversioned"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:47:00Z",
+                "EndTime": "2026-09-21T09:48:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "local idle lifecycle; no additional processed operation",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-assume"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-signals-83f61b2ac09e-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "signals-assume"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:47:00Z",
+                "EndTime": "2026-09-21T09:48:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "regional-mixed-success-failure-statistic-set",
+      "Setup": [
+        {
+          "Label": "local direct EventBridge CreateQueue",
+          "Source": "local extension; supplied captures have no direct EventBridge sink",
+          "Service": "sqs",
+          "Operation": "CreateQueue",
+          "Actor": "owner",
+          "Code": "Success",
+          "Input": {
+            "QueueName": "stackd-repl-regional-37d9ad21d808-source-bridge"
+          },
+          "Output": {},
+          "Bind": {
+            "queue_eventbridge": "QueueUrl"
+          }
+        },
+        {
+          "Label": "local direct EventBridge SetQueueAttributes",
+          "Source": "local extension; supplied captures have no direct EventBridge sink",
+          "Service": "sqs",
+          "Operation": "SetQueueAttributes",
+          "Actor": "owner",
+          "Code": "Success",
+          "Input": {
+            "QueueUrl": "${queue_eventbridge}",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-repl-regional-37d9ad21d808-source-bridge\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/stackd-repl-regional-37d9ad21d808-source-bridge-rule\"}}}]}"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "local direct EventBridge PutRule",
+          "Source": "local extension; supplied captures have no direct EventBridge sink",
+          "Service": "eventbridge",
+          "Operation": "PutRule",
+          "Actor": "owner",
+          "Code": "Success",
+          "Input": {
+            "Name": "stackd-repl-regional-37d9ad21d808-source-bridge-rule",
+            "EventPattern": "{\"source\": [\"aws.s3\"], \"detail\": {\"bucket\": {\"name\": [\"stackd-repl-regional-37d9ad21d808-source\"]}}}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "local direct EventBridge PutTargets",
+          "Source": "local extension; supplied captures have no direct EventBridge sink",
+          "Service": "eventbridge",
+          "Operation": "PutTargets",
+          "Actor": "owner",
+          "Code": "Success",
+          "Input": {
+            "Rule": "stackd-repl-regional-37d9ad21d808-source-bridge-rule",
+            "Targets": [
+              {
+                "Id": "queue",
+                "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-repl-regional-37d9ad21d808-source-bridge"
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-bucket",
+          "Source": "replication_regional_evidence.json.gz:Observations[1]",
+          "Sequence": 1,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-regional-37d9ad21d808-source"
+          },
+          "Output": {},
+          "Region": "us-east-1"
+        },
+        {
+          "Label": "put-bucket-versioning",
+          "Source": "replication_regional_evidence.json.gz:Observations[2]",
+          "Sequence": 2,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {},
+          "Region": "us-east-1"
+        },
+        {
+          "Label": "create-queue",
+          "Source": "replication_regional_evidence.json.gz:Observations[5]",
+          "Sequence": 5,
+          "Service": "sqs",
+          "Operation": "CreateQueue",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueName": "stackd-repl-regional-37d9ad21d808-east-events",
+            "Attributes": {
+              "MessageRetentionPeriod": "3600",
+              "VisibilityTimeout": "30"
+            }
+          },
+          "Output": {},
+          "Region": "us-east-1",
+          "Bind": {
+            "queue_classic": "QueueUrl"
+          }
+        },
+        {
+          "Label": "set-queue-attributes",
+          "Source": "replication_regional_evidence.json.gz:Observations[7]",
+          "Sequence": 7,
+          "Service": "sqs",
+          "Operation": "SetQueueAttributes",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-repl-regional-37d9ad21d808-east-events",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-repl-regional-37d9ad21d808-east-events\", \"Condition\": {\"StringEquals\": {\"aws:SourceAccount\": \"123456789012\"}, \"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:s3:::stackd-repl-regional-37d9ad21d808-source\"}}}]}"
+            }
+          },
+          "Output": {},
+          "Region": "us-east-1"
+        },
+        {
+          "Label": "put-bucket-notification-configuration",
+          "Source": "replication_regional_evidence.json.gz:Observations[8]",
+          "Sequence": 8,
+          "Service": "s3",
+          "Operation": "PutBucketNotificationConfiguration",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+            "NotificationConfiguration": {
+              "QueueConfigurations": [
+                {
+                  "Id": "regional-events",
+                  "QueueArn": "arn:aws:sqs:us-east-1:123456789012:stackd-repl-regional-37d9ad21d808-east-events",
+                  "Events": [
+                    "s3:ObjectCreated:*",
+                    "s3:Replication:*"
+                  ]
+                }
+              ],
+              "EventBridgeConfiguration": {}
+            }
+          },
+          "Output": {},
+          "Region": "us-east-1"
+        },
+        {
+          "Label": "create-bucket",
+          "Source": "replication_regional_evidence.json.gz:Observations[9]",
+          "Sequence": 9,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-regional-37d9ad21d808-destination",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          },
+          "Output": {},
+          "Region": "us-west-2"
+        },
+        {
+          "Label": "put-bucket-versioning",
+          "Source": "replication_regional_evidence.json.gz:Observations[10]",
+          "Sequence": 10,
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-regional-37d9ad21d808-destination",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {},
+          "Region": "us-west-2"
+        },
+        {
+          "Label": "create-role",
+          "Source": "replication_regional_evidence.json.gz:Observations[17]",
+          "Sequence": 17,
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "stackd-repl-regional-37d9ad21d808-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Output": {},
+          "Region": "us-east-1"
+        },
+        {
+          "Label": "put-role-policy",
+          "Source": "replication_regional_evidence.json.gz:Observations[18]",
+          "Sequence": 18,
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "stackd-repl-regional-37d9ad21d808-role",
+            "PolicyName": "replication",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetReplicationConfiguration\", \"s3:ListBucket\"], \"Resource\": \"arn:aws:s3:::stackd-repl-regional-37d9ad21d808-source\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:GetObjectVersionForReplication\", \"s3:GetObjectVersionAcl\", \"s3:GetObjectVersionTagging\"], \"Resource\": \"arn:aws:s3:::stackd-repl-regional-37d9ad21d808-source/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"s3:ReplicateObject\", \"s3:ReplicateTags\", \"s3:ReplicateDelete\"], \"Resource\": \"arn:aws:s3:::stackd-repl-regional-37d9ad21d808-destination/*\"}]}"
+          },
+          "Output": {},
+          "Region": "us-east-1"
+        },
+        {
+          "Label": "omitted destination storage class",
+          "Source": "replication_regional_evidence.json.gz:Observations[19]",
+          "Sequence": 19,
+          "Service": "s3",
+          "Operation": "PutBucketReplication",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+            "ReplicationConfiguration": {
+              "Role": "arn:aws:iam::123456789012:role/stackd-repl-regional-37d9ad21d808-role",
+              "Rules": [
+                {
+                  "ID": "regional-inheritance",
+                  "Priority": 1,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": ""
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Disabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::stackd-repl-regional-37d9ad21d808-destination",
+                    "Metrics": {
+                      "Status": "Enabled"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "Output": {},
+          "Region": "us-east-1"
+        },
+        {
+          "Label": "scoped destination explicit deny",
+          "Source": "replication_regional_evidence.json.gz:Observations[61]",
+          "Sequence": 61,
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "owner",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "stackd-repl-regional-37d9ad21d808-destination",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:role/stackd-repl-regional-37d9ad21d808-role\"}, \"Action\": \"s3:ReplicateObject\", \"Resource\": \"arn:aws:s3:::stackd-repl-regional-37d9ad21d808-destination/denied-control\"}]}"
+          },
+          "Output": {},
+          "Region": "us-west-2"
+        }
+      ],
+      "Phases": [
+        {
+          "Label": "settle-setup",
+          "At": "2026-09-21T09:45:00Z",
+          "Calls": [],
+          "Drain": true,
+          "DiscardSetup": true
+        },
+        {
+          "Label": "accept-first-source-versions",
+          "At": "2026-09-21T09:45:59.500Z",
+          "Calls": [
+            {
+              "Label": "inherit STANDARD_IA",
+              "Source": "replication_regional_evidence.json.gz:Observations[21]",
+              "Sequence": 21,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-standard",
+                "StorageClass": "STANDARD_IA",
+                "ServerSideEncryption": "AES256"
+              },
+              "Output": {
+                "ETag": "\"c09ebad6918bf44b15332e726df5fbd8\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Region": "us-east-1",
+              "Body": "cmVnaW9uYWwgU1RBTkRBUkRfSUEgcmV2aXNpb24gb25lCg==",
+              "Bind": {
+                "version21": "VersionId"
+              }
+            },
+            {
+              "Label": "inherit GLACIER_IR",
+              "Source": "replication_regional_evidence.json.gz:Observations[22]",
+              "Sequence": 22,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-glacier",
+                "StorageClass": "GLACIER_IR",
+                "ServerSideEncryption": "AES256"
+              },
+              "Output": {
+                "ETag": "\"36a8c59414d683850a649ca0aada49cb\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Region": "us-east-1",
+              "Body": "cmVnaW9uYWwgR0xBQ0lFUl9JUiByZXZpc2lvbiBvbmUK",
+              "Bind": {
+                "version22": "VersionId"
+              }
+            }
+          ],
+          "Drain": true,
+          "OriginalSequences": [
+            21,
+            22
+          ]
+        },
+        {
+          "Label": "retain-pending-versions",
+          "At": "2026-09-21T09:46:00Z",
+          "Calls": [
+            {
+              "Label": "PENDING inherit-standard",
+              "Source": "replication_regional_evidence.json.gz:Observations[21]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-standard",
+                "VersionId": "${version21}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            },
+            {
+              "Label": "PENDING inherit-glacier",
+              "Source": "replication_regional_evidence.json.gz:Observations[22]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-glacier",
+                "VersionId": "${version22}"
+              },
+              "Output": {
+                "ReplicationStatus": "PENDING"
+              }
+            }
+          ],
+          "Drain": true,
+          "Reopen": true
+        },
+        {
+          "Label": "finish-first-versions-then-accept-mixed-batch",
+          "At": "2026-09-21T09:46:02Z",
+          "Calls": [
+            {
+              "Label": "COMPLETED inherit-standard",
+              "Source": "replication_regional_evidence.json.gz:Observations[21]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-standard",
+                "VersionId": "${version21}"
+              },
+              "Output": {
+                "ReplicationStatus": "COMPLETED"
+              }
+            },
+            {
+              "Label": "COMPLETED inherit-glacier",
+              "Source": "replication_regional_evidence.json.gz:Observations[22]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-glacier",
+                "VersionId": "${version22}"
+              },
+              "Output": {
+                "ReplicationStatus": "COMPLETED"
+              }
+            },
+            {
+              "Label": "explicit override",
+              "Source": "replication_regional_evidence.json.gz:Observations[41]",
+              "Sequence": 41,
+              "Service": "s3",
+              "Operation": "PutBucketReplication",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "ReplicationConfiguration": {
+                  "Role": "arn:aws:iam::123456789012:role/stackd-repl-regional-37d9ad21d808-role",
+                  "Rules": [
+                    {
+                      "ID": "regional-inheritance",
+                      "Priority": 1,
+                      "Status": "Enabled",
+                      "Filter": {
+                        "Prefix": ""
+                      },
+                      "DeleteMarkerReplication": {
+                        "Status": "Disabled"
+                      },
+                      "Destination": {
+                        "Bucket": "arn:aws:s3:::stackd-repl-regional-37d9ad21d808-destination",
+                        "Metrics": {
+                          "Status": "Enabled"
+                        },
+                        "StorageClass": "STANDARD"
+                      }
+                    }
+                  ]
+                }
+              },
+              "Output": {},
+              "Region": "us-east-1"
+            },
+            {
+              "Label": "override STANDARD new source version",
+              "Source": "replication_regional_evidence.json.gz:Observations[43]",
+              "Sequence": 43,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-standard",
+                "StorageClass": "GLACIER_IR",
+                "ServerSideEncryption": "AES256"
+              },
+              "Output": {
+                "ETag": "\"0ecf16c8f5a067e57d931386428ef1b3\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Region": "us-east-1",
+              "Body": "cmVnaW9uYWwgZXhwbGljaXQgU1RBTkRBUkQgcmV2aXNpb24gdHdvCg==",
+              "Bind": {
+                "version43": "VersionId"
+              }
+            },
+            {
+              "Label": "explicit destination object denial",
+              "Source": "replication_regional_evidence.json.gz:Observations[62]",
+              "Sequence": 62,
+              "Service": "s3",
+              "Operation": "PutObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "denied-control",
+                "StorageClass": "STANDARD",
+                "ServerSideEncryption": "AES256"
+              },
+              "Output": {
+                "ETag": "\"b54c66fd3fbf4493907f64da9ada45ff\"",
+                "ServerSideEncryption": "AES256"
+              },
+              "Region": "us-east-1",
+              "Body": "cmVnaW9uYWwgZGVuaWVkIHBsYWludGV4dCBjb250cm9sCg==",
+              "Bind": {
+                "version62": "VersionId"
+              }
+            }
+          ],
+          "Drain": true,
+          "OriginalSequences": [
+            43,
+            62
+          ]
+        },
+        {
+          "Label": "finish-retained-mixed-batch",
+          "At": "2026-09-21T09:46:04Z",
+          "Calls": [
+            {
+              "Label": "COMPLETED inherit-standard",
+              "Source": "replication_regional_evidence.json.gz:Observations[21]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-standard",
+                "VersionId": "${version21}"
+              },
+              "Output": {
+                "ReplicationStatus": "COMPLETED"
+              }
+            },
+            {
+              "Label": "COMPLETED inherit-glacier",
+              "Source": "replication_regional_evidence.json.gz:Observations[22]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-glacier",
+                "VersionId": "${version22}"
+              },
+              "Output": {
+                "ReplicationStatus": "COMPLETED"
+              }
+            },
+            {
+              "Label": "COMPLETED inherit-standard",
+              "Source": "replication_regional_evidence.json.gz:Observations[43]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "inherit-standard",
+                "VersionId": "${version43}"
+              },
+              "Output": {
+                "ReplicationStatus": "COMPLETED"
+              }
+            },
+            {
+              "Label": "FAILED denied-control",
+              "Source": "replication_regional_evidence.json.gz:Observations[62]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-source",
+                "Key": "denied-control",
+                "VersionId": "${version62}"
+              },
+              "Output": {
+                "ReplicationStatus": "FAILED"
+              }
+            },
+            {
+              "Label": "REPLICA inherit-standard",
+              "Source": "replication_regional_evidence.json.gz:Observations[21]",
+              "Service": "s3",
+              "Operation": "GetObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-destination",
+                "Key": "inherit-standard",
+                "VersionId": "${version21}"
+              },
+              "Output": {
+                "ReplicationStatus": "REPLICA"
+              },
+              "Region": "us-west-2",
+              "Plaintext": "cmVnaW9uYWwgU1RBTkRBUkRfSUEgcmV2aXNpb24gb25lCg=="
+            },
+            {
+              "Label": "REPLICA inherit-glacier",
+              "Source": "replication_regional_evidence.json.gz:Observations[22]",
+              "Service": "s3",
+              "Operation": "GetObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-destination",
+                "Key": "inherit-glacier",
+                "VersionId": "${version22}"
+              },
+              "Output": {
+                "ReplicationStatus": "REPLICA"
+              },
+              "Region": "us-west-2",
+              "Plaintext": "cmVnaW9uYWwgR0xBQ0lFUl9JUiByZXZpc2lvbiBvbmUK"
+            },
+            {
+              "Label": "REPLICA inherit-standard",
+              "Source": "replication_regional_evidence.json.gz:Observations[43]",
+              "Service": "s3",
+              "Operation": "GetObject",
+              "Actor": "owner",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-destination",
+                "Key": "inherit-standard",
+                "VersionId": "${version43}"
+              },
+              "Output": {
+                "ReplicationStatus": "REPLICA"
+              },
+              "Region": "us-west-2",
+              "Plaintext": "cmVnaW9uYWwgZXhwbGljaXQgU1RBTkRBUkQgcmV2aXNpb24gdHdvCg=="
+            },
+            {
+              "Label": "REPLICA denied-control",
+              "Source": "replication_regional_evidence.json.gz:Observations[62]",
+              "Service": "s3",
+              "Operation": "HeadObject",
+              "Actor": "owner",
+              "Code": "404",
+              "Status": 404,
+              "Input": {
+                "Bucket": "stackd-repl-regional-37d9ad21d808-destination",
+                "Key": "denied-control"
+              },
+              "Output": {},
+              "Region": "us-west-2"
+            }
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Failures": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "replication_regional_evidence.json.gz:Deliveries[9]",
+              "SourceSequence": 62,
+              "Payload": {
+                "eventVersion": "2.6",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "2026-09-21T10:21:56.440Z",
+                "eventName": "Replication:OperationFailedReplication",
+                "userIdentity": {
+                  "principalId": "s3.amazonaws.com"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "s3.amazonaws.com"
+                },
+                "responseElements": {
+                  "x-amz-request-id": "58b72432-4ad8-40e4-bfcc-6805ee6260d7",
+                  "x-amz-id-2": "N8BHA3AQMhcZcYWOcZu6QLk+1Mm5pjxeC7fvcdeM9hY0fVnRAEJi6oXVBaEFwhEm"
+                },
+                "s3": {
+                  "s3SchemaVersion": "1.0",
+                  "configurationId": "regional-events",
+                  "bucket": {
+                    "name": "stackd-repl-regional-37d9ad21d808-source",
+                    "ownerIdentity": {
+                      "principalId": "123456789012"
+                    },
+                    "arn": "arn:aws:s3:::stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  "object": {
+                    "key": "denied-control",
+                    "size": 34,
+                    "eTag": "b54c66fd3fbf4493907f64da9ada45ff",
+                    "versionId": "${version62}",
+                    "sequencer": "${sequencer62}"
+                  }
+                },
+                "replicationEventData": {
+                  "replicationRuleId": "regional-inheritance",
+                  "destinationBucket": "arn:aws:s3:::stackd-repl-regional-37d9ad21d808-destination",
+                  "s3Operation": "OBJECT_PUT",
+                  "requestTime": "${requestTime62}",
+                  "failureReason": "DstPutObjectNotPermitted"
+                }
+              },
+              "Dynamic": {
+                "eventTime": "time",
+                "responseElements.x-amz-request-id": "opaque",
+                "responseElements.x-amz-id-2": "opaque"
+              }
+            }
+          ]
+        },
+        {
+          "Label": "regional-published-statistic-set",
+          "At": "2026-09-21T09:47:00Z",
+          "Calls": [],
+          "Drain": true,
+          "Reopen": true,
+          "Metrics": [
+            {
+              "Source": "replication_regional_evidence.json.gz:FinalMetricSummary",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "BytesPendingReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "BytesPendingReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "replication_regional_evidence.json.gz:FinalMetricSummary",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsPendingReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsPendingReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "replication_regional_evidence.json.gz:FinalMetricSummary",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "ReplicationLatency",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "ReplicationLatency",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "replication_regional_evidence.json.gz:FinalMetricSummary",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "SampleCount": 4.0,
+                    "Average": 0.25,
+                    "Sum": 1.0,
+                    "Minimum": 1.0,
+                    "Maximum": 1.0,
+                    "Unit": "Count"
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "local tenant isolation extension of regional source-account ownership",
+              "Actor": "other",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "replication_regional_evidence.json.gz:FinalMetricSummary",
+              "Actor": "owner",
+              "Region": "us-west-2",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "BytesPendingReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "BytesPendingReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "SampleCount": 1.0,
+                    "Average": 0.0,
+                    "Sum": 0.0,
+                    "Minimum": 0.0,
+                    "Maximum": 0.0,
+                    "Unit": "Bytes"
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "local tenant isolation extension of regional source-account ownership",
+              "Actor": "other",
+              "Region": "us-west-2",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "BytesPendingReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "BytesPendingReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "replication_regional_evidence.json.gz:FinalMetricSummary",
+              "Actor": "owner",
+              "Region": "us-west-2",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsPendingReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsPendingReplication",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "SampleCount": 1.0,
+                    "Average": 0.0,
+                    "Sum": 0.0,
+                    "Minimum": 0.0,
+                    "Maximum": 0.0,
+                    "Unit": "Count"
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "local tenant isolation extension of regional source-account ownership",
+              "Actor": "other",
+              "Region": "us-west-2",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsPendingReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsPendingReplication",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "replication_regional_evidence.json.gz:FinalMetricSummary",
+              "Actor": "owner",
+              "Region": "us-west-2",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "ReplicationLatency",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "ReplicationLatency",
+                "Datapoints": [
+                  {
+                    "Timestamp": "2026-09-21T09:46:00Z",
+                    "SampleCount": 1.0,
+                    "Average": 0.0,
+                    "Sum": 0.0,
+                    "Minimum": 0.0,
+                    "Maximum": 0.0,
+                    "Unit": "Seconds"
+                  }
+                ]
+              }
+            },
+            {
+              "Source": "local tenant isolation extension of regional source-account ownership",
+              "Actor": "other",
+              "Region": "us-west-2",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "ReplicationLatency",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "ReplicationLatency",
+                "Datapoints": []
+              }
+            },
+            {
+              "Source": "replication_regional_evidence.json.gz:FinalMetricSummary",
+              "Actor": "owner",
+              "Region": "us-west-2",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:46:00Z",
+                "EndTime": "2026-09-21T09:47:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            }
+          ]
+        },
+        {
+          "Label": "no-reprocessing-after-reopen",
+          "At": "2026-09-21T09:48:00Z",
+          "Calls": [],
+          "Drain": true,
+          "Reopen": true,
+          "Metrics": [
+            {
+              "Source": "local idle lifecycle; no additional processed operation",
+              "Actor": "owner",
+              "Region": "us-east-1",
+              "Input": {
+                "Namespace": "AWS/S3",
+                "MetricName": "OperationsFailedReplication",
+                "Dimensions": [
+                  {
+                    "Name": "SourceBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-source"
+                  },
+                  {
+                    "Name": "DestinationBucket",
+                    "Value": "stackd-repl-regional-37d9ad21d808-destination"
+                  },
+                  {
+                    "Name": "RuleId",
+                    "Value": "regional-inheritance"
+                  }
+                ],
+                "StartTime": "2026-09-21T09:47:00Z",
+                "EndTime": "2026-09-21T09:48:00Z",
+                "Period": 60,
+                "Statistics": [
+                  "SampleCount",
+                  "Sum",
+                  "Average",
+                  "Minimum",
+                  "Maximum"
+                ]
+              },
+              "Output": {
+                "Label": "OperationsFailedReplication",
+                "Datapoints": []
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

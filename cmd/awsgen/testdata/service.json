@@ -1,0 +1,39 @@
+{
+  "smithy": "2.0",
+  "shapes": {
+    "example.demo#Demo": {
+      "type": "service", "version": "2025-01-01",
+      "operations": [{"target": "example.demo#CreateThing"}],
+      "traits": {
+        "aws.api#service": {"sdkId": "Demo", "endpointPrefix": "demo", "arnNamespace": "demo"},
+        "aws.auth#sigv4": {"name": "demo"},
+        "aws.protocols#awsJson1_1": {},
+        "smithy.api#xmlNamespace": {"uri": "https://demo.example.test/"}
+      }
+    },
+    "example.demo#CreateThing": {
+      "type": "operation",
+      "input": {"target": "example.demo#CreateThingRequest"},
+      "output": {"target": "example.demo#CreateThingResponse"},
+      "errors": [{"target": "example.demo#RejectedException"}],
+      "traits": {"smithy.api#idempotent": {}, "smithy.api#paginated": {"inputToken": "Token", "outputToken": "NextToken", "pageSize": "Count", "items": "Items"}}
+    },
+    "example.demo#CreateThingRequest": {
+      "type": "structure",
+      "members": {
+        "Name": {"target": "example.demo#Name", "traits": {"smithy.api#required": {}}},
+        "Count": {"target": "example.demo#Count", "traits": {"smithy.api#default": 1}},
+        "Labels": {"target": "example.demo#Labels"},
+        "State": {"target": "example.demo#State"},
+        "Items": {"target": "example.demo#Items"}
+      }
+    },
+    "example.demo#CreateThingResponse": {"type": "structure", "members": {"Name": {"target": "example.demo#Name"}}},
+    "example.demo#Name": {"type": "string", "traits": {"smithy.api#length": {"min": 1, "max": 64}, "smithy.api#pattern": "^[a-z]+$", "smithy.api#sensitive": {}}},
+    "example.demo#Count": {"type": "integer", "traits": {"smithy.api#range": {"min": 0, "max": 100}}},
+    "example.demo#Labels": {"type": "map", "key": {"target": "example.demo#Name"}, "value": {"target": "example.demo#Name"}, "traits": {"smithy.api#length": {"max": 10}}},
+    "example.demo#Items": {"type": "list", "member": {"target": "example.demo#Name"}, "traits": {"smithy.api#length": {"min": 1}, "smithy.api#uniqueItems": {}}},
+    "example.demo#State": {"type": "enum", "members": {"READY": {"target": "smithy.api#Unit", "traits": {"smithy.api#enumValue": "READY"}}, "PENDING": {"target": "smithy.api#Unit", "traits": {"smithy.api#enumValue": "PENDING"}}}},
+    "example.demo#RejectedException": {"type": "structure", "members": {"Message": {"target": "example.demo#Name"}}, "traits": {"smithy.api#error": "client", "smithy.api#httpError": 400, "aws.protocols#awsQueryError": {"code": "Rejected", "httpResponseCode": 409}}}
+  }
+}

@@ -1,0 +1,491 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Local failure/recovery extension using the existing Docker pause and native post-commit response-loss boundaries. No fake engine or AWS failure-timing parity claim.",
+  "steps": [
+    {
+      "name": "create-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "put-before-outage",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Item": {
+          "pk": {
+            "S": "before-outage"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "pause-source-engine-before-bootstrap",
+      "advance": "0s",
+      "region": "us-east-1",
+      "enginePaused": true
+    },
+    {
+      "name": "admit-peer-while-source-engine-paused",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {
+        "TableDescription.TableStatus": "UPDATING"
+      }
+    },
+    {
+      "name": "source-remains-pending-with-native-engine-paused",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-recovery"
+      },
+      "want": {
+        "Table.TableStatus": "UPDATING",
+        "Table.Replicas.0.RegionName": "us-east-2"
+      }
+    },
+    {
+      "name": "resume-real-engine",
+      "advance": "0s",
+      "region": "us-east-1",
+      "enginePaused": false
+    },
+    {
+      "name": "membership-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-recovery"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true,
+      "reopen": true
+    },
+    {
+      "name": "membership-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-recovery"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "bootstrap-recovers-source-row",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Key": {
+          "pk": {
+            "S": "before-outage"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "before-outage"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "transaction-commits-before-response-loss",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "TransactWriteItems",
+      "input": {
+        "ClientRequestToken": "replication-lost-response",
+        "TransactItems": [
+          {
+            "Put": {
+              "TableName": "stackd-replication-recovery",
+              "Item": {
+                "pk": {
+                  "S": "committed"
+                },
+                "n": {
+                  "N": "7"
+                }
+              }
+            }
+          },
+          {
+            "Delete": {
+              "TableName": "stackd-replication-recovery",
+              "Key": {
+                "pk": {
+                  "S": "before-outage"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "InternalServerError",
+      "commitFailureOperation": "TransactWriteItems"
+    },
+    {
+      "name": "reopen-observes-real-commit",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Key": {
+          "pk": {
+            "S": "committed"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "committed"
+          },
+          "n": {
+            "N": "7"
+          }
+        }
+      },
+      "waitWant": true,
+      "reopen": true
+    },
+    {
+      "name": "recovered-commit-reaches-peer",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Key": {
+          "pk": {
+            "S": "committed"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "committed"
+          },
+          "n": {
+            "N": "7"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "recovered-delete-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Key": {
+          "pk": {
+            "S": "before-outage"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "recovered-delete-peer",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Key": {
+          "pk": {
+            "S": "before-outage"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "retry-lost-transaction-token",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "TransactWriteItems",
+      "input": {
+        "ClientRequestToken": "replication-lost-response",
+        "TransactItems": [
+          {
+            "Put": {
+              "TableName": "stackd-replication-recovery",
+              "Item": {
+                "pk": {
+                  "S": "committed"
+                },
+                "n": {
+                  "N": "7"
+                }
+              }
+            }
+          },
+          {
+            "Delete": {
+              "TableName": "stackd-replication-recovery",
+              "Key": {
+                "pk": {
+                  "S": "before-outage"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "peer-write-after-recovery",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Item": {
+          "pk": {
+            "S": "committed"
+          },
+          "n": {
+            "N": "8"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "reverse-delivery-after-recovery",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Key": {
+          "pk": {
+            "S": "committed"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "committed"
+          },
+          "n": {
+            "N": "8"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "peer-after-second-reopen",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Key": {
+          "pk": {
+            "S": "committed"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "committed"
+          },
+          "n": {
+            "N": "8"
+          }
+        }
+      },
+      "waitWant": true,
+      "reopen": true
+    },
+    {
+      "name": "source-after-second-reopen",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "Key": {
+          "pk": {
+            "S": "committed"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "committed"
+          },
+          "n": {
+            "N": "8"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "remove-peer",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-recovery",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "peer-absent",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-recovery"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "source-demoted-streams-remain",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-recovery"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-owned-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-replication-recovery"
+      },
+      "want": {}
+    },
+    {
+      "name": "source-absent",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-recovery"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    }
+  ]
+}

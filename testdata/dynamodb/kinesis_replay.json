@@ -1,0 +1,35 @@
+{
+  "source": "kinesis_destination",
+  "account": "000000000000",
+  "start": "2026-09-19T12:00:00.123456Z",
+  "evidence": "testdata/aws/dynamodb/kinesis_destination.json: call numbers are sequence values; records are one-based entries in the retained records array. Inputs and complete expected envelopes are read directly from that capture.",
+  "notes": [
+    "Ordinary equal-image writes and absent deletes emit nothing in these measured windows; transactional equal-image Put, Update and PartiQL Update emit MODIFY.",
+    "ConditionCheck-only transaction and retained memory/SQLite reopen are local regression extensions, not additional native observations.",
+    "DISABLED is not an immediate delivery fence: calls 321/324 and record 12 observed a post-disable write. The six-minute terminal check exercises the documented local five-minute drain policy, not an AWS SLA.",
+    "SLR resource denial uses exact native calls 270/283. Arrival ordering, UUIDs, absolute event timestamps and opaque partition hashes are not pinned to AWS. Envelope multiplicity, timestamp units/precision, recursive double-base64 binary images and SizeBytes are retained."
+  ],
+  "steps": [
+    {"name": "enable-real-service-role", "calls": [3, 4, 14, 15, 16, 64], "await": 72},
+    {"name": "ordinary-writes-and-binary-envelope", "calls": [75, 76, 73, 78, 80, 81, 82, 83, 84, 85, 86], "records": [1, 2, 3, 4], "check": true},
+    {"name": "reopen-pending-precision-change", "calls": [100, 101, 102, 103], "reopen": true, "await": 161},
+    {
+      "name": "microsecond-transaction-contrasts",
+      "calls": [164, 165, 166, 167, 168, 169, 170, 171, 406, 407, 408, 409, 410],
+      "extra": [{"operation": "transact-write-items", "input": {"TransactItems": [{"ConditionCheck": {"TableName": "$table", "Key": {"pk": {"S": "batch"}}, "ConditionExpression": "n = :n", "ExpressionAttributeValues": {":n": {"N": "1"}}}}]}}],
+      "records": [5, 6, 7, 8, 9, 15, 16, 17, 18, 19],
+      "check": true
+    },
+    {"name": "restore-millisecond-precision", "calls": [184], "await": 264},
+    {"name": "slr-denial-survives-reopen", "calls": [270, 271], "advance": "10s", "reopen": true, "await": 272, "check": true},
+    {"name": "slr-retry-recovery", "calls": [283, 284], "records": [10, 11], "check": true},
+    {"name": "disable-survives-reopen", "calls": [299, 300], "reopen": true, "await": 321},
+    {"name": "disabled-is-not-an-immediate-fence", "calls": [322, 323, 324], "records": [12], "check": true},
+    {
+      "name": "local-terminal-drain-boundary",
+      "advance": "6m",
+      "extra": [{"operation": "put-item", "input": {"TableName": "$table", "Item": {"pk": {"S": "after-drain"}}}}],
+      "check": true
+    }
+  ]
+}

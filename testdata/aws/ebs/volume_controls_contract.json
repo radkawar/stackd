@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "source_script": "scripts/aws/ebs_volume_controls_probe.py",
+  "region": "us-east-1",
+  "owner_account": "000000000000",
+  "scope": "Finite native empty-volume and empty-snapshot initialization EC2 observations, not complete EBS/EC2 parity; real snapshot bytes and source KMS authority belong to volume_data fixtures.",
+  "documentation": [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateVolume.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteVolume.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumeAttribute.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyVolumeAttribute.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumeStatus.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyVolume.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumesModifications.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_EnableVolumeIO.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modify-volume.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/monitoring-volume-modifications.html",
+    "https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html",
+    "https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonec2.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-cloud-watch-events.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-initialize-monitor.html",
+    "https://docs.aws.amazon.com/ebs/latest/APIReference/API_StartSnapshot.html",
+    "https://docs.aws.amazon.com/ebs/latest/APIReference/API_CompleteSnapshot.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/supported-iam-actions-tagging.html"
+  ],
+  "fixtures": {
+    "volume_controls.json": "Create/read/attribute/status/modify/delete lifecycle, native IAM conditions, tags, client token equivalence and page-token replay.",
+    "volume_controls_configuration.json": "DryRun-only cross-field normalization precedence and unmasked io1/io2 IOPS ceilings; no resources allocated.",
+    "volume_controls_io.json": "Two 4-GiB/100-IOPS Multi-Attach sources: io1 immutable controls and successful io2 atomic Multi-Attach disable/type conversion.",
+    "volume_controls_deletion.json": "Immediate deletion after creating response and exact EnableVolumeIO missing/malformed ID precedence.",
+    "volume_controls_events.json": "Delivered native optimizing and completed modifyVolume notifications through one owned EventBridge rule/SQS queue; all resources cleaned.",
+    "volume_controls_initialization.json": "One empty 1-GiB direct snapshot: ordinary and100/300-MiB/s provisioned-rate volumes, invalid0/99/301 actual/DryRun admission, initialization status transition and projection.",
+    "volume_controls_snapshot_ids.json": "37 controlled snapshot identifiers across DescribeSnapshots, DescribeSnapshotAttribute and CreateVolume DryRun only; no resources allocated.",
+    "volume_controls_snapshot_id_bits.json": "198 read-only calls sweeping selected nibbles of two proven-issued IDs and comparing a western source across regional endpoints; compact derivation in volume_controls_snapshot_ids_contract.json.",
+    "volume_controls_bounds.json": "Numeric lower boundaries, fresh growth, modified/deleted token behavior, EnableVolumeIO, pagination bounds, completed modification repetition."
+  },
+  "contracts": {
+    "create_zone": "Absent or empty zone/name ID: MissingParameter zone. Missing size and snapshot with valid zone: MissingParameter size/snapshot. Unknown zone: InvalidZone.NotFound. Both selectors: InvalidParameterCombination. Name and corresponding ZoneId select the same zone and are client-token equivalent.",
+    "create_defaults": "VolumeType omitted or empty becomes gp2; uppercase GP3 normalizes to gp3. 1-GiB gp2 Iops=100; gp3 Iops=3000/Throughput=125; standard omits Iops/Throughput. io1/io2 accepted at 4 GiB/100 IOPS. CreateVolume returns creating, SnapshotId empty string, Tags empty array if untagged, MultiAttachEnabled=false, Encrypted=false under the observed unchanged default. It omits Attachments, OwnerId, VolumeArn, Operator and FastRestored.",
+    "describe_fields": "DescribeVolumes adds Attachments=[], OwnerId, VolumeArn and Operator {Managed:false,HiddenByDefault:false}. Empty source SnapshotId persists. CreateTime includes milliseconds unlike CreateVolume whole-second output. No unmeasured encryption/Outpost initialization field presence is inferred.",
+    "create_validation": "Actual and DryRun validate missing zone/size, size bounds, type, IOPS/throughput combinations and tags before IAM/DryRun. gp3 MultiAttachEnabled=true is rejected only on actual request; DryRun succeeds. ClientToken length65 is rejected only on actual request; DryRun succeeds.",
+    "iops_and_throughput": "gp3 Iops=2999 and3001 at1GiB fail maximum500 IOPS/GiB ratio; baseline3000 is exempt. Throughput124 is accepted and normalized125. Throughput2001 rejects maximum2000,751 with3000IOPS rejects ratio0.25. gp2/standard reject explicit positive Iops or Throughput. io1/io2 require Iops; minimum100; io1 at4GiB201IOPS rejects maximum50 IOPS/GiB. st1/sc1 at1GiB reject minimum125GiB; no valid HDD allocations made.",
+    "upper_bounds": "DryRun native errors establish gp2 maximum16384GiB, gp3 maximum65536GiB, standard maximum1024GiB, gp3 maximum80000IOPS. Supplemental 4GiB io1/io2 requests establish maximum64000/256000IOPS; io2 at4GiB4001IOPS rejects maximum1000IOPS/GiB.",
+    "tag_validation": "Wrong ResourceType snapshot, duplicate key, aws:-reserved key and empty tag key return InvalidParameterValue, including DryRun. Returned tag order can differ from request order.",
+    "create_tokens": "Exact replay returns same ID and live lifecycle state. Reordered tag entries and AZ-name to equivalent AZ-ID replay succeed. Changed size/tags reject IdempotentParameterMismatch. Replaying deleted resource with original parameters returns IdempotentParameterMismatch with dedicated already-deleted message; changed parameters use generic mismatch first.",
+    "attributes": "Default AutoEnableIO false. ProductCodes empty array. No/empty Attribute => InvalidParameterCombination No attributes specified. Unknown Attribute => InvalidParameterValue Unknown attribute. ModifyVolumeAttribute without AutoEnableIO or empty {} => No attributes specified; true/false persists and SDK success output is {}. Attribute DryRun precedes missing/bad IDs and malformed attributes.",
+    "status_available": "Available volume status is ok with io-enabled=passed and io-performance=not-applicable; Actions/Events empty arrays; AZ name/id, Operator managed=false/hidden=false present. VolumeIds containing only empty string is treated as all in DescribeVolumeStatus, unlike the other Describe APIs.",
+    "delete_lifecycle": "DeleteVolume SDK output {}. Immediate DescribeVolumes can still return deleting. DescribeVolumeStatus and DescribeVolumesModifications may already return InvalidVolume.NotFound; subsequent DeleteVolume/DescribeVolumes become NotFound. Exact observed times are not removal guarantees.",
+    "delete_admission": "Missing VolumeId gives MissingParameter before DryRun. Empty/bad ID gives InvalidParameterValue malformed before DryRun and even before explicit-deny IAM. Other describe/mutate operations have different native ID/error precedence.",
+    "zero_id_boundary": "vol-00000000000000000 is natively malformed, not a well-formed absent volume. True NotFound evidence uses previously-created then deleted owned IDs in supplemental fixture.",
+    "modify_admission": "ModifyVolume with no fields: InvalidParameterValue Must specify at least one of size, type, iops, throughput or multi-attach. Same size is accepted as a real modification. Shrink: InvalidParameterValue New size cannot be smaller than existing size. ModifyVolume DryRun bypasses these validation failures. Active modifications can reject IncorrectModificationState with uppercase MODIFYING in message.",
+    "modify_lifecycle": "A 1GiB gp3 size growth and a1GiB gp2->gp3 conversion each reported modifying/Progress0 then completed/Progress100, with native StartTime-to-EndTime2seconds. gp2 conversion defaults to target3000IOPS/125throughput. OriginalThroughput absent for gp2. DescribeVolumesModifications adds Operator, unlike ModifyVolume. Repeated completed modifications succeeded within seconds; do not impose blanket6hour cooldown.",
+    "modification_absence": "Describing existing never-modified volume gives InvalidVolumeModification.NotFound: Modification for volume <id> does not exist. This preceded invalid filter in observed request.",
+    "filters": "DescribeVolumes supports tested documented selectors plus undocumented tag-value. Empty values=>empty match set; unknown filter InvalidParameterValue. Modification volume-id,modification-state,original-size,target-size,target-volume-type work; documented targetMultiAttachEnabled is invalid in native.",
+    "id_pagination_combination": "All three listing APIs reject VolumeIds combined with MaxResults or NextToken, before bound checks. Error uses volumeIdsSet for Volumes/Status and volumeModificationSet for Modifications.",
+    "volume_pagination": "DescribeVolumes MaxResults1 rejects,5 succeeds with a real continuation token. Token replay returns same next-page records. Changing filter while reusing token succeeds with empty results rather than a filter-binding token error.",
+    "creation_iam": "CreateVolume requires account-filled volume ARN, unlike snapshot empty-account ARN. Request-tag and ec2:VolumeType/AvailabilityZone/VolumeSize conditions work; ec2:ResourceTag/suite was absent during creation. Tagged requests require dependent CreateTags including on DryRun; untagged requests do not. ec2:CreateAction=CreateVolume allows tagging. Invalid zone/size validation precedes explicit-deny IAM.",
+    "gp3_low_bound_normalization": "Native gp3 Iops0/1 rejects minimum100. Iops500 at1GiB accepts but normalizes3000;501 fails500IOPS/GiB ratio. Negative Iops/Throughput reject positive-integer validation. Throughput0/1/124 accepts normalized125. DryRun Iops100 withThroughput750 succeeds; Iops500 withThroughput751 rejects ratio0.250333. Validate requested IOPS/GiB before baseline normalization, then validate throughput against normalized IOPS.",
+    "token_original_request_and_live_output": "Each explicit default Iops3000,Encryptedfalse,MultiAttachEnabledfalse mismatches omission; Throughput125 matches omission. After growth from1to2GiB the original size1 request replay returns currentSize2; a request withsize2 rejects generic mismatch against the original request. Original request after deletion gives dedicated deleted-resource mismatch.",
+    "status_creating": "DescribeVolumeStatus immediately after CreateVolume gave statusok/details passed+not-applicable while the following DescribeVolumes still showed creating; do not derive healthstatus from lifecyclecreating.",
+    "enable_volume_io": "EnableVolumeIO on available healthy volume returns IncorrectState: Volume <id> already has IO enabled. DryRunOperation bypasses this. Deleted owned ID actual is InvalidVolume.NotFound, DryRunOperation withDryRun.",
+    "modification_quota": "A fresh volume accepted four modifications including same-size noops after each reachedcompleted. Fifth returned VolumeModificationRateExceeded with next eligible time exactly first accepted modification+24h to milliseconds. Native message: You've reached the maximum modification rate per volume limit. Wait until <UTC time> before you can issue the next modification request for this volume.",
+    "all_pagination_bounds": "Across Volumes,Status,Modifications, MaxResults-1,0,1,4 rejects minimum5;5,500,501,1000,1001 all accepted. No upper bound is established. Modifications error spells MaxResults, others maxResults. Malformed tokens: Volumes/Status Unable to parse pagination token; Modifications Value ( invalid ) for parameter NextToken is invalid. The token is Invalid.",
+    "modification_multiattach_filters": "Native accepts original-multi-attach-enabled and target-multi-attach-enabled. Both documented originalMultiAttachEnabled and targetMultiAttachEnabled are invalid.",
+    "multiattach_modification": "io1 Multi-Attach enabled volumes reject same-size, type change and disabling Multi-Attach with InvalidParameterValue: io1 volumes with Multi-Attach enabled do not support modify-volume actions. Please review the EBS technical documentation for information on the Multi-Attach limitations and considerations. io2 Multi-Attach enabled volume accepts same-size modification and then atomic VolumeType=gp3/MultiAttachEnabled=false, completing with original io2/100IOPS and target gp3/3000IOPS/125throughput.",
+    "immediate_delete": "DeleteVolume immediately after CreateVolume's creating response succeeds; following DescribeVolumes shows deleting.",
+    "enable_id_admission": "EnableVolumeIO absent/empty IDs return MissingParameter with volumeId null/empty message; bad returns InvalidParameterValue Expected vol-.... The syntactically shaped all-zero ID returns InternalError HTTP500 An internal error has occurred. All tested EnableVolumeIO DryRun cases return DryRunOperation.",
+    "modify_volume_notifications": "Owned EventBridge-to-SQS delivered optimizing then completed EBS Volume Notification events for one 1-to-2GiB gp3 modification. Both details contain only event=modifyVolume, result=optimizing/completed, cause empty string, request-id equal to ModifyVolume HTTP request ID. Source aws.ec2; resources use account-filled regional volume ARN. No modifying event was received during90seconds; missing delivery is not proof of absence.",
+    "initialization_rate_admission": "With an owned completed empty 1-GiB direct snapshot, rates0/99/301 fail actual and DryRun with InvalidParameterValue: The value specified for VolumeInitializationRate is not in the allowed range. Rates100/300 succeed actual and return DryRunOperation withDryRun. Omitted rate succeeds. CreateVolume and DescribeVolumes publish VolumeInitializationRate only when specified.",
+    "initialization_status": "Both ordinary and provisioned-rate restored volumes initially report healthy I/O plus VolumeStatus.Details initialization-state=initializing and InitializationStatusDetails Progress0. InitializationType is default when rate omitted, provisioned-rate when100/300 specified; only provisioned-rate includes EstimatedTimeToCompleteInSeconds=0. All three later report initialization-state=completed and Progress100; provisioned-rate ETA0 remains. Source FullSnapshotSizeInBytes=0: this is metadata publication evidence, not a data-bearing hydration bandwidth/duration measurement.",
+    "snapshot_identifier_evidence": "All three sampled APIs agree on each controlled ID classification. Lowercase length17 and leading0 are insufficient to establish native acceptance. The reported0123456789abcdef0 is malformed, while0fedcba9876543210 and0ffffffffffffffff reachNotFound. Single-nibble acceptance varies with the remaining identifier; measured east/west endpoint classifications agree. No universal native checksum/type/version decoder has been established or implemented.",
+    "status_page_filter_order": "Status with nonmatching AZ filter andMaxResults5 returned emptyVolumeStatuses plusNextToken. Do not infer that an empty page is terminal."
+  },
+  "boundaries": [
+    "Native timing is observational, not a service latency guarantee. Initialization mode adds one owned empty direct snapshot; no attachment/instance execution, customer data, KMS key creation or standing-setting changes occur in this control probe.",
+    "No optimizing state was observed in the initial DescribeVolumesModifications polls; later native EventBridge capture positively recorded optimizing and completed. Local +1s/+2s scheduling and optimizing progress50 are explicit emulator policy, not native latency/progress guarantees.",
+    "SDK-decoded field presence and omissions are captured; raw XML element presence is not separately asserted.",
+    "Snapshot identifier supplements are investigative evidence, not a validator parity claim. Finite nibble and region samples do not justify fixture-ID blacklists, independent nibble whitelists, or an invented decoder.",
+    "Credentials, authorization failure blobs and pagination bearer tokens are not persisted; pagination token equality uses SHA-256 fingerprints."
+  ],
+  "verification": {
+    "project_builds_tests_formatters_run": false,
+    "native_calls": 1023,
+    "native_volumes": 25,
+    "native_snapshots": 1,
+    "native_modification_notifications": 2,
+    "native_event_rule_and_queue_deleted": true,
+    "native_role_deleted": true
+  },
+  "captured_through": "2026-09-25T17:39:41.310855+00:00",
+  "cleanup": [
+    {
+      "fixture": "volume_controls_snapshot_ids.json",
+      "owned_volumes": [],
+      "owned_snapshots": [],
+      "cleanup": {
+        "failures": [],
+        "finished_at": "2026-09-25T17:34:41.861304+00:00"
+      }
+    },
+    {
+      "fixture": "volume_controls_snapshot_id_bits.json",
+      "owned_volumes": [],
+      "owned_snapshots": [],
+      "cleanup": {
+        "failures": [],
+        "finished_at": "2026-09-25T17:39:41.310855+00:00"
+      }
+    },
+    {
+      "fixture": "volume_controls_initialization.json",
+      "owned_volumes": ["vol-09f97201401787637", "vol-0bb6f734caa9f89e3", "vol-080eaca6ce306e6e8"],
+      "owned_snapshots": ["snap-0400dc0055e85b9bf"],
+      "cleanup": {
+        "absent_volumes": ["vol-09f97201401787637", "vol-0bb6f734caa9f89e3", "vol-080eaca6ce306e6e8"],
+        "deleted_snapshots": ["snap-0400dc0055e85b9bf"],
+        "snapshot_absence_verified": true,
+        "failures": [],
+        "finished_at": "2026-09-25T17:29:58.251297+00:00"
+      }
+    },
+    {
+      "fixture": "volume_controls_events.json",
+      "owned_volumes": ["vol-08ffcced0a45d47ad"],
+      "cleanup": {
+        "absent_volumes": ["vol-08ffcced0a45d47ad"],
+        "events_deleted": true,
+        "failures": [],
+        "finished_at": "2026-09-25T16:59:25.219018+00:00"
+      }
+    },
+    {
+      "fixture": "volume_controls_deletion.json",
+      "owned_volumes": ["vol-07c2eddfb92c27621"],
+      "cleanup": {
+        "absent_volumes": ["vol-07c2eddfb92c27621"],
+        "failures": [],
+        "finished_at": "2026-09-25T16:53:33.153464+00:00"
+      }
+    },
+    {
+      "fixture": "volume_controls_io.json",
+      "owned_volumes": ["vol-0cd578f982bce8984", "vol-080a53673fab9fd77"],
+      "cleanup": {
+        "absent_volumes": ["vol-0cd578f982bce8984", "vol-080a53673fab9fd77"],
+        "failures": [],
+        "finished_at": "2026-09-25T16:49:53.364687+00:00"
+      }
+    },
+    {
+      "fixture": "volume_controls_configuration.json",
+      "owned_volumes": [],
+      "cleanup": {
+        "failures": [],
+        "finished_at": "2026-09-25T16:41:37.866568+00:00"
+      }
+    },
+    {
+      "fixture": "volume_controls.json",
+      "owned_volumes": [
+        "vol-0c36d57def31a0f22",
+        "vol-0eaa25787ca85d1cd",
+        "vol-02ebbf5844adcd9d0",
+        "vol-0de7021b2bdb4c346",
+        "vol-0f8927a80702dd6fd",
+        "vol-05e3f74ffad891803",
+        "vol-032802c57783b4081",
+        "vol-05f5fa7d0a8bbe02a",
+        "vol-059b868e949e6c936",
+        "vol-0fe0d180b3ee416d8",
+        "vol-0813f49773a9262a7",
+        "vol-09826d50f153cddfd",
+        "vol-06000f35271ef047c",
+        "vol-04a69f36eea85872b"
+      ],
+      "cleanup": {
+        "absent_volumes": [
+          "vol-0fe0d180b3ee416d8",
+          "vol-0c36d57def31a0f22",
+          "vol-0eaa25787ca85d1cd",
+          "vol-02ebbf5844adcd9d0",
+          "vol-0de7021b2bdb4c346",
+          "vol-0f8927a80702dd6fd",
+          "vol-05e3f74ffad891803",
+          "vol-032802c57783b4081",
+          "vol-05f5fa7d0a8bbe02a",
+          "vol-059b868e949e6c936",
+          "vol-0813f49773a9262a7",
+          "vol-09826d50f153cddfd",
+          "vol-06000f35271ef047c",
+          "vol-04a69f36eea85872b"
+        ],
+        "role_deleted": true,
+        "failures": [],
+        "finished_at": "2026-09-25T16:36:33.129961+00:00"
+      }
+    },
+    {
+      "fixture": "volume_controls_bounds.json",
+      "owned_volumes": [
+        "vol-06f06ed95a5f4824e",
+        "vol-08ff1e75d188b1b45",
+        "vol-0d46ac0b93324568a",
+        "vol-061664b714320f615"
+      ],
+      "cleanup": {
+        "absent_volumes": [
+          "vol-061664b714320f615",
+          "vol-06f06ed95a5f4824e",
+          "vol-08ff1e75d188b1b45",
+          "vol-0d46ac0b93324568a"
+        ],
+        "failures": [],
+        "finished_at": "2026-09-25T16:38:12.285165+00:00"
+      }
+    }
+  ]
+}

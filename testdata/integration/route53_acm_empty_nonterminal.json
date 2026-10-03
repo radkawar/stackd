@@ -1,0 +1,1424 @@
+{
+  "source": "actual CLI + signed SDK + unmodified dig UDP/TCP + openssl + verified HTTPS",
+  "account": "815602947204",
+  "failure": "ALB HTTPS, restart and renewal passed; the final probe incorrectly required NXDOMAIN while ACM validation CNAME descendants still existed. Exact DNS response was not captured by that assertion. All owned resources and exported files were removed.",
+  "calls": [
+    {
+      "label": "create-zone",
+      "service": "route53",
+      "operation": "create_hosted_zone",
+      "input": {
+        "Name": "stackd-next-dns-735c4f9587.example.test",
+        "CallerReference": "stackd-next-dns-735c4f9587"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 201,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "location": "/2013-04-01/hostedzone/Z5A53D34DD7F79A2266C89449",
+            "date": "Mon, 28 Sep 2026 09:51:50 GMT",
+            "content-length": "916"
+          },
+          "RetryAttempts": 0
+        },
+        "Location": "/2013-04-01/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "HostedZone": {
+          "Id": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+          "Name": "stackd-next-dns-735c4f9587.example.test.",
+          "CallerReference": "stackd-next-dns-735c4f9587",
+          "Config": {
+            "Comment": "",
+            "PrivateZone": false
+          },
+          "ResourceRecordSetCount": 2
+        },
+        "ChangeInfo": {
+          "Id": "/change/C29BC175842E21EC869F2EE70",
+          "Status": "PENDING",
+          "SubmittedAt": "2026-09-28T09:51:49.265427+00:00",
+          "Comment": ""
+        },
+        "DelegationSet": {
+          "NameServers": [
+            "ns-1.z5a53d34dd7f79a2266c89449.stackd.invalid.",
+            "ns-2.z5a53d34dd7f79a2266c89449.stackd.invalid.",
+            "ns-3.z5a53d34dd7f79a2266c89449.stackd.invalid.",
+            "ns-4.z5a53d34dd7f79a2266c89449.stackd.invalid."
+          ]
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "records-UPSERT",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "UPSERT",
+              "ResourceRecordSet": {
+                "Name": "www.stackd-next-dns-735c4f9587.example.test",
+                "Type": "A",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "127.0.0.1"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:50 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C26786FD7A523EB9B530E4975",
+          "Status": "PENDING",
+          "SubmittedAt": "2026-09-28T09:51:49.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "atomic-out-of-zone",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "DELETE",
+              "ResourceRecordSet": {
+                "Name": "www.stackd-next-dns-735c4f9587.example.test",
+                "Type": "A",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "127.0.0.1"
+                  }
+                ]
+              }
+            },
+            {
+              "Action": "CREATE",
+              "ResourceRecordSet": {
+                "Name": "outside.invalid",
+                "Type": "A",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "127.0.0.2"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "InvalidChangeBatch",
+      "error": {
+        "Message": "Record name is not within the hosted zone.",
+        "Code": "InvalidChangeBatch"
+      },
+      "request_id": "0d22b1cb9859e83056fb9e2d98938983"
+    },
+    {
+      "label": "nonmatching-delete",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "DELETE",
+              "ResourceRecordSet": {
+                "Name": "www.stackd-next-dns-735c4f9587.example.test",
+                "Type": "A",
+                "TTL": 31,
+                "ResourceRecords": [
+                  {
+                    "Value": "127.0.0.1"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "InvalidChangeBatch",
+      "error": {
+        "Message": "DELETE must match the existing record set, including TTL and all values.",
+        "Code": "InvalidChangeBatch"
+      },
+      "request_id": "b3eb571b7b8689128e7de246dfaaf49b"
+    },
+    {
+      "label": "request-certificate",
+      "service": "acm",
+      "operation": "request_certificate",
+      "input": {
+        "DomainName": "www.stackd-next-dns-735c4f9587.example.test",
+        "SubjectAlternativeNames": [
+          "other.stackd-next-dns-735c4f9587.example.test"
+        ],
+        "ValidationMethod": "DNS",
+        "Options": {
+          "Export": "ENABLED"
+        }
+      },
+      "code": "Success",
+      "output": {
+        "CertificateArn": "arn:aws:acm:us-east-1:815602947204:certificate/b9963d41-8209-481f-b23a-c14799c81d91",
+        "ResponseMetadata": {
+          "RequestId": "b6e3ed4c55e97097112e3005d607e5e9",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/x-amz-json-1.1",
+            "x-amzn-requestid": "b6e3ed4c55e97097112e3005d607e5e9",
+            "date": "Mon, 28 Sep 2026 09:51:50 GMT",
+            "content-length": "104"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "b6e3ed4c55e97097112e3005d607e5e9"
+    },
+    {
+      "label": "records-UPSERT",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "UPSERT",
+              "ResourceRecordSet": {
+                "Name": "_70da78aaebea36c2a2fedc26dd635e74.www.stackd-next-dns-735c4f9587.example.test.",
+                "Type": "CNAME",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "_not-the-proof.acm-validations.aws."
+                  }
+                ]
+              }
+            },
+            {
+              "Action": "UPSERT",
+              "ResourceRecordSet": {
+                "Name": "_f92f3d86b99f2681fcba63d2bcefc421.other.stackd-next-dns-735c4f9587.example.test.",
+                "Type": "CNAME",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "_52db680f316f6bb6c9d398aad795e577.acm-validations.aws."
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:50 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C2E6F0401B7E7902FFD9E49E6",
+          "Status": "PENDING",
+          "SubmittedAt": "2026-09-28T09:53:51.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "records-UPSERT",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "UPSERT",
+              "ResourceRecordSet": {
+                "Name": "_70da78aaebea36c2a2fedc26dd635e74.www.stackd-next-dns-735c4f9587.example.test.",
+                "Type": "CNAME",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "_d44558aa32829e30777cd688cc39d907.acm-validations.aws."
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:50 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/CA5D505EC624702F0654B41F3",
+          "Status": "PENDING",
+          "SubmittedAt": "2026-09-28T09:54:52.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "cross-region-certificate",
+      "service": "acm",
+      "operation": "describe_certificate",
+      "input": {
+        "CertificateArn": "arn:aws:acm:us-east-1:815602947204:certificate/b9963d41-8209-481f-b23a-c14799c81d91"
+      },
+      "code": "ResourceNotFoundException",
+      "error": {
+        "Message": "Certificate does not exist in this account and region.",
+        "Code": "ResourceNotFoundException"
+      },
+      "request_id": "8e116c5c3b2b5e63bddb7aefefe03a67"
+    },
+    {
+      "label": "create-restricted-user",
+      "service": "iam",
+      "operation": "create_user",
+      "input": {
+        "UserName": "stackd-next-dns-735c4f9587"
+      },
+      "code": "Success",
+      "output": {
+        "User": {
+          "Path": "/",
+          "UserName": "stackd-next-dns-735c4f9587",
+          "UserId": "AIDAOGVUHIQY2QK43JHKY",
+          "Arn": "arn:aws:iam::815602947204:user/stackd-next-dns-735c4f9587",
+          "CreateDate": "2026-09-28T09:55:53.265427+00:00"
+        },
+        "ResponseMetadata": {
+          "RequestId": "0cd504ec5f6425a730eb825683af4f08",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml; charset=utf-8",
+            "x-amzn-requestid": "0cd504ec5f6425a730eb825683af4f08",
+            "date": "Mon, 28 Sep 2026 09:51:51 GMT",
+            "content-length": "452"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "0cd504ec5f6425a730eb825683af4f08"
+    },
+    {
+      "label": "iam-dns-deny",
+      "service": "route53",
+      "operation": "list_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449"
+      },
+      "code": "AccessDenied",
+      "error": {
+        "Message": "User: arn:aws:iam::815602947204:user/stackd-next-dns-735c4f9587 is not authorized to perform: route53:ListResourceRecordSets on resource: arn:aws:route53:::hostedzone/Z5A53D34DD7F79A2266C89449. No applicable policy grants this operation.",
+        "Code": "AccessDenied"
+      },
+      "request_id": "8b549914cd7554d9a3d561547c5cbe65"
+    },
+    {
+      "label": "iam-acm-deny",
+      "service": "acm",
+      "operation": "describe_certificate",
+      "input": {
+        "CertificateArn": "arn:aws:acm:us-east-1:815602947204:certificate/b9963d41-8209-481f-b23a-c14799c81d91"
+      },
+      "code": "AccessDeniedException",
+      "error": {
+        "Message": "User: arn:aws:iam::815602947204:user/stackd-next-dns-735c4f9587 is not authorized to perform: acm:DescribeCertificate on resource: arn:aws:acm:us-east-1:815602947204:certificate/b9963d41-8209-481f-b23a-c14799c81d91. No applicable policy grants this operation.",
+        "Code": "AccessDeniedException"
+      },
+      "request_id": "7863a29e5a2a09346f2ca27914029376"
+    },
+    {
+      "label": "create-vpc",
+      "service": "ec2",
+      "operation": "create_vpc",
+      "input": {
+        "CidrBlock": "10.198.199.0/24"
+      },
+      "code": "Success",
+      "output": {
+        "Vpc": {
+          "OwnerId": "815602947204",
+          "InstanceTenancy": "default",
+          "Ipv6CidrBlockAssociationSet": [],
+          "CidrBlockAssociationSet": [
+            {
+              "AssociationId": "vpc-cidr-assoc-6650c5c211902d69a",
+              "CidrBlock": "10.198.199.0/24",
+              "CidrBlockState": {
+                "State": "associated"
+              }
+            }
+          ],
+          "IsDefault": false,
+          "VpcId": "vpc-2fe47b1227f9e19a5",
+          "State": "pending",
+          "CidrBlock": "10.198.199.0/24",
+          "DhcpOptionsId": "dopt-e65e6a2566f33799f"
+        },
+        "ResponseMetadata": {
+          "RequestId": "5f99af83d715ca9793c4de2e3186bbe4",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml;charset=UTF-8",
+            "x-amzn-requestid": "5f99af83d715ca9793c4de2e3186bbe4",
+            "date": "Mon, 28 Sep 2026 09:51:51 GMT",
+            "content-length": "686"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "5f99af83d715ca9793c4de2e3186bbe4"
+    },
+    {
+      "label": "create-subnet",
+      "service": "ec2",
+      "operation": "create_subnet",
+      "input": {
+        "VpcId": "vpc-2fe47b1227f9e19a5",
+        "CidrBlock": "10.198.199.0/26",
+        "AvailabilityZone": "us-east-1a"
+      },
+      "code": "Success",
+      "output": {
+        "Subnet": {
+          "AvailabilityZoneId": "use1-az2",
+          "MapCustomerOwnedIpOnLaunch": false,
+          "OwnerId": "815602947204",
+          "AssignIpv6AddressOnCreation": false,
+          "Ipv6CidrBlockAssociationSet": [],
+          "SubnetArn": "arn:aws:ec2:us-east-1:815602947204:subnet/subnet-cab21511c30e7b23c",
+          "EnableDns64": false,
+          "Ipv6Native": false,
+          "PrivateDnsNameOptionsOnLaunch": {
+            "HostnameType": "ip-name",
+            "EnableResourceNameDnsARecord": false,
+            "EnableResourceNameDnsAAAARecord": false
+          },
+          "SubnetId": "subnet-cab21511c30e7b23c",
+          "State": "available",
+          "VpcId": "vpc-2fe47b1227f9e19a5",
+          "CidrBlock": "10.198.199.0/26",
+          "AvailableIpAddressCount": 59,
+          "AvailabilityZone": "us-east-1a",
+          "DefaultForAz": false,
+          "MapPublicIpOnLaunch": false
+        },
+        "ResponseMetadata": {
+          "RequestId": "8dfbf6a2b55d9a56889f2d80b68d8d72",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml;charset=UTF-8",
+            "x-amzn-requestid": "8dfbf6a2b55d9a56889f2d80b68d8d72",
+            "date": "Mon, 28 Sep 2026 09:51:51 GMT",
+            "content-length": "1144"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "8dfbf6a2b55d9a56889f2d80b68d8d72"
+    },
+    {
+      "label": "create-subnet",
+      "service": "ec2",
+      "operation": "create_subnet",
+      "input": {
+        "VpcId": "vpc-2fe47b1227f9e19a5",
+        "CidrBlock": "10.198.199.64/26",
+        "AvailabilityZone": "us-east-1b"
+      },
+      "code": "Success",
+      "output": {
+        "Subnet": {
+          "AvailabilityZoneId": "use1-az3",
+          "MapCustomerOwnedIpOnLaunch": false,
+          "OwnerId": "815602947204",
+          "AssignIpv6AddressOnCreation": false,
+          "Ipv6CidrBlockAssociationSet": [],
+          "SubnetArn": "arn:aws:ec2:us-east-1:815602947204:subnet/subnet-458b5463bfa7c255f",
+          "EnableDns64": false,
+          "Ipv6Native": false,
+          "PrivateDnsNameOptionsOnLaunch": {
+            "HostnameType": "ip-name",
+            "EnableResourceNameDnsARecord": false,
+            "EnableResourceNameDnsAAAARecord": false
+          },
+          "SubnetId": "subnet-458b5463bfa7c255f",
+          "State": "available",
+          "VpcId": "vpc-2fe47b1227f9e19a5",
+          "CidrBlock": "10.198.199.64/26",
+          "AvailableIpAddressCount": 59,
+          "AvailabilityZone": "us-east-1b",
+          "DefaultForAz": false,
+          "MapPublicIpOnLaunch": false
+        },
+        "ResponseMetadata": {
+          "RequestId": "aa4f4295ebff05ba57d84e15276c24bb",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml;charset=UTF-8",
+            "x-amzn-requestid": "aa4f4295ebff05ba57d84e15276c24bb",
+            "date": "Mon, 28 Sep 2026 09:51:51 GMT",
+            "content-length": "1145"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "aa4f4295ebff05ba57d84e15276c24bb"
+    },
+    {
+      "label": "create-security-group",
+      "service": "ec2",
+      "operation": "create_security_group",
+      "input": {
+        "VpcId": "vpc-2fe47b1227f9e19a5",
+        "GroupName": "stackd-next-dns-735c4f9587",
+        "Description": "stackd-next-dns-735c4f9587"
+      },
+      "code": "Success",
+      "output": {
+        "GroupId": "sg-83e7598a35ab3bdd6",
+        "SecurityGroupArn": "arn:aws:ec2:us-east-1:815602947204:security-group/sg-83e7598a35ab3bdd6",
+        "ResponseMetadata": {
+          "RequestId": "0e0b1fc82430afac9d6037fa96b577df",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml;charset=UTF-8",
+            "x-amzn-requestid": "0e0b1fc82430afac9d6037fa96b577df",
+            "date": "Mon, 28 Sep 2026 09:51:51 GMT",
+            "content-length": "309"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "0e0b1fc82430afac9d6037fa96b577df"
+    },
+    {
+      "label": "allow-native-https",
+      "service": "ec2",
+      "operation": "authorize_security_group_ingress",
+      "input": {
+        "GroupId": "sg-83e7598a35ab3bdd6",
+        "IpPermissions": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "IpRanges": [
+              {
+                "CidrIp": "0.0.0.0/0"
+              }
+            ]
+          }
+        ]
+      },
+      "code": "Success",
+      "output": {
+        "Return": true,
+        "SecurityGroupRules": [
+          {
+            "SecurityGroupRuleId": "sgr-21c8dc2ee8e701aba",
+            "GroupId": "sg-83e7598a35ab3bdd6",
+            "GroupOwnerId": "815602947204",
+            "IsEgress": false,
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIpv4": "0.0.0.0/0",
+            "SecurityGroupRuleArn": "arn:aws:ec2:us-east-1:815602947204:security-group-rule/sgr-21c8dc2ee8e701aba"
+          }
+        ],
+        "ResponseMetadata": {
+          "RequestId": "6c69f2d632f5a89170bde84f55e56e9c",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml;charset=UTF-8",
+            "x-amzn-requestid": "6c69f2d632f5a89170bde84f55e56e9c",
+            "date": "Mon, 28 Sep 2026 09:51:51 GMT",
+            "content-length": "655"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "6c69f2d632f5a89170bde84f55e56e9c"
+    },
+    {
+      "label": "create-alb",
+      "service": "elbv2",
+      "operation": "create_load_balancer",
+      "input": {
+        "Name": "stackd-next-dns-735c4f9587",
+        "Type": "application",
+        "Scheme": "internal",
+        "Subnets": [
+          "subnet-cab21511c30e7b23c",
+          "subnet-458b5463bfa7c255f"
+        ],
+        "SecurityGroups": [
+          "sg-83e7598a35ab3bdd6"
+        ]
+      },
+      "code": "Success",
+      "output": {
+        "LoadBalancers": [
+          {
+            "LoadBalancerArn": "arn:aws:elasticloadbalancing:us-east-1:815602947204:loadbalancer/app/stackd-next-dns-735c4f9587/0000000000000001",
+            "DNSName": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com",
+            "CanonicalHostedZoneId": "Z35SXDOTRQ7X7K",
+            "CreatedTime": "2026-09-28T09:55:53.265427+00:00",
+            "LoadBalancerName": "stackd-next-dns-735c4f9587",
+            "Scheme": "internal",
+            "VpcId": "vpc-2fe47b1227f9e19a5",
+            "State": {
+              "Code": "provisioning"
+            },
+            "Type": "application",
+            "AvailabilityZones": [
+              {
+                "ZoneName": "us-east-1b",
+                "SubnetId": "subnet-458b5463bfa7c255f"
+              },
+              {
+                "ZoneName": "us-east-1a",
+                "SubnetId": "subnet-cab21511c30e7b23c"
+              }
+            ],
+            "SecurityGroups": [
+              "sg-83e7598a35ab3bdd6"
+            ],
+            "IpAddressType": "ipv4"
+          }
+        ],
+        "ResponseMetadata": {
+          "RequestId": "03040ff906350ad419eecc11261af45f",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml; charset=utf-8",
+            "x-amzn-requestid": "03040ff906350ad419eecc11261af45f",
+            "date": "Mon, 28 Sep 2026 09:51:51 GMT",
+            "content-length": "1199"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "03040ff906350ad419eecc11261af45f"
+    },
+    {
+      "label": "create-https-listener",
+      "service": "elbv2",
+      "operation": "create_listener",
+      "input": {
+        "LoadBalancerArn": "arn:aws:elasticloadbalancing:us-east-1:815602947204:loadbalancer/app/stackd-next-dns-735c4f9587/0000000000000001",
+        "Protocol": "HTTPS",
+        "Port": 443,
+        "Certificates": [
+          {
+            "CertificateArn": "arn:aws:acm:us-east-1:815602947204:certificate/b9963d41-8209-481f-b23a-c14799c81d91"
+          }
+        ],
+        "SslPolicy": "ELBSecurityPolicy-TLS13-1-2-Res-2021-06",
+        "DefaultActions": [
+          {
+            "Type": "fixed-response",
+            "FixedResponseConfig": {
+              "StatusCode": "200",
+              "ContentType": "text/plain",
+              "MessageBody": "native-alb-acm-tls"
+            }
+          }
+        ]
+      },
+      "code": "Success",
+      "output": {
+        "Listeners": [
+          {
+            "ListenerArn": "arn:aws:elasticloadbalancing:us-east-1:815602947204:listener/app/stackd-next-dns-735c4f9587/0000000000000001/0000000000000004",
+            "LoadBalancerArn": "arn:aws:elasticloadbalancing:us-east-1:815602947204:loadbalancer/app/stackd-next-dns-735c4f9587/0000000000000001",
+            "Port": 443,
+            "Protocol": "HTTPS",
+            "Certificates": [
+              {
+                "CertificateArn": "arn:aws:acm:us-east-1:815602947204:certificate/b9963d41-8209-481f-b23a-c14799c81d91"
+              }
+            ],
+            "SslPolicy": "ELBSecurityPolicy-TLS13-1-2-Res-2021-06",
+            "DefaultActions": [
+              {
+                "Type": "fixed-response",
+                "FixedResponseConfig": {
+                  "MessageBody": "native-alb-acm-tls",
+                  "StatusCode": "200",
+                  "ContentType": "text/plain"
+                }
+              }
+            ]
+          }
+        ],
+        "ResponseMetadata": {
+          "RequestId": "8cd846626e81b1949202bd3fdf9c266a",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml; charset=utf-8",
+            "x-amzn-requestid": "8cd846626e81b1949202bd3fdf9c266a",
+            "date": "Mon, 28 Sep 2026 09:51:51 GMT",
+            "content-length": "1087"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "8cd846626e81b1949202bd3fdf9c266a"
+    },
+    {
+      "label": "wrong-alias-zone",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "UPSERT",
+              "ResourceRecordSet": {
+                "Name": "www.stackd-next-dns-735c4f9587.example.test",
+                "Type": "A",
+                "AliasTarget": {
+                  "HostedZoneId": "ZWRONGALBZONE",
+                  "DNSName": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com",
+                  "EvaluateTargetHealth": false
+                }
+              }
+            }
+          ]
+        }
+      },
+      "code": "InvalidChangeBatch",
+      "error": {
+        "Message": "Alias target is unavailable: ELBv2 resource not found",
+        "Code": "InvalidChangeBatch"
+      },
+      "request_id": "d367cad6570074a2b386d016c1d74e02"
+    },
+    {
+      "label": "records-UPSERT",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "UPSERT",
+              "ResourceRecordSet": {
+                "Name": "www.stackd-next-dns-735c4f9587.example.test",
+                "Type": "A",
+                "AliasTarget": {
+                  "HostedZoneId": "Z35SXDOTRQ7X7K",
+                  "DNSName": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com",
+                  "EvaluateTargetHealth": false
+                }
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:51 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C4D45AF0771459E72C99D096C",
+          "Status": "PENDING",
+          "SubmittedAt": "2026-09-28T09:55:53.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "in-use-certificate",
+      "service": "acm",
+      "operation": "delete_certificate",
+      "input": {
+        "CertificateArn": "arn:aws:acm:us-east-1:815602947204:certificate/b9963d41-8209-481f-b23a-c14799c81d91"
+      },
+      "code": "ResourceInUseException",
+      "error": {
+        "Message": "Certificate is associated with another service.",
+        "Code": "ResourceInUseException"
+      },
+      "request_id": "82afc01f84feda1ba788dd55f533d0ed"
+    },
+    {
+      "label": "create-shadow-zone",
+      "service": "route53",
+      "operation": "create_hosted_zone",
+      "input": {
+        "Name": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com",
+        "CallerReference": "stackd-next-dns-735c4f9587-shadow"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 201,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "location": "/2013-04-01/hostedzone/Z059A92B5FC5D0A4CFC649B63",
+            "date": "Mon, 28 Sep 2026 09:51:55 GMT",
+            "content-length": "968"
+          },
+          "RetryAttempts": 0
+        },
+        "Location": "/2013-04-01/hostedzone/Z059A92B5FC5D0A4CFC649B63",
+        "HostedZone": {
+          "Id": "/hostedzone/Z059A92B5FC5D0A4CFC649B63",
+          "Name": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com.",
+          "CallerReference": "stackd-next-dns-735c4f9587-shadow",
+          "Config": {
+            "Comment": "",
+            "PrivateZone": false
+          },
+          "ResourceRecordSetCount": 2
+        },
+        "ChangeInfo": {
+          "Id": "/change/C6E03860759EA0BDC1F2C7CDB",
+          "Status": "PENDING",
+          "SubmittedAt": "2026-09-28T09:55:56.265427+00:00",
+          "Comment": ""
+        },
+        "DelegationSet": {
+          "NameServers": [
+            "ns-1.z059a92b5fc5d0a4cfc649b63.stackd.invalid.",
+            "ns-2.z059a92b5fc5d0a4cfc649b63.stackd.invalid.",
+            "ns-3.z059a92b5fc5d0a4cfc649b63.stackd.invalid.",
+            "ns-4.z059a92b5fc5d0a4cfc649b63.stackd.invalid."
+          ]
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "shadow-managed-owner",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z059A92B5FC5D0A4CFC649B63",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "CREATE",
+              "ResourceRecordSet": {
+                "Name": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com",
+                "Type": "A",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "127.0.0.99"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:55 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C0DD6D57A930D948BC99C894D",
+          "Status": "PENDING",
+          "SubmittedAt": "2026-09-28T09:55:56.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "records-DELETE",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "DELETE",
+              "ResourceRecordSet": {
+                "Name": "_70da78aaebea36c2a2fedc26dd635e74.www.stackd-next-dns-735c4f9587.example.test.",
+                "Type": "CNAME",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "_d44558aa32829e30777cd688cc39d907.acm-validations.aws."
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:58 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C023314C7CC6AD5A3FE4A0A69",
+          "Status": "PENDING",
+          "SubmittedAt": "2026-09-28T09:55:59.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "records-UPSERT",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "UPSERT",
+              "ResourceRecordSet": {
+                "Name": "_70da78aaebea36c2a2fedc26dd635e74.www.stackd-next-dns-735c4f9587.example.test.",
+                "Type": "CNAME",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "_d44558aa32829e30777cd688cc39d907.acm-validations.aws."
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:59 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/CC472449815BD87CE542C5D1D",
+          "Status": "PENDING",
+          "SubmittedAt": "2027-02-28T10:55:54.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "records-DELETE",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "DELETE",
+              "ResourceRecordSet": {
+                "Name": "www.stackd-next-dns-735c4f9587.example.test",
+                "Type": "A",
+                "AliasTarget": {
+                  "HostedZoneId": "Z35SXDOTRQ7X7K",
+                  "DNSName": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com",
+                  "EvaluateTargetHealth": false
+                }
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:59 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C1471ECA3450BA4A88625A0B8",
+          "Status": "PENDING",
+          "SubmittedAt": "2027-02-28T10:56:56.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "cleanup-shadow-records",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z059A92B5FC5D0A4CFC649B63",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "DELETE",
+              "ResourceRecordSet": {
+                "Name": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com.",
+                "Type": "A",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "127.0.0.99"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:59 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C8DE202021EA317727CC01F47",
+          "Status": "PENDING",
+          "SubmittedAt": "2027-02-28T10:56:56.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "cleanup-shadow-zone",
+      "service": "route53",
+      "operation": "delete_hosted_zone",
+      "input": {
+        "Id": "/hostedzone/Z059A92B5FC5D0A4CFC649B63"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:51:59 GMT",
+            "content-length": "271"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C42F9DEB14A230E4001570928",
+          "Status": "PENDING",
+          "SubmittedAt": "2027-02-28T10:56:56.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "cleanup-alb",
+      "service": "elbv2",
+      "operation": "delete_load_balancer",
+      "input": {
+        "LoadBalancerArn": "arn:aws:elasticloadbalancing:us-east-1:815602947204:loadbalancer/app/stackd-next-dns-735c4f9587/0000000000000001"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "RequestId": "430fdd72e2a2327bce53efd269996673",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml; charset=utf-8",
+            "x-amzn-requestid": "430fdd72e2a2327bce53efd269996673",
+            "date": "Mon, 28 Sep 2026 09:51:59 GMT",
+            "content-length": "268"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "430fdd72e2a2327bce53efd269996673"
+    },
+    {
+      "label": "cleanup-security-group",
+      "service": "ec2",
+      "operation": "delete_security_group",
+      "input": {
+        "GroupId": "sg-83e7598a35ab3bdd6"
+      },
+      "code": "Success",
+      "output": {
+        "Return": true,
+        "GroupId": "sg-83e7598a35ab3bdd6",
+        "ResponseMetadata": {
+          "RequestId": "4e142dc075806bcae572a8c61efe0d3e",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml;charset=UTF-8",
+            "x-amzn-requestid": "4e142dc075806bcae572a8c61efe0d3e",
+            "date": "Mon, 28 Sep 2026 09:52:03 GMT",
+            "content-length": "223"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "4e142dc075806bcae572a8c61efe0d3e"
+    },
+    {
+      "label": "cleanup-subnet",
+      "service": "ec2",
+      "operation": "delete_subnet",
+      "input": {
+        "SubnetId": "subnet-cab21511c30e7b23c"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "RequestId": "34da2f10ebf50f8c9b50f9d4c644c100",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml;charset=UTF-8",
+            "x-amzn-requestid": "34da2f10ebf50f8c9b50f9d4c644c100",
+            "date": "Mon, 28 Sep 2026 09:52:03 GMT",
+            "content-length": "170"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "34da2f10ebf50f8c9b50f9d4c644c100"
+    },
+    {
+      "label": "cleanup-subnet",
+      "service": "ec2",
+      "operation": "delete_subnet",
+      "input": {
+        "SubnetId": "subnet-458b5463bfa7c255f"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "RequestId": "015fe775970bc2d985c0ef08f3a75862",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml;charset=UTF-8",
+            "x-amzn-requestid": "015fe775970bc2d985c0ef08f3a75862",
+            "date": "Mon, 28 Sep 2026 09:52:03 GMT",
+            "content-length": "170"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "015fe775970bc2d985c0ef08f3a75862"
+    },
+    {
+      "label": "cleanup-vpc",
+      "service": "ec2",
+      "operation": "delete_vpc",
+      "input": {
+        "VpcId": "vpc-2fe47b1227f9e19a5"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "RequestId": "86162d743edd9887e9d7657b7dea8d27",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml;charset=UTF-8",
+            "x-amzn-requestid": "86162d743edd9887e9d7657b7dea8d27",
+            "date": "Mon, 28 Sep 2026 09:52:03 GMT",
+            "content-length": "164"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "86162d743edd9887e9d7657b7dea8d27"
+    },
+    {
+      "label": "cleanup-certificate",
+      "service": "acm",
+      "operation": "delete_certificate",
+      "input": {
+        "CertificateArn": "arn:aws:acm:us-east-1:815602947204:certificate/b9963d41-8209-481f-b23a-c14799c81d91"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "RequestId": "9091d89b342b63c2399321abd9728ecd",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/x-amz-json-1.1",
+            "x-amzn-requestid": "9091d89b342b63c2399321abd9728ecd",
+            "date": "Mon, 28 Sep 2026 09:52:03 GMT",
+            "content-length": "2"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "9091d89b342b63c2399321abd9728ecd"
+    },
+    {
+      "label": "cleanup-user",
+      "service": "iam",
+      "operation": "delete_user",
+      "input": {
+        "UserName": "stackd-next-dns-735c4f9587"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "RequestId": "9766070f0dd49ed257c7849a42021b58",
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "text/xml; charset=utf-8",
+            "x-amzn-requestid": "9766070f0dd49ed257c7849a42021b58",
+            "date": "Mon, 28 Sep 2026 09:52:03 GMT",
+            "content-length": "220"
+          },
+          "RetryAttempts": 0
+        }
+      },
+      "request_id": "9766070f0dd49ed257c7849a42021b58"
+    },
+    {
+      "label": "records-DELETE",
+      "service": "route53",
+      "operation": "change_resource_record_sets",
+      "input": {
+        "HostedZoneId": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+        "ChangeBatch": {
+          "Changes": [
+            {
+              "Action": "DELETE",
+              "ResourceRecordSet": {
+                "Name": "_f92f3d86b99f2681fcba63d2bcefc421.other.stackd-next-dns-735c4f9587.example.test.",
+                "Type": "CNAME",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "_52db680f316f6bb6c9d398aad795e577.acm-validations.aws."
+                  }
+                ]
+              }
+            },
+            {
+              "Action": "DELETE",
+              "ResourceRecordSet": {
+                "Name": "_70da78aaebea36c2a2fedc26dd635e74.www.stackd-next-dns-735c4f9587.example.test.",
+                "Type": "CNAME",
+                "TTL": 30,
+                "ResourceRecords": [
+                  {
+                    "Value": "_d44558aa32829e30777cd688cc39d907.acm-validations.aws."
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:52:03 GMT",
+            "content-length": "287"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C9DC2876F7B0931534F6B17C7",
+          "Status": "PENDING",
+          "SubmittedAt": "2027-02-28T10:57:01.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    },
+    {
+      "label": "cleanup-zone",
+      "service": "route53",
+      "operation": "delete_hosted_zone",
+      "input": {
+        "Id": "/hostedzone/Z5A53D34DD7F79A2266C89449"
+      },
+      "code": "Success",
+      "output": {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200,
+          "HTTPHeaders": {
+            "content-type": "application/xml",
+            "date": "Mon, 28 Sep 2026 09:52:03 GMT",
+            "content-length": "271"
+          },
+          "RetryAttempts": 0
+        },
+        "ChangeInfo": {
+          "Id": "/change/C4E8E57ABDE8F80B2071D47DB",
+          "Status": "PENDING",
+          "SubmittedAt": "2027-02-28T10:57:01.265427+00:00",
+          "Comment": ""
+        }
+      },
+      "request_id": null
+    }
+  ],
+  "observations": {
+    "validation": {
+      "missing": "PENDING_VALIDATION",
+      "nonmatching": "PENDING_VALIDATION",
+      "matching": "ISSUED",
+      "domains": [
+        "www.stackd-next-dns-735c4f9587.example.test",
+        "other.stackd-next-dns-735c4f9587.example.test"
+      ]
+    },
+    "tls": {
+      "protocol": "TLSv1.3",
+      "hostname_verified": "www.stackd-next-dns-735c4f9587.example.test",
+      "trust": "GetCertificate local CA chain",
+      "http_body": "dns-validated-acm-tls",
+      "openssl_decrypted_export": true
+    },
+    "last_alb_probe": {
+      "exit_code": 0,
+      "verified_current_certificate": true,
+      "http_body_observed": true
+    },
+    "managed_dns_precedence": {
+      "shadow_record_not_served": true,
+      "current_owner_addresses": [
+        "10.198.199.68",
+        "10.198.199.4"
+      ]
+    },
+    "alb": {
+      "alias": {
+        "Name": "www.stackd-next-dns-735c4f9587.example.test",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "Z35SXDOTRQ7X7K",
+          "DNSName": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com",
+          "EvaluateTargetHealth": false
+        }
+      },
+      "verified_certificate": true,
+      "in_use_delete": "ResourceInUseException"
+    },
+    "renewal": {
+      "pending_with_missing_cname": true,
+      "old_leaf_remained_usable": true,
+      "new_leaf_on_existing_listener": true,
+      "native_openssl_service_time_verified": true
+    }
+  },
+  "owned": {
+    "zone": "/hostedzone/Z5A53D34DD7F79A2266C89449",
+    "certificate": "arn:aws:acm:us-east-1:815602947204:certificate/b9963d41-8209-481f-b23a-c14799c81d91",
+    "user": "stackd-next-dns-735c4f9587",
+    "access_key_id": "AKIAXUG5RGWTAHXSOHBW",
+    "vpc": "vpc-2fe47b1227f9e19a5",
+    "subnets": [
+      "subnet-cab21511c30e7b23c",
+      "subnet-458b5463bfa7c255f"
+    ],
+    "security_group": "sg-83e7598a35ab3bdd6",
+    "load_balancer": "arn:aws:elasticloadbalancing:us-east-1:815602947204:loadbalancer/app/stackd-next-dns-735c4f9587/0000000000000001",
+    "alias": {
+      "Name": "www.stackd-next-dns-735c4f9587.example.test",
+      "Type": "A",
+      "AliasTarget": {
+        "HostedZoneId": "Z35SXDOTRQ7X7K",
+        "DNSName": "internal-stackd-next-dns-735c4f9587-8a860cecdf966ed03a97.us-east-1.elb.amazonaws.com",
+        "EvaluateTargetHealth": false
+      }
+    },
+    "shadow_zone": "/hostedzone/Z059A92B5FC5D0A4CFC649B63"
+  },
+  "cleanup": {
+    "owned_resources_removed": true,
+    "native_alb_containers_absent": true,
+    "exported_material_removed": true,
+    "no_host_dns_changes": true
+  }
+}

@@ -1,0 +1,830 @@
+{
+  "status": "Completed focused native IAM/KMS/parent matrix; owned resources cleaned",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "captured_at": "2026-09-25T12:07:36.311866+00:00",
+  "evidence_file": "encryption_authorization.json",
+  "current_sources_file": "encryption_authorization_sources.json",
+  "executed_probe_sha256": "bf31ad5d32d9311965e188ba5bd3d2374322a32dbaee41050f67fc38e52d1bdb",
+  "native_observations": [
+    {
+      "contract": "An unencrypted parent with omitted encryption fields produced a readable child retaining the exact synthetic 512-KiB block digest.",
+      "labels": [
+        "plain-parent-inherited",
+        "plain-child-inherited-data-get"
+      ]
+    },
+    {
+      "contract": "An encrypted parent with omitted encryption fields produced a readable child retaining its KmsKeyArn and the exact synthetic 512-KiB block digest.",
+      "labels": [
+        "encrypted-parent-inherited",
+        "encrypted-child-inherited-data-get"
+      ]
+    },
+    {
+      "contract": "For either ready parent, either explicit Encrypted boolean rejected with ValidationException/INVALID_PARAMETER_VALUE and ParentSnapshotId and Encrypt cannot be specified together. KmsKeyArn alone or with either boolean instead rejected with ParentSnapshotId and KmsKeyArn cannot be specified together.",
+      "labels": [
+        "plain-parent-true",
+        "plain-parent-false",
+        "plain-parent-key",
+        "plain-parent-true-key",
+        "plain-parent-false-key",
+        "encrypted-parent-true",
+        "encrypted-parent-false",
+        "encrypted-parent-key",
+        "encrypted-parent-true-key",
+        "encrypted-parent-false-key"
+      ]
+    },
+    {
+      "contract": "ListSnapshotBlocks and GetSnapshotBlock admitted the EC2 snapshot ARN with empty account component and rejected the account-filled ARN with HTTP 403 AccessDeniedException explicitly naming the empty-account resource and missing session allow.",
+      "labels": [
+        "empty-account-arn-list",
+        "empty-account-arn-get",
+        "account-filled-arn-list",
+        "account-filled-arn-get"
+      ]
+    },
+    {
+      "contract": "Read actions admitted matching aws:ResourceTag/suite and aws:ResourceAccount=000000000000 and rejected mismatches. The successful read session also explicitly denied ec2:DescribeSnapshots, ec2:CopySnapshot and ec2:CreateVolume.",
+      "labels": [
+        "resource-tag-match-list",
+        "resource-tag-match-get",
+        "resource-tag-mismatch-list",
+        "resource-tag-mismatch-get",
+        "resource-account-match-list",
+        "resource-account-match-get",
+        "resource-account-mismatch-list",
+        "resource-account-mismatch-get"
+      ]
+    },
+    {
+      "contract": "Explicit ebs:ListSnapshotBlocks denial rejected listing but did not reject a separately allowed GetSnapshotBlock using the owner-issued token; explicit ebs:GetSnapshotBlock denial rejected getting while independently allowed listing succeeded. This does not infer token lifetime or sharing outside the same account.",
+      "labels": [
+        "explicit-deny-ListSnapshotBlocks-list",
+        "explicit-deny-ListSnapshotBlocks-get",
+        "explicit-deny-GetSnapshotBlock-list",
+        "explicit-deny-GetSnapshotBlock-get"
+      ]
+    },
+    {
+      "contract": "ListChangedBlocks with only first-snapshot authority rejected on the second snapshot ARN; only second-snapshot authority rejected on the first snapshot ARN.",
+      "labels": [
+        "changed-first-only",
+        "changed-second-only"
+      ]
+    },
+    {
+      "contract": "ListChangedBlocks succeeded with authority on both snapshot ARNs. PutSnapshotBlock and CompleteSnapshot each rejected their explicit EBS action deny and succeeded with only the corresponding EBS write actions on the empty-account ARN, despite explicit EC2 describe/copy/create-volume denies.",
+      "labels": [
+        "changed-both",
+        "explicit-deny-PutSnapshotBlock",
+        "explicit-deny-CompleteSnapshot",
+        "write-empty-account-arn-put",
+        "write-empty-account-arn-complete"
+      ]
+    },
+    {
+      "contract": "Untagged StartSnapshot succeeded without ec2:CreateTags. Tagged creation without it, or with an explicit deny, returned 403 AccessDeniedException naming ec2:CreateTags and snapshot/*. Allowing both actions succeeded. Explicit ebs:StartSnapshot deny named snapshot/null.",
+      "labels": [
+        "start-no-tags-no-tag-authority",
+        "start-tags-no-tag-authority",
+        "start-denied-create-tags",
+        "start-tagged-allowed",
+        "start-denied-ebs-action"
+      ]
+    },
+    {
+      "contract": "Matching request-tag/TagKeys conditions admitted StartSnapshot; mismatching request tag denied it. A matching aws:ResourceTag/suite condition also admitted this tagged creation. Conditioning CreateTags on ec2:CreateAction=StartSnapshot or CreateSnapshot denied both requests; no other value or universal absence is inferred.",
+      "labels": [
+        "request-tag-match",
+        "request-tag-mismatch",
+        "start-resource-tag",
+        "tag-create-action-start",
+        "tag-create-action-create"
+      ]
+    },
+    {
+      "contract": "An unencrypted-parent child started without EBS read authority and with explicit denies on all three EBS read actions and EC2 describe/copy/create-volume. Explicit ebs:StartSnapshot deny on the parent ARN rejected the child and named that parent. ebs:ParentSnapshot ARN match admitted and mismatch denied.",
+      "labels": [
+        "parent-no-read-authority",
+        "parent-denied-read-actions",
+        "parent-denied-start-on-parent",
+        "parent-condition-match",
+        "parent-condition-mismatch"
+      ]
+    },
+    {
+      "contract": "Root encrypted StartSnapshot admitted kms:GenerateDataKey as the sole KMS allow and rejected an explicit GenerateDataKey deny with 400 ValidationException/INVALID_DEPENDENCY_REQUEST naming the KMS action. Explicit GenerateDataKeyWithoutPlaintext, DescribeKey, CreateGrant or Decrypt denies did not reject root StartSnapshot.",
+      "labels": [
+        "kms-generate-only-start",
+        "kms-deny-generate-data-key-start",
+        "kms-deny-without-plaintext-start",
+        "kms-deny-describe-start",
+        "kms-deny-create-grant-start",
+        "kms-deny-decrypt-start"
+      ]
+    },
+    {
+      "contract": "Encrypted ListSnapshotBlocks/GetSnapshotBlock under an explicit kms:DescribeKey deny both returned 404 ResourceNotFoundException/DEPENDENCY_RESOURCE_NOT_FOUND, KMS key not found. With an explicit kms:Decrypt deny listing succeeded, but GetSnapshotBlock returned that 404. Denying CreateGrant still admitted both reads; no grant requirement or absence is inferred from missing events.",
+      "labels": [
+        "kms-deny-describe-list",
+        "kms-deny-describe-get",
+        "kms-deny-decrypt-list",
+        "kms-deny-decrypt-get",
+        "kms-deny-create-grant-list",
+        "kms-deny-create-grant-get"
+      ]
+    },
+    {
+      "contract": "Encrypted-parent StartSnapshot rejected missing kms:ReEncryptFrom with 400 ValidationException/INVALID_DEPENDENCY_REQUEST naming that action. An explicit Decrypt deny instead produced 404 ResourceNotFoundException/DEPENDENCY_RESOURCE_NOT_FOUND. Explicit GenerateDataKey, GenerateDataKeyWithoutPlaintext, DescribeKey or CreateGrant denies admitted the child. Current native events record ReEncrypt from parent aws:ebs:id to child aws:ebs:id on the same key, followed by Decrypt under the child context.",
+      "labels": [
+        "kms-none-parent",
+        "kms-decrypt-only-parent",
+        "kms-deny-decrypt-parent",
+        "kms-deny-generate-data-key-parent",
+        "kms-deny-without-plaintext-parent",
+        "kms-deny-describe-parent",
+        "kms-deny-create-grant-parent"
+      ]
+    },
+    {
+      "contract": "KMS permissions conditioned on kms:ViaService=ec2.us-east-1.amazonaws.com admitted root start, parent start, listing and getting. The ebs.us-east-1.amazonaws.com value rejected starts via dependent KMS permission errors and reads via DEPENDENCY_RESOURCE_NOT_FOUND. This is policy-conditioned evidence, not inference from invokedBy=ebs.amazonaws.com.",
+      "labels": [
+        "kms-via-ec2-start",
+        "kms-via-ec2-parent",
+        "kms-via-ec2-list",
+        "kms-via-ec2-get",
+        "kms-via-ebs-start",
+        "kms-via-ebs-parent",
+        "kms-via-ebs-list",
+        "kms-via-ebs-get"
+      ]
+    },
+    {
+      "contract": "kms:EncryptionContext:aws:ebs:id matching snap-* admitted encrypted root and parent starts; a wrong value rejected both. Read requests conditioned on that context also denied DescribeKey, so their 404 results do not isolate GetSnapshotBlock encryption-context evaluation. Native GenerateDataKey carries numberOfBytes=64 and aws:ebs:id=new snapshot ID; native ReEncrypt carries parent and child IDs in distinct contexts.",
+      "labels": [
+        "kms-context-snapshot-shape-start",
+        "kms-context-snapshot-shape-parent",
+        "kms-context-wrong-start",
+        "kms-context-wrong-parent",
+        "kms-context-snapshot-shape-list",
+        "kms-context-snapshot-shape-get"
+      ]
+    },
+    {
+      "contract": "After DescribeKey observed Disabled and direct KMS GenerateDataKey returned DisabledException, immediate owner root StartSnapshot and owner existing-block read still succeeded. A fresh role session listed successfully but GetSnapshotBlock failed with ValidationException/INVALID_DEPENDENCY_REQUEST wrapping DisabledException. Owner encrypted-parent start and PutSnapshotBlock to the previously staged snapshot failed similarly. Completing that empty staged snapshot succeeded as pending. These timestamped outcomes do not establish a cache lifetime or later readability.",
+      "labels": [
+        "disabled-key-state",
+        "disabled-key-direct-generate",
+        "disabled-key-start",
+        "disabled-key-owner-read-get",
+        "disabled-key-fresh-session-list",
+        "disabled-key-fresh-session-get",
+        "disabled-key-parent",
+        "disabled-key-existing-put",
+        "disabled-key-existing-complete",
+        "disabled-key-existing-state"
+      ]
+    }
+  ],
+  "kms_permission_matrix": [
+    {
+      "session": "kms-none",
+      "start": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      },
+      "list": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "get": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "parent": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      }
+    },
+    {
+      "session": "kms-full",
+      "start": {
+        "code": "Success",
+        "http_status": 201
+      },
+      "list": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "get": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "parent": {
+        "code": "Success",
+        "http_status": 201
+      }
+    },
+    {
+      "session": "kms-deny-generate-data-key",
+      "start": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      },
+      "list": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "get": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "parent": {
+        "code": "Success",
+        "http_status": 201
+      }
+    },
+    {
+      "session": "kms-deny-without-plaintext",
+      "start": {
+        "code": "Success",
+        "http_status": 201
+      },
+      "list": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "get": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "parent": {
+        "code": "Success",
+        "http_status": 201
+      }
+    },
+    {
+      "session": "kms-deny-describe",
+      "start": {
+        "code": "Success",
+        "http_status": 201
+      },
+      "list": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "get": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "parent": {
+        "code": "Success",
+        "http_status": 201
+      }
+    },
+    {
+      "session": "kms-deny-create-grant",
+      "start": {
+        "code": "Success",
+        "http_status": 201
+      },
+      "list": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "get": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "parent": {
+        "code": "Success",
+        "http_status": 201
+      }
+    },
+    {
+      "session": "kms-deny-decrypt",
+      "start": {
+        "code": "Success",
+        "http_status": 201
+      },
+      "list": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "get": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "parent": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      }
+    },
+    {
+      "session": "kms-generate-only",
+      "start": {
+        "code": "Success",
+        "http_status": 201
+      },
+      "list": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "get": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "parent": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      }
+    },
+    {
+      "session": "kms-decrypt-only",
+      "start": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      },
+      "list": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "get": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "parent": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      }
+    },
+    {
+      "session": "kms-via-ec2",
+      "start": {
+        "code": "Success",
+        "http_status": 201
+      },
+      "list": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "get": {
+        "code": "Success",
+        "http_status": 200
+      },
+      "parent": {
+        "code": "Success",
+        "http_status": 201
+      }
+    },
+    {
+      "session": "kms-via-ebs",
+      "start": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      },
+      "list": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "get": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "parent": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      }
+    },
+    {
+      "session": "kms-context-snapshot-shape",
+      "start": {
+        "code": "Success",
+        "http_status": 201
+      },
+      "list": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "get": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "parent": {
+        "code": "Success",
+        "http_status": 201
+      }
+    },
+    {
+      "session": "kms-context-wrong",
+      "start": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      },
+      "list": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "get": {
+        "code": "ResourceNotFoundException",
+        "http_status": 404,
+        "reason": "DEPENDENCY_RESOURCE_NOT_FOUND"
+      },
+      "parent": {
+        "code": "ValidationException",
+        "http_status": 400,
+        "reason": "INVALID_DEPENDENCY_REQUEST"
+      }
+    }
+  ],
+  "kms_event_examples": [
+    {
+      "caller_session": "disabled-key-fresh-session",
+      "eventName": "Decrypt",
+      "eventTime": "2026-09-25T12:13:25Z",
+      "eventID": "44be0b85-69db-4c3c-9230-d35d1e605529",
+      "requestID": "9808ba8d-57fd-4c48-b60d-4d4820dd4993",
+      "errorCode": "DisabledException",
+      "errorMessage": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755 is disabled.",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "encryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "encryptionContext": {
+          "aws:ebs:id": "snap-0658d584c6b839196"
+        }
+      }
+    },
+    {
+      "caller_session": "disabled-key-fresh-session",
+      "eventName": "DescribeKey",
+      "eventTime": "2026-09-25T12:13:25Z",
+      "eventID": "d2dce60c-e1d0-4304-bccf-adf0ab535049",
+      "requestID": "668a3d66-c175-44f7-b59b-bc9895f2898b",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755"
+      }
+    },
+    {
+      "caller_session": "kms-via-ebs",
+      "eventName": "DescribeKey",
+      "eventTime": "2026-09-25T12:13:19Z",
+      "eventID": "878767bb-17d6-449f-9d54-e1eb9e837877",
+      "requestID": "a53e9376-a2d8-49c9-93d2-03414e76d2c1",
+      "errorCode": "AccessDenied",
+      "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-ebs-enc-1072c98e4a53/kms-via-ebs is not authorized to perform: kms:DescribeKey on resource: arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755 because no session policy allows the kms:DescribeKey action",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": null
+    },
+    {
+      "caller_session": "kms-via-ebs",
+      "eventName": "ReEncrypt",
+      "eventTime": "2026-09-25T12:13:19Z",
+      "eventID": "8a90efe3-b6b3-4e10-a52d-fe03d545fe87",
+      "requestID": "698ca685-9b2b-4dfe-ab17-fa298909f2ee",
+      "errorCode": "AccessDenied",
+      "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-ebs-enc-1072c98e4a53/kms-via-ebs is not authorized to perform: kms:ReEncryptFrom on resource: arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755 because no session policy allows the kms:ReEncryptFrom action",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": null
+    },
+    {
+      "caller_session": "kms-via-ebs",
+      "eventName": "GenerateDataKey",
+      "eventTime": "2026-09-25T12:13:18Z",
+      "eventID": "972327bc-9fe2-4eb7-891b-e5024a373280",
+      "requestID": "5931cb25-bd58-44ed-85b8-4ed033e5ec45",
+      "errorCode": "AccessDenied",
+      "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-ebs-enc-1072c98e4a53/kms-via-ebs is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755 because no session policy allows the kms:GenerateDataKey action",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": null
+    },
+    {
+      "caller_session": "kms-via-ec2",
+      "eventName": "Decrypt",
+      "eventTime": "2026-09-25T12:13:17Z",
+      "eventID": "7428283e-33ff-44be-a8d6-e288328a88e7",
+      "requestID": "2f1395a5-91bd-41d7-be78-6a2779103589",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "encryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "encryptionContext": {
+          "aws:ebs:id": "snap-052bb4572cb90fed2"
+        }
+      }
+    },
+    {
+      "caller_session": "kms-via-ec2",
+      "eventName": "ReEncrypt",
+      "eventTime": "2026-09-25T12:13:17Z",
+      "eventID": "899783ba-8fb3-4741-92d7-f905e73d1f8c",
+      "requestID": "ecf2ca3a-a4f6-4d65-9849-6abca06dc9a1",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "sourceEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "sourceKeyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "destinationEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "destinationEncryptionContext": {
+          "aws:ebs:id": "snap-052bb4572cb90fed2"
+        },
+        "sourceEncryptionContext": {
+          "aws:ebs:id": "snap-0658d584c6b839196"
+        },
+        "destinationKeyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755"
+      }
+    },
+    {
+      "caller_session": "kms-via-ec2",
+      "eventName": "GenerateDataKey",
+      "eventTime": "2026-09-25T12:13:16Z",
+      "eventID": "0c6a12e9-1be7-4b6a-af09-4ee37114299a",
+      "requestID": "7360e7af-5679-4988-a4ac-ed0bfc7e0166",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "numberOfBytes": 64,
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "encryptionContext": {
+          "aws:ebs:id": "snap-03a7ed9dff7983e44"
+        }
+      }
+    },
+    {
+      "caller_session": "kms-via-ec2",
+      "eventName": "DescribeKey",
+      "eventTime": "2026-09-25T12:13:16Z",
+      "eventID": "8566ac18-4f20-433c-892f-c71391e77388",
+      "requestID": "048234e5-d5ce-43ee-954f-92c635f8c465",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755"
+      }
+    },
+    {
+      "caller_session": "kms-deny-decrypt",
+      "eventName": "ReEncrypt",
+      "eventTime": "2026-09-25T12:13:12Z",
+      "eventID": "244ef79c-2da9-4585-b919-0efbed14ae2f",
+      "requestID": "a9ed2727-2868-4afd-89f1-32392ab2088a",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "sourceKeyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "destinationEncryptionContext": {
+          "aws:ebs:id": "snap-02a643e0a73c971f4"
+        },
+        "destinationEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "sourceEncryptionContext": {
+          "aws:ebs:id": "snap-0658d584c6b839196"
+        },
+        "destinationKeyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "sourceEncryptionAlgorithm": "SYMMETRIC_DEFAULT"
+      }
+    },
+    {
+      "caller_session": "kms-deny-decrypt",
+      "eventName": "DescribeKey",
+      "eventTime": "2026-09-25T12:13:12Z",
+      "eventID": "8688961d-388f-4579-915a-a270e7fb947c",
+      "requestID": "75941480-ffd7-4b7b-91b3-41dc179dcce9",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755"
+      }
+    },
+    {
+      "caller_session": "kms-deny-decrypt",
+      "eventName": "Decrypt",
+      "eventTime": "2026-09-25T12:13:12Z",
+      "eventID": "8bb60e64-15c1-4a28-9751-bf147c42194d",
+      "requestID": "7f19efcf-8d36-4edc-a2cd-8b1c1e66b2f9",
+      "errorCode": "AccessDenied",
+      "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-ebs-enc-1072c98e4a53/kms-deny-decrypt is not authorized to perform: kms:Decrypt on resource: arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755 with an explicit deny in a session policy",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": null
+    },
+    {
+      "caller_session": "kms-deny-decrypt",
+      "eventName": "GenerateDataKey",
+      "eventTime": "2026-09-25T12:13:12Z",
+      "eventID": "a4f9f8bf-c606-4e8c-9a8c-ab5783e1e212",
+      "requestID": "0b63426c-74ba-4fdb-a54e-7357f7c6934b",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "numberOfBytes": 64,
+        "encryptionContext": {
+          "aws:ebs:id": "snap-064c5264bd7a72802"
+        }
+      }
+    },
+    {
+      "caller_session": "kms-deny-create-grant",
+      "eventName": "ReEncrypt",
+      "eventTime": "2026-09-25T12:13:11Z",
+      "eventID": "76f6c76a-2500-424e-87f5-f70ccd19a687",
+      "requestID": "b0d2521f-c6a0-4df3-b799-c487321be4b4",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "destinationKeyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "destinationEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "destinationEncryptionContext": {
+          "aws:ebs:id": "snap-0c7d3c22c6dd58476"
+        },
+        "sourceEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "sourceKeyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "sourceEncryptionContext": {
+          "aws:ebs:id": "snap-0658d584c6b839196"
+        }
+      }
+    },
+    {
+      "caller_session": "kms-deny-create-grant",
+      "eventName": "Decrypt",
+      "eventTime": "2026-09-25T12:13:11Z",
+      "eventID": "d43e7211-efb8-463f-8d90-35a4f74661c3",
+      "requestID": "ad79def8-e660-4c1b-8e71-498f5015455b",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "encryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "encryptionContext": {
+          "aws:ebs:id": "snap-0c7d3c22c6dd58476"
+        }
+      }
+    },
+    {
+      "caller_session": "kms-deny-create-grant",
+      "eventName": "DescribeKey",
+      "eventTime": "2026-09-25T12:13:10Z",
+      "eventID": "4c2ada38-46e6-4889-a6a3-8cb85de38d8a",
+      "requestID": "f4165e0a-9d9b-4664-9128-6f21a80ed68a",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755"
+      }
+    },
+    {
+      "caller_session": "kms-deny-create-grant",
+      "eventName": "GenerateDataKey",
+      "eventTime": "2026-09-25T12:13:09Z",
+      "eventID": "8cd4d8fe-ba5c-4e4d-b36f-af89c4b2f9d7",
+      "requestID": "c5cee8ba-fffb-4816-ac49-23e90fa2ba42",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "numberOfBytes": 64,
+        "encryptionContext": {
+          "aws:ebs:id": "snap-01548375d26bcd610"
+        }
+      }
+    },
+    {
+      "caller_session": "kms-deny-describe",
+      "eventName": "GenerateDataKey",
+      "eventTime": "2026-09-25T12:13:08Z",
+      "eventID": "3636d59f-12ac-49cd-b032-830d196a8c81",
+      "requestID": "225ff725-5010-4c73-9bca-5a4d6cc6143b",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "encryptionContext": {
+          "aws:ebs:id": "snap-05ea42400779bc224"
+        },
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "numberOfBytes": 64
+      }
+    },
+    {
+      "caller_session": "kms-deny-describe",
+      "eventName": "DescribeKey",
+      "eventTime": "2026-09-25T12:13:08Z",
+      "eventID": "41cc0a99-d621-4b0f-880f-fc59f10bd095",
+      "requestID": "1e9736d0-7e5b-4d57-8f46-2f9fb0e282dd",
+      "errorCode": "AccessDenied",
+      "errorMessage": "User: arn:aws:sts::000000000000:assumed-role/stackd-ebs-enc-1072c98e4a53/kms-deny-describe is not authorized to perform: kms:DescribeKey on resource: arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755 with an explicit deny in a session policy",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": null
+    },
+    {
+      "caller_session": "kms-deny-describe",
+      "eventName": "ReEncrypt",
+      "eventTime": "2026-09-25T12:13:08Z",
+      "eventID": "8625db08-8588-421b-8e84-869280e05260",
+      "requestID": "574663aa-a13e-4af3-ac86-7210011f3be0",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "sourceKeyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "destinationEncryptionContext": {
+          "aws:ebs:id": "snap-09a6d14854f2bca6b"
+        },
+        "sourceEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "destinationEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+        "destinationKeyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "sourceEncryptionContext": {
+          "aws:ebs:id": "snap-0658d584c6b839196"
+        }
+      }
+    },
+    {
+      "caller_session": "kms-deny-describe",
+      "eventName": "Decrypt",
+      "eventTime": "2026-09-25T12:13:08Z",
+      "eventID": "e39d0ae7-0bdf-46cc-886d-439ac8e43e08",
+      "requestID": "12a23eb7-36be-4b09-863b-b4a4d3e213dd",
+      "invokedBy": "ebs.amazonaws.com",
+      "requestParameters": {
+        "encryptionContext": {
+          "aws:ebs:id": "snap-09a6d14854f2bca6b"
+        },
+        "keyId": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+        "encryptionAlgorithm": "SYMMETRIC_DEFAULT"
+      }
+    }
+  ],
+  "cloudtrail": {
+    "captured_at": "2026-09-25T12:15:55.857166+00:00",
+    "matching_events": 207,
+    "missing_management_calls": [],
+    "boundary": "Read-only existing management-event history. Block data events were not captured; no trail/Lake/audit configuration changed."
+  },
+  "cleanup": {
+    "created_snapshots": 29,
+    "deleted_snapshots": 29,
+    "remaining_owned_snapshots": [],
+    "role": "stackd-ebs-enc-1072c98e4a53",
+    "role_absent_verified": true,
+    "users_or_access_keys_created": 0,
+    "owned_key": "arn:aws:kms:us-east-1:000000000000:key/217eb0e4-87e9-4bb5-b6a6-f80556224755",
+    "key_state": "PendingDeletion",
+    "deletion_date": "2026-10-02T13:13:44.327000+01:00",
+    "pending_window_days": 7,
+    "ordering": [
+      "All successful snapshot DeleteSnapshot receipts",
+      "Empty owner+description-prefix DescribeSnapshots inventory",
+      "DeleteRolePolicy and DeleteRole; GetRole=NoSuchEntity",
+      "ScheduleKeyDeletion and DescribeKey=PendingDeletion"
+    ],
+    "account_defaults_before_after": {
+      "encryption_by_default": [
+        {
+          "EbsEncryptionByDefault": false
+        },
+        {
+          "EbsEncryptionByDefault": false
+        }
+      ],
+      "kms_default": [
+        {
+          "KmsKeyId": "alias/aws/ebs"
+        },
+        {
+          "KmsKeyId": "alias/aws/ebs"
+        }
+      ]
+    }
+  },
+  "unobserved_or_limited": [
+    "Cross-account principals, shared/public snapshots and encryption-by-default enabled were not exercised; no standing resources or account defaults changed.",
+    "CloudTrail history is eventual and does not include block data events here; no trail selectors, Lake or account audit configuration changed. Missing KMS events do not establish permission absence.",
+    "Disabled-key checks are immediate, timestamped observations of the owned key and may reflect service key caching; no universal cache lifetime is inferred.",
+    "Parent/root permission comparisons use immutable STS session policies intersected with the recorded owned role policy. No IAM user/access key was needed.",
+    "Previously captured root encryption flag matrix is not repeated; two root snapshots are required data-bearing parent/read setup only.",
+    "ReEncryptFrom versus ReEncryptTo were not independently denied; missing ReEncryptFrom and native same-key ReEncrypt source/destination contexts were observed.",
+    "Encryption-context-conditioned read policies also condition DescribeKey, so those read failures do not isolate the GetSnapshotBlock encryption-context check.",
+    "Disabled-key completion was accepted as pending; that staged snapshot was deleted without asserting eventual readable content.",
+    "PendingDeletion is not physical deletion. The two previously scheduled keys were never read, modified, or unscheduled by this capture."
+  ],
+  "interpretation_boundaries": {
+    "iam": "Compare successful calls and explicit/session allow-deny conditions; do not equate EC2 resource ARN namespace with EC2 operation authority.",
+    "kms": "A success under an explicit action deny establishes that permission was not necessary for that observed operation/session. It does not establish the absence of all KMS activity or of later lifecycle requirements.",
+    "context": "Treat kms:ViaService policy-conditioned successes/failures separately from CloudTrail userIdentity.invokedBy. Match encryption context only when native event requestParameters carries it.",
+    "parent": "Child admission follows EBS ListSnapshotBlocks success; inherited child block digest must equal the synthetic parent digest for data-inheritance evidence.",
+    "disabled_key": "Report exact API outcomes and timestamps with DescribeKey state. Immediate successful access after DisableKey does not prove future access or any cache duration.",
+    "cleanup": "Require native deletion receipts, empty prefix-scoped snapshot inventory, role NoSuchEntity, then PendingDeletion on the new key; scheduled KMS deletion is not immediate physical deletion."
+  }
+}

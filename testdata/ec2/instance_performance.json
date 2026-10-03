@@ -1,0 +1,83 @@
+{
+  "sources": ["https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html", "testdata/aws/autoscaling/instance_performance_native.json"],
+  "cases": [
+    {
+      "name": "basic monitoring retains minute CPU statistics and one network period total",
+      "group": "workers",
+      "steps": [
+        {"service_seconds":0,"native_seconds":0,"cpu_seconds":0,"bytes_in":100,"bytes_out":100},
+        {"service_seconds":60,"native_seconds":60,"cpu_seconds":30,"bytes_in":300,"bytes_out":600},
+        {"service_seconds":120,"native_seconds":120,"cpu_seconds":90,"bytes_in":500,"bytes_out":1100},
+        {"service_seconds":180,"native_seconds":180,"cpu_seconds":180,"bytes_in":700,"bytes_out":1600},
+        {"service_seconds":240,"native_seconds":240,"cpu_seconds":240,"bytes_in":900,"bytes_out":2100},
+        {"service_seconds":300,"native_seconds":300,"cpu_seconds":300,"bytes_in":1100,"bytes_out":2600}
+      ],
+      "expected": [
+        {"at_seconds":0,"cpu_count":5,"cpu_sum":250,"cpu_min":25,"cpu_max":75,"network_in":1000,"network_out":2500},
+        {"at_seconds":0,"group":"workers","cpu_count":5,"cpu_sum":250,"cpu_min":25,"cpu_max":75,"network_in":1000,"network_out":2500}
+      ]
+    },
+    {
+      "name": "virtual publication time does not dilute actual native CPU consumption",
+      "detailed": true,
+      "steps": [
+        {"service_seconds":0,"native_seconds":0,"cpu_seconds":0,"bytes_in":0,"bytes_out":0},
+        {"service_seconds":60,"native_seconds":20,"cpu_seconds":20,"bytes_in":2048,"bytes_out":8192},
+        {"service_seconds":120,"native_seconds":40,"cpu_seconds":20,"bytes_in":2048,"bytes_out":8192}
+      ],
+      "expected": [
+        {"at_seconds":0,"detailed":true,"cpu_count":1,"cpu_sum":50,"cpu_min":50,"cpu_max":50,"network_in":2048,"network_out":8192},
+        {"at_seconds":60,"detailed":true,"cpu_count":1,"cpu_sum":0,"cpu_min":0,"cpu_max":0,"network_in":0,"network_out":0}
+      ]
+    },
+    {
+      "name": "delayed observation is one aggregate rather than invented intervening samples",
+      "steps": [
+        {"service_seconds":0,"native_seconds":0,"cpu_seconds":0,"bytes_in":0,"bytes_out":0},
+        {"service_seconds":600,"native_seconds":60,"cpu_seconds":60,"bytes_in":3840,"bytes_out":5120}
+      ],
+      "expected": [{"at_seconds":0,"cpu_count":1,"cpu_sum":50,"cpu_min":50,"cpu_max":50,"network_in":3840,"network_out":5120}]
+    },
+    {
+      "name": "stop publishes the measured partial basic window and clears the incarnation",
+      "steps": [
+        {"service_seconds":0,"native_seconds":0,"cpu_seconds":0,"bytes_in":100,"bytes_out":200},
+        {"service_seconds":60,"native_seconds":60,"cpu_seconds":60,"bytes_in":600,"bytes_out":1400},
+        {"service_seconds":90,"native_seconds":90,"cpu_seconds":75,"bytes_in":1100,"bytes_out":2200,"terminal":true}
+      ],
+      "expected": [{"at_seconds":0,"cpu_count":2,"cpu_sum":75,"cpu_min":25,"cpu_max":50,"network_in":1000,"network_out":2000}],
+      "stopped": true
+    },
+    {
+      "name": "PID reuse and a replacement TAP establish new baselines without a reset spike",
+      "detailed": true,
+      "steps": [
+        {"service_seconds":0,"native_seconds":0,"cpu_seconds":0,"bytes_in":0,"bytes_out":0},
+        {"service_seconds":60,"native_seconds":60,"cpu_seconds":60,"bytes_in":500,"bytes_out":1000},
+        {"service_seconds":90,"native_seconds":90,"cpu_seconds":2,"bytes_in":10,"bytes_out":20,"incarnation":1},
+        {"service_seconds":120,"native_seconds":120,"cpu_seconds":32,"bytes_in":1010,"bytes_out":2020,"incarnation":1}
+      ],
+      "expected": [
+        {"at_seconds":0,"detailed":true,"cpu_count":1,"cpu_sum":50,"cpu_min":50,"cpu_max":50,"network_in":500,"network_out":1000},
+        {"at_seconds":60,"detailed":true,"cpu_count":1,"cpu_sum":50,"cpu_min":50,"cpu_max":50,"network_in":1000,"network_out":2000}
+      ]
+    },
+    {
+      "name": "detach and reattach preserve one instance period and one contribution per group",
+      "group": "workers",
+      "steps": [
+        {"service_seconds":0,"native_seconds":0,"cpu_seconds":0,"bytes_in":0,"bytes_out":0},
+        {"service_seconds":60,"native_seconds":60,"cpu_seconds":60,"bytes_in":1000,"bytes_out":2000},
+        {"service_seconds":120,"native_seconds":120,"cpu_seconds":120,"bytes_in":2000,"bytes_out":4000,"group":""},
+        {"service_seconds":180,"native_seconds":180,"cpu_seconds":180,"bytes_in":3000,"bytes_out":6000,"group":"other"},
+        {"service_seconds":240,"native_seconds":240,"cpu_seconds":240,"bytes_in":4000,"bytes_out":8000,"group":"workers"},
+        {"service_seconds":300,"native_seconds":300,"cpu_seconds":300,"bytes_in":5000,"bytes_out":10000}
+      ],
+      "expected": [
+        {"at_seconds":0,"cpu_count":5,"cpu_sum":250,"cpu_min":50,"cpu_max":50,"network_in":5000,"network_out":10000},
+        {"at_seconds":0,"group":"other","cpu_count":1,"cpu_sum":50,"cpu_min":50,"cpu_max":50,"network_in":1000,"network_out":2000},
+        {"at_seconds":0,"group":"workers","cpu_count":3,"cpu_sum":150,"cpu_min":50,"cpu_max":50,"network_in":3000,"network_out":6000}
+      ]
+    }
+  ]
+}

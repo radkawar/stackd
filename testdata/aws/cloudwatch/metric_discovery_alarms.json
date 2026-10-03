@@ -1,0 +1,2277 @@
+{
+  "caller_account": "000000000000",
+  "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+  "region": "us-west-2",
+  "sources": [
+    {
+      "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-metrics-insights-alarms.html"
+    },
+    {
+      "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-search-expressions.html"
+    },
+    {
+      "path": "/tmp/stackd_metric_discovery_alarms.py",
+      "content": "import ast\nimport json\nimport os\nfrom pathlib import Path\nimport sys\nimport time\nimport uuid\nimport xml.etree.ElementTree as ET\n\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import run, result\n\nroot=Path('/home/r/dev/minor/stackd')\nname='sd-query-alarm-'+uuid.uuid4().hex[:12]\nnamespace='Stackd/QueryAlarm/'+name\npath=root/'testdata/aws/cloudwatch/metric_discovery_alarms.json'\nenv=dict(os.environ,AWS_DEFAULT_REGION='us-west-2',AWS_REGION='us-west-2',AWS_MAX_ATTEMPTS='1',AWS_PAGER='',AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\nfor key in list(env):\n    if key.startswith('AWS_ENDPOINT_URL'):\n        del env[key]\ncapture={'caller_account':'000000000000','actor_arn':'','region':'us-west-2','sources':[{'url':'https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-metrics-insights-alarms.html'},{'url':'https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-search-expressions.html'},{'path':__file__,'content':Path(__file__).read_text()}],'observations':[],'cleanup':[],'owned_alarm':name,'metric_namespace':namespace,'published_metric_samples':0}\n\ndef save():\n    path.write_text(json.dumps(capture,indent=2)+'\\n')\n\ndef call(label,operation,parameters,service='cloudwatch',cleanup=False):\n    started=time.time_ns()//1000000\n    process=run(service,operation,parameters,env,options=['--debug','--no-paginate'],timeout=40)\n    decoded=result(process,debug=True)\n    headers={}\n    for line in process.stderr.splitlines():\n        if 'Response headers: ' in line:\n            headers=ast.literal_eval(line.split('Response headers: ',1)[1])\n        if service=='cloudwatch' and line.startswith((\"b'\",'b\"')):\n            body=ast.literal_eval(line)\n            if body.startswith(b'{'):\n                raw=json.loads(body)\n                decoded['raw_response']=raw\n                if process.returncode:\n                    decoded['message']=raw.get('message',decoded.get('message'))\n            elif process.returncode and body.startswith(b'<'):\n                tree=ET.fromstring(body)\n                decoded['message']=next((v.text for v in tree.iter() if v.tag.rsplit('}',1)[-1]=='Message'),decoded.get('message'))\n    decoded['request_id']=next((v for k,v in headers.items() if k.lower() in ('x-amzn-requestid','x-amzn-request-id','x-amz-request-id')),'')\n    if service=='sts':\n        assert decoded['code']=='Success' and decoded['output']['Account']==capture['caller_account'],decoded\n        capture['actor_arn']=decoded['output']['Arn']\n    capture['cleanup' if cleanup else 'observations'].append({'label':label,'service':service,'operation':operation,'input':parameters,'region':'us-west-2','caller_account':capture['caller_account'],'actor_arn':capture['actor_arn'],'request_started_ms':started,'result':decoded})\n    save()\n    return decoded\n\nmetric={'Id':'m','MetricStat':{'Metric':{'Namespace':namespace,'MetricName':'Load'},'Period':60,'Stat':'Sum'},'ReturnData':True}\nsearch='SEARCH(\\'Namespace=\"'+namespace+'\"\\', \\'Sum\\', 60)'\nsql='SELECT SUM(Load) FROM \"'+namespace+'\"'\ndef expression(text,**fields):\n    return dict(Id='q',Expression=text,Period=60,ReturnData=True,**fields)\ncases=[\n    ('metric-control',[metric]),\n    ('search-array',[expression(search)]),\n    ('search-reduced',[expression('SUM('+search+')')]),\n    ('search-unused',[dict(expression(search),ReturnData=False),metric]),\n    ('insights-scalar',[expression(sql)]),\n    ('insights-grouped',[expression(sql+' GROUP BY Team')]),\n    ('insights-math',[dict(expression(sql),ReturnData=False),{'Id':'e','Expression':'q/2','Period':60,'ReturnData':True}]),\n    ('insights-period-ten',[dict(expression(sql),Period=10)]),\n    ('insights-period-five-minutes',[dict(expression(sql),Period=300)]),\n    ('insights-without-period',[{'Id':'q','Expression':sql,'ReturnData':True}]),\n    ('two-insights',[dict(expression(sql),ReturnData=False),{'Id':'other','Expression':sql,'Period':60,'ReturnData':True}]),\n    ('insights-with-direct',[dict(expression(sql),ReturnData=False),metric]),\n]\ncall('identity','get-caller-identity',{},'sts')\ntry:\n    for label,queries in cases:\n        call(label,'put-metric-alarm',{'AlarmName':name,'ComparisonOperator':'GreaterThanThreshold','EvaluationPeriods':1,'DatapointsToAlarm':1,'Threshold':10,'ActionsEnabled':False,'TreatMissingData':'notBreaching','Metrics':queries})\n        call(label+'-retained','describe-alarms',{'AlarmNames':[name]})\nfinally:\n    call('delete-owned','delete-alarms',{'AlarmNames':[name]},cleanup=True)\n    absent=call('verify-owned-absent','describe-alarms',{'AlarmNames':[name]},cleanup=True)\n    capture['cleanup_verification']={'alarm_absent':absent['code']=='Success' and not absent['output'].get('MetricAlarms') and not absent['output'].get('CompositeAlarms'),'published_metric_samples':0}\n    save()\nprint(json.dumps({'fixture':str(path),'observations':len(capture['observations']),'cleanup':capture['cleanup_verification']}))\n"
+    },
+    {
+      "path": "/tmp/stackd_metric_discovery_alarms.py",
+      "content": "import ast\nimport json\nimport os\nfrom pathlib import Path\nimport sys\nimport time\nimport uuid\nimport xml.etree.ElementTree as ET\n\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import run, result\n\nroot=Path('/home/r/dev/minor/stackd')\nname='sd-query-alarm-'+uuid.uuid4().hex[:12]\nnamespace='Stackd/QueryAlarm/'+name\npath=root/'testdata/aws/cloudwatch/metric_discovery_alarms.json'\nenv=dict(os.environ,AWS_DEFAULT_REGION='us-west-2',AWS_REGION='us-west-2',AWS_MAX_ATTEMPTS='1',AWS_PAGER='',AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\nfor key in list(env):\n    if key.startswith('AWS_ENDPOINT_URL'):\n        del env[key]\ncapture=json.loads(path.read_text())\ncapture['sources'].append({'path':__file__,'content':Path(__file__).read_text()})\ncapture.setdefault('owned_alarms',[capture['owned_alarm']]).append(name)\n\ndef save():\n    path.write_text(json.dumps(capture,indent=2)+'\\n')\n\ndef call(label,operation,parameters,service='cloudwatch',cleanup=False):\n    started=time.time_ns()//1000000\n    process=run(service,operation,parameters,env,options=['--debug','--no-paginate'],timeout=40)\n    decoded=result(process,debug=True)\n    headers={}\n    for line in process.stderr.splitlines():\n        if 'Response headers: ' in line:\n            headers=ast.literal_eval(line.split('Response headers: ',1)[1])\n        if service=='cloudwatch' and line.startswith((\"b'\",'b\"')):\n            body=ast.literal_eval(line)\n            if body.startswith(b'{'):\n                raw=json.loads(body)\n                decoded['raw_response']=raw\n                if process.returncode:\n                    decoded['message']=raw.get('message',decoded.get('message'))\n            elif process.returncode and body.startswith(b'<'):\n                tree=ET.fromstring(body)\n                decoded['message']=next((v.text for v in tree.iter() if v.tag.rsplit('}',1)[-1]=='Message'),decoded.get('message'))\n    decoded['request_id']=next((v for k,v in headers.items() if k.lower() in ('x-amzn-requestid','x-amzn-request-id','x-amz-request-id')),'')\n    if service=='sts':\n        assert decoded['code']=='Success' and decoded['output']['Account']==capture['caller_account'],decoded\n        capture['actor_arn']=decoded['output']['Arn']\n    capture['cleanup' if cleanup else 'observations'].append({'label':label,'service':service,'operation':operation,'input':parameters,'region':'us-west-2','caller_account':capture['caller_account'],'actor_arn':capture['actor_arn'],'request_started_ms':started,'result':decoded})\n    save()\n    return decoded\n\nmetric={'Id':'m','MetricStat':{'Metric':{'Namespace':namespace,'MetricName':'Load'},'Period':60,'Stat':'Sum'},'ReturnData':True}\nsearch='SEARCH(\\'Namespace=\"'+namespace+'\"\\', \\'Sum\\', 60)'\nsql='SELECT SUM(Load) FROM \"'+namespace+'\"'\ndef expression(text,**fields):\n    return dict(Id='q',Expression=text,Period=60,ReturnData=True,**fields)\ncases=[\n    ('ordered-group-insights',[expression(sql+' GROUP BY Team ORDER BY MAX() DESC')]),\n    ('ordered-group-insights-limit',[expression(sql+' GROUP BY Team ORDER BY MAX() DESC LIMIT 2')]),\n    ('group-insights-reduced',[dict(expression(sql+' GROUP BY Team'),ReturnData=False),{'Id':'e','Expression':'SUM(q)','Period':60,'ReturnData':True}]),\n    ('ordered-group-insights-reduced',[dict(expression(sql+' GROUP BY Team ORDER BY MAX() DESC'),ReturnData=False),{'Id':'e','Expression':'SUM(q)','Period':60,'ReturnData':True}]),\n]\ncall('identity','get-caller-identity',{},'sts')\ntry:\n    for label,queries in cases:\n        call(label,'put-metric-alarm',{'AlarmName':name,'ComparisonOperator':'GreaterThanThreshold','EvaluationPeriods':1,'DatapointsToAlarm':1,'Threshold':10,'ActionsEnabled':False,'TreatMissingData':'notBreaching','Metrics':queries})\n        call(label+'-retained','describe-alarms',{'AlarmNames':[name]})\nfinally:\n    call('delete-owned','delete-alarms',{'AlarmNames':[name]},cleanup=True)\n    absent=call('verify-owned-absent','describe-alarms',{'AlarmNames':[name]},cleanup=True)\n    verified=absent['code']=='Success' and not absent['output'].get('MetricAlarms') and not absent['output'].get('CompositeAlarms')\n    capture['cleanup_verification'].setdefault('alarms',{capture['owned_alarm']:capture['cleanup_verification']['alarm_absent']})[name]=verified\n    capture['cleanup_verification']['alarm_absent']=all(capture['cleanup_verification']['alarms'].values())\n    save()\nprint(json.dumps({'fixture':str(path),'observations':len(capture['observations']),'cleanup':capture['cleanup_verification']}))\n"
+    }
+  ],
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185978109,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200,
+        "request_id": "9ddaec9d-2a23-4484-8fc9-f1ef9dcfa4f8"
+      }
+    },
+    {
+      "label": "metric-control",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "m",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec",
+                "MetricName": "Load"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185979034,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "b6d3f798-11ca-4c6e-b1ae-d6f583a05146"
+      }
+    },
+    {
+      "label": "metric-control-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185980050,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec",
+                      "MetricName": "Load",
+                      "Dimensions": []
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185979.847,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Dimensions": [],
+                      "MetricName": "Load",
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec"
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "02192a3b-dbc7-4426-8769-6bb8e634ec3c"
+      }
+    },
+    {
+      "label": "search-array",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SEARCH('Namespace=\"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"', 'Sum', 60)",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185980979,
+      "result": {
+        "code": "ValidationError",
+        "message": "SEARCH is not supported on Metric Alarms.",
+        "http_status": 400,
+        "raw_response": {
+          "__type": "com.amazon.coral.validate#ValidationException",
+          "message": "SEARCH is not supported on Metric Alarms."
+        },
+        "request_id": "d5639cc1-84fc-4011-9035-7c16204b08c6"
+      }
+    },
+    {
+      "label": "search-array-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185981893,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec",
+                      "MetricName": "Load",
+                      "Dimensions": []
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185979.847,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Dimensions": [],
+                      "MetricName": "Load",
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec"
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "e1b663f2-5c99-417c-bcbd-5694311d77d0"
+      }
+    },
+    {
+      "label": "search-reduced",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SUM(SEARCH('Namespace=\"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"', 'Sum', 60))",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185982819,
+      "result": {
+        "code": "ValidationError",
+        "message": "SEARCH is not supported on Metric Alarms.",
+        "http_status": 400,
+        "raw_response": {
+          "__type": "com.amazon.coral.validate#ValidationException",
+          "message": "SEARCH is not supported on Metric Alarms."
+        },
+        "request_id": "b71db661-c4a3-4aea-85ba-947cbe3c2086"
+      }
+    },
+    {
+      "label": "search-reduced-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185983734,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec",
+                      "MetricName": "Load",
+                      "Dimensions": []
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185979.847,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Dimensions": [],
+                      "MetricName": "Load",
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec"
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "257fe134-7cd2-49a4-bcee-d2266a074aa5"
+      }
+    },
+    {
+      "label": "search-unused",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SEARCH('Namespace=\"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"', 'Sum', 60)",
+            "Period": 60,
+            "ReturnData": false
+          },
+          {
+            "Id": "m",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec",
+                "MetricName": "Load"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185984691,
+      "result": {
+        "code": "ValidationError",
+        "message": "SEARCH is not supported on Metric Alarms.",
+        "http_status": 400,
+        "raw_response": {
+          "__type": "com.amazon.coral.validate#ValidationException",
+          "message": "SEARCH is not supported on Metric Alarms."
+        },
+        "request_id": "9d2164c6-39db-432f-89a2-1aeb18c1f19b"
+      }
+    },
+    {
+      "label": "search-unused-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185985592,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec",
+                      "MetricName": "Load",
+                      "Dimensions": []
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185979.847,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Dimensions": [],
+                      "MetricName": "Load",
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec"
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "afb96fa0-93d0-497b-a5e8-b86d575b27ef"
+      }
+    },
+    {
+      "label": "insights-scalar",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185986528,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "31ce53a6-afd8-4928-9234-42a3cce7a636"
+      }
+    },
+    {
+      "label": "insights-scalar-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185987534,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:53:07.359000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185987.359,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "Id": "q",
+                  "Period": 60,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "2450950e-5e85-4791-9910-13152fca97a1"
+      }
+    },
+    {
+      "label": "insights-grouped",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\" GROUP BY Team",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185988449,
+      "result": {
+        "code": "ValidationError",
+        "message": "Metrics expression that return multi time series are only allowed for MetricsInsights expression with an ORDER BY clause",
+        "http_status": 400,
+        "raw_response": {
+          "__type": "com.amazon.coral.validate#ValidationException",
+          "message": "Metrics expression that return multi time series are only allowed for MetricsInsights expression with an ORDER BY clause"
+        },
+        "request_id": "41c28a59-9da9-4b2e-8a6f-8a103eefc8b0"
+      }
+    },
+    {
+      "label": "insights-grouped-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185989457,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:53:07.359000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185987.359,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "Id": "q",
+                  "Period": 60,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "997119ab-2df0-4a45-8b6a-533e9e499941"
+      }
+    },
+    {
+      "label": "insights-math",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+            "Period": 60,
+            "ReturnData": false
+          },
+          {
+            "Id": "e",
+            "Expression": "q/2",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185990433,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "c753395a-3b75-4c69-82bc-09542014ab56"
+      }
+    },
+    {
+      "label": "insights-math-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185991378,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:53:11.235000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "ReturnData": false,
+                  "Period": 60
+                },
+                {
+                  "Id": "e",
+                  "Expression": "q/2",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185991.235,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "Id": "q",
+                  "Period": 60,
+                  "ReturnData": false
+                },
+                {
+                  "Expression": "q/2",
+                  "Id": "e",
+                  "Period": 60,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "2336003a-ebda-40c7-8b64-6f6242006f1f"
+      }
+    },
+    {
+      "label": "insights-period-ten",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+            "Period": 10,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185992294,
+      "result": {
+        "code": "ValidationError",
+        "message": "MetricsInsights monitors do not support less than 60 seconds period",
+        "http_status": 400,
+        "raw_response": {
+          "__type": "com.amazon.coral.validate#ValidationException",
+          "message": "MetricsInsights monitors do not support less than 60 seconds period"
+        },
+        "request_id": "ec0d03a2-096e-4a6e-9e3e-f2e6c1efdfd8"
+      }
+    },
+    {
+      "label": "insights-period-ten-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185993225,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:53:11.235000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "ReturnData": false,
+                  "Period": 60
+                },
+                {
+                  "Id": "e",
+                  "Expression": "q/2",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185991.235,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "Id": "q",
+                  "Period": 60,
+                  "ReturnData": false
+                },
+                {
+                  "Expression": "q/2",
+                  "Id": "e",
+                  "Period": 60,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "99639c0a-0a24-4497-8af8-be7d57eaf305"
+      }
+    },
+    {
+      "label": "insights-period-five-minutes",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+            "Period": 300,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185994152,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "6ef52971-ea9f-4fee-9156-f182d01fd4e1"
+      }
+    },
+    {
+      "label": "insights-period-five-minutes-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185995120,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:53:14.980000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "ReturnData": true,
+                  "Period": 300
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185994.98,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "Id": "q",
+                  "Period": 300,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "601a98fe-dc0e-4411-ac37-d33a42ec4a2b"
+      }
+    },
+    {
+      "label": "insights-without-period",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185996056,
+      "result": {
+        "code": "ValidationError",
+        "message": "Period must not be null",
+        "http_status": 400,
+        "raw_response": {
+          "__type": "com.amazon.coral.validate#ValidationException",
+          "message": "Period must not be null"
+        },
+        "request_id": "8d916474-dbf5-4975-b6d3-35347d8a35a5"
+      }
+    },
+    {
+      "label": "insights-without-period-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185997018,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:53:14.980000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "ReturnData": true,
+                  "Period": 300
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185994.98,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "Id": "q",
+                  "Period": 300,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "4838058b-4466-4f5b-999e-c69396eee0d8"
+      }
+    },
+    {
+      "label": "two-insights",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+            "Period": 60,
+            "ReturnData": false
+          },
+          {
+            "Id": "other",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185997982,
+      "result": {
+        "code": "ValidationError",
+        "message": "Invalid metrics list",
+        "http_status": 400,
+        "raw_response": {
+          "__type": "com.amazon.coral.validate#ValidationException",
+          "message": "Invalid metrics list"
+        },
+        "request_id": "fe7e7dc6-2df2-4a13-ae96-fd4a6f389178"
+      }
+    },
+    {
+      "label": "two-insights-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185998910,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:53:14.980000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "ReturnData": true,
+                  "Period": 300
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790185994.98,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "Id": "q",
+                  "Period": 300,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "7e0a3bd5-1cb8-4f95-a8f0-99f32dda0e39"
+      }
+    },
+    {
+      "label": "insights-with-direct",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+            "Period": 60,
+            "ReturnData": false
+          },
+          {
+            "Id": "m",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec",
+                "MetricName": "Load"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790185999862,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "71638d87-8dbe-40c4-b5dd-d44a48ea9d56"
+      }
+    },
+    {
+      "label": "insights-with-direct-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186000831,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T18:53:20.684000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T18:52:59.847000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "ReturnData": false,
+                  "Period": 60
+                },
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec",
+                      "MetricName": "Load",
+                      "Dimensions": []
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T18:52:59.847000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-66ce8d8e41ec",
+              "AlarmConfigurationUpdatedTimestamp": 1790186000.684,
+              "AlarmName": "sd-query-alarm-66ce8d8e41ec",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "52c911b8-9138-46d4-81c4-e96e3b629406/1790185979796",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec\"",
+                  "Id": "q",
+                  "Period": 60,
+                  "ReturnData": false
+                },
+                {
+                  "Id": "m",
+                  "MetricStat": {
+                    "Metric": {
+                      "Dimensions": [],
+                      "MetricName": "Load",
+                      "Namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec"
+                    },
+                    "Period": 60,
+                    "Stat": "Sum"
+                  },
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790185979.847,
+              "StateUpdatedTimestamp": 1790185979.847,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "8418db9b-2e5e-461e-8b2c-e7870b8ddd9c"
+      }
+    },
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186455124,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200,
+        "request_id": "01a7872f-586c-47b9-aefb-f806f11d5877"
+      }
+    },
+    {
+      "label": "ordered-group-insights",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team ORDER BY MAX() DESC",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186456137,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "7939f2a1-2e07-4412-be95-a2b41c3de1e5"
+      }
+    },
+    {
+      "label": "ordered-group-insights-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-6f61ea40fdc5"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186457175,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-6f61ea40fdc5",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T19:00:56.945000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T19:00:56.945000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team ORDER BY MAX() DESC",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T19:00:56.945000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-6f61ea40fdc5",
+              "AlarmConfigurationUpdatedTimestamp": 1790186456.945,
+              "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "6699349f-a153-4e55-8e5a-1bf648de65ae/1790186456894",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team ORDER BY MAX() DESC",
+                  "Id": "q",
+                  "Period": 60,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790186456.945,
+              "StateUpdatedTimestamp": 1790186456.945,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "7cb3f816-3a62-4b1e-b4a2-9128c5da8be5"
+      }
+    },
+    {
+      "label": "ordered-group-insights-limit",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team ORDER BY MAX() DESC LIMIT 2",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186458085,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "f9494044-66f2-4479-9338-183a6ea47cfd"
+      }
+    },
+    {
+      "label": "ordered-group-insights-limit-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-6f61ea40fdc5"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186459104,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-6f61ea40fdc5",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T19:00:58.941000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T19:00:56.945000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team ORDER BY MAX() DESC LIMIT 2",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T19:00:56.945000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-6f61ea40fdc5",
+              "AlarmConfigurationUpdatedTimestamp": 1790186458.941,
+              "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "6699349f-a153-4e55-8e5a-1bf648de65ae/1790186456894",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team ORDER BY MAX() DESC LIMIT 2",
+                  "Id": "q",
+                  "Period": 60,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790186456.945,
+              "StateUpdatedTimestamp": 1790186456.945,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "3337cce9-2a07-41ae-911e-6d90b79fcc2e"
+      }
+    },
+    {
+      "label": "group-insights-reduced",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team",
+            "Period": 60,
+            "ReturnData": false
+          },
+          {
+            "Id": "e",
+            "Expression": "SUM(q)",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186460082,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "17ce01e0-9bd6-48ad-a411-30afef9b6db5"
+      }
+    },
+    {
+      "label": "group-insights-reduced-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-6f61ea40fdc5"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186461015,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-6f61ea40fdc5",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T19:01:00.865000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T19:00:56.945000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team",
+                  "ReturnData": false,
+                  "Period": 60
+                },
+                {
+                  "Id": "e",
+                  "Expression": "SUM(q)",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T19:00:56.945000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-6f61ea40fdc5",
+              "AlarmConfigurationUpdatedTimestamp": 1790186460.865,
+              "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "6699349f-a153-4e55-8e5a-1bf648de65ae/1790186456894",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team",
+                  "Id": "q",
+                  "Period": 60,
+                  "ReturnData": false
+                },
+                {
+                  "Expression": "SUM(q)",
+                  "Id": "e",
+                  "Period": 60,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790186456.945,
+              "StateUpdatedTimestamp": 1790186456.945,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "644dfe3a-c595-4b65-9bfe-d472bd22ea06"
+      }
+    },
+    {
+      "label": "ordered-group-insights-reduced",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team ORDER BY MAX() DESC",
+            "Period": 60,
+            "ReturnData": false
+          },
+          {
+            "Id": "e",
+            "Expression": "SUM(q)",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186462018,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "6c5815a7-2d6b-4a80-bd2b-0e30673ba61d"
+      }
+    },
+    {
+      "label": "ordered-group-insights-reduced-retained",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-6f61ea40fdc5"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186463032,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-6f61ea40fdc5",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T19:01:02.872000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T19:00:56.945000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team ORDER BY MAX() DESC",
+                  "ReturnData": false,
+                  "Period": 60
+                },
+                {
+                  "Id": "e",
+                  "Expression": "SUM(q)",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T19:00:56.945000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": [
+            {
+              "ActionsEnabled": false,
+              "AlarmActions": [],
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-query-alarm-6f61ea40fdc5",
+              "AlarmConfigurationUpdatedTimestamp": 1790186462.872,
+              "AlarmName": "sd-query-alarm-6f61ea40fdc5",
+              "ComparisonOperator": "GreaterThanThreshold",
+              "CreationId": "6699349f-a153-4e55-8e5a-1bf648de65ae/1790186456894",
+              "DatapointsToAlarm": 1,
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "InsufficientDataActions": [],
+              "Metrics": [
+                {
+                  "Expression": "SELECT SUM(Load) FROM \"Stackd/QueryAlarm/sd-query-alarm-6f61ea40fdc5\" GROUP BY Team ORDER BY MAX() DESC",
+                  "Id": "q",
+                  "Period": 60,
+                  "ReturnData": false
+                },
+                {
+                  "Expression": "SUM(q)",
+                  "Id": "e",
+                  "Period": 60,
+                  "ReturnData": true
+                }
+              ],
+              "OKActions": [],
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateTransitionedTimestamp": 1790186456.945,
+              "StateUpdatedTimestamp": 1790186456.945,
+              "StateValue": "INSUFFICIENT_DATA",
+              "Threshold": 10.0,
+              "TreatMissingData": "notBreaching"
+            }
+          ]
+        },
+        "request_id": "3f202987-77a3-4581-9d30-4cb96516f662"
+      }
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "delete-owned",
+      "service": "cloudwatch",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186001793,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "8c20dc1c-3019-400d-a5ca-b98d1beb6090"
+      }
+    },
+    {
+      "label": "verify-owned-absent",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-66ce8d8e41ec"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186002835,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": []
+        },
+        "request_id": "e03e5362-0788-4785-b365-27d57afc2456"
+      }
+    },
+    {
+      "label": "delete-owned",
+      "service": "cloudwatch",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-6f61ea40fdc5"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186464022,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "4a1b96fd-7e15-468d-b781-6c9e1a8ead09"
+      }
+    },
+    {
+      "label": "verify-owned-absent",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-query-alarm-6f61ea40fdc5"
+        ]
+      },
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790186465016,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "raw_response": {
+          "CompositeAlarms": [],
+          "LogAlarms": [],
+          "MetricAlarms": []
+        },
+        "request_id": "af1b7f62-e097-43c5-a3e3-793913ab3a0e"
+      }
+    }
+  ],
+  "owned_alarm": "sd-query-alarm-66ce8d8e41ec",
+  "metric_namespace": "Stackd/QueryAlarm/sd-query-alarm-66ce8d8e41ec",
+  "published_metric_samples": 0,
+  "cleanup_verification": {
+    "alarm_absent": true,
+    "published_metric_samples": 0,
+    "alarms": {
+      "sd-query-alarm-66ce8d8e41ec": true,
+      "sd-query-alarm-6f61ea40fdc5": true
+    }
+  },
+  "owned_alarms": [
+    "sd-query-alarm-66ce8d8e41ec",
+    "sd-query-alarm-6f61ea40fdc5"
+  ]
+}

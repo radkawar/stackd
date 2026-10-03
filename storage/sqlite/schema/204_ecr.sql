@@ -1,0 +1,115 @@
+CREATE TABLE ecr_repositories (
+ partition TEXT NOT NULL,
+ account_id TEXT NOT NULL,
+ region TEXT NOT NULL,
+ name TEXT NOT NULL,
+ arn TEXT NOT NULL,
+ created INTEGER NOT NULL,
+ mutability TEXT NOT NULL,
+ exclusions TEXT NOT NULL,
+ tags TEXT NOT NULL,
+ policy TEXT NOT NULL,
+ policy_principals TEXT NOT NULL,
+ encryption_type TEXT NOT NULL,
+ kms_key_id TEXT NOT NULL,
+ data_key BLOB NOT NULL,
+ grants TEXT NOT NULL,
+ grant_tokens TEXT NOT NULL,
+ scan_on_push INTEGER NOT NULL,
+ lifecycle_policy TEXT NOT NULL,
+ lifecycle_due INTEGER NOT NULL,
+ lifecycle_evaluated INTEGER NOT NULL,
+ preview_policy TEXT NOT NULL,
+ preview_status TEXT NOT NULL,
+ preview_results TEXT NOT NULL,
+ preview_expires INTEGER NOT NULL,
+ PRIMARY KEY (partition,account_id,region,name)
+);
+CREATE TABLE ecr_registries (
+ partition TEXT NOT NULL,
+ account_id TEXT NOT NULL,
+ region TEXT NOT NULL,
+ policy TEXT NOT NULL,
+ policy_principals TEXT NOT NULL,
+ scanning TEXT NOT NULL,
+ replication TEXT NOT NULL,
+ PRIMARY KEY (partition,account_id,region)
+);
+CREATE TABLE ecr_images (
+ partition TEXT NOT NULL,
+ account_id TEXT NOT NULL,
+ region TEXT NOT NULL,
+ repository TEXT NOT NULL,
+ digest TEXT NOT NULL,
+ media_type TEXT NOT NULL,
+ artifact_media_type TEXT NOT NULL,
+ payload BLOB NOT NULL,
+ size INTEGER NOT NULL,
+ pushed INTEGER NOT NULL,
+ last_pull INTEGER NOT NULL,
+ tags TEXT NOT NULL,
+ refs TEXT NOT NULL,
+ layers TEXT NOT NULL,
+ scan_id TEXT NOT NULL,
+ scan_status TEXT NOT NULL,
+ scan_description TEXT NOT NULL,
+ scan_started INTEGER NOT NULL,
+ scan_completed INTEGER NOT NULL,
+ vulnerability_updated INTEGER NOT NULL,
+ findings TEXT NOT NULL,
+ PRIMARY KEY (partition,account_id,region,repository,digest),
+ FOREIGN KEY (partition,account_id,region,repository) REFERENCES ecr_repositories(partition,account_id,region,name) ON DELETE CASCADE
+);
+CREATE TABLE ecr_blobs (
+ partition TEXT NOT NULL,
+ account_id TEXT NOT NULL,
+ region TEXT NOT NULL,
+ repository TEXT NOT NULL,
+ digest TEXT NOT NULL,
+ payload BLOB NOT NULL,
+ size INTEGER NOT NULL,
+ PRIMARY KEY (partition,account_id,region,repository,digest),
+ FOREIGN KEY (partition,account_id,region,repository) REFERENCES ecr_repositories(partition,account_id,region,name) ON DELETE CASCADE
+);
+CREATE TABLE ecr_uploads (
+ partition TEXT NOT NULL,
+ account_id TEXT NOT NULL,
+ region TEXT NOT NULL,
+ repository TEXT NOT NULL,
+ id TEXT NOT NULL,
+ payload BLOB NOT NULL,
+ size INTEGER NOT NULL,
+ expires INTEGER NOT NULL,
+ PRIMARY KEY (partition,account_id,region,repository,id),
+ FOREIGN KEY (partition,account_id,region,repository) REFERENCES ecr_repositories(partition,account_id,region,name) ON DELETE CASCADE
+);
+CREATE TABLE ecr_tokens (
+ hash TEXT NOT NULL,
+ partition TEXT NOT NULL,
+ region TEXT NOT NULL,
+ identity TEXT NOT NULL,
+ expires INTEGER NOT NULL,
+ download_partition TEXT NOT NULL,
+ download_account TEXT NOT NULL,
+ download_region TEXT NOT NULL,
+ download_repository TEXT NOT NULL,
+ download_digest TEXT NOT NULL,
+ PRIMARY KEY (hash)
+);
+
+CREATE TABLE ecr_replications (
+ partition TEXT NOT NULL,
+ account_id TEXT NOT NULL,
+ region TEXT NOT NULL,
+ repository TEXT NOT NULL,
+ digest TEXT NOT NULL,
+ destination_partition TEXT NOT NULL,
+ destination_account TEXT NOT NULL,
+ destination_region TEXT NOT NULL,
+ tags TEXT NOT NULL,
+ due INTEGER NOT NULL,
+ status TEXT NOT NULL,
+ error TEXT NOT NULL,
+ origin TEXT NOT NULL,
+ PRIMARY KEY (partition,account_id,region,repository,digest,destination_partition,destination_account,destination_region)
+);

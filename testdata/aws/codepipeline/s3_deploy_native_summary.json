@@ -1,0 +1,109 @@
+{
+  "source": "Summary of retained native AWS CodePipeline S3 deploy captures, not a simulator result",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "fixtures": ["s3_deploy_native.json", "s3_deploy_native_mime.json", "s3_deploy_native_opaque_keys.json", "s3_deploy_native_opaque_keys_ordered.json", "s3_deploy_native_missing_key.json"],
+  "source_urls": [
+    "https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-S3Deploy.html",
+    "https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-S3.html",
+    "https://docs.aws.amazon.com/codepipeline/latest/APIReference/API_RetryStageExecution.html"
+  ],
+  "cleanup": {
+    "all_five_captures_complete": true,
+    "all_five_captures_cleanup_verified": true,
+    "proof": "Each capture retains DeletePipeline and PipelineNotFoundException, version enumeration and deletion, DeleteBucket and HeadBucket 404, DeleteRolePolicy, DeleteRole and NoSuchEntity.",
+    "existing_kms_key": "Only described and used the pre-existing AWS-managed alias/aws/s3 key; no KMS key was created or modified."
+  },
+  "admission": {
+    "evidence_labels": ["admission-matrix", "admission/missing-bucket", "admission/missing-extract", "admission/false-missing-key", "admission/unknown-config", "admission/content-type-config"],
+    "missing_bucket_name": {"code": "InvalidActionDeclarationException", "message": "Action configuration for action 'Deploy' is missing required configuration 'BucketName'"},
+    "missing_extract": {"code": "InvalidActionDeclarationException", "message": "Action configuration for action 'Deploy' is missing required configuration 'Extract'"},
+    "false_without_object_key": {"admitted": true, "runtime_code": "ConfigurationError", "runtime_summary": "When the extract feature is disabled, you must provide an object. Edit your pipeline to fix the configuration.", "destination_objects": 0},
+    "unknown_key": {"code": "InvalidActionDeclarationException", "message": "Action configuration for action 'Deploy' contains unknown configuration 'Unknown'"},
+    "content_type_key": "Rejected as unknown configuration; ContentType is not a provider configuration key.",
+    "true_with_object_key": "Admitted and executed successfully.",
+    "empty_extract": "ValidationException: configuration map values have minimum length 1.",
+    "noncanonical_extract_admitted": ["True", "TRUE", "False", "FALSE", "1", "0", "yes", " true ", "null"],
+    "noncanonical_extract_executed": ["True", "yes"],
+    "noncanonical_runtime": {"code": "ConfigurationError", "message_template_observed_for_True_and_yes": "Invalid value for configuration property '<value>': 'Extract'. Edit your pipeline and set 'Extract' to either 'true' or 'false'."}
+  },
+  "deployment": {
+    "raw": {
+      "evidence_label": "raw-source-byte-equality",
+      "length": 576,
+      "sha256": "c44628b3eb917d81bddf7b8315e204213f82c0e90384b471963c761e3115d1ad",
+      "identical_to_uploaded_source_zip": true,
+      "content_type": "application/octet-stream"
+    },
+    "extract": {
+      "evidence_label": "extract",
+      "keys": ["README", "asset.bin", "index.html", "nested/config.json"],
+      "explicit_directory_entry": "nested/ is present in the input archive but is not deployed as an object.",
+      "object_key_prefix": "With Extract=true and ObjectKey=prefix/, AWS creates literal prefix//index.html, prefix//nested/config.json, prefix//asset.bin and prefix//README, preserving the doubled slash."
+    },
+    "cache_control": "private, max-age=60",
+    "canned_acl": "private; GetObjectAcl retains only owner FULL_CONTROL",
+    "success_summary": "Deployment Succeeded",
+    "external_execution_id": {
+      "extract_without_object_key": "destination bucket name",
+      "raw": "destination bucket name + /raw/source.zip",
+      "extract_with_prefix": "destination bucket name + /prefix/"
+    },
+    "mime": {
+      "README": "application/octet-stream",
+      "UPPER.HTML": "text/html",
+      "app.js": "application/x-javascript",
+      "asset.bin": "application/octet-stream",
+      "config.xml": "application/xml",
+      "font.woff2": "application/octet-stream",
+      "image.jpg": "image/jpeg",
+      "image.png": "image/png",
+      "image.svg": "image/svg+xml",
+      "index.html": "text/html",
+      "nested/config.json": "application/json",
+      "plain.txt": "text/plain",
+      "source.map": "application/octet-stream",
+      "style.css": "text/css"
+    },
+    "mime_evidence": "s3_deploy_native_mime.json: extract/get/*; extension-specific added files all contain identical plain-text bytes, not genuine image/font files.",
+    "kms": {
+      "evidence_label": "kms/get/kms/source.zip",
+      "succeeded": true,
+      "server_side_encryption": "aws:kms",
+      "returned_sse_kms_key_id_matches_configured_arn": true,
+      "returned_plaintext_bytes_match_source": true
+    }
+  },
+  "failures_and_recovery": {
+    "corrupt_zip": {"stage": "Deploy", "code": "JobFailed", "summary": "The archive is malformed."},
+    "current_put_object_denied": {"stage": "Deploy", "code": "PermissionError", "summary_prefix": "You do not have sufficient permissions to call s3.putObject for the deployment bucket,"},
+    "retry": {
+      "evidence_labels": ["denied", "retry/same-execution", "retry-recovered", "retry-source-identity"],
+      "pipeline_execution_id": "deabb109-32ae-4275-be82-3a250e509f9f",
+      "status_before": "Failed",
+      "status_after": "Succeeded",
+      "source_action_record_exactly_unchanged": true,
+      "source_regenerated": false,
+      "recovery": "Removed the exact-owned role-specific destination bucket PutObject deny, then retried FAILED_ACTIONS in Deploy."
+    }
+  },
+  "opaque_zip_members": {
+    "evidence_fixtures": ["s3_deploy_native_opaque_keys.json", "s3_deploy_native_opaque_keys_ordered.json"],
+    "leading_slash": "Archive /leading.txt persists as the literal S3 key /leading.txt.",
+    "dot_dot_slash": {
+      "code": "ConfigurationError",
+      "summary": "The file name nested/../relative.txt contains invalid sequence: dot-dot-slash.",
+      "prior_writes_remain": true
+    },
+    "symlink": "Unix symlink-marked nested/link uploads ordinary object bytes ../target.txt; it is neither rejected nor followed.",
+    "duplicate": "Two duplicate.txt ZIP entries create two S3 object versions; the latest object contains the last entry's bytes: last duplicate\\n.",
+    "backslash": "Archive windows\\key.txt is deployed as windows/key.txt.",
+    "validation_order": "The ordered capture writes leading slash, symlink-marked, both duplicate and backslash entries before the final dot-dot-slash entry fails. This rules out a whole-archive path preflight for these observed cases."
+  },
+  "limitations": [
+    "Noncanonical Extract strings other than True and yes were measured only at admission, not at execution.",
+    "No encrypted-ZIP, public ACL, cross-account KMS or archive-size boundary probes.",
+    "MIME mapping is limited to the explicitly listed filenames; no host MIME registry or inferred unmeasured extensions.",
+    "KMS used an existing symmetric AWS-managed key; no newly created customer-managed key policy behavior was exercised."
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "source": "Derived only from retained native ledger; no absent datapoints or receipts converted to positive claims",
+  "native_evidence": "testdata/aws/lambda/async_deleted_dlq_native.json",
+  "native_sha256": "42d2cd4249cf821d87e3d22480f07c0cd5423919131b6af5149fe3294f411843",
+  "command": "python3 scripts/aws/lambda_async_deleted_dlq_probe.py --output testdata/aws/lambda/async_deleted_dlq_native.json",
+  "exit_code": 0,
+  "actor": "arn:aws:iam::000000000000:user/Delegated",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "function_name": "stackd-adel-fcdb25d6a3cc-aliases",
+  "ownership_prefix": "stackd-adel-fcdb25d6a3cc",
+  "controls": {
+    "ordinary_failure": {
+      "same_targets_as_deleted_events": true,
+      "retry0": {"condition": "RetriesExhausted", "count": 1, "onfailure_observed": true, "legacy_dlq_observed": true},
+      "retry1": {"condition": "RetriesExhausted", "count": 2, "onfailure_observed": true, "legacy_dlq_observed": true},
+      "legacy_error_code": {"StringValue": "200", "DataType": "Number"}
+    },
+    "occupied_age": {
+      "maximum_event_age_seconds": 90,
+      "blocker_seconds": 130,
+      "positive_blocker_entry_and_429": true,
+      "retry0": {"condition": "EventAgeExceeded", "count": 0, "onfailure_observed": true, "legacy_dlq_observed": true},
+      "retry1": {"condition": "EventAgeExceeded", "count": 0, "onfailure_observed": true, "legacy_dlq_observed": true},
+      "legacy_error_code": {"StringValue": "429", "DataType": "Number"},
+      "legacy_error_message": {"StringValue": "Rate Exceeded.", "DataType": "String"},
+      "limitation": "This establishes ordinary occupied-age behavior, not deleted-retry1 DLQ behavior."
+    }
+  },
+  "deleted_before_entry": {
+    "blocker_seconds": 90,
+    "positive_blocker_entry_and_429": true,
+    "both_aliases_independently_confirmed_absent": true,
+    "retry0": {
+      "event": "alias-retry0-deleted-before-entry",
+      "runtime_entries": 0,
+      "legacy_dlq_observed": true,
+      "legacy_original_body_byte_for_byte": true,
+      "legacy_message_attributes": {
+        "ErrorCode": {"StringValue": "404", "DataType": "Number"},
+        "ErrorMessage": {"StringValue": "Function not found: arn:aws:lambda:us-east-1:000000000000:function:stackd-adel-fcdb25d6a3cc-aliases:alias-retry0", "DataType": "String"},
+        "RequestID": {"StringValue": "acddb5c9-71cd-4141-a9fc-e5b2e6593d01", "DataType": "String"}
+      },
+      "request_id_equals_accepted_http_request_id": true,
+      "onfailure": {"condition": "RetriesExhausted", "approximateInvokeCount": 1, "statusCode": 404, "responsePayload_present": false},
+      "legacy_received_at": "2026-10-01T05:11:46.033746+00:00",
+      "legacy_sqs_sent_timestamp_ms": "1790831504236"
+    },
+    "retry1": {
+      "event": "alias-retry1-deleted-before-entry",
+      "request_id": "dfca1df2-b521-4f53-b1df-307290bd0c31",
+      "runtime_entries": 0,
+      "onfailure_records_observed": 0,
+      "legacy_dlq_records_observed": 0,
+      "observed_through_seconds_after_admission": 903.614,
+      "outcome": "bounded_absence_inconclusive",
+      "limitation": "No inference of permanent loss, pending state, DLQ disappearance, eventual delivery, or terminal timing. In particular this run does not establish a deleted-retry1 429 DLQ contract."
+    }
+  },
+  "metrics": {
+    "namespace": "AWS/Lambda",
+    "statistic": "Sum",
+    "period_seconds": 60,
+    "raw_locations": ["metrics.baseline", "metrics.final", "metrics.lifecycle-window", "metrics.deltas"],
+    "exact_alias_dimension_set": ["FunctionName", "Resource"],
+    "retry0_full_snapshot_deltas": {"Invocations": 0.0, "Errors": 0.0, "Throttles": 1.0, "AsyncEventsReceived": 1.0, "AsyncEventsDropped": 1.0, "DeadLetterErrors": null, "DestinationDeliveryFailures": null},
+    "retry1_full_snapshot_deltas": {"Invocations": 0.0, "Errors": 0.0, "Throttles": 1.0, "AsyncEventsReceived": 1.0, "AsyncEventsDropped": 0.0, "DeadLetterErrors": null, "DestinationDeliveryFailures": null},
+    "retry1_lifecycle_window_dropped_datapoints": [],
+    "failure_metric_observation": "DeadLetterErrors and DestinationDeliveryFailures had no native datapoints in any queried dimension; null means absent, not zero.",
+    "limitation": "Snapshot deltas can include late-arriving control/blocker metrics. Time windows are rounded down to the native minute. FunctionName totals include synchronous blockers; alias dimensions and original timestamps are retained."
+  },
+  "observed_resources_and_work": {
+    "functions": 1,
+    "published_versions": 1,
+    "aliases": 2,
+    "roles": 1,
+    "queues": 3,
+    "runtime": "python3.12",
+    "memory_mb": 128,
+    "timeout_seconds": 170,
+    "maximum_reserved_concurrency": 2,
+    "async_events": 6,
+    "queue_reads": 339,
+    "recorded_api_calls": 433,
+    "recorded_non_success_calls": 19,
+    "non_success_calls": "All nineteen are retained expected absence checks or two positive occupied-slot TooManyRequestsException admissions; no unrecorded retry or denied-permission bypass.",
+    "workflow_seconds": 1224.492,
+    "total_seconds_including_cleanup": 1231.775
+  },
+  "review_bound_deviation": {
+    "reviewed_terminal_limit_seconds": 900,
+    "maximum_recorded_observation_seconds_after_admission": 903.83,
+    "overrun_seconds": 3.83,
+    "cause": "An unconditional final three-queue receive pass followed the nominal deadline; the deadline was also based on the later of two admissions.",
+    "disclosure": "This run was within total/resource/event/read bounds but was not fully within the reviewed terminal observation bound. Raw evidence is retained unchanged; no observation was relabeled as within 900 seconds.",
+    "subsequent_source_correction": "Use the earliest admission, remove the unconditional final pass, interrupt blocked queue reads at the terminal deadline without extending the enclosing workflow deadline, and report observation through the last completed queue read.",
+    "verification": "Local real POSIX-timer smoke interrupted a two-second blocking call after 0.100 seconds and restored its enclosing timer; a shorter enclosing workflow deadline interrupted after 0.050 seconds. A subsequent actual boto3 HTTP receive against a loopback server reproduced botocore wrapping the RuntimeError-based terminal signal as HTTPClientError. Making the dedicated control-flow signal a BaseException preserves observe's boundary: two actual SDK HTTP POSTs then verified clean terminal return at0.100s with enclosing timer0.900s restored, and propagation of the earlier workflow deadline at0.050s. No AWS requests or second native run were performed for these checks."
+  },
+  "cleanup": {
+    "complete": true,
+    "fresh_exact_actor_check": true,
+    "exact_owned_tags_and_identities_checked": true,
+    "independent_second_absence_inventory_verified": true,
+    "errors": [],
+    "independent_absence_call_labels": ["independent-absent-function-aliases", "independent-absent-role", "independent-absent-queue-marker", "independent-absent-queue-onfailure", "independent-absent-queue-legacy"]
+  },
+  "helper_change": "Extracted Probe.setup_dependencies(queue_keys=(marker,old,new)); original setup invokes it then retains its unchanged three-function workflow. New probe invokes only dependencies and creates one function with legacy DeadLetterConfig present before publishing.",
+  "other_verification": "Re-executing the CLI against the existing evidence path exited 1 with Refusing to overwrite existing native evidence before mutation.",
+  "sources": [
+    "https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-error-handling.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html",
+    "https://docs.aws.amazon.com/lambda/latest/api/API_PutFunctionEventInvokeConfig.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/configuration-aliases.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-view.html",
+    "https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html"
+  ]
+}

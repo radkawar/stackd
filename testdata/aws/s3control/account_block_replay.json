@@ -1,0 +1,2105 @@
+{
+  "Documentation": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_control_PutPublicAccessBlock.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_control_DeletePublicAccessBlock.html"
+  ],
+  "EvidenceClass": "documented-contract-local-replay-not-native-write-capture",
+  "Notes": [
+    "No live AWS writes were issued. Native evidence in readonly_native_evidence.json.gz proves GET/error/host/audit only. These write and enforcement cases exercise documented account/bucket most-restrictive rules through public SDK calls.",
+    "Sparse replacement and supplied empty configuration follow the generated model/domain contract; neither was measured by native writes. Region reads assert the local global state contract, not instantaneous AWS propagation.",
+    "Every scenario runs against memory and SQLite with existing retainedCloud replay. Reopen markers prove persistence. ACL owner identity comes from the public GetBucketAcl response.",
+    "Copy source access, copy destination public-ACL admission and DeleteObjects per-object errors exercise distinct bypass boundaries without repeating the entire multipart matrix."
+  ],
+  "RemainingNativeGaps": [
+    "Native successful GET serialization, PUT sparse/empty/replacement outcomes, DELETE idempotence and write propagation remain unmeasured.",
+    "No organization policy inheritance, access point or S3 on Outposts behavior is asserted.",
+    "No native account-level enforcement mutations or service-principal delivery experiment was performed."
+  ],
+  "Payloads": {
+    "abc": [
+      {
+        "Base64": "YWJj",
+        "Repeat": 1
+      }
+    ]
+  },
+  "Scenarios": [
+    {
+      "Name": "absent-present-replacement-region-global-retention-account-isolation",
+      "Calls": [
+        {
+          "Label": "initial absent",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "NoSuchPublicAccessBlockConfiguration",
+          "Status": 404
+        },
+        {
+          "Label": "present all-false is not absent",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "west sees present all-false after reopen",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Region": "us-west-2",
+          "Reopen": true,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "enable all flags",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "complete replacement disables previous flags",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "west sees replacement not merge",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Region": "us-west-2",
+          "Reopen": true,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "sparse configuration is full replacement",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicPolicy": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "omitted prior flags are false",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "supplied empty configuration stores present all-false",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {}
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "empty configuration remains present after reopen",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Reopen": true,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "restore state before isolation assertions",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "foreign account remains absent",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "other",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${otherAccount}"
+          },
+          "Code": "NoSuchPublicAccessBlockConfiguration",
+          "Status": 404
+        },
+        {
+          "Label": "foreign cannot replace owner account",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "other",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "foreign cannot delete owner account",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "other",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "foreign failures did not change state",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "delete from west",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Region": "us-west-2"
+        },
+        {
+          "Label": "east absent after retained delete",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "NoSuchPublicAccessBlockConfiguration",
+          "Status": 404,
+          "Reopen": true
+        },
+        {
+          "Label": "delete absent",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200
+        }
+      ]
+    },
+    {
+      "Name": "block-public-acls-or-bucket-and-account-copy-admission",
+      "Setup": [
+        {
+          "Label": "create bucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "store explicit bucket flags off",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bind actual canonical owner",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketAcl",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "canonical": "Owner.ID"
+          }
+        },
+        {
+          "Label": "seed private source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Payload": "abc",
+          "Body": "YWJj"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "account blocks public ACL admission",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket GET remains stored all-false",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "reject public bucket ACL",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketAcl",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "ACL": "public-read"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "reject public object ACL",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObjectAcl",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object",
+            "ACL": "public-read"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "reject public new object",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "denied-put",
+            "ACL": "public-read"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Payload": "abc"
+        },
+        {
+          "Label": "rejected write did not create key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "HeadObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "denied-put"
+          },
+          "Code": "404",
+          "Status": 404
+        },
+        {
+          "Label": "copy cannot bypass public ACL admission",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CopyObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "denied-copy",
+            "CopySource": "account-block-bucket/object",
+            "ACL": "public-read"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "rejected copy did not create key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "HeadObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "denied-copy"
+          },
+          "Code": "404",
+          "Status": 404
+        },
+        {
+          "Label": "disable account ACL block",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket ACL block remains independently effective",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket still rejects public ACL",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObjectAcl",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object",
+            "ACL": "public-read"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "disable bucket ACL block",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "public ACL accepted after both levels disabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObjectAcl",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object",
+            "ACL": "public-read"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "public reader can consume newly allowed ACL",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "ignore-public-acls-effective-projection-and-restoration",
+      "Setup": [
+        {
+          "Label": "create bucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "store explicit bucket flags off",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bind actual canonical owner",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketAcl",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "canonical": "Owner.ID"
+          }
+        },
+        {
+          "Label": "seed public object",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object",
+            "ACL": "public-read"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Payload": "abc",
+          "Body": "YWJj"
+        },
+        {
+          "Label": "seed public bucket ACL",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketAcl",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "ACL": "public-read"
+          },
+          "Code": "Success",
+          "Status": 200
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "stored public object ACL initially visible",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObjectAcl",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Grants": [
+              {
+                "Grantee": {
+                  "Type": "CanonicalUser",
+                  "ID": "${canonical}"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "stored public bucket ACL initially visible",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketAcl",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Grants": [
+              {
+                "Grantee": {
+                  "Type": "CanonicalUser",
+                  "ID": "${canonical}"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "account ignores public ACLs",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket GET remains stored all-false",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "effective object projection hides public grant",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObjectAcl",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Grants": [
+              {
+                "Grantee": {
+                  "Type": "CanonicalUser",
+                  "ID": "${canonical}"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "effective bucket projection hides public grant",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketAcl",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Grants": [
+              {
+                "Grantee": {
+                  "Type": "CanonicalUser",
+                  "ID": "${canonical}"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "anonymous ACL read denied",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "ignore does not reject new public ACL writes",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "new-public",
+            "ACL": "public-read"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Payload": "abc"
+        },
+        {
+          "Label": "remove account suppression",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "object public grant restored after reopen",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObjectAcl",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Grants": [
+              {
+                "Grantee": {
+                  "Type": "CanonicalUser",
+                  "ID": "${canonical}"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "bucket public grant restored",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketAcl",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Grants": [
+              {
+                "Grantee": {
+                  "Type": "CanonicalUser",
+                  "ID": "${canonical}"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "public bytes restored",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "enable independent bucket ACL ignore",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "all-false account cannot override bucket suppression",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket still suppresses public object grants",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObjectAcl",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Grants": [
+              {
+                "Grantee": {
+                  "Type": "CanonicalUser",
+                  "ID": "${canonical}"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "bucket still denies public ACL reader",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "block-public-policy-denied-replacement-retains-fixed-delegation",
+      "Setup": [
+        {
+          "Label": "create bucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "store explicit bucket flags off",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bind actual canonical owner",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketAcl",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "canonical": "Owner.ID"
+          }
+        },
+        {
+          "Label": "seed object",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Payload": "abc",
+          "Body": "YWJj"
+        },
+        {
+          "Label": "seed fixed foreign delegation",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${otherAccount}:root\"},\"Action\":\"s3:GetObject\",\"Resource\":[\"arn:aws:s3:::account-block-bucket\",\"arn:aws:s3:::account-block-bucket/*\"]}]}"
+          },
+          "Code": "Success",
+          "Status": 204
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "account rejects public policy replacement",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket GET remains stored all-false",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "reject public replacement",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::account-block-bucket\",\"arn:aws:s3:::account-block-bucket/*\"]}]}"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "denied replacement remains nonpublic",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketPolicyStatus",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PolicyStatus": {
+              "IsPublic": false
+            }
+          }
+        },
+        {
+          "Label": "fixed foreign delegation survived rejection",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "disable account policy block",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "enable independent bucket policy block",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket still rejects public replacement",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::account-block-bucket\",\"arn:aws:s3:::account-block-bucket/*\"]}]}"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "disable bucket policy block",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "public replacement accepted after both disabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::account-block-bucket\",\"arn:aws:s3:::account-block-bucket/*\"]}]}"
+          },
+          "Code": "Success",
+          "Status": 204
+        },
+        {
+          "Label": "anonymous reads accepted public policy",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "restrict-public-policy-owner-foreign-public-copy-and-batch",
+      "Setup": [
+        {
+          "Label": "create bucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "store explicit bucket flags off",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bind actual canonical owner",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketAcl",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "canonical": "Owner.ID"
+          }
+        },
+        {
+          "Label": "seed source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Payload": "abc",
+          "Body": "YWJj"
+        },
+        {
+          "Label": "create foreign copy destination",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "account-foreign-copy"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "public and fixed foreign statements",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":[\"arn:aws:s3:::account-block-bucket\",\"arn:aws:s3:::account-block-bucket/*\"]},{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${otherAccount}:root\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::account-block-bucket\",\"arn:aws:s3:::account-block-bucket/*\"]}]}"
+          },
+          "Code": "Success",
+          "Status": 204
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "public policy works before restriction",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "fixed foreign grant works before restriction",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "restrict public buckets at account",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket GET remains stored all-false",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "owner remains authorized after reopen",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "anonymous public policy blocked",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "even fixed foreign grant blocked",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "copy source read cannot bypass owner account restriction",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "CopyObject",
+          "Input": {
+            "Bucket": "account-foreign-copy",
+            "Key": "denied-copy",
+            "CopySource": "account-block-bucket/object"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "failed source authorization left no foreign copy",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "HeadObject",
+          "Input": {
+            "Bucket": "account-foreign-copy",
+            "Key": "denied-copy"
+          },
+          "Code": "404",
+          "Status": 404
+        },
+        {
+          "Label": "batch does not bypass account restriction",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "DeleteObjects",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Delete": {
+              "Objects": [
+                {
+                  "Key": "object"
+                }
+              ],
+              "Quiet": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Errors": [
+              {
+                "Key": "object",
+                "Code": "AccessDenied"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "batch denial did not remove object",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "disable account restriction",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "foreign access restored",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "enable independent bucket restriction",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bucket restriction still blocks foreign grant",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "remove only public statement",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${otherAccount}:root\"},\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::account-block-bucket\",\"arn:aws:s3:::account-block-bucket/*\"]}]}"
+          },
+          "Code": "Success",
+          "Status": 204
+        },
+        {
+          "Label": "nonpublic fixed delegation works with restriction set",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-bucket",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "iam-explicit-denial-permission-aliases-and-no-state-change",
+      "Setup": [
+        {
+          "Label": "create same-account operator",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateUser",
+          "Input": {
+            "UserName": "AccountBlockOperator"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "issue actual IAM credentials",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateAccessKey",
+          "Input": {
+            "UserName": "AccountBlockOperator"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Session": "operator"
+        },
+        {
+          "Label": "allow S3 but explicitly deny account mutations",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "PutUserPolicy",
+          "Input": {
+            "UserName": "AccountBlockOperator",
+            "PolicyName": "AccountBlock",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":[\"s3:PutAccountPublicAccessBlock\"],\"Resource\":\"*\"}]}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "seed retained protected configuration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "IAM operator allowed account GET",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "operator",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "explicit PUT denial",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "operator",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "DELETE also requires PutAccountPublicAccessBlock",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "operator",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "denied mutations retain state across reopen",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Reopen": true,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "deny GET but permit account mutations",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "PutUserPolicy",
+          "Input": {
+            "UserName": "AccountBlockOperator",
+            "PolicyName": "AccountBlock",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":[\"s3:GetAccountPublicAccessBlock\"],\"Resource\":\"*\"}]}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "explicit GET denial",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "operator",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "AccessDenied",
+          "Status": 403
+        },
+        {
+          "Label": "authorized mutation does not require GET",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "operator",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "root sees successful all-false replacement",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "authorized DELETE with only GET denied",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "operator",
+          "Operation": "DeletePublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "root sees configuration removed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}"
+          },
+          "Code": "NoSuchPublicAccessBlockConfiguration",
+          "Status": 404
+        }
+      ]
+    },
+    {
+      "Name": "bucket-owner-account-not-requesting-account-governs-enforcement",
+      "Setup": [
+        {
+          "Label": "create bucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "account-block-foreign-owned",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "store explicit bucket flags off",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-foreign-owned",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "bind actual canonical owner",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetBucketAcl",
+          "Input": {
+            "Bucket": "account-block-foreign-owned"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "canonical": "Owner.ID"
+          }
+        },
+        {
+          "Label": "owner delegates public reads and writes",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "PutBucketPolicy",
+          "Input": {
+            "Bucket": "account-block-foreign-owned",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::account-block-foreign-owned\",\"arn:aws:s3:::account-block-foreign-owned/*\"]}]}"
+          },
+          "Code": "Success",
+          "Status": 204
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "requester account enables every restriction",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${account}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "foreign-owned bucket ignores requester ACL block",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "account-block-foreign-owned",
+            "Key": "object",
+            "ACL": "public-read"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Payload": "abc"
+        },
+        {
+          "Label": "requester restriction does not block foreign-owned bucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Input": {
+            "Bucket": "account-block-foreign-owned",
+            "Key": "object"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Digest": {
+            "Length": 3,
+            "SHA256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+          }
+        },
+        {
+          "Label": "bucket owner now blocks ACL admission",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3control",
+          "Actor": "other",
+          "Operation": "PutPublicAccessBlock",
+          "Input": {
+            "AccountId": "${otherAccount}",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Code": "Success",
+          "Status": 200
+        },
+        {
+          "Label": "owner restriction rejects same requesting principal",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "account-block-foreign-owned",
+            "Key": "denied",
+            "ACL": "public-read"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Payload": "abc"
+        },
+        {
+          "Label": "owner verifies rejected key absent",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "HeadObject",
+          "Input": {
+            "Bucket": "account-block-foreign-owned",
+            "Key": "denied"
+          },
+          "Code": "404",
+          "Status": 404
+        },
+        {
+          "Label": "owner bucket settings are still stored all-false",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetPublicAccessBlock",
+          "Input": {
+            "Bucket": "account-block-foreign-owned"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3435 @@
+{
+  "schemaVersion": 1,
+  "source": "Native AWS signed JSON 1.1 and aws_cli; delivered S3 CloudTrail records, not LookupEvents",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "startedAt": "2026-09-19T06:05:00.976124+00:00",
+  "owned": {
+    "streamName": "stackd-kaudit-1b9b783ad561",
+    "streamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+    "bucket": "stackd-kaudit-1b9b783ad561-bucket",
+    "trail": "stackd-kaudit-1b9b783ad561-trail",
+    "trailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-kaudit-1b9b783ad561-trail",
+    "consumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+  },
+  "primaryReferences": [
+    "https://docs.aws.amazon.com/streams/latest/dev/logging-using-cloudtrail.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_AdvancedFieldSelector.html"
+  ],
+  "bounds": {
+    "deliverySeconds": 1080,
+    "pollSeconds": 20,
+    "maxCalls": 250,
+    "cleanupReservedCalls": 40,
+    "oneProvisionedShard": true,
+    "automaticRetries": false,
+    "subscriptionMaximumFrames": 5,
+    "subscriptionSocketTimeoutSeconds": 20
+  },
+  "calls": [
+    {
+      "sequence": 1,
+      "label": "verify-approved-account",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "startedAt": "2026-09-19T06:05:00.976144+00:00",
+      "finishedAt": "2026-09-19T06:05:01.673588+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+        "Account": "000000000000",
+        "Arn": "arn:aws:iam::000000000000:user/Delegated"
+      }
+    },
+    {
+      "sequence": 2,
+      "label": "create-owned-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket"
+      },
+      "startedAt": "2026-09-19T06:05:01.964733+00:00",
+      "finishedAt": "2026-09-19T06:05:02.947254+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "Location": "/stackd-kaudit-1b9b783ad561-bucket",
+        "BucketArn": "arn:aws:s3:::stackd-kaudit-1b9b783ad561-bucket"
+      }
+    },
+    {
+      "sequence": 3,
+      "label": "allow-owned-trail-delivery",
+      "service": "s3api",
+      "operation": "put-bucket-policy",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-kaudit-1b9b783ad561-bucket\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-kaudit-1b9b783ad561-trail\"}}}, {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-kaudit-1b9b783ad561-bucket/owned/AWSLogs/000000000000/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-kaudit-1b9b783ad561-trail\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "startedAt": "2026-09-19T06:05:02.947435+00:00",
+      "finishedAt": "2026-09-19T06:05:03.840353+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 4,
+      "label": "create-single-region-trail",
+      "service": "cloudtrail",
+      "operation": "create-trail",
+      "input": {
+        "Name": "stackd-kaudit-1b9b783ad561-trail",
+        "S3BucketName": "stackd-kaudit-1b9b783ad561-bucket",
+        "S3KeyPrefix": "owned",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "EnableLogFileValidation": false,
+        "IsOrganizationTrail": false
+      },
+      "startedAt": "2026-09-19T06:05:03.840541+00:00",
+      "finishedAt": "2026-09-19T06:05:04.717962+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "Name": "stackd-kaudit-1b9b783ad561-trail",
+        "S3BucketName": "stackd-kaudit-1b9b783ad561-bucket",
+        "S3KeyPrefix": "owned",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-kaudit-1b9b783ad561-trail",
+        "LogFileValidationEnabled": false,
+        "IsOrganizationTrail": false
+      }
+    },
+    {
+      "sequence": 5,
+      "label": "configure-owned-selectors",
+      "service": "cloudtrail",
+      "operation": "put-event-selectors",
+      "input": {
+        "TrailName": "stackd-kaudit-1b9b783ad561-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "BoundedRegionalManagement",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Management"
+                ]
+              },
+              {
+                "Field": "eventSource",
+                "NotEquals": [
+                  "kms.amazonaws.com",
+                  "rdsdata.amazonaws.com"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "OwnedStreamData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::Stream"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "Equals": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "OwnedConsumerData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::StreamConsumer"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "startedAt": "2026-09-19T06:05:04.718156+00:00",
+      "finishedAt": "2026-09-19T06:05:05.623473+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-kaudit-1b9b783ad561-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "BoundedRegionalManagement",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Management"
+                ]
+              },
+              {
+                "Field": "eventSource",
+                "NotEquals": [
+                  "kms.amazonaws.com",
+                  "rdsdata.amazonaws.com"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "OwnedStreamData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::Stream"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "Equals": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "OwnedConsumerData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::StreamConsumer"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 6,
+      "label": "read-effective-selectors",
+      "service": "cloudtrail",
+      "operation": "get-event-selectors",
+      "input": {
+        "TrailName": "stackd-kaudit-1b9b783ad561-trail"
+      },
+      "startedAt": "2026-09-19T06:05:05.623726+00:00",
+      "finishedAt": "2026-09-19T06:05:06.375167+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-kaudit-1b9b783ad561-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "BoundedRegionalManagement",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Management"
+                ]
+              },
+              {
+                "Field": "eventSource",
+                "NotEquals": [
+                  "kms.amazonaws.com",
+                  "rdsdata.amazonaws.com"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "OwnedStreamData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "Equals": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::Stream"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "OwnedConsumerData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::StreamConsumer"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 7,
+      "label": "start-owned-trail",
+      "service": "cloudtrail",
+      "operation": "start-logging",
+      "input": {
+        "Name": "stackd-kaudit-1b9b783ad561-trail"
+      },
+      "startedAt": "2026-09-19T06:05:06.375590+00:00",
+      "finishedAt": "2026-09-19T06:05:07.097519+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 8,
+      "label": "create-owned-stream",
+      "service": "kinesis",
+      "operation": "CreateStream",
+      "input": {
+        "StreamName": "stackd-kaudit-1b9b783ad561",
+        "ShardCount": 1,
+        "StreamModeDetails": {
+          "StreamMode": "PROVISIONED"
+        }
+      },
+      "startedAt": "2026-09-19T06:06:12.106891+00:00",
+      "finishedAt": "2026-09-19T06:06:12.737310+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "e31563cb-521a-ed6f-803d-4b5fb75d1041",
+      "responseHeaders": {
+        "x-amzn-RequestId": "e31563cb-521a-ed6f-803d-4b5fb75d1041",
+        "x-amz-id-2": "6W9qQpgERybPSwEPWRXGrjarV1rkNyQHm+gpMRrsuy/f0urdkZGWikv9CEgXAiW1/BTVER+BF/4QGpl4mk7VuRZoGMtmZCI8",
+        "Date": "Sat, 19 Sep 2026 06:06:12 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "0",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 9,
+      "label": "wait-stream-active-0",
+      "service": "kinesis",
+      "operation": "DescribeStreamSummary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+      },
+      "startedAt": "2026-09-19T06:06:12.737632+00:00",
+      "finishedAt": "2026-09-19T06:06:13.236896+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "ce391b04-7834-d90c-ad11-33914f0fda14",
+      "responseHeaders": {
+        "x-amzn-RequestId": "ce391b04-7834-d90c-ad11-33914f0fda14",
+        "x-amz-id-2": "klGVWF5Av4Nm4fAPps6HnjMzUKlqCkkx2oAOoHOw2sJdrPWKNMaK2MLsbl+jlLimZPXpxS8pQ03QMvNdhxY5QKB3Ws5Pf9z/",
+        "Date": "Sat, 19 Sep 2026 06:06:13 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "433",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "StreamDescriptionSummary": {
+          "ChannelCount": 0,
+          "ConsumerCount": 0,
+          "EncryptionType": "NONE",
+          "EnhancedMonitoring": [
+            {
+              "ShardLevelMetrics": []
+            }
+          ],
+          "MaxRecordSizeInKiB": 1024,
+          "RetentionPeriodHours": 24,
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+          "StreamCreationTimestamp": 1789797971,
+          "StreamModeDetails": {
+            "StreamMode": "PROVISIONED"
+          },
+          "StreamName": "stackd-kaudit-1b9b783ad561",
+          "StreamStatus": "CREATING"
+        }
+      }
+    },
+    {
+      "sequence": 10,
+      "label": "wait-stream-active-1",
+      "service": "kinesis",
+      "operation": "DescribeStreamSummary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+      },
+      "startedAt": "2026-09-19T06:06:16.237324+00:00",
+      "finishedAt": "2026-09-19T06:06:16.781013+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "caead017-ae6a-79ef-a9c2-f88fe1201146",
+      "responseHeaders": {
+        "x-amzn-RequestId": "caead017-ae6a-79ef-a9c2-f88fe1201146",
+        "x-amz-id-2": "zE98ZDs1QyGevLG2cUiDJU6BEktUIEmEDy1SH/O9bsM81VE08WiKWuoKv4XB+3RUUhWfWAw5eslrN0AlrTpoLVGxz+zWVsBn",
+        "Date": "Sat, 19 Sep 2026 06:06:16 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "433",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "StreamDescriptionSummary": {
+          "ChannelCount": 0,
+          "ConsumerCount": 0,
+          "EncryptionType": "NONE",
+          "EnhancedMonitoring": [
+            {
+              "ShardLevelMetrics": []
+            }
+          ],
+          "MaxRecordSizeInKiB": 1024,
+          "RetentionPeriodHours": 24,
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+          "StreamCreationTimestamp": 1789797971,
+          "StreamModeDetails": {
+            "StreamMode": "PROVISIONED"
+          },
+          "StreamName": "stackd-kaudit-1b9b783ad561",
+          "StreamStatus": "CREATING"
+        }
+      }
+    },
+    {
+      "sequence": 11,
+      "label": "wait-stream-active-2",
+      "service": "kinesis",
+      "operation": "DescribeStreamSummary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+      },
+      "startedAt": "2026-09-19T06:06:19.781416+00:00",
+      "finishedAt": "2026-09-19T06:06:20.244936+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "c30fe464-f388-ecef-a027-ccf88bf812e1",
+      "responseHeaders": {
+        "x-amzn-RequestId": "c30fe464-f388-ecef-a027-ccf88bf812e1",
+        "x-amz-id-2": "ZxGnTfsGJee5ZrOmWyoBc4iAAhBtIu3IRlJcMCBjinbpS2Ycg1FMgqMUvRnH4orPn1qcgR4CqIEyJ7QyZMJ0NX/DCE8jT2KP",
+        "Date": "Sat, 19 Sep 2026 06:06:20 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "450",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "StreamDescriptionSummary": {
+          "ChannelCount": 0,
+          "ConsumerCount": 0,
+          "EncryptionType": "NONE",
+          "EnhancedMonitoring": [
+            {
+              "ShardLevelMetrics": []
+            }
+          ],
+          "MaxRecordSizeInKiB": 1024,
+          "OpenShardCount": 1,
+          "RetentionPeriodHours": 24,
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+          "StreamCreationTimestamp": 1789797971,
+          "StreamModeDetails": {
+            "StreamMode": "PROVISIONED"
+          },
+          "StreamName": "stackd-kaudit-1b9b783ad561",
+          "StreamStatus": "ACTIVE"
+        }
+      }
+    },
+    {
+      "sequence": 12,
+      "label": "register-consumer",
+      "service": "kinesis",
+      "operation": "RegisterStreamConsumer",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+        "ConsumerName": "audit-reader"
+      },
+      "startedAt": "2026-09-19T06:06:20.245624+00:00",
+      "finishedAt": "2026-09-19T06:06:20.719506+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "f6f01e8d-66b8-a92b-95d8-36114cd99bfa",
+      "responseHeaders": {
+        "x-amzn-RequestId": "f6f01e8d-66b8-a92b-95d8-36114cd99bfa",
+        "x-amz-id-2": "FjVUdZlFF1Jk+SMU8lYFhVHr3TM78HE3mqyX4AIumEvPLhBI9zzrZ7fk01Y55POrc6d8FOVWnxpZbD8JHRIdwkuBZ3AIenox",
+        "Date": "Sat, 19 Sep 2026 06:06:20 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "235",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "Consumer": {
+          "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980",
+          "ConsumerCreationTimestamp": 1789797980,
+          "ConsumerName": "audit-reader",
+          "ConsumerStatus": "CREATING"
+        }
+      }
+    },
+    {
+      "sequence": 13,
+      "label": "describe-consumer-0",
+      "service": "kinesis",
+      "operation": "DescribeStreamConsumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+      },
+      "startedAt": "2026-09-19T06:06:20.720076+00:00",
+      "finishedAt": "2026-09-19T06:06:21.185961+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "e79fb948-3533-0cb0-84b7-91d57fb6dd7c",
+      "responseHeaders": {
+        "x-amzn-RequestId": "e79fb948-3533-0cb0-84b7-91d57fb6dd7c",
+        "x-amz-id-2": "WjDXxUQrdI9eIZORycFdmUc2lAU+XS/eLdobHRXU3ELHWRD/NU+2ZdiuMWp4NPJ+t0ps396ZPQqA1Mh0mF+vA+SscBdEOv6p",
+        "Date": "Sat, 19 Sep 2026 06:06:21 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "333",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "ConsumerDescription": {
+          "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980",
+          "ConsumerCreationTimestamp": 1789797980,
+          "ConsumerName": "audit-reader",
+          "ConsumerStatus": "CREATING",
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+        }
+      }
+    },
+    {
+      "sequence": 14,
+      "label": "describe-consumer-1",
+      "service": "kinesis",
+      "operation": "DescribeStreamConsumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+      },
+      "startedAt": "2026-09-19T06:06:24.186717+00:00",
+      "finishedAt": "2026-09-19T06:06:24.710344+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "f8fe6081-da05-daf9-9bd6-4821721de406",
+      "responseHeaders": {
+        "x-amzn-RequestId": "f8fe6081-da05-daf9-9bd6-4821721de406",
+        "x-amz-id-2": "GVnqo2/kV87OlyD3E4E6Fs5/VhCN/DMUnkmhnIrEZxzvlvFrbnzW4NWo+18z++tpTRED/pbGREo6nL4dZjOqp5pEkseoQyR7",
+        "Date": "Sat, 19 Sep 2026 06:06:24 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "333",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "ConsumerDescription": {
+          "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980",
+          "ConsumerCreationTimestamp": 1789797980,
+          "ConsumerName": "audit-reader",
+          "ConsumerStatus": "CREATING",
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+        }
+      }
+    },
+    {
+      "sequence": 15,
+      "label": "describe-consumer-2",
+      "service": "kinesis",
+      "operation": "DescribeStreamConsumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+      },
+      "startedAt": "2026-09-19T06:06:27.710829+00:00",
+      "finishedAt": "2026-09-19T06:06:28.205862+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "d0c4e306-c0ae-2edf-b3ec-cba2c6714064",
+      "responseHeaders": {
+        "x-amzn-RequestId": "d0c4e306-c0ae-2edf-b3ec-cba2c6714064",
+        "x-amz-id-2": "NUdvH6oXIjnfpruhRTEEiYE/H+gLuIkh9fcc8dRMGGXTLKRVBLI58R76Yo5irvUNrxl0bmdgxBcLiGEaV/i51qJ9JbvU1qic",
+        "Date": "Sat, 19 Sep 2026 06:06:28 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "331",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "ConsumerDescription": {
+          "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980",
+          "ConsumerCreationTimestamp": 1789797980,
+          "ConsumerName": "audit-reader",
+          "ConsumerStatus": "ACTIVE",
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+        }
+      }
+    },
+    {
+      "sequence": 16,
+      "label": "list-shards",
+      "service": "kinesis",
+      "operation": "ListShards",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+      },
+      "startedAt": "2026-09-19T06:06:28.206507+00:00",
+      "finishedAt": "2026-09-19T06:06:28.633449+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "d1588c29-c333-9ca9-b270-a48d994e18c9",
+      "responseHeaders": {
+        "x-amzn-RequestId": "d1588c29-c333-9ca9-b270-a48d994e18c9",
+        "x-amz-id-2": "IpX5hModV+HtjroGJpw5OAMmnL+Z693vGSUS7cBaN9ccBkQfB/eoqKv23i+5uh0xOogXyJJwcwH7Cp9wAvXhbwL5VZGHL7I4",
+        "Date": "Sat, 19 Sep 2026 06:06:28 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "252",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "Shards": [
+          {
+            "HashKeyRange": {
+              "EndingHashKey": "340282366920938463463374607431768211455",
+              "StartingHashKey": "0"
+            },
+            "SequenceNumberRange": {
+              "StartingSequenceNumber": "49678478562767897321619015348230798117224562428464857090"
+            },
+            "ShardId": "shardId-999000999000"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 17,
+      "label": "put-record",
+      "service": "kinesis",
+      "operation": "PutRecord",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+        "Data": "YXVkaXQtc2luZ2xlLXBheWxvYWQ=",
+        "PartitionKey": "audit-single-key",
+        "ExplicitHashKey": "0"
+      },
+      "startedAt": "2026-09-19T06:06:28.634102+00:00",
+      "finishedAt": "2026-09-19T06:06:29.083575+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "d20b9282-a5b0-e946-b123-ba27771a43bb",
+      "responseHeaders": {
+        "x-amzn-RequestId": "d20b9282-a5b0-e946-b123-ba27771a43bb",
+        "x-amz-id-2": "25TBodrljndL0XbIvVqK99er+T9NWjE6l0ocR2/qJtUNpgeAF0EIgayp6EKNNFTiYgM05Kaz98voJskGH5K+VCxdQJJek8NG",
+        "Date": "Sat, 19 Sep 2026 06:06:29 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "110",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "SequenceNumber": "49678478562767897321619142386676096861997340480774340610",
+        "ShardId": "shardId-999000999000"
+      }
+    },
+    {
+      "sequence": 18,
+      "label": "put-records",
+      "service": "kinesis",
+      "operation": "PutRecords",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+        "Records": [
+          {
+            "Data": "YXVkaXQtYmF0Y2gtcGF5bG9hZA==",
+            "PartitionKey": "audit-batch-key",
+            "ExplicitHashKey": "1"
+          }
+        ]
+      },
+      "startedAt": "2026-09-19T06:06:29.084258+00:00",
+      "finishedAt": "2026-09-19T06:06:29.530559+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "d8d9ebab-bf3b-9d7e-bbf1-c30eeffbdd9c",
+      "responseHeaders": {
+        "x-amzn-RequestId": "d8d9ebab-bf3b-9d7e-bbf1-c30eeffbdd9c",
+        "x-amz-id-2": "ZdjHkGSxA0kxd8GfRMB9U4DyCnfMFBqmVRT909G08zoJefjWMS0nzF517D7CDQh3vFeShS96NP2wQng3nlfeCicx4w26Wejm",
+        "Date": "Sat, 19 Sep 2026 06:06:29 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "146",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "FailedRecordCount": 0,
+        "Records": [
+          {
+            "SequenceNumber": "49678478562767897321619142386738961004617301197859061762",
+            "ShardId": "shardId-999000999000"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 19,
+      "label": "get-shard-iterator",
+      "service": "kinesis",
+      "operation": "GetShardIterator",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+        "ShardId": "shardId-999000999000",
+        "ShardIteratorType": "AT_SEQUENCE_NUMBER",
+        "StartingSequenceNumber": "49678478562767897321619142386676096861997340480774340610"
+      },
+      "startedAt": "2026-09-19T06:06:29.533708+00:00",
+      "finishedAt": "2026-09-19T06:06:29.973821+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "f51f853d-86f0-b333-9637-ad985b486a65",
+      "responseHeaders": {
+        "x-amzn-RequestId": "f51f853d-86f0-b333-9637-ad985b486a65",
+        "x-amz-id-2": "gQKk3uLvQFVQWHNBaw3k0MFE8kYmltk1Q6nRiXmBt+bN7N6+qYKv4085/lV63CgirT/OicXmnB+itclO1QYwmHLKrkp9aENq",
+        "Date": "Sat, 19 Sep 2026 06:06:29 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "288",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "ShardIterator": "AAAAAAAAAAFqCH/WDEinOvQ1e25jbswT6aQoRCRbUVbZT+DHkRqFrdkRdzBcB1DwejkNOxy7KaVGkq4VI3Y5uXK6xR5cvutPFq/lWqKQFiu5fd0B43d1VO0PNGB4cKrxfmGpv8hOO7c9Ux5++ayWe1npMxUAgvXWJGZwBIpY1kzOQG0noEokHtD0Spl3YE10iNrj3iZPQdYzab76T+XSgfVpJRCSggQ+1Nk/v+hfNXOoLxqFc94kz2aSjq0M4ur7wGDUQdms3Ho="
+      }
+    },
+    {
+      "sequence": 20,
+      "label": "get-records",
+      "service": "kinesis",
+      "operation": "GetRecords",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+        "ShardIterator": "AAAAAAAAAAFqCH/WDEinOvQ1e25jbswT6aQoRCRbUVbZT+DHkRqFrdkRdzBcB1DwejkNOxy7KaVGkq4VI3Y5uXK6xR5cvutPFq/lWqKQFiu5fd0B43d1VO0PNGB4cKrxfmGpv8hOO7c9Ux5++ayWe1npMxUAgvXWJGZwBIpY1kzOQG0noEokHtD0Spl3YE10iNrj3iZPQdYzab76T+XSgfVpJRCSggQ+1Nk/v+hfNXOoLxqFc94kz2aSjq0M4ur7wGDUQdms3Ho=",
+        "Limit": 10
+      },
+      "startedAt": "2026-09-19T06:06:29.974348+00:00",
+      "finishedAt": "2026-09-19T06:06:30.417841+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "e90e2176-c0f5-9cba-8a26-09d08c8e82d9",
+      "responseHeaders": {
+        "x-amzn-RequestId": "e90e2176-c0f5-9cba-8a26-09d08c8e82d9",
+        "x-amz-id-2": "8ff26uOqrEdBtBO6OcTYLJmYDzNv+Xmg+vIhfLlgtO8PZ20wusCGSj4qSFb/Rsy31bO7RH87e/qBXb5t9Ut19ERzMj4/5Ucf",
+        "Date": "Sat, 19 Sep 2026 06:06:30 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "720",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "MillisBehindLatest": 0,
+        "NextShardIterator": "AAAAAAAAAAF/Rp5mKI11XGQMOL4eBBZzVFrJKRqCXGxXV7phSoNxuoqTu54ClXbAleDZuarlKJxqV+7VxCxKdVbVArt6gaSaLudSBU4LRXkuViUi9NKz6CT0iuExUx+svxFRt9JwsFTpTb3+6Emd8pSraKKEA0JtekHqxpZ6plZpCkFM461tFRGNYKkRyVZTNACuoTPzaSAKAoS7Roobf/bh5308ziCgrbLl9QPjvUlFFpufaMy1XHTIanE2Wn3YOTbz/83GF6Q=",
+        "Records": [
+          {
+            "ApproximateArrivalTimestamp": 1789797989.017,
+            "Data": "YXVkaXQtc2luZ2xlLXBheWxvYWQ=",
+            "PartitionKey": "audit-single-key",
+            "SequenceNumber": "49678478562767897321619142386676096861997340480774340610"
+          },
+          {
+            "ApproximateArrivalTimestamp": 1789797989.469,
+            "Data": "YXVkaXQtYmF0Y2gtcGF5bG9hZA==",
+            "PartitionKey": "audit-batch-key",
+            "SequenceNumber": "49678478562767897321619142386738961004617301197859061762"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 21,
+      "label": "subscribe-one-event",
+      "service": "kinesis",
+      "operation": "SubscribeToShard",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980",
+        "ShardId": "shardId-999000999000",
+        "StartingPosition": {
+          "Type": "AT_SEQUENCE_NUMBER",
+          "SequenceNumber": "49678478562767897321619142386676096861997340480774340610"
+        }
+      },
+      "startedAt": "2026-09-19T06:06:30.418317+00:00",
+      "finishedAt": "2026-09-19T06:06:30.869323+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 200,
+      "requestID": "e3cdbcb8-37e0-78ac-80e5-941e92de8bb5",
+      "responseHeaders": {
+        "x-amzn-RequestId": "e3cdbcb8-37e0-78ac-80e5-941e92de8bb5",
+        "x-amz-id-2": "umUuL+1Z489k/2EY0wL38bzw/+LtQbKriVdJ8c7DuMkHofXn4Kk+gc4mzswPu0RE+4iSNBRaPFCT1HyJtbAmN1haLQVbZ5TH",
+        "Date": "Sat, 19 Sep 2026 06:06:30 GMT",
+        "Content-Type": "application/vnd.amazon.eventstream",
+        "Transfer-Encoding": "chunked",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "frames": [
+          {
+            "headersBase64": "CzpldmVudC10eXBlBwAQaW5pdGlhbC1yZXNwb25zZQ06Y29udGVudC10eXBlBwAaYXBwbGljYXRpb24veC1hbXotanNvbi0xLjENOm1lc3NhZ2UtdHlwZQcABWV2ZW50",
+            "payload": {},
+            "frameCRCVerified": true
+          },
+          {
+            "headersBase64": "CzpldmVudC10eXBlBwAVU3Vic2NyaWJlVG9TaGFyZEV2ZW50DTpjb250ZW50LXR5cGUHABphcHBsaWNhdGlvbi94LWFtei1qc29uLTEuMQ06bWVzc2FnZS10eXBlBwAFZXZlbnQ=",
+            "payload": {
+              "ContinuationSequenceNumber": "49678478562767897321619142386949314097230246742977413122",
+              "MillisBehindLatest": 0,
+              "Records": [
+                {
+                  "ApproximateArrivalTimestamp": 1789797989.017,
+                  "Data": "YXVkaXQtc2luZ2xlLXBheWxvYWQ=",
+                  "PartitionKey": "audit-single-key",
+                  "SequenceNumber": "49678478562767897321619142386676096861997340480774340610"
+                },
+                {
+                  "ApproximateArrivalTimestamp": 1789797989.469,
+                  "Data": "YXVkaXQtYmF0Y2gtcGF5bG9hZA==",
+                  "PartitionKey": "audit-batch-key",
+                  "SequenceNumber": "49678478562767897321619142386738961004617301197859061762"
+                }
+              ]
+            },
+            "frameCRCVerified": true
+          }
+        ],
+        "closedAfterFrames": 2,
+        "closedByClient": true
+      }
+    },
+    {
+      "sequence": 22,
+      "label": "dry-run-put-record",
+      "service": "kinesis",
+      "operation": "PutRecord",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+        "Data": "YXVkaXQtc2luZ2xlLXBheWxvYWQ=",
+        "PartitionKey": "audit-single-key",
+        "ExplicitHashKey": "0",
+        "DryRun": true
+      },
+      "startedAt": "2026-09-19T06:06:30.869841+00:00",
+      "finishedAt": "2026-09-19T06:06:31.334750+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "httpStatus": 400,
+      "requestID": "d9590c6b-ded9-c43d-ba71-24cc984b6b26",
+      "responseHeaders": {
+        "x-amzn-RequestId": "d9590c6b-ded9-c43d-ba71-24cc984b6b26",
+        "x-amz-id-2": "Vt+Mq3QbmBlEYWVa/WasUhgQSbMA8RH/w+R825r82ph6FX3VZ+rCBYH+KzuSiE6hV50aYK2FmuO1JgmVSEWUOz9014Jgkv6k",
+        "Date": "Sat, 19 Sep 2026 06:06:31 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "176",
+        "Connection": "close"
+      },
+      "code": "DryRunOperationException",
+      "error": {
+        "__type": "DryRunOperationException",
+        "message": "DryRunOperation validation succeeded while calling PutRecord operation.: Request would have succeeded, but DryRun flag is set."
+      }
+    },
+    {
+      "sequence": 23,
+      "label": "create-ephemeral-denied-session",
+      "service": "sts",
+      "operation": "get-federation-token",
+      "input": {
+        "Name": "stackd-kaudit-1b9b783ad561",
+        "DurationSeconds": 900,
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"kinesis:PutRecord\", \"Resource\": \"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561\"}, {\"Effect\": \"Deny\", \"Action\": \"kinesis:PutRecord\", \"Resource\": \"arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561\"}]}"
+      },
+      "startedAt": "2026-09-19T06:06:31.335285+00:00",
+      "finishedAt": "2026-09-19T06:06:32.051216+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "FederatedUser": {
+          "FederatedUserId": "000000000000:stackd-kaudit-1b9b783ad561",
+          "Arn": "arn:aws:sts::000000000000:federated-user/stackd-kaudit-1b9b783ad561"
+        },
+        "PackedPolicySize": 21,
+        "CredentialsOmitted": true
+      }
+    },
+    {
+      "sequence": 24,
+      "label": "denied-put-record",
+      "service": "kinesis",
+      "operation": "PutRecord",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+        "Data": "YXVkaXQtc2luZ2xlLXBheWxvYWQ=",
+        "PartitionKey": "audit-single-key",
+        "ExplicitHashKey": "0"
+      },
+      "startedAt": "2026-09-19T06:06:32.052031+00:00",
+      "finishedAt": "2026-09-19T06:06:32.490580+00:00",
+      "actor": "federated-denied-session",
+      "cleanup": false,
+      "httpStatus": 400,
+      "requestID": "ca3cad61-a127-e466-a914-85c94e382126",
+      "responseHeaders": {
+        "x-amzn-RequestId": "ca3cad61-a127-e466-a914-85c94e382126",
+        "x-amz-id-2": "2mcHVSzyoWeXRRAerfOrg7slkeBIILeUt506Nu1CxWkaqtEaUrs7FwJMSxa1ICIu+AWf4myf4TBz6tfO2HtsKsm+Lbf+nOhX",
+        "Date": "Sat, 19 Sep 2026 06:06:32 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "296",
+        "Connection": "close"
+      },
+      "code": "AccessDeniedException",
+      "error": {
+        "__type": "AccessDeniedException",
+        "Message": "User: arn:aws:sts::000000000000:federated-user/stackd-kaudit-1b9b783ad561 is not authorized to perform: kinesis:PutRecord on resource: arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561 with an explicit deny in a session policy"
+      }
+    },
+    {
+      "sequence": 25,
+      "label": "disable-management-keep-owned-data",
+      "service": "cloudtrail",
+      "operation": "put-event-selectors",
+      "input": {
+        "TrailName": "stackd-kaudit-1b9b783ad561-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "OwnedStreamData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::Stream"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "Equals": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "OwnedConsumerData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::StreamConsumer"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "startedAt": "2026-09-19T06:07:02.491511+00:00",
+      "finishedAt": "2026-09-19T06:07:03.329857+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-kaudit-1b9b783ad561-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "OwnedStreamData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::Stream"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "Equals": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "OwnedConsumerData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::Kinesis::StreamConsumer"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 26,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:07:03.331139+00:00",
+      "finishedAt": "2026-09-19T06:07:04.146060+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 27,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:07:24.147941+00:00",
+      "finishedAt": "2026-09-19T06:07:25.030514+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 28,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:07:45.040674+00:00",
+      "finishedAt": "2026-09-19T06:07:45.841389+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 29,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:08:05.843836+00:00",
+      "finishedAt": "2026-09-19T06:08:06.661830+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 30,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:08:26.663879+00:00",
+      "finishedAt": "2026-09-19T06:08:27.420629+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 31,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:08:47.422574+00:00",
+      "finishedAt": "2026-09-19T06:08:48.235414+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 32,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:09:08.245666+00:00",
+      "finishedAt": "2026-09-19T06:09:09.057476+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 33,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:09:29.059647+00:00",
+      "finishedAt": "2026-09-19T06:09:29.874180+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 34,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:09:49.876435+00:00",
+      "finishedAt": "2026-09-19T06:09:50.665163+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 35,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:10:10.674997+00:00",
+      "finishedAt": "2026-09-19T06:10:11.448502+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 36,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:10:31.458689+00:00",
+      "finishedAt": "2026-09-19T06:10:32.244172+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 37,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:10:52.254097+00:00",
+      "finishedAt": "2026-09-19T06:10:53.052212+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 38,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:11:13.061950+00:00",
+      "finishedAt": "2026-09-19T06:11:13.876661+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "sequence": 39,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:11:33.878866+00:00",
+      "finishedAt": "2026-09-19T06:11:34.705091+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 40,
+      "label": "download-delivery",
+      "service": "s3api",
+      "operation": "get-object",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz"
+      },
+      "startedAt": "2026-09-19T06:11:34.705786+00:00",
+      "finishedAt": "2026-09-19T06:11:35.479685+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-19T06:11:17+00:00",
+        "ContentLength": 622,
+        "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+        "ChecksumCRC64NVME": "7bXIkyVbiyg=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentEncoding": "gzip",
+        "ContentType": "application/json",
+        "ServerSideEncryption": "AES256",
+        "Metadata": {}
+      }
+    },
+    {
+      "sequence": 41,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:11:55.489703+00:00",
+      "finishedAt": "2026-09-19T06:11:56.302523+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 42,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:12:16.313007+00:00",
+      "finishedAt": "2026-09-19T06:12:17.169003+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 43,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:12:37.171071+00:00",
+      "finishedAt": "2026-09-19T06:12:37.962994+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 44,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:12:57.965143+00:00",
+      "finishedAt": "2026-09-19T06:12:58.890251+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 45,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:13:18.900050+00:00",
+      "finishedAt": "2026-09-19T06:13:19.705508+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 46,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:13:39.715436+00:00",
+      "finishedAt": "2026-09-19T06:13:40.472073+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 47,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:14:00.482049+00:00",
+      "finishedAt": "2026-09-19T06:14:01.282162+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 48,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:14:21.292174+00:00",
+      "finishedAt": "2026-09-19T06:14:22.094517+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 49,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:14:42.096843+00:00",
+      "finishedAt": "2026-09-19T06:14:42.932203+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 50,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:15:02.935181+00:00",
+      "finishedAt": "2026-09-19T06:15:03.748265+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 51,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:15:23.750582+00:00",
+      "finishedAt": "2026-09-19T06:15:24.530788+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 52,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:15:44.540728+00:00",
+      "finishedAt": "2026-09-19T06:15:45.333072+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 53,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:16:05.345780+00:00",
+      "finishedAt": "2026-09-19T06:16:06.146286+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 54,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:16:26.156470+00:00",
+      "finishedAt": "2026-09-19T06:16:26.996555+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 55,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:16:46.998769+00:00",
+      "finishedAt": "2026-09-19T06:16:47.824706+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 56,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:17:07.826905+00:00",
+      "finishedAt": "2026-09-19T06:17:08.644571+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 57,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:17:28.654741+00:00",
+      "finishedAt": "2026-09-19T06:17:29.487735+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 58,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:17:49.490110+00:00",
+      "finishedAt": "2026-09-19T06:17:50.283204+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 59,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:18:10.293373+00:00",
+      "finishedAt": "2026-09-19T06:18:11.099396+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 60,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:18:31.109416+00:00",
+      "finishedAt": "2026-09-19T06:18:31.928824+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 61,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:18:51.931141+00:00",
+      "finishedAt": "2026-09-19T06:18:52.725501+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 62,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:19:12.732296+00:00",
+      "finishedAt": "2026-09-19T06:19:13.529919+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 63,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:19:33.540134+00:00",
+      "finishedAt": "2026-09-19T06:19:34.357923+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 64,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:19:54.368180+00:00",
+      "finishedAt": "2026-09-19T06:19:55.187478+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 65,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:20:15.190353+00:00",
+      "finishedAt": "2026-09-19T06:20:16.014196+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 66,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:20:36.017501+00:00",
+      "finishedAt": "2026-09-19T06:20:36.822150+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 67,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:20:56.832654+00:00",
+      "finishedAt": "2026-09-19T06:20:57.637567+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 68,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:21:17.640142+00:00",
+      "finishedAt": "2026-09-19T06:21:18.448036+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 69,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:21:38.450672+00:00",
+      "finishedAt": "2026-09-19T06:21:39.356123+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 70,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:21:59.366527+00:00",
+      "finishedAt": "2026-09-19T06:22:00.173567+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 71,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:22:20.183626+00:00",
+      "finishedAt": "2026-09-19T06:22:21.009036+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 72,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:22:41.011371+00:00",
+      "finishedAt": "2026-09-19T06:22:41.794777+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 73,
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:23:01.805045+00:00",
+      "finishedAt": "2026-09-19T06:23:02.609276+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 1
+      }
+    },
+    {
+      "sequence": 74,
+      "label": "final-trail-status",
+      "service": "cloudtrail",
+      "operation": "get-trail-status",
+      "input": {
+        "Name": "stackd-kaudit-1b9b783ad561-trail"
+      },
+      "startedAt": "2026-09-19T06:23:07.098226+00:00",
+      "finishedAt": "2026-09-19T06:23:07.860409+00:00",
+      "actor": "owner",
+      "cleanup": false,
+      "code": "Success",
+      "output": {
+        "IsLogging": true,
+        "LatestDeliveryTime": "2026-09-19T07:11:16.546000+01:00",
+        "StartLoggingTime": "2026-09-19T07:05:06.971000+01:00",
+        "LatestDeliveryAttemptTime": "2026-09-19T06:11:16Z",
+        "LatestNotificationAttemptTime": "",
+        "LatestNotificationAttemptSucceeded": "",
+        "LatestDeliveryAttemptSucceeded": "2026-09-19T06:11:16Z",
+        "TimeLoggingStarted": "2026-09-19T06:05:06Z",
+        "TimeLoggingStopped": ""
+      }
+    },
+    {
+      "sequence": 75,
+      "label": "stop-owned-trail",
+      "service": "cloudtrail",
+      "operation": "stop-logging",
+      "input": {
+        "Name": "stackd-kaudit-1b9b783ad561-trail"
+      },
+      "startedAt": "2026-09-19T06:23:07.861483+00:00",
+      "finishedAt": "2026-09-19T06:23:08.570752+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 76,
+      "label": "delete-owned-trail",
+      "service": "cloudtrail",
+      "operation": "delete-trail",
+      "input": {
+        "Name": "stackd-kaudit-1b9b783ad561-trail"
+      },
+      "startedAt": "2026-09-19T06:23:08.571814+00:00",
+      "finishedAt": "2026-09-19T06:23:09.289331+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 77,
+      "label": "verify-trail-absent",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "stackd-kaudit-1b9b783ad561-trail"
+      },
+      "startedAt": "2026-09-19T06:23:09.290386+00:00",
+      "finishedAt": "2026-09-19T06:23:09.984590+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "code": "TrailNotFoundException",
+      "message": "Unknown trail: stackd-kaudit-1b9b783ad561-trail for the user: 000000000000"
+    },
+    {
+      "sequence": 78,
+      "label": "deregister-owned-consumer",
+      "service": "kinesis",
+      "operation": "DeregisterStreamConsumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+      },
+      "startedAt": "2026-09-19T06:23:09.985652+00:00",
+      "finishedAt": "2026-09-19T06:23:10.495946+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "httpStatus": 200,
+      "requestID": "e83c3af2-aee8-99d0-8b14-167cd9fb3174",
+      "responseHeaders": {
+        "x-amzn-RequestId": "e83c3af2-aee8-99d0-8b14-167cd9fb3174",
+        "x-amz-id-2": "760JeDiB4co2HZZjjY87YW7LJBD1uXVnag/Qa4P0LwN30/OlDx+95dcxL+xFqpyr4CZUscSAEF+LgqU/qxP7LwM02HQMurbc",
+        "Date": "Sat, 19 Sep 2026 06:23:10 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "0",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 79,
+      "label": "verify-consumer-absent-0",
+      "service": "kinesis",
+      "operation": "DescribeStreamConsumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+      },
+      "startedAt": "2026-09-19T06:23:10.497139+00:00",
+      "finishedAt": "2026-09-19T06:23:10.951803+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "httpStatus": 200,
+      "requestID": "d961b1d6-c283-a3bf-ba49-9d58a49ea8bc",
+      "responseHeaders": {
+        "x-amzn-RequestId": "d961b1d6-c283-a3bf-ba49-9d58a49ea8bc",
+        "x-amz-id-2": "a8h2qVCgcmoZVtRGoh1UVZi1zSJW+ydO1LFREIx4shZ1IcHnFFl0dHSfpDl9qX9McYjIlNLs+6QoWMes8eMXeg0R/idev6SX",
+        "Date": "Sat, 19 Sep 2026 06:23:10 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "333",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "ConsumerDescription": {
+          "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980",
+          "ConsumerCreationTimestamp": 1789797980,
+          "ConsumerName": "audit-reader",
+          "ConsumerStatus": "DELETING",
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+        }
+      }
+    },
+    {
+      "sequence": 80,
+      "label": "verify-consumer-absent-1",
+      "service": "kinesis",
+      "operation": "DescribeStreamConsumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+      },
+      "startedAt": "2026-09-19T06:23:12.952989+00:00",
+      "finishedAt": "2026-09-19T06:23:13.406934+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "httpStatus": 200,
+      "requestID": "e63465d7-b6ee-1ebc-851c-49469c40f39e",
+      "responseHeaders": {
+        "x-amzn-RequestId": "e63465d7-b6ee-1ebc-851c-49469c40f39e",
+        "x-amz-id-2": "0kTxLZmlRuBPNbBB0Ck8IJqM3WT0V8wqG127ouzpl5Ql9cQPSmJ/q7MpczBZXeELEpSuoh/WNjYkhn7mq7XIYT7PGQq/Ge23",
+        "Date": "Sat, 19 Sep 2026 06:23:13 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "333",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "ConsumerDescription": {
+          "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980",
+          "ConsumerCreationTimestamp": 1789797980,
+          "ConsumerName": "audit-reader",
+          "ConsumerStatus": "DELETING",
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+        }
+      }
+    },
+    {
+      "sequence": 81,
+      "label": "verify-consumer-absent-2",
+      "service": "kinesis",
+      "operation": "DescribeStreamConsumer",
+      "input": {
+        "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+      },
+      "startedAt": "2026-09-19T06:23:15.408351+00:00",
+      "finishedAt": "2026-09-19T06:23:15.893117+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "httpStatus": 400,
+      "requestID": "cfbe66f4-d3ba-4376-ac96-4a6753ff624c",
+      "responseHeaders": {
+        "x-amzn-RequestId": "cfbe66f4-d3ba-4376-ac96-4a6753ff624c",
+        "x-amz-id-2": "lqzeCZSS9pBxatqWfc7LhQ9i7UzwEUO1hE1wWhMqaQBLqRrSeMi/4kK4vKu0zAtNoMSM2KJp6PBSYcLZ615wfJtEugJQZoMLRJqhCLlkGRY=",
+        "Date": "Sat, 19 Sep 2026 06:23:15 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "181",
+        "Connection": "close"
+      },
+      "code": "ResourceNotFoundException",
+      "error": {
+        "__type": "ResourceNotFoundException",
+        "message": "Consumer audit-reader with creation timestamp 1789797980 under stream: stackd-kaudit-1b9b783ad561, account 000000000000 not found."
+      }
+    },
+    {
+      "sequence": 82,
+      "label": "delete-owned-stream",
+      "service": "kinesis",
+      "operation": "DeleteStream",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+        "EnforceConsumerDeletion": true
+      },
+      "startedAt": "2026-09-19T06:23:15.894267+00:00",
+      "finishedAt": "2026-09-19T06:23:16.365007+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "httpStatus": 200,
+      "requestID": "f6dee0ff-176b-9bd1-95f6-cc6b0cf27f6d",
+      "responseHeaders": {
+        "x-amzn-RequestId": "f6dee0ff-176b-9bd1-95f6-cc6b0cf27f6d",
+        "x-amz-id-2": "VV7/n6DZ4/bUf1raspu3OfEVPHT8x0d6cCl0raKLRyErGbVpLm1WbZjmvVHRTsHSyHkVG/yTJWZafJ87GgS8XlAhWq+iiLF1nMWS3w0SWD0=",
+        "Date": "Sat, 19 Sep 2026 06:23:16 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "0",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 83,
+      "label": "verify-stream-absent-0",
+      "service": "kinesis",
+      "operation": "DescribeStreamSummary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+      },
+      "startedAt": "2026-09-19T06:23:16.366852+00:00",
+      "finishedAt": "2026-09-19T06:23:16.811679+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "httpStatus": 200,
+      "requestID": "f8f5e569-4899-0a3c-9bdd-c9fd5a0ee46e",
+      "responseHeaders": {
+        "x-amzn-RequestId": "f8f5e569-4899-0a3c-9bdd-c9fd5a0ee46e",
+        "x-amz-id-2": "scD28Y58EHeaey4Kly4hFgpoYVtDAD+Nn3PyoLR94cAMeoNmleAdWNDPOSAlzsRduS6wbeSznFWi5CMTzPV7FPICpXUCMvKSqCoSdeLNYrA=",
+        "Date": "Sat, 19 Sep 2026 06:23:16 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "433",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "StreamDescriptionSummary": {
+          "ChannelCount": 0,
+          "ConsumerCount": 0,
+          "EncryptionType": "NONE",
+          "EnhancedMonitoring": [
+            {
+              "ShardLevelMetrics": []
+            }
+          ],
+          "MaxRecordSizeInKiB": 1024,
+          "RetentionPeriodHours": 24,
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+          "StreamCreationTimestamp": 1789797971,
+          "StreamModeDetails": {
+            "StreamMode": "PROVISIONED"
+          },
+          "StreamName": "stackd-kaudit-1b9b783ad561",
+          "StreamStatus": "DELETING"
+        }
+      }
+    },
+    {
+      "sequence": 84,
+      "label": "verify-stream-absent-1",
+      "service": "kinesis",
+      "operation": "DescribeStreamSummary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+      },
+      "startedAt": "2026-09-19T06:23:19.812977+00:00",
+      "finishedAt": "2026-09-19T06:23:20.265823+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "httpStatus": 200,
+      "requestID": "f2c30c0e-706e-9ac1-91eb-2096f91ab0d5",
+      "responseHeaders": {
+        "x-amzn-RequestId": "f2c30c0e-706e-9ac1-91eb-2096f91ab0d5",
+        "x-amz-id-2": "0dMmfRWX6wyninsSKaRbwVTmzByiEQ1dPXLJr81QEEPg/PyqwXKGFainXKAL8QS7AUcjdQiEs3LTrWHoVrOKN7X55Uv9/hHMpK4aWsnWrhQ=",
+        "Date": "Sat, 19 Sep 2026 06:23:20 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "433",
+        "Connection": "close"
+      },
+      "code": "Success",
+      "output": {
+        "StreamDescriptionSummary": {
+          "ChannelCount": 0,
+          "ConsumerCount": 0,
+          "EncryptionType": "NONE",
+          "EnhancedMonitoring": [
+            {
+              "ShardLevelMetrics": []
+            }
+          ],
+          "MaxRecordSizeInKiB": 1024,
+          "RetentionPeriodHours": 24,
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+          "StreamCreationTimestamp": 1789797971,
+          "StreamModeDetails": {
+            "StreamMode": "PROVISIONED"
+          },
+          "StreamName": "stackd-kaudit-1b9b783ad561",
+          "StreamStatus": "DELETING"
+        }
+      }
+    },
+    {
+      "sequence": 85,
+      "label": "verify-stream-absent-2",
+      "service": "kinesis",
+      "operation": "DescribeStreamSummary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+      },
+      "startedAt": "2026-09-19T06:23:23.267188+00:00",
+      "finishedAt": "2026-09-19T06:23:23.746303+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "httpStatus": 400,
+      "requestID": "d4887dd8-425b-2df4-b7a0-5143d2888844",
+      "responseHeaders": {
+        "x-amzn-RequestId": "d4887dd8-425b-2df4-b7a0-5143d2888844",
+        "x-amz-id-2": "EL1J07yzCJ/d7HHXBpKgA6/hvKfWnLDaMb5Sy4PxM4lADDMTYGap3ELfdIlRizeEJM0tF7jdwGDCIT31zcSaVy1pT7tleO0X",
+        "Date": "Sat, 19 Sep 2026 06:23:23 GMT",
+        "Content-Type": "application/x-amz-json-1.1",
+        "Content-Length": "122",
+        "Connection": "close"
+      },
+      "code": "ResourceNotFoundException",
+      "error": {
+        "__type": "ResourceNotFoundException",
+        "message": "Stream stackd-kaudit-1b9b783ad561 under account 000000000000 not found."
+      }
+    },
+    {
+      "sequence": 86,
+      "label": "remove-owned-delivery-policy",
+      "service": "s3api",
+      "operation": "delete-bucket-policy",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket"
+      },
+      "startedAt": "2026-09-19T06:23:23.747481+00:00",
+      "finishedAt": "2026-09-19T06:23:24.652798+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 87,
+      "label": "list-owned-cleanup-objects-0",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "MaxKeys": 1000
+      },
+      "startedAt": "2026-09-19T06:23:24.653993+00:00",
+      "finishedAt": "2026-09-19T06:23:25.363749+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "code": "Success",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/",
+            "LastModified": "2026-09-19T06:05:05+00:00",
+            "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+            "LastModified": "2026-09-19T06:11:17+00:00",
+            "ETag": "\"d8713c990ce14899fbfb585aaaa9d2d3\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 622,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-kaudit-1b9b783ad561-bucket",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 2
+      }
+    },
+    {
+      "sequence": 88,
+      "label": "purge-owned-objects-0",
+      "service": "s3api",
+      "operation": "delete-objects",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket",
+        "Delete": {
+          "Objects": [
+            {
+              "Key": "owned/AWSLogs/000000000000/CloudTrail/"
+            },
+            {
+              "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz"
+            }
+          ],
+          "Quiet": true
+        }
+      },
+      "startedAt": "2026-09-19T06:23:25.364945+00:00",
+      "finishedAt": "2026-09-19T06:23:26.084863+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 89,
+      "label": "delete-owned-bucket-0",
+      "service": "s3api",
+      "operation": "delete-bucket",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket"
+      },
+      "startedAt": "2026-09-19T06:23:26.086068+00:00",
+      "finishedAt": "2026-09-19T06:23:26.959838+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 90,
+      "label": "verify-bucket-absent-0",
+      "service": "s3api",
+      "operation": "head-bucket",
+      "input": {
+        "Bucket": "stackd-kaudit-1b9b783ad561-bucket"
+      },
+      "startedAt": "2026-09-19T06:23:26.961156+00:00",
+      "finishedAt": "2026-09-19T06:23:27.695676+00:00",
+      "actor": "owner",
+      "cleanup": true,
+      "code": "404",
+      "message": "Not Found"
+    }
+  ],
+  "deliveredRecords": [
+    {
+      "sourcePath": "s3://stackd-kaudit-1b9b783ad561-bucket/owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+      "retrievedAt": "2026-09-19T06:11:35.480429+00:00",
+      "matchedCallLabel": "describe-consumer-0",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "arn:aws:iam::000000000000:user/Delegated",
+          "accountId": "000000000000",
+          "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-19T06:06:21Z",
+        "eventSource": "kinesis.amazonaws.com",
+        "eventName": "DescribeStreamConsumer",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "stackd-kaudit-1b9b783ad561",
+        "requestParameters": {
+          "consumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+        },
+        "responseElements": null,
+        "requestID": "e79fb948-3533-0cb0-84b7-91d57fb6dd7c",
+        "eventID": "03a52e2a-4414-4d7f-b311-5dff9c1edb5e",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "000000000000",
+            "type": "AWS::Kinesis::StreamConsumer",
+            "ARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561/consumer/audit-reader:1789797980"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "kinesis.us-east-1.amazonaws.com"
+        }
+      }
+    }
+  ],
+  "deliveryObjects": [
+    {
+      "sourcePath": "s3://stackd-kaudit-1b9b783ad561-bucket/owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/19/000000000000_CloudTrail_us-east-1_20260919T0610Z_iEKj9pZ31tipQ7Sr.json.gz",
+      "retrievedAt": "2026-09-19T06:11:35.480433+00:00",
+      "compressedSha256": "b9685b43ec582db4aa43063d6f4d23545b83e084c1fd34e4736b20d3edfca1a8",
+      "compressedBytes": 622,
+      "nativeRecordCount": 1,
+      "matchedOwnedRecordCount": 1
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "remainingOwned": []
+  },
+  "limitations": [
+    "Single account, Region and bounded run; no claim about other deployments or delivery deadlines.",
+    "Trail management selectors cannot scope to Kinesis or owned ARNs. Single-region management excludes KMS and RDS data API and global service events; management collection disabled after exercising owned calls. Unrelated delivered management events are discarded.",
+    "No shared trails, IAM resources, keys, policies, account settings or commitments changed. STS session credentials exist only in process memory.",
+    "Exact selected native event envelopes retained, including non-secret credential identifiers; no secret keys, session tokens or signed request headers retained."
+  ],
+  "callCount": 90,
+  "loggingStartedAt": "2026-09-19T06:05:07.097819+00:00",
+  "exercisedAt": "2026-09-19T06:06:32.491425+00:00",
+  "managementCollectionDisabledAt": "2026-09-19T06:07:03.330781+00:00",
+  "delivery": {
+    "elapsedSeconds": 1080,
+    "observedCallLabels": [
+      "describe-consumer-0"
+    ],
+    "missingCallLabels": [
+      "denied-put-record",
+      "describe-consumer-1",
+      "describe-consumer-2",
+      "dry-run-put-record",
+      "get-records",
+      "get-shard-iterator",
+      "list-shards",
+      "put-record",
+      "put-records",
+      "register-consumer",
+      "subscribe-one-event"
+    ],
+    "boundedWaitReached": true
+  },
+  "supplementalCalls": [
+    {
+      "label": "stream-id-with-correct-arn",
+      "service": "kinesis",
+      "operation": "DescribeStreamSummary",
+      "input": {
+        "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+        "StreamId": "aaaaaaaaaaaaaaaaaaaa-aaa"
+      },
+      "startedAt": "2026-09-19T06:11:11.373547+00:00",
+      "finishedAt": "2026-09-19T06:11:12.146153+00:00",
+      "httpStatus": 200,
+      "code": "Success",
+      "output": {
+        "StreamDescriptionSummary": {
+          "ChannelCount": 0,
+          "ConsumerCount": 1,
+          "EncryptionType": "NONE",
+          "EnhancedMonitoring": [
+            {
+              "ShardLevelMetrics": []
+            }
+          ],
+          "MaxRecordSizeInKiB": 1024,
+          "OpenShardCount": 1,
+          "RetentionPeriodHours": 24,
+          "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561",
+          "StreamCreationTimestamp": 1789797971,
+          "StreamModeDetails": {
+            "StreamMode": "PROVISIONED"
+          },
+          "StreamName": "stackd-kaudit-1b9b783ad561",
+          "StreamStatus": "ACTIVE"
+        }
+      },
+      "transport": "scripts/aws/signed_requests.py; response headers unavailable"
+    },
+    {
+      "label": "stream-id-only",
+      "service": "kinesis",
+      "operation": "DescribeStreamSummary",
+      "input": {
+        "StreamId": "aaaaaaaaaaaaaaaaaaaa-aaa"
+      },
+      "startedAt": "2026-09-19T06:11:12.146166+00:00",
+      "finishedAt": "2026-09-19T06:11:12.615722+00:00",
+      "httpStatus": 400,
+      "code": "InvalidArgumentException",
+      "error": {
+        "__type": "InvalidArgumentException",
+        "message": "Stream arn and stream name can't be empty at the same time"
+      },
+      "transport": "scripts/aws/signed_requests.py; response headers unavailable"
+    }
+  ],
+  "supplementalCallAccounting": {
+    "apiCalls": 3,
+    "recordedDescribeStreamSummaryCalls": 2,
+    "additionalGetCallerIdentityVerification": 1,
+    "verifiedAccount": "000000000000",
+    "totalIncludingPrimaryExperiment": 93,
+    "note": "Supplemental calls requested during delivery wait, after management logging was disabled; no CloudTrail coverage claimed."
+  },
+  "payloadVerification": {
+    "comparison": "Actual base64-decoded GetRecords and SubscribeToShardEvent data compared byte-for-byte against sent payloads; equal in original order. Subscription closed after initial-response frame plus one data event frame.",
+    "getRecordsCallSequence": 20,
+    "subscribeCallSequence": 21,
+    "decodedPayloads": [
+      {
+        "utf8": "audit-single-payload",
+        "bytes": 20,
+        "sha256": "a4081a748417ec662c74950b841fcaa87878976faad3f4f40f379478234ae1e6"
+      },
+      {
+        "utf8": "audit-batch-payload",
+        "bytes": 19,
+        "sha256": "f2c2d3b11ad79cddeb4c54acb951f7db1b45a8950e8f7723f4c58046b6818f99"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "finding": "Delivered DescribeStreamConsumer is a management read event, not a data event; requestParameters contains consumerARN only, responseElements is null despite a populated native API response, and resources references the StreamConsumer ARN.",
+      "callSequence": 13,
+      "eventID": "03a52e2a-4414-4d7f-b311-5dff9c1edb5e",
+      "requestID": "e79fb948-3533-0cb0-84b7-91d57fb6dd7c"
+    },
+    {
+      "finding": "PutRecord, PutRecords, GetShardIterator, GetRecords, SubscribeToShard, ListShards, RegisterStreamConsumer and all three DescribeStreamConsumer calls succeeded; GetRecords and Subscribe delivered the two actual tiny payloads. Native call success does not establish CloudTrail category or projection.",
+      "callSequences": [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
+      ]
+    },
+    {
+      "finding": "PutRecord DryRun=true returned HTTP 400 DryRunOperationException. The STS session-policy-denied ordinary PutRecord returned HTTP 400 AccessDeniedException with explicit session-policy denial. Neither event envelope was delivered within the bounded window.",
+      "callSequences": [
+        22,
+        23,
+        24
+      ]
+    },
+    {
+      "finding": "Only one log object containing one event arrived during 1080 seconds from StartLogging. Final GetTrailStatus showed a successful delivery attempt, no delivery-error field, and IsLogging=true. Cleanup listing contained exactly that log object and an empty CloudTrail prefix object. No inference about omission/redaction, responseElements, denied-call projection, ListShards category, or SubscribeToShard resource type is supported for missing envelopes.",
+      "callSequences": [
+        74,
+        87
+      ]
+    },
+    {
+      "finding": "A synthetic valid-format StreamId plus the correct StreamARN is accepted by DescribeStreamSummary and returns the owned stream without a StreamId field. StreamId alone fails InvalidArgumentException: Stream arn and stream name can't be empty at the same time. This is one sampled input, not universal validation coverage.",
+      "supplementalCallLabels": [
+        "stream-id-with-correct-arn",
+        "stream-id-only"
+      ]
+    }
+  ],
+  "finishedAt": "2026-09-19T06:23:27.696999+00:00",
+  "managementHistoryRecovery": {
+    "capturedAt": "2026-09-19T06:45:59.253Z",
+    "source": "AWS CloudTrail LookupEvents via AWS CLI; exact probe requestID correlation",
+    "lookup": {
+      "region": "us-east-1",
+      "lookupAttributes": [
+        {
+          "AttributeKey": "EventName",
+          "AttributeValue": "ListShards"
+        }
+      ],
+      "maxResults": 50
+    },
+    "events": [
+      {
+        "EventId": "b2966da8-bfe6-41b1-a111-b8344a72331d",
+        "EventName": "ListShards",
+        "EventTime": "2026-09-19T07:06:28+01:00",
+        "Resources": [],
+        "CloudTrailEvent": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-19T06:06:28Z",
+          "eventSource": "kinesis.amazonaws.com",
+          "eventName": "ListShards",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "stackd-kaudit-1b9b783ad561",
+          "requestParameters": {
+            "streamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+          },
+          "responseElements": null,
+          "requestID": "d1588c29-c333-9ca9-b270-a48d994e18c9",
+          "eventID": "b2966da8-bfe6-41b1-a111-b8344a72331d",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::Kinesis::Stream",
+              "ARN": "arn:aws:kinesis:us-east-1:000000000000:stream/stackd-kaudit-1b9b783ad561"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "kinesis.us-east-1.amazonaws.com"
+          }
+        }
+      }
+    ],
+    "findings": [
+      "ListShards is Management and readOnly=true for the probe StreamARN request.",
+      "Request retains streamARN; responseElements is null; event resources contain the exact AWS::Kinesis::Stream ARN.",
+      "LookupEvents Resources is empty, distinct from CloudTrailEvent.resources.",
+      "The original bounded S3 delivery observation remains unchanged."
+    ]
+  }
+}

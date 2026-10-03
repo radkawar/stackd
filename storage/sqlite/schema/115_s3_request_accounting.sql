@@ -1,0 +1,1 @@
+ALTER TABLE s3_buckets ADD COLUMN requester_pays BOOLEAN NOT NULL DEFAULT false;

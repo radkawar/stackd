@@ -1,0 +1,126 @@
+{
+  "description": "Interpretation of retained native AWS Resource Groups captures. Raw requests, responses, HTTP statuses and request IDs remain in native.json, native-query-boundaries.json and native-attributes.json; native-audit.json contains exact-owned CloudTrail events. This file does not replace them.",
+  "reproduce": [
+    "python3 -B -P scripts/aws/resource_groups_capture.py --output testdata/aws/resourcegroups/native.json",
+    "python3 -B -P scripts/aws/resource_groups_capture.py --query-boundaries --output testdata/aws/resourcegroups/native-query-boundaries.json",
+    "python3 -B -P scripts/aws/resource_groups_capture.py --attributes --output testdata/aws/resourcegroups/native-attributes.json",
+    "python3 -B -P scripts/aws/resource_groups_capture.py --audit"
+  ],
+  "safety": {
+    "account": "000000000000",
+    "caller": "arn:aws:iam::000000000000:user/Delegated",
+    "region": "us-east-1",
+    "endpoint_overrides": "Disabled using AWS_IGNORE_CONFIGURED_ENDPOINT_URLS and botocore Config(ignore_configured_endpoint_urls=True).",
+    "mutations": "Only uniquely named empty S3 buckets, SQS queues, Resource Groups, and two tiny CloudFormation stacks containing one SQS queue each. Empty capacity/network configuration groups do not allocate specialty resources.",
+    "account_settings": "GetAccountSettings only; GroupLifecycleEventsStatus INACTIVE. No PutAccountSettings, IAM role creation, AppRegistry provisioning, organization changes, instances, capacity reservations, dedicated hosts or firewalls.",
+    "retained_history": "CloudFormation retains deleted stack history. DELETE_COMPLETE and exact queue absence are the cleanup criteria; no claim that AWS deletes historical stack metadata."
+  },
+  "selection": {
+    "evidence": "native.json: selection-* and owned.resources",
+    "rules": [
+      "AWS::AllSupported includes AWS::ResourceGroups::Group, including the querying group itself when its tags match.",
+      "An omitted Values field and an empty Values array match any value for the specified key, but not a missing key.",
+      "Values:[\"\"] matches an actual empty tag value, not a missing key.",
+      "Values within one filter are OR; different tag keys are AND; tag values are case-sensitive.",
+      "Repeated TagFilters with the same Key use the last filter: stage:red followed by stage:blue selected the blue bucket, not an empty intersection.",
+      "ResourceTypeFilters restrict selection; S3 and SQS type filters form a union.",
+      "Query update immediately changed the returned membership to the blue bucket; a rejected invalid update left the previously valid query unchanged."
+    ],
+    "initial_hypotheses": "The first raw native.json intentionally retains four matches:false annotations from pre-native expectations: selection-owner, selection-empty-values, selection-values-or omitted the owned groups; selection-duplicate-key-and assumed AND for repeated keys. Responses are not rewritten. The repeatable script now includes the owned groups and uses last-duplicate-key semantics. All ten captured result sets were checked against these calibrated expectations without repeating native failures."
+  },
+  "query_validation": {
+    "evidence": ["native.json: query-*", "native-query-boundaries.json: duplicate-resource-types, lower-camel-query-fields, upper-query-fields, mixed-query-fields"],
+    "rules": [
+      "Query JSON field names are case-sensitive at both root and TagFilter member levels.",
+      "Unknown fields, malformed JSON, arrays, missing ResourceTypeFilters and empty objects are BadRequestException query syntax errors.",
+      "ResourceTypeFilters requires 1..100 elements; TagFilters requires 1..50; an empty tag Key is invalid.",
+      "Unsupported types, duplicate types, and AWS::AllSupported combined with another type are rejected.",
+      "Invalid pagination tokens and MaxResults=0 return modeled BadRequestException."
+    ]
+  },
+  "lifecycle_tags_and_pagination": {
+    "evidence": "native.json: no-query-or-configuration, duplicate-name, missing-group-identifier, conflicting-identifiers, description-*, group-tags*, group-untag-missing, groups-pagination-*",
+    "rules": [
+      "CreateGroup requires a resource query or a supported service configuration; no default empty generic group is created.",
+      "A duplicate name is BadRequestException. Missing group names are NotFoundException; missing identifier or supplying Group plus GroupName is BadRequestException.",
+      "Clearing Description with an empty string omits it from the returned Group.",
+      "Tag returns only submitted tags; GetTags returns merged state. Untag tolerates missing keys and echoes the requested Keys. aws:-prefixed tag keys are rejected.",
+      "ListGroups returns both Groups and GroupIdentifiers. ListGroupResources returns both Resources.Identifier and ResourceIdentifiers plus QueryErrors.",
+      "Pagination can return an empty final page and filtered ListGroups can return an empty intermediate page with NextToken; continuation must follow the token rather than result count."
+    ]
+  },
+  "application_attributes_and_member_filters": {
+    "evidence": "native-attributes.json: create-displayname, create-owner, create-criticality, update-displayname, update-owner, update-criticality, ordinary-group-after-attributes, filter-*, member-filter-outside-query-types",
+    "rules": [
+      "DisplayName, Owner and Criticality each produce BadRequestException Unsupported parameter for this operation on both CreateGroup and UpdateGroup for an ordinary tag-query group. The existing group remains unchanged.",
+      "ListGroups accepts display-name, owner and criticality filters; these probes returned empty arrays, including an intermediate empty page with a continuation token.",
+      "ListGroupResources rejects a resource-type filter outside the group's declared query types: an SQS filter against an S3-only query returns BadRequestException Filters not valid: The resource types specified as filters in the request are incompatible with the group query: AWS::SQS::Queue."
+    ]
+  },
+  "configuration_and_association": {
+    "evidence": "native.json: generic-*, capacity-*, network-*, appregistry-*, application-group, query-group-*",
+    "rules": [
+      "Standalone AWS::ResourceGroups::Generic is rejected, including no parameters, S3 allowed-resource-types, capacity allowed-resource-types and unknown parameters.",
+      "CapacityReservationPool requires Generic with allowed-resource-types AWS::EC2::CapacityReservation. A correct empty pool succeeds with GroupConfiguration.Status UPDATE_COMPLETE.",
+      "An identical PutGroupConfiguration succeeds with an empty response; an empty configuration list is rejected and preserves the previous configuration.",
+      "Capacity GroupResources/UngroupResources with an S3 ARN succeeds at the HTTP level but returns Failed ResourceArnValidationException, Succeeded:[], Pending:[]. A nonexistent capacity-reservation ARN instead returns Failed ResourceGroupsValidationException.",
+      "Query groups reject both GroupResources and UngroupResources; the NetworkFirewall group rejects GroupResources. Query groups reject GetGroupConfiguration/PutGroupConfiguration and capacity groups reject GetGroupQuery.",
+      "ListGroupingStatuses requires an application group; query and capacity groups return BadRequestException, while an absent group returns NotFoundException.",
+      "NetworkFirewall::RuleGroup plus an EC2::Instance tag query is accepted. A missing query, S3 type, or AllSupported type is rejected. Primary Network Firewall documentation also lists EC2::NetworkInterface as eligible; no native interface was provisioned.",
+      "AppRegistry::Application and CloudFormation::Stack service configurations are ForbiddenException, managed by AppRegistry. ResourceGroups::ApplicationGroup direct creation is BadRequestException Operation is not supported."
+    ]
+  },
+  "cloudformation": {
+    "evidence": ["native.json: stack-search, stack-members, stack-members-type-exclusion, stack-name-identifier, cleanup/stack-group-after-stack-delete", "native-query-boundaries.json: empty-stack-identifier, nonexistent-stack-arn, stack-before-early-search, stack-create-in-progress-search, stack-query"],
+    "rules": [
+      "A real tiny CloudFormation stack selected its SQS queue ARN. Resource-type exclusion returned an empty list.",
+      "StackIdentifier requires an ARN: a plain stack name and an empty string are rejected.",
+      "SearchResources with a syntactically valid nonexistent stack ARN is HTTP200 with QueryErrors CLOUDFORMATION_STACK_NOT_EXISTING; CreateGroup with the same query is BadRequestException.",
+      "CREATE_IN_PROGRESS was observed immediately before successful SearchResources and successful CreateGroup. The early search had no resources and no QueryErrors; it was not rejected as inactive.",
+      "After DELETE_COMPLETE the group persists; ListGroupResources returns empty arrays and QueryErrors CLOUDFORMATION_STACK_INACTIVE. Native message lists DELETE_COMPLETE, ROLLBACK_COMPLETE and CREATE_FAILED as inactive statuses.",
+      "Primary query documentation explicitly lists CREATE_COMPLETE, CREATE_IN_PROGRESS, DELETE_FAILED, DELETE_IN_PROGRESS and REVIEW_IN_PROGRESS as supported; only CREATE_IN_PROGRESS, CREATE_COMPLETE and DELETE_COMPLETE were directly exercised."
+    ]
+  },
+  "tag_sync_dependencies": {
+    "evidence": ["native.json: tag-sync-*", "native-query-boundaries.json: tag-sync-list-*"],
+    "rules": [
+      "StartTagSyncTask returned ForbiddenException for every tested selector variant because GLE is in maintenance mode and unavailable to new customers as of July 30, 2026. That gate ran before selector/group/role validation; these captures do not establish the later validation order.",
+      "A successful task needs a real managed application group and a service-assumable IAM tagging role with resource tagging/grouping permissions. Neither is provisioned by this capture; no successful enrollment or synchronization is claimed.",
+      "ListTagSyncTasks returns TagSyncTasks:[] for ordinary or nonexistent GroupName/GroupArn filters. An empty filter and a filter containing both fields are BadRequestException.",
+      "GetTagSyncTask and CancelTagSyncTask for a nonexistent task return NotFoundException Cannot find task: ARN."
+    ],
+    "unavailable": [
+      "GLE enrollment for this current INACTIVE native account.",
+      "Exact-owned AppRegistry-managed application and service-assumable tagging role.",
+      "Positive capacity-reservation or dedicated-host association and underlying network/firewall resolution resources."
+    ]
+  },
+  "cloudtrail": {
+    "evidence": "native-audit.json",
+    "collection": "One bounded read-only lookup: 174 events matching the three exact capture prefixes, six lookup pages, no missing owned-prefix request IDs and no page-cap truncation. Credential fields removed recursively. Calls without an exact-owned prefix in their request are not part of this completeness statement.",
+    "rules": [
+      "The native eventSource is resource-groups.amazonaws.com. The unhyphenated resourcegroups.amazonaws.com lookup returned no events.",
+      "All retained events have eventCategory Management, eventType AwsApiCall and managementEvent true.",
+      "Observed Get/List/Search calls have readOnly true and responseElements null, including failed reads. Observed mutations have readOnly false and populated responseElements, including failed mutations with a Message object.",
+      "The resources field was present for GetGroup, GetGroupQuery, GetGroupConfiguration and ListGroupResources, containing accountId, type AWS::ResourceGroups::Group and ARN. It was retained even on NotFound. Other observed operations omitted the resources field.",
+      "Observed failed events retain errorCode but omit errorMessage. Mutation error details instead appear in responseElements.Message.",
+      "CloudTrail can retain response members omitted by the generated SDK: CreateGroup includes Group.OwnerId and successful PutGroupConfiguration includes GroupIdentifier and GroupConfiguration. The retained raw audit shape is not a copy of SDK-decoded output.",
+      "Tag requestParameters.Arn is URL-encoded in the observed native audit event."
+    ],
+    "absence_boundary": "Missing or late CloudTrail records are not proof of native omission. This collection happened after the probes; no broader service-wide event coverage is claimed."
+  },
+  "authoritative_sources": [
+    "https://docs.aws.amazon.com/ARG/latest/userguide/gettingstarted-query.html",
+    "https://docs.aws.amazon.com/ARG/latest/userguide/about-slg-types.html",
+    "https://docs.aws.amazon.com/ARG/latest/APIReference/API_GroupResources.html",
+    "https://docs.aws.amazon.com/ARG/latest/APIReference/API_CreateGroup.html",
+    "https://docs.aws.amazon.com/ARG/latest/APIReference/API_GroupFilter.html",
+    "https://docs.aws.amazon.com/ARG/latest/userguide/security_logging-monitoring.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_LookupEvents.html",
+    "https://docs.aws.amazon.com/ARG/latest/APIReference/API_StartTagSyncTask.html",
+    "https://docs.aws.amazon.com/ARG/latest/userguide/resource-groups-gle-availability-change.html",
+    "https://docs.aws.amazon.com/servicecatalog/latest/arguide/app-tag-sync.html",
+    "https://docs.aws.amazon.com/servicecatalog/latest/arguide/app-registry-availability-change.html",
+    "https://docs.aws.amazon.com/network-firewall/latest/developerguide/resource-group-creating.html"
+  ]
+}

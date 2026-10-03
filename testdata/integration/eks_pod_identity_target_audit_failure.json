@@ -1,0 +1,82 @@
+{
+  "cluster": "stackd-eks-worker-f2081ce477",
+  "worker": "i-3e183ae63f0554b96",
+  "runtime": {
+    "binary": "/tmp/stackd-eks-production-proof-bin",
+    "controllerPID": 2382960,
+    "race": false,
+    "unmodifiedSource": true,
+    "nativeVersion": "v1.33.5+k3s1",
+    "workerVersion": "v1.33.4+k3s1"
+  },
+  "durationSeconds": 87.2,
+  "passedBoundaries": [
+    {
+      "case": "source trust revocation",
+      "code": "AccessDeniedException",
+      "response": "\nError when retrieving credentials from container-role: Error retrieving metadata: Received non 200 response 400 from container metadata: [7922f1f63a83d472d99bbafe0441ac93]: (AccessDeniedException): User: pods.eks.amazonaws.com is not authorized to perform: sts:AssumeRole on resource: arn:aws:iam::530331331998:role/eks-strict-46a51ba6. A resource policy explicitly denies this operation., fault: client\n\ncommand terminated with exit code 255\n"
+    },
+    {
+      "case": "source TagSession permission",
+      "code": "AccessDeniedException",
+      "response": "\nError when retrieving credentials from container-role: Error retrieving metadata: Received non 200 response 400 from container metadata: [99dfce04ee473989b1cddba603d64100]: (AccessDeniedException): User: pods.eks.amazonaws.com is not authorized to perform: sts:TagSession on resource: arn:aws:iam::530331331998:role/eks-strict-46a51ba6. An AWS service principal requires a direct resource permission., fault: client\n\ncommand terminated with exit code 255\n"
+    },
+    {
+      "case": "disabled tags cannot authorize tagged resource",
+      "code": "AccessDenied",
+      "response": "\nAn error occurred (AccessDenied) when calling the SendMessage operation: User: arn:aws:sts::530331331998:assumed-role/eks-strict-46a51ba6/eks-stackd-eks-worker-f2081-364850de-d206-4a3f-91ed-66f73abda56e is not authorized to perform: sqs:SendMessage on resource: arn:aws:sqs:us-east-1:530331331998:eks-strict-46a51ba6. No applicable policy grants this operation.\ncommand terminated with exit code 254\n"
+    },
+    {
+      "case": "target session policy intersection",
+      "code": "AccessDenied",
+      "response": "\nAn error occurred (AccessDenied) when calling the GetQueueAttributes operation: User: arn:aws:sts::530331331998:assumed-role/eks-strict-46a51ba6-target/eks-stackd-eks-worker-f2081-29b5704d-1794-40c8-9a2c-c8035226d51b is not authorized to perform: sqs:GetQueueAttributes on resource: arn:aws:sqs:us-east-1:530331331998:eks-strict-46a51ba6. No applicable policy grants this operation.\ncommand terminated with exit code 254\n"
+    }
+  ],
+  "failedBoundary": "target transitive TagSession permission",
+  "failure": {
+    "type": "AssertionError",
+    "message": "\nError when retrieving credentials from container-role: Error retrieving metadata: Received error when attempting to retrieve container metadata: Read timeout on endpoint URL: \"http://169.254.170.23/v1/credentials\"\ncommand terminated with exit code 255\n"
+  },
+  "agentErrors": [
+    {
+      "client-addr": "10.42.2.9:53352",
+      "cluster-name": "stackd-eks-worker-f2081ce477",
+      "level": "error",
+      "msg": "Error fetching credentials: unable to fetch credentials from EKS Auth: operation error EKS Auth: AssumeRoleForPodIdentity, exceeded maximum number of attempts, 3, https response error StatusCode: 500, RequestID: 1740253a5590beff6115cb3c210ea66b, api error InternalFailure: Unable to record STS API outcome.",
+      "operation": "AssumeRoleForPodIdentity",
+      "request-id": "1740253a5590beff6115cb3c210ea66b",
+      "service": "EKS Auth",
+      "time": "2026-09-28T03:39:44Z"
+    },
+    {
+      "client-addr": "10.42.2.9:53352",
+      "cluster-name": "stackd-eks-worker-f2081ce477",
+      "level": "error",
+      "msg": "Error fetching credentials: unable to fetch credentials from EKS Auth: operation error EKS Auth: AssumeRoleForPodIdentity, request canceled, context canceled",
+      "operation": "AssumeRoleForPodIdentity",
+      "service": "EKS Auth",
+      "time": "2026-09-28T03:39:47Z"
+    },
+    {
+      "client-addr": "10.42.2.9:53368",
+      "cluster-name": "stackd-eks-worker-f2081ce477",
+      "level": "error",
+      "msg": "Error fetching credentials: unable to fetch credentials from EKS Auth: operation error EKS Auth: AssumeRoleForPodIdentity, request canceled, context canceled",
+      "operation": "AssumeRoleForPodIdentity",
+      "service": "EKS Auth",
+      "time": "2026-09-28T03:39:50Z"
+    }
+  ],
+  "cleanupErrors": [],
+  "precedingStrictProof": "eks_pod_identity_strict_before_timeout_diagnosis.json",
+  "allStrictBoundariesPassed": false,
+  "diagnosis": {
+    "observedCode": "InternalFailure",
+    "observedMessage": "Unable to record STS API outcome.",
+    "observedRequestID": "1740253a5590beff6115cb3c210ea66b",
+    "cause": "The target STS trust rejection returned through a nested IAM Update, poisoning the enclosing EKS write. Mandatory STS rejection recording then encountered the same failed transaction and replaced the authorization error with InternalFailure.",
+    "scope": "This target-chain rejection bug is separate from race-instrumentation latency. No timeout, retry policy or denied-result assertion was weakened.",
+    "implementation": "IAM authority commands now use existing native Attempt/savepoint semantics. STS rejection projections use existing retained outcomes. EKS records the retained rejection only after its failed exchange has rolled back; successful issuance records remain atomic with their credentials.",
+    "postFixVerification": "Ordinary uninstrumented /tmp/stackd-eks-sts-outcome-bin: the nine remaining strict cases passed in 174.70s with no cleanup error. All three SDK attempts at the target TagSession boundary recorded real STS AccessDenied followed by EKS AccessDeniedException, with zero matching successful issuance events or credential rows. Existing positive credentials remained after role cleanup, so the zero count is not a cleanup artifact. See eks_pod_identity_strict_completion.json."
+  }
+}

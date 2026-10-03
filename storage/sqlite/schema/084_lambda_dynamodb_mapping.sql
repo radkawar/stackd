@@ -1,0 +1,9 @@
+ALTER TABLE lambda_event_source_mappings ADD COLUMN transition_state TEXT NOT NULL DEFAULT '';
+ALTER TABLE lambda_event_source_mappings ADD COLUMN last_processing_result TEXT;
+ALTER TABLE lambda_event_source_mappings ADD COLUMN dynamodb_starting_position TEXT;
+ALTER TABLE lambda_event_source_mappings ADD COLUMN dynamodb_parallelization_factor INTEGER;
+ALTER TABLE lambda_event_source_mappings ADD COLUMN dynamodb_maximum_retry_attempts INTEGER;
+ALTER TABLE lambda_event_source_mappings ADD COLUMN dynamodb_maximum_record_age_seconds INTEGER;
+ALTER TABLE lambda_event_source_mappings ADD COLUMN dynamodb_bisect_batch_on_function_error BOOLEAN;
+ALTER TABLE lambda_event_source_mappings ADD COLUMN dynamodb_tumbling_window_seconds INTEGER;
+ALTER TABLE lambda_event_source_mappings ADD COLUMN dynamodb_on_failure TEXT;

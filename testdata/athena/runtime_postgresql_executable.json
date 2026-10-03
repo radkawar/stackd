@@ -1,0 +1,69 @@
+{
+  "captured_on": "2026-09-26",
+  "scope": "Local race-enabled actual executable, current ordinary IAM/KMS and native PostgreSQL; not native AWS crawler parity",
+  "image": "postgres@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+  "method": "Owned PostgreSQL container with authenticated TCP readiness; actual public.orders table; CreateConnection/CreateCrawler/StartCrawler; KMS-encrypted password; changed incorrect then restored password; retained catalog after SQLite/controller restart",
+  "observations": {
+    "native_postgresql_columns": [
+      [
+        "id",
+        "bigint"
+      ],
+      [
+        "label",
+        "string"
+      ],
+      [
+        "amount",
+        "decimal(12,2)"
+      ],
+      [
+        "booked",
+        "date"
+      ]
+    ],
+    "kms_connection_password": "encrypted projection and native crawler; authorized plaintext projection returns actual original password",
+    "current_password": "updated wrong password fails; previously discovered catalog retained",
+    "restart": "same actual PostgreSQL-derived table"
+  },
+  "cleanup": {
+    "crawler": "deleted",
+    "connection": "deleted",
+    "database": "deleted",
+    "role": "deleted",
+    "key": "scheduled_deletion",
+    "native_postgresql": "removed"
+  },
+  "controllers": [
+    {
+      "log": "controller-1.log",
+      "exit_status": 0,
+      "already_exited": false,
+      "forced_kill": false
+    },
+    {
+      "log": "controller-2.log",
+      "exit_status": 0,
+      "already_exited": false,
+      "forced_kill": false
+    }
+  ],
+  "failures_fixed": [
+    {
+      "retained_source": "/tmp/stackd-analytics-owner-jdbc-20260926-b",
+      "diagnosis": "JDBC GetConnection authorization used the outer context from inside the SQLite view, so IAM could not join the reader transaction. Crawler remained RUNNING and CLI polling failed. Fixed by authorizing with Reader.Context().",
+      "regression": "TestJDBCCrawlerCurrentAuthoritySharesSQLiteTransaction"
+    },
+    {
+      "diagnosis": "KMS Decrypt returned a typed nil *awswire.Error assigned into an existing error interface. Successful plaintext projection falsely returned an error. Use a distinct typed rejected variable.",
+      "regression": "TestConnectionPasswordProjectionUsesActualKMSDecryption"
+    }
+  ],
+  "retained_logs": "/tmp/stackd-analytics-owner-jdbc-20260926-d/controller-{1,2}.log",
+  "race_reports": false,
+  "boundaries": [
+    "Direct libpq/psql PostgreSQL discovery only; no JDBC vendor/VPC/custom-driver parity",
+    "No native AWS crawler execution was used for this evidence",
+    "KMS key deletion was scheduled in the isolated local state; not a native AWS KMS deletion"
+  ]
+}

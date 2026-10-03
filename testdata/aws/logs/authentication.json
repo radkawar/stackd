@@ -1,0 +1,48 @@
+{
+  "retrieved_at": "2026-09-13T21:55:08.477Z",
+  "region": "us-east-1",
+  "scope": "No infrastructure created or modified. DescribeLogGroups requests were rejected before listing resources. One 900-second federation session with an explicit deny was issued; credentials were not retained.",
+  "primary_reference": "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/CommonErrors.html",
+  "capture": "AWS CLI --cli-error-format json; HTTP status read from the native endpoint debug response. The generic common-errors reference lists 403; both observed failures returned 400.",
+  "request_counts": {
+    "logs": 3,
+    "sts": 1
+  },
+  "substitutions": "Caller account and federated-user ARN replaced with account 111111111111; no credentials retained.",
+  "observations": [
+    {
+      "label": "invalid-credentials",
+      "operation": "DescribeLogGroups",
+      "input": {
+        "logGroupNamePrefix": "/stackd/invalid-credentials-probe",
+        "limit": 1
+      },
+      "result": {
+        "code": "UnrecognizedClientException",
+        "http_status": 400,
+        "message": "The security token included in the request is invalid."
+      }
+    },
+    {
+      "label": "explicit-session-deny",
+      "operation": "DescribeLogGroups",
+      "input": {
+        "logGroupNamePrefix": "/stackd/denied-policy-probe",
+        "limit": 1
+      },
+      "session_policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Deny",
+          "Action": "logs:*",
+          "Resource": "*"
+        }
+      },
+      "result": {
+        "code": "AccessDeniedException",
+        "http_status": 400,
+        "message": "User: arn:aws:sts::111111111111:federated-user/stackd-logs-denial is not authorized to perform: logs:DescribeLogGroups on resource: arn:aws:logs:us-east-1:111111111111:log-group::log-stream: with an explicit deny in a session policy"
+      }
+    }
+  ]
+}

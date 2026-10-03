@@ -1,0 +1,132 @@
+{
+  "source": "Native AWS Amazon MQ maintenance adjustment calibration",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "actor": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated"
+  },
+  "prefix": "stackd-mq-maint-eb55a1920a534736",
+  "observed_at": "2026-09-29T04:24:06.544439+00:00",
+  "source_urls": [
+    "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/maintaining-brokers.html"
+  ],
+  "source_model": {
+    "botocore": "1.43.98",
+    "api_version": "2017-11-27",
+    "sha256": "00def035d2ced837a73d5a65a682b3a5b9c8c45e21caec636780831c5864c551"
+  },
+  "bounds": {
+    "brokers": 1,
+    "host_instance_type": "mq.t3.micro",
+    "observation_seconds": 2400,
+    "cleanup_seconds": 300
+  },
+  "owned": {},
+  "calls": [
+    {
+      "label": "service-role-before",
+      "operation": "GetRole",
+      "parameters": {
+        "RoleName": "AWSServiceRoleForAmazonMQ"
+      },
+      "code": "NoSuchEntity",
+      "output": {
+        "Error": {
+          "Type": "Sender",
+          "Code": "NoSuchEntity",
+          "Message": "The role with name AWSServiceRoleForAmazonMQ cannot be found."
+        }
+      },
+      "http_status": 404,
+      "request_id": "6c01e879-8c58-44d1-8f14-5b355ca98fb6",
+      "elapsed_seconds": 0.469
+    },
+    {
+      "label": "create",
+      "operation": "CreateBroker",
+      "parameters": {
+        "BrokerName": "stackd-mq-maint-eb55a1920a534736",
+        "CreatorRequestId": "stackd-mq-maint-eb55a1920a534736",
+        "EngineType": "ACTIVEMQ",
+        "EngineVersion": "5.19",
+        "HostInstanceType": "mq.t3.micro",
+        "DeploymentMode": "SINGLE_INSTANCE",
+        "PubliclyAccessible": true,
+        "AutoMinorVersionUpgrade": true,
+        "MaintenanceWindowStartTime": {
+          "DayOfWeek": "TUESDAY",
+          "TimeOfDay": "06:24",
+          "TimeZone": "UTC"
+        },
+        "Users": [
+          {
+            "Username": "ownedprobe",
+            "Password": "<redacted>",
+            "ConsoleAccess": false
+          }
+        ],
+        "Tags": {
+          "stackd-probe-owner": "stackd-mq-maint-eb55a1920a534736"
+        }
+      },
+      "code": "BadRequestException",
+      "output": {
+        "Error": {
+          "Message": "Default VPC not found. Subnet and/or security group IDs may be omitted only if a default VPC exists.",
+          "Code": "BadRequestException"
+        },
+        "Message": "Default VPC not found. Subnet and/or security group IDs may be omitted only if a default VPC exists."
+      },
+      "http_status": 400,
+      "request_id": "06d870c2-7e5d-4ec4-86d4-f4448ca4c608",
+      "elapsed_seconds": 1.109
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "recover-owned-create",
+      "operation": "ListBrokers",
+      "parameters": {
+        "MaxResults": 100
+      },
+      "code": "Success",
+      "output": {
+        "BrokerSummaries": []
+      },
+      "http_status": 200,
+      "request_id": "5027bb2a-b153-4c00-84f0-87cd4d7ac0a8",
+      "elapsed_seconds": 1.256
+    },
+    {
+      "label": "service-role-after",
+      "operation": "GetRole",
+      "parameters": {
+        "RoleName": "AWSServiceRoleForAmazonMQ"
+      },
+      "code": "NoSuchEntity",
+      "output": {
+        "Error": {
+          "Type": "Sender",
+          "Code": "NoSuchEntity",
+          "Message": "The role with name AWSServiceRoleForAmazonMQ cannot be found."
+        }
+      },
+      "http_status": 404,
+      "request_id": "4b3a9da3-f7a1-45fb-b43c-d3fc792d419b",
+      "elapsed_seconds": 1.379
+    }
+  ],
+  "complete": false,
+  "cleanup_verified": true,
+  "limitations": [
+    "One ActiveMQ public single-instance broker; not fleet, IAM, or protocol conformance.",
+    "A bounded wait without quota reset does not prove the reset never occurs.",
+    "Quota admission after a window does not itself prove a native broker reboot."
+  ],
+  "failure": {
+    "type": "RuntimeError",
+    "message": "create: BadRequestException"
+  }
+}

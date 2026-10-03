@@ -1,0 +1,484 @@
+{
+  "EvidenceKind": "local/document-derived; not a native RTC capture",
+  "References": [
+    {
+      "URL": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-metrics-events.html",
+      "Contract": "MissedThreshold identifies eligible RTC objects exceeding fifteen minutes; ReplicatedAfterThreshold identifies later replication; NotTracked identifies objects no longer tracked by replication metrics."
+    },
+    {
+      "URL": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/repl-metrics.html",
+      "Contract": "Bytes and operations pending and replication latency describe outstanding replication. Metrics are best effort; RTC metric publication begins fifteen minutes after enabling the rule."
+    },
+    {
+      "URL": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-what-is-isnot-replicated.html",
+      "Contract": "Deleting a specific source version does not replicate that deletion to the destination."
+    }
+  ],
+  "Limitations": [
+    "No native pre-activation CloudWatch query or positive fifteen-minute threshold-event observation is claimed. The native signals capture configured RTC at 09:44:42Z and queried at 10:07:31Z, retaining a 09:45Z gauge and 09:46Z failure count; it proves earlier sample retention, not pre-activation visibility. Phase instants, one-minute retry cadence, immediate local queue delivery, exactly-one local publication and completed-minute alignment are deterministic local checks, not AWS delivery SLAs or exactly-once promises.",
+    "Simply delaying RunDueJobs is insufficient: the original attempt remains due first. A temporary failure at the public KMS storage PutKeySet commit boundary preserves real pending work. The wrapper delegates all successful cryptography and reads to real memory/SQLite backends and changes neither jobs nor stored object state.",
+    "The live scheduler remains enabled. Manual-clock phases and synchronous drains settle due work without wall sleeps. The original object attempt is due one second after upload; the fifteenth-minute notification is therefore strictly before its next minute-spaced retry.",
+    "AWS documents NotTracked broadly; cancellation by an explicit source-version deletion before replication is a document-derived local interpretation, not a positive native NotTracked capture.",
+    "Reporting begins fifteen minutes after rule configuration, independently of object age. Notification configuration is allowed two local minutes to propagate before uploads. Pre-activation queries require all four RTC metrics to be absent while sampling and real replication attempts continue.",
+    "Pending work, withheld samples/counters and the threshold-reported fence are reconstructed through retainedCloud on both backends; SQLite closes and reopens the actual database. An explicit destination-policy denial produces a real early terminal failure under the same rule. Completed/canceled/failed jobs must not create later events or additional object versions.",
+    "Setup replaces an unsampled metrics-only schedule with RTC before object admission. Future sampling takes the new activation deadline; already sampled/counter observations retain their accepted publication deadline. This is a local configuration-transition regression, not a separate native timing capture."
+  ],
+  "Start": "2026-09-21T00:00:00Z",
+  "Account": "123456789012",
+  "SourceBucket": "rtc-source",
+  "DestinationBucket": "rtc-destination",
+  "RuleID": "rtc-rule",
+  "QueueName": "rtc-events",
+  "ConfigurationID": "rtc-delivery",
+  "Setup": [
+    {
+      "Label": "CreateBucket",
+      "Source": "local/document-derived",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "Bucket": "rtc-source"
+      }
+    },
+    {
+      "Label": "PutBucketVersioning",
+      "Source": "local/document-derived",
+      "Service": "s3",
+      "Operation": "PutBucketVersioning",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "Bucket": "rtc-source",
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      }
+    },
+    {
+      "Label": "CreateBucket",
+      "Source": "local/document-derived",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "Bucket": "rtc-destination"
+      }
+    },
+    {
+      "Label": "PutBucketVersioning",
+      "Source": "local/document-derived",
+      "Service": "s3",
+      "Operation": "PutBucketVersioning",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "Bucket": "rtc-destination",
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      }
+    },
+    {
+      "Label": "CreateRole",
+      "Source": "local/document-derived",
+      "Service": "iam",
+      "Operation": "CreateRole",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "RoleName": "rtc-replication",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "Bind": {
+        "roleARN": "Role.Arn"
+      }
+    },
+    {
+      "Label": "PutRolePolicy",
+      "Source": "local/document-derived",
+      "Service": "iam",
+      "Operation": "PutRolePolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "RoleName": "rtc-replication",
+        "PolicyName": "replication",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetReplicationConfiguration\", \"s3:ListBucket\", \"s3:GetObjectVersionForReplication\", \"s3:GetObjectVersionAcl\", \"s3:GetObjectVersionTagging\"], \"Resource\": [\"arn:aws:s3:::rtc-source\", \"arn:aws:s3:::rtc-source/*\"]}, {\"Effect\": \"Allow\", \"Action\": [\"s3:ReplicateObject\", \"s3:ReplicateTags\"], \"Resource\": \"arn:aws:s3:::rtc-destination/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"kms:Decrypt\", \"kms:Encrypt\", \"kms:GenerateDataKey\"], \"Resource\": \"*\"}]}"
+      }
+    },
+    {
+      "Label": "CreateKey",
+      "Source": "local/document-derived",
+      "Service": "kms",
+      "Operation": "CreateKey",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {},
+      "Bind": {
+        "keyARN": "KeyMetadata.Arn"
+      }
+    },
+    {
+      "Label": "CreateQueue",
+      "Source": "local/document-derived",
+      "Service": "sqs",
+      "Operation": "CreateQueue",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "QueueName": "rtc-events"
+      },
+      "Bind": {
+        "queueURL": "QueueUrl"
+      }
+    },
+    {
+      "Label": "SetQueueAttributes",
+      "Source": "local/document-derived",
+      "Service": "sqs",
+      "Operation": "SetQueueAttributes",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "QueueUrl": "${queueURL}",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:${account}:rtc-events\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:s3:::rtc-source\"}}}]}"
+        }
+      }
+    },
+    {
+      "Label": "PutBucketNotificationConfiguration",
+      "Source": "local/document-derived",
+      "Service": "s3",
+      "Operation": "PutBucketNotificationConfiguration",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "Bucket": "rtc-source",
+        "NotificationConfiguration": {
+          "QueueConfigurations": [
+            {
+              "Id": "rtc-delivery",
+              "QueueArn": "arn:aws:sqs:us-east-1:${account}:rtc-events",
+              "Events": [
+                "s3:Replication:OperationMissedThreshold",
+                "s3:Replication:OperationReplicatedAfterThreshold",
+                "s3:Replication:OperationNotTracked",
+                "s3:Replication:OperationFailedReplication"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "Label": "metrics-only-before-RTC",
+      "Source": "local/document-derived",
+      "Service": "s3",
+      "Operation": "PutBucketReplication",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "Bucket": "rtc-source",
+        "ReplicationConfiguration": {
+          "Role": "${roleARN}",
+          "Rules": [
+            {
+              "ID": "rtc-rule",
+              "Status": "Enabled",
+              "Priority": 1,
+              "Filter": {
+                "Prefix": ""
+              },
+              "DeleteMarkerReplication": {
+                "Status": "Disabled"
+              },
+              "SourceSelectionCriteria": {
+                "SseKmsEncryptedObjects": {
+                  "Status": "Enabled"
+                }
+              },
+              "Destination": {
+                "Bucket": "arn:aws:s3:::rtc-destination",
+                "EncryptionConfiguration": {
+                  "ReplicaKmsKeyID": "${keyARN}"
+                },
+                "Metrics": {
+                  "Status": "Enabled"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "Label": "PutBucketReplication",
+      "Source": "local/document-derived",
+      "Service": "s3",
+      "Operation": "PutBucketReplication",
+      "Actor": "caller",
+      "Code": "Success",
+      "Input": {
+        "Bucket": "rtc-source",
+        "ReplicationConfiguration": {
+          "Role": "${roleARN}",
+          "Rules": [
+            {
+              "ID": "rtc-rule",
+              "Status": "Enabled",
+              "Priority": 1,
+              "Filter": {
+                "Prefix": ""
+              },
+              "DeleteMarkerReplication": {
+                "Status": "Disabled"
+              },
+              "SourceSelectionCriteria": {
+                "SseKmsEncryptedObjects": {
+                  "Status": "Enabled"
+                }
+              },
+              "Destination": {
+                "Bucket": "arn:aws:s3:::rtc-destination",
+                "EncryptionConfiguration": {
+                  "ReplicaKmsKeyID": "${keyARN}"
+                },
+                "Metrics": {
+                  "Status": "Enabled",
+                  "EventThreshold": {
+                    "Minutes": 15
+                  }
+                },
+                "ReplicationTime": {
+                  "Status": "Enabled",
+                  "Time": {
+                    "Minutes": 15
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "Scenarios": [
+    {
+      "Name": "missed-threshold-then-late-completion",
+      "Key": "late-object",
+      "Body": "Real RTC encrypted payload.",
+      "Phases": [
+        {
+          "Name": "early-pending-metrics-withheld",
+          "Offset": "1m",
+          "Status": "PENDING",
+          "Withheld": true
+        },
+        {
+          "Name": "withheld-samples-survive-reopen",
+          "Offset": "12m59s",
+          "Reopen": true,
+          "Status": "PENDING",
+          "Withheld": true
+        },
+        {
+          "Name": "activation-publishes-earlier-pending-minute",
+          "Offset": "13m",
+          "Status": "PENDING",
+          "Metrics": {
+            "BytesPendingReplication": 27,
+            "OperationsPendingReplication": 1,
+            "ReplicationLatency": 780
+          },
+          "Samples": [
+            {
+              "Offset": "2m",
+              "Metrics": {
+                "BytesPendingReplication": 27,
+                "OperationsPendingReplication": 1,
+                "ReplicationLatency": 60
+              }
+            }
+          ]
+        },
+        {
+          "Name": "before-threshold-pending",
+          "Offset": "14m59s",
+          "Status": "PENDING",
+          "Metrics": {
+            "BytesPendingReplication": 27,
+            "OperationsPendingReplication": 1,
+            "ReplicationLatency": 840
+          }
+        },
+        {
+          "Name": "pending-reopen-at-threshold",
+          "Offset": "15m",
+          "Reopen": true,
+          "Status": "PENDING",
+          "Events": [
+            "Replication:OperationMissedThreshold"
+          ],
+          "Metrics": {
+            "BytesPendingReplication": 27,
+            "OperationsPendingReplication": 1,
+            "ReplicationLatency": 900
+          }
+        },
+        {
+          "Name": "reported-threshold-survives-reopen",
+          "Offset": "15m",
+          "Reopen": true,
+          "Status": "PENDING"
+        },
+        {
+          "Name": "real-key-recovery-completes-late",
+          "Offset": "15m2s",
+          "Recover": true,
+          "Status": "COMPLETED",
+          "Events": [
+            "Replication:OperationReplicatedAfterThreshold"
+          ]
+        },
+        {
+          "Name": "completed-metrics-clean",
+          "Offset": "16m",
+          "Status": "COMPLETED",
+          "Metrics": {
+            "BytesPendingReplication": 0,
+            "OperationsPendingReplication": 0,
+            "ReplicationLatency": 0
+          }
+        },
+        {
+          "Name": "completed-reopen-no-reprocessing",
+          "Offset": "46m",
+          "Reopen": true,
+          "Status": "COMPLETED",
+          "Metrics": {
+            "BytesPendingReplication": 0,
+            "OperationsPendingReplication": 0,
+            "ReplicationLatency": 0
+          }
+        }
+      ]
+    },
+    {
+      "Name": "source-version-deletion-preserves-withheld-history",
+      "Key": "canceled-object",
+      "Body": "Real RTC encrypted payload.",
+      "FailureKey": "denied-sibling",
+      "FailureBody": "Real denied RTC payload.",
+      "Setup": [
+        {
+          "Label": "DenySiblingReplication",
+          "Source": "local/document-derived",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "rtc-destination",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"${roleARN}\"},\"Action\":\"s3:ReplicateObject\",\"Resource\":\"arn:aws:s3:::rtc-destination/denied-sibling\"}]}"
+          }
+        }
+      ],
+      "Phases": [
+        {
+          "Name": "early-failure-notification-with-metrics-withheld",
+          "Offset": "1m",
+          "Status": "PENDING",
+          "Withheld": true,
+          "Events": [
+            "Replication:OperationFailedReplication"
+          ]
+        },
+        {
+          "Name": "pending-reopen-then-delete-before-activation",
+          "Offset": "2m",
+          "Reopen": true,
+          "Delete": true,
+          "Status": "DELETED",
+          "Withheld": true,
+          "Events": [
+            "Replication:OperationNotTracked"
+          ]
+        },
+        {
+          "Name": "deleted-source-reopen-still-withholds-history",
+          "Offset": "12m59s",
+          "Reopen": true,
+          "Status": "DELETED",
+          "Withheld": true
+        },
+        {
+          "Name": "activation-retains-pending-sample-and-failure-minute",
+          "Offset": "13m",
+          "Status": "DELETED",
+          "Metrics": {
+            "BytesPendingReplication": 0,
+            "OperationsPendingReplication": 0,
+            "ReplicationLatency": 0
+          },
+          "Samples": [
+            {
+              "Offset": "2m",
+              "Metrics": {
+                "BytesPendingReplication": 27,
+                "OperationsPendingReplication": 1,
+                "ReplicationLatency": 60,
+                "OperationsFailedReplication": 1
+              }
+            },
+            {
+              "Offset": "4m",
+              "Metrics": {
+                "BytesPendingReplication": 0,
+                "OperationsPendingReplication": 0,
+                "ReplicationLatency": 0
+              }
+            }
+          ]
+        },
+        {
+          "Name": "canceled-reopen-crosses-object-threshold",
+          "Offset": "16m",
+          "Reopen": true,
+          "Recover": true,
+          "Status": "DELETED",
+          "Metrics": {
+            "BytesPendingReplication": 0,
+            "OperationsPendingReplication": 0,
+            "ReplicationLatency": 0
+          }
+        },
+        {
+          "Name": "canceled-and-failed-work-never-reappear",
+          "Offset": "46m",
+          "Reopen": true,
+          "Status": "DELETED",
+          "Metrics": {
+            "BytesPendingReplication": 0,
+            "OperationsPendingReplication": 0,
+            "ReplicationLatency": 0
+          },
+          "Samples": [
+            {
+              "Offset": "2m",
+              "Metrics": {
+                "BytesPendingReplication": 27,
+                "OperationsPendingReplication": 1,
+                "ReplicationLatency": 60,
+                "OperationsFailedReplication": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

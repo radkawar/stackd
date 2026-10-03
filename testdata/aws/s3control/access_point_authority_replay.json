@@ -1,0 +1,3334 @@
+{
+  "Source": "access_point_authority_evidence.json.gz",
+  "Normalization": [
+    "Source suffix after # identifies Sources entry; Sequence is one-based native observation index. Every measured expectation references its source row; native errors/status/body stay unchanged.",
+    "Owner 000000000000 maps to 123456789012; member 917546008205 maps to 222222222222. Native owner Delegated is represented by caller/root; native wildcard OrganizationAccountAccessRole by other/root. The member IAM user remains an owned least-privilege IAM user. These fixture actor substitutions are not new AWS measurements.",
+    "Bucket/AP/user names are deterministic fixture names; issued ARN/alias/user strings use Bind. CopySource boto3 dictionary is encoded into the Go SDK string form (AP ARN uses /object/key).",
+    "PutObject Body recipes contain exact native bytes. GetObject digests derive from recorded native response bodies, not emulator output. Native checksums/defaults unrelated to authority are not projected.",
+    "Local prerequisite rows are explicitly marked local-fixture, never represented as AWS observations. Reopen is local retained-backend verification of the same measured consumer outcome.",
+    "AP deny and delegation-removal propagation observations are retained only as uncertain source evidence, never replayed as bypass rules."
+  ],
+  "Payloads": {
+    "isolated-put-fixture": [
+      {
+        "Base64": "b3duZWQgbm9uc2Vuc2l0aXZlIGFjY2VzcyBwb2ludCBhdXRob3JpemF0aW9uIGZpeHR1cmUK",
+        "Repeat": 1
+      }
+    ],
+    "followup-put-delete-allowed.txt": [
+      {
+        "Base64": "b3duZWQgZGVsZXRlIGZpeHR1cmU=",
+        "Repeat": 1
+      }
+    ],
+    "followup-put-delete-denied.txt": [
+      {
+        "Base64": "b3duZWQgZGVsZXRlIGZpeHR1cmU=",
+        "Repeat": 1
+      }
+    ],
+    "followup-put-fixture": [
+      {
+        "Base64": "b3duZWQgbm9uc2Vuc2l0aXZlIGZvbGxvd3VwIGZpeHR1cmUK",
+        "Repeat": 1
+      }
+    ],
+    "cross-fixed-wait-seed-fixture": [
+      {
+        "Base64": "b3duZWQgY3Jvc3MtYWNjb3VudCBBUC1vbmx5IGlkZW50aXR5IGZpeHR1cmUK",
+        "Repeat": 1
+      }
+    ]
+  },
+  "Scenarios": [
+    {
+      "Name": "identity-bucket-versus-ap-versus-both-resources",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-bucket",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-stackd-ap-authority-e4f74b571d-ap",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 1,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-ap",
+            "Bucket": "authority-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "apArn": "AccessPointArn",
+            "alias": "Alias"
+          }
+        },
+        {
+          "Label": "put-fixture",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+          },
+          "Payload": "isolated-put-fixture",
+          "Body": "b3duZWQgbm9uc2Vuc2l0aXZlIGFjY2VzcyBwb2ludCBhdXRob3JpemF0aW9uIGZpeHR1cmUK"
+        },
+        {
+          "Label": "create-owned-user",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 6,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateUser",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Bind": {
+            "userArn": "User.Arn"
+          }
+        },
+        {
+          "Label": "create-owned-key",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 7,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateAccessKey",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Session": "user"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "set-bucket-only-identity",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 8,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "PutUserPolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user",
+            "PolicyName": "owned-s3-authority",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::authority-bucket\",\"arn:aws:s3:::authority-bucket/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-identity-only-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 9,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          }
+        },
+        {
+          "Label": "bucket-identity-only-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 10,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          }
+        },
+        {
+          "Label": "bucket-identity-only-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 11,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "bucket-identity-only-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 12,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-identity-only-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 13,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-identity-only-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 14,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-identity-only-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 15,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-identity-only-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 16,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-identity-only-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "set-ap-only-identity",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 18,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "PutUserPolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user",
+            "PolicyName": "owned-s3-authority",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"${apArn}\",\"${apArn}/object/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-only-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 19,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-only-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 20,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-only-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 21,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-only-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 22,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-only-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 23,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-only-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 24,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-only-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 25,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-only-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 26,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-only-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 27,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "set-both-identity",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 28,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "PutUserPolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user",
+            "PolicyName": "owned-s3-authority",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::authority-bucket\",\"arn:aws:s3:::authority-bucket/*\",\"${apArn}\",\"${apArn}/object/*\",\"arn:aws:s3:us-east-1:123456789012:accesspoint/authority-open\",\"arn:aws:s3:us-east-1:123456789012:accesspoint/authority-open/object/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "both-identity-only-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 29,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          }
+        },
+        {
+          "Label": "both-identity-only-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 30,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          }
+        },
+        {
+          "Label": "both-identity-only-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 31,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "both-identity-only-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 32,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          }
+        },
+        {
+          "Label": "both-identity-only-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 33,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          }
+        },
+        {
+          "Label": "both-identity-only-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 34,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "both-identity-only-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 35,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          }
+        },
+        {
+          "Label": "both-identity-only-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 36,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          }
+        },
+        {
+          "Label": "both-identity-only-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 37,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          },
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "bucket-delegation-and-ap-principal-grant",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-bucket",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-stackd-ap-authority-e4f74b571d-ap",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 1,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-ap",
+            "Bucket": "authority-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "apArn": "AccessPointArn",
+            "alias": "Alias"
+          }
+        },
+        {
+          "Label": "put-fixture",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+          },
+          "Payload": "isolated-put-fixture",
+          "Body": "b3duZWQgbm9uc2Vuc2l0aXZlIGFjY2VzcyBwb2ludCBhdXRob3JpemF0aW9uIGZpeHR1cmUK"
+        },
+        {
+          "Label": "create-owned-user",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 6,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateUser",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Bind": {
+            "userArn": "User.Arn"
+          }
+        },
+        {
+          "Label": "create-owned-key",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 7,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateAccessKey",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Session": "user"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "set-ap-only-for-delegation",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 66,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "PutUserPolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user",
+            "PolicyName": "owned-s3-authority",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"${apArn}\",\"${apArn}/object/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "delegate-bucket-to-ap",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 67,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::authority-bucket\",\"arn:aws:s3:::authority-bucket/*\"],\"Principal\":\"*\",\"Condition\":{\"ArnEquals\":{\"s3:DataAccessPointArn\":\"${apArn}\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-with-bucket-delegation-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 68,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-with-bucket-delegation-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 69,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-with-bucket-delegation-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 70,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-identity-with-bucket-delegation-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 71,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          }
+        },
+        {
+          "Label": "ap-identity-with-bucket-delegation-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 72,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          }
+        },
+        {
+          "Label": "ap-identity-with-bucket-delegation-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 73,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "ap-identity-with-bucket-delegation-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 74,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          }
+        },
+        {
+          "Label": "ap-identity-with-bucket-delegation-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 75,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          }
+        },
+        {
+          "Label": "ap-identity-with-bucket-delegation-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 76,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "remove-owned-user-policy",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 77,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "DeleteUserPolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user",
+            "PolicyName": "owned-s3-authority"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "grant-ap-resource-policy",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 78,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutAccessPointPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-ap",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"${apArn}\",\"${apArn}/object/*\"],\"Principal\":{\"AWS\":\"${userArn}\"}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "resource-policies-only-delegated-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 79,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "resource-policies-only-delegated-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 80,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "resource-policies-only-delegated-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 81,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "resource-policies-only-delegated-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 82,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          }
+        },
+        {
+          "Label": "resource-policies-only-delegated-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 83,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          }
+        },
+        {
+          "Label": "resource-policies-only-delegated-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 84,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "resource-policies-only-delegated-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 85,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          }
+        },
+        {
+          "Label": "resource-policies-only-delegated-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 86,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          }
+        },
+        {
+          "Label": "resource-policies-only-delegated-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 87,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          },
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "bucket-explicit-deny-survives-ap-routing",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-bucket",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-stackd-ap-authority-e4f74b571d-ap",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 1,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-ap",
+            "Bucket": "authority-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "apArn": "AccessPointArn",
+            "alias": "Alias"
+          }
+        },
+        {
+          "Label": "put-fixture",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+          },
+          "Payload": "isolated-put-fixture",
+          "Body": "b3duZWQgbm9uc2Vuc2l0aXZlIGFjY2VzcyBwb2ludCBhdXRob3JpemF0aW9uIGZpeHR1cmUK"
+        },
+        {
+          "Label": "create-owned-user",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 6,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateUser",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Bind": {
+            "userArn": "User.Arn"
+          }
+        },
+        {
+          "Label": "create-owned-key",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 7,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateAccessKey",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Session": "user"
+        },
+        {
+          "Label": "set-both-identity",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 28,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "PutUserPolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user",
+            "PolicyName": "owned-s3-authority",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::authority-bucket\",\"arn:aws:s3:::authority-bucket/*\",\"${apArn}\",\"${apArn}/object/*\",\"arn:aws:s3:us-east-1:123456789012:accesspoint/authority-open\",\"arn:aws:s3:us-east-1:123456789012:accesspoint/authority-open/object/*\"]}]}"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "set-bucket-explicit-deny",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 55,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::authority-bucket/fixture.txt\"],\"Principal\":{\"AWS\":\"${userArn}\"}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-deny-with-both-identity-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 56,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-deny-with-both-identity-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 57,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-deny-with-both-identity-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 58,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "bucket-deny-with-both-identity-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 59,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-deny-with-both-identity-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 60,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-deny-with-both-identity-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 61,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "bucket-deny-with-both-identity-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 62,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-deny-with-both-identity-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 63,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "bucket-deny-with-both-identity-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 64,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 54,
+                "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+              }
+            ]
+          },
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "same-region-copy-source-and-destination-arn-and-alias",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-bucket",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-stackd-ap-authority-e4f74b571d-ap",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 1,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-ap",
+            "Bucket": "authority-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "apArn": "AccessPointArn",
+            "alias": "Alias"
+          }
+        },
+        {
+          "Label": "put-fixture",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+          },
+          "Payload": "isolated-put-fixture",
+          "Body": "b3duZWQgbm9uc2Vuc2l0aXZlIGFjY2VzcyBwb2ludCBhdXRob3JpemF0aW9uIGZpeHR1cmUK"
+        },
+        {
+          "Label": "create-owned-user",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 6,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateUser",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Bind": {
+            "userArn": "User.Arn"
+          }
+        },
+        {
+          "Label": "create-owned-key",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 7,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "CreateAccessKey",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Session": "user"
+        },
+        {
+          "Label": "set-both-identity",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 28,
+          "Service": "iam",
+          "Actor": "caller",
+          "Operation": "PutUserPolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user",
+            "PolicyName": "owned-s3-authority",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::authority-bucket\",\"arn:aws:s3:::authority-bucket/*\",\"${apArn}\",\"${apArn}/object/*\",\"arn:aws:s3:us-east-1:123456789012:accesspoint/authority-open\",\"arn:aws:s3:us-east-1:123456789012:accesspoint/authority-open/object/*\"]}]}"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "copy-bucket-to-ap-arn",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 38,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "CopyObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "copy-from-bucket.txt",
+            "CopySource": "authority-bucket/fixture.txt"
+          },
+          "Output": {
+            "CopyObjectResult": {
+              "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+            }
+          }
+        },
+        {
+          "Label": "copy-ap-arn-to-bucket",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 39,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "CopyObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "copy-from-ap.txt",
+            "CopySource": "${apArn}/object/fixture.txt"
+          },
+          "Output": {
+            "CopyObjectResult": {
+              "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+            }
+          }
+        },
+        {
+          "Label": "copy-alias-to-alias",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 40,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "CopyObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "copy-from-alias.txt",
+            "CopySource": "${alias}/fixture.txt"
+          },
+          "Output": {
+            "CopyObjectResult": {
+              "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+            }
+          }
+        },
+        {
+          "Label": "local-retained-copy-copy-from-bucket.txt",
+          "Source": "local-derived-consumer:isolated:copy-result-and-native-source-bytes",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "copy-from-bucket.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "local-retained-copy-copy-from-ap.txt",
+          "Source": "local-derived-consumer:isolated:copy-result-and-native-source-bytes",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "copy-from-ap.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "local-retained-copy-copy-from-alias.txt",
+          "Source": "local-derived-consumer:isolated:copy-result-and-native-source-bytes",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "copy-from-alias.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\"",
+            "ContentLength": 54
+          },
+          "Digest": {
+            "Length": 54,
+            "SHA256": "01e62f787e0be893a095f274426be90e2578e0e716b96b1db2dce3c844032650"
+          },
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "mixed-delete-enforces-per-object-bucket-deny",
+      "Setup": [
+        {
+          "Label": "create-followup-bucket",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-owner-ap",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 5,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-ap",
+            "Bucket": "authority-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "apArn": "AccessPointArn",
+            "alias": "Alias"
+          }
+        },
+        {
+          "Label": "put-delete-allowed.txt",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 3,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "delete-allowed.txt"
+          },
+          "Output": {
+            "ETag": "\"265c01a0696aa45f957782fdfd718677\""
+          },
+          "Payload": "followup-put-delete-allowed.txt",
+          "Body": "b3duZWQgZGVsZXRlIGZpeHR1cmU="
+        },
+        {
+          "Label": "put-delete-denied.txt",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 4,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "delete-denied.txt"
+          },
+          "Output": {
+            "ETag": "\"265c01a0696aa45f957782fdfd718677\""
+          },
+          "Payload": "followup-put-delete-denied.txt",
+          "Body": "b3duZWQgZGVsZXRlIGZpeHR1cmU="
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "set-bucket-delete-deny",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":[\"s3:DeleteObject\"],\"Resource\":[\"arn:aws:s3:::authority-bucket/delete-denied.txt\"],\"Principal\":\"*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "mixed-delete-via-owner-ap-bucket-deny",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 8,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "DeleteObjects",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Delete": {
+              "Objects": [
+                {
+                  "Key": "delete-allowed.txt"
+                },
+                {
+                  "Key": "delete-denied.txt"
+                }
+              ],
+              "Quiet": false
+            }
+          },
+          "Output": {
+            "Deleted": [
+              {
+                "Key": "delete-allowed.txt"
+              }
+            ],
+            "Errors": [
+              {
+                "Key": "delete-denied.txt",
+                "Code": "AccessDenied"
+              }
+            ]
+          }
+        },
+        {
+          "Label": "verify-deleted-object-absent",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 9,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "HeadObject",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "delete-allowed.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "verify-denied-object-present",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 10,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "delete-denied.txt"
+          },
+          "Output": {
+            "ETag": "\"265c01a0696aa45f957782fdfd718677\"",
+            "ContentLength": 20
+          },
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "foreign-ap-owner-and-bucket-owner-authorities-remain-distinct",
+      "Setup": [
+        {
+          "Label": "create-followup-bucket",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "put-fixture",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"7539c2267e9cc19c0c839402fee43840\""
+          },
+          "Payload": "followup-put-fixture",
+          "Body": "b3duZWQgbm9uc2Vuc2l0aXZlIGZvbGxvd3VwIGZpeHR1cmUK"
+        },
+        {
+          "Label": "create-cross-account-ap",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 13,
+          "Service": "s3control",
+          "Actor": "other",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-member",
+            "Bucket": "authority-bucket",
+            "BucketAccountId": "123456789012"
+          },
+          "Output": {},
+          "Bind": {
+            "memberArn": "AccessPointArn",
+            "memberAlias": "Alias"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "member-before-delegation-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 15,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-before-delegation-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 16,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-before-delegation-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-before-delegation-member-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 18,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-before-delegation-member-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 19,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-before-delegation-member-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 20,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-before-delegation-member-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 21,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${memberAlias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-before-delegation-member-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 22,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${memberAlias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-before-delegation-member-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 23,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${memberAlias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "delegate-owner-bucket-to-member-ap",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 24,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::authority-bucket\",\"arn:aws:s3:::authority-bucket/*\"],\"Principal\":{\"AWS\":\"arn:aws:iam::222222222222:root\"},\"Condition\":{\"ArnEquals\":{\"s3:DataAccessPointArn\":\"${memberArn}\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-after-delegation-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 25,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-after-delegation-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 26,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-after-delegation-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 27,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-after-delegation-member-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 28,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"7539c2267e9cc19c0c839402fee43840\"",
+            "ContentLength": 36
+          },
+          "Digest": {
+            "Length": 36,
+            "SHA256": "9f8cea56da6d5aa5e4d4b4a8d49100006855c17aac01e6d07478fd5d7bc853c7"
+          }
+        },
+        {
+          "Label": "member-after-delegation-member-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 29,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"7539c2267e9cc19c0c839402fee43840\"",
+            "ContentLength": 36
+          }
+        },
+        {
+          "Label": "member-after-delegation-member-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 30,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 36,
+                "ETag": "\"7539c2267e9cc19c0c839402fee43840\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "member-after-delegation-member-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 31,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberAlias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"7539c2267e9cc19c0c839402fee43840\"",
+            "ContentLength": 36
+          },
+          "Digest": {
+            "Length": 36,
+            "SHA256": "9f8cea56da6d5aa5e4d4b4a8d49100006855c17aac01e6d07478fd5d7bc853c7"
+          }
+        },
+        {
+          "Label": "member-after-delegation-member-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 32,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberAlias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"7539c2267e9cc19c0c839402fee43840\"",
+            "ContentLength": 36
+          }
+        },
+        {
+          "Label": "member-after-delegation-member-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 33,
+          "Service": "s3",
+          "Actor": "other",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberAlias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 36,
+                "ETag": "\"7539c2267e9cc19c0c839402fee43840\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "owner-before-member-ap-policy-member-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 37,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owner-before-member-ap-policy-member-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 38,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owner-before-member-ap-policy-member-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 39,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owner-foreign-control-before-get_access_point",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 43,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetAccessPoint",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-member"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owner-foreign-control-before-get_access_point_policy",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 44,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetAccessPointPolicy",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-member"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owner-foreign-control-before-get_access_point_policy_status",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 45,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetAccessPointPolicyStatus",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-member"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "member-ap-grants-owner",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 46,
+          "Service": "s3control",
+          "Actor": "other",
+          "Operation": "PutAccessPointPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-member",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Resource\":[\"${memberArn}\",\"${memberArn}/object/*\"],\"Principal\":{\"AWS\":\"arn:aws:iam::123456789012:root\"}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owner-after-member-ap-policy-member-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 50,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"7539c2267e9cc19c0c839402fee43840\"",
+            "ContentLength": 36
+          },
+          "Digest": {
+            "Length": 36,
+            "SHA256": "9f8cea56da6d5aa5e4d4b4a8d49100006855c17aac01e6d07478fd5d7bc853c7"
+          }
+        },
+        {
+          "Label": "owner-after-member-ap-policy-member-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 51,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"7539c2267e9cc19c0c839402fee43840\"",
+            "ContentLength": 36
+          }
+        },
+        {
+          "Label": "owner-after-member-ap-policy-member-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 52,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 36,
+                "ETag": "\"7539c2267e9cc19c0c839402fee43840\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "owner-after-member-ap-policy-member-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 53,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberAlias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"7539c2267e9cc19c0c839402fee43840\"",
+            "ContentLength": 36
+          },
+          "Digest": {
+            "Length": 36,
+            "SHA256": "9f8cea56da6d5aa5e4d4b4a8d49100006855c17aac01e6d07478fd5d7bc853c7"
+          }
+        },
+        {
+          "Label": "owner-after-member-ap-policy-member-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 54,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberAlias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"7539c2267e9cc19c0c839402fee43840\"",
+            "ContentLength": 36
+          }
+        },
+        {
+          "Label": "owner-after-member-ap-policy-member-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 55,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${memberAlias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 36,
+                "ETag": "\"7539c2267e9cc19c0c839402fee43840\""
+              }
+            ]
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "owner-foreign-control-after-data-grant-get_access_point",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 56,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetAccessPoint",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-member"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owner-foreign-control-after-data-grant-get_access_point_policy",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 57,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetAccessPointPolicy",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-member"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "owner-foreign-control-after-data-grant-get_access_point_policy_status",
+          "Source": "access_point_authority_evidence.json.gz#followup",
+          "Sequence": 58,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetAccessPointPolicyStatus",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-member"
+          },
+          "Output": {}
+        }
+      ]
+    },
+    {
+      "Name": "anonymous-alias-requires-signature-v4-even-with-public-grant",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-bucket",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-stackd-ap-authority-e4f74b571d-ap",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 1,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-ap",
+            "Bucket": "authority-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "apArn": "AccessPointArn",
+            "alias": "Alias"
+          }
+        },
+        {
+          "Label": "put-fixture",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"67c32328d27b7fb81e9bbab8606eb856\""
+          },
+          "Payload": "isolated-put-fixture",
+          "Body": "b3duZWQgbm9uc2Vuc2l0aXZlIGFjY2VzcyBwb2ludCBhdXRob3JpemF0aW9uIGZpeHR1cmUK"
+        },
+        {
+          "Label": "create-stackd-ap-authority-e4f74b571d-open",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 2,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-open",
+            "Bucket": "authority-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Output": {},
+          "Bind": {
+            "openArn": "AccessPointArn",
+            "openAlias": "Alias"
+          }
+        },
+        {
+          "Label": "bucket-public-controls-off",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 100,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutPublicAccessBlock",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "delegate-bucket-to-open-ap",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 101,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::authority-bucket/fixture.txt\"],\"Principal\":\"*\",\"Condition\":{\"ArnEquals\":{\"s3:DataAccessPointArn\":\"arn:aws:s3:us-east-1:123456789012:accesspoint/authority-open\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "public-policy-open-ap",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 102,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "PutAccessPointPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-open",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:us-east-1:123456789012:accesspoint/authority-open/object/fixture.txt\"],\"Principal\":\"*\"}]}"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "open-ap-public-policy-status",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 103,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "GetAccessPointPolicyStatus",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-open"
+          },
+          "Output": {
+            "PolicyStatus": {
+              "IsPublic": true
+            }
+          }
+        },
+        {
+          "Label": "delegation-bucket-policy-status",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 104,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketPolicyStatus",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket"
+          },
+          "Output": {
+            "PolicyStatus": {
+              "IsPublic": false
+            }
+          }
+        },
+        {
+          "Label": "anonymous-open-ap-delegated",
+          "Source": "access_point_authority_evidence.json.gz#isolated",
+          "Sequence": 105,
+          "Service": "s3",
+          "Actor": "anonymous",
+          "Operation": "GetObject",
+          "Code": "InvalidRequest",
+          "Status": 400,
+          "Input": {
+            "Bucket": "${openAlias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {},
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "cross-account-fixed-ap-delegation-with-ap-only-versus-both-identity",
+      "Setup": [
+        {
+          "Label": "create-owned-bucket",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 3,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "seed-fixture",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 4,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"6bd6d229683f15432598e5e029161bf2\""
+          },
+          "Payload": "cross-fixed-wait-seed-fixture",
+          "Body": "b3duZWQgY3Jvc3MtYWNjb3VudCBBUC1vbmx5IGlkZW50aXR5IGZpeHR1cmUK"
+        },
+        {
+          "Label": "create-member-ap",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 5,
+          "Service": "s3control",
+          "Actor": "other",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-ap",
+            "Bucket": "authority-bucket",
+            "BucketAccountId": "123456789012"
+          },
+          "Output": {},
+          "Bind": {
+            "apArn": "AccessPointArn",
+            "alias": "Alias"
+          }
+        },
+        {
+          "Label": "create-member-user",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 7,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "CreateUser",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Bind": {
+            "userArn": "User.Arn"
+          }
+        },
+        {
+          "Label": "create-member-key",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 8,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "CreateAccessKey",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user"
+          },
+          "Output": {},
+          "Session": "user"
+        },
+        {
+          "Label": "bucket-delegates-fixed-member-ap",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 9,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::authority-bucket\",\"arn:aws:s3:::authority-bucket/*\"],\"Principal\":{\"AWS\":\"arn:aws:iam::222222222222:root\"},\"Condition\":{\"ArnEquals\":{\"s3:DataAccessPointArn\":\"${apArn}\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-grants-member-user",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 10,
+          "Service": "s3control",
+          "Actor": "other",
+          "Operation": "PutAccessPointPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "AccountId": "222222222222",
+            "Name": "authority-ap",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"${apArn}\",\"${apArn}/object/*\"],\"Principal\":{\"AWS\":\"${userArn}\"}}]}"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "identity-ap-only",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 11,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "PutUserPolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user",
+            "PolicyName": "owned-authority",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"${apArn}\",\"${apArn}/object/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-only-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 12,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-only-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 13,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-only-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 14,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-only-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 15,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-only-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 16,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-only-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-only-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 18,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-only-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 19,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ap-only-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 20,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${alias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "identity-both-arn-families",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 21,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "PutUserPolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "authority-user",
+            "PolicyName": "owned-authority",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"${apArn}\",\"${apArn}/object/*\",\"arn:aws:s3:::authority-bucket\",\"arn:aws:s3:::authority-bucket/*\"]}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "both-arn-families-bucket-get_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 22,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "both-arn-families-bucket-head_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 23,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Key": "fixture.txt"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "both-arn-families-bucket-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 24,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {}
+        },
+        {
+          "Label": "both-arn-families-arn-get_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 25,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"6bd6d229683f15432598e5e029161bf2\"",
+            "ContentLength": 45
+          },
+          "Digest": {
+            "Length": 45,
+            "SHA256": "4d9cf4ad5e48d18588b63ff1a12d67f0e67d48831fe16098a47077f7264b6adb"
+          }
+        },
+        {
+          "Label": "both-arn-families-arn-head_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 26,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"6bd6d229683f15432598e5e029161bf2\"",
+            "ContentLength": 45
+          }
+        },
+        {
+          "Label": "both-arn-families-arn-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 27,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${apArn}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 45,
+                "ETag": "\"6bd6d229683f15432598e5e029161bf2\""
+              }
+            ]
+          }
+        },
+        {
+          "Label": "both-arn-families-alias-get_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 28,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"6bd6d229683f15432598e5e029161bf2\"",
+            "ContentLength": 45
+          },
+          "Digest": {
+            "Length": 45,
+            "SHA256": "4d9cf4ad5e48d18588b63ff1a12d67f0e67d48831fe16098a47077f7264b6adb"
+          }
+        },
+        {
+          "Label": "both-arn-families-alias-head_object",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 29,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Key": "fixture.txt"
+          },
+          "Output": {
+            "ETag": "\"6bd6d229683f15432598e5e029161bf2\"",
+            "ContentLength": 45
+          }
+        },
+        {
+          "Label": "both-arn-families-alias-list_objects_v2",
+          "Source": "access_point_authority_evidence.json.gz#cross-fixed-wait",
+          "Sequence": 30,
+          "Service": "s3",
+          "Actor": "user",
+          "Operation": "ListObjectsV2",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "${alias}",
+            "Prefix": "fixture",
+            "MaxKeys": 2
+          },
+          "Output": {
+            "Name": "authority-bucket",
+            "Prefix": "fixture",
+            "MaxKeys": 2,
+            "KeyCount": 1,
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "fixture.txt",
+                "Size": 45,
+                "ETag": "\"6bd6d229683f15432598e5e029161bf2\""
+              }
+            ]
+          },
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "vpc-origin-rejects-outside-data-request",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-vpc-bucket",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "authority-vpc-bucket"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "vpc-nonexistent",
+          "Source": "access_point_control_evidence.json.gz",
+          "Sequence": 32,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "authority-vpc",
+            "Bucket": "authority-vpc-bucket",
+            "VpcConfiguration": {
+              "VpcId": "vpc-0123456789abcdef0"
+            }
+          },
+          "Output": {},
+          "Bind": {
+            "vpcArn": "AccessPointArn"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "vpc-ap-outside-data",
+          "Source": "access_point_control_evidence.json.gz",
+          "Sequence": 103,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "${vpcArn}"
+          },
+          "Output": {},
+          "Reopen": true
+        }
+      ]
+    }
+  ]
+}

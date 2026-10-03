@@ -1,0 +1,5390 @@
+{
+  "captured_at": "2026-09-29T14:40:00.007520+00:00",
+  "sources": [
+    "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html",
+    "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty-lists-prerequisites.html",
+    "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty-lists-update-procedure.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_CreateIPSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_GetIPSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdateIPSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_DeleteIPSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_CreateThreatIntelSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_GetThreatIntelSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdateThreatIntelSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_DeleteThreatIntelSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListIPSets.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListThreatIntelSets.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListTagsForResource.html"
+  ],
+  "sdk": {
+    "boto3": "1.43.99",
+    "botocore": "1.43.99",
+    "api_version": "2017-11-28",
+    "go_model_sha256": "4675cc38456fc0bdb85bd612cae1c7e3a24feed05ca19ecdb8eb71d35312270b",
+    "go_model_revision": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "scope": "Exact-owned IPSet/ThreatIntelSet lifecycle and private S3 TXT sources; empty regional detector boundary; all optional features disabled; no sample findings, synthetic traffic, or explicit changes to existing resources.",
+  "sanitization": "Authorized account and caller identity replaced consistently by Probe. No credentials or authorization headers retained.",
+  "observations": [
+    {
+      "case": "authorized-identity",
+      "service": "sts",
+      "region": "us-east-1",
+      "operation": "get_caller_identity",
+      "input": {},
+      "at": "2026-09-29T14:40:00.017840+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9e2a2d25-fe68-4d71-a516-c126337f2078",
+      "output": {
+        "UserId": "NATIVEPROBEIDENTITY",
+        "Account": "123456789012",
+        "Arn": "arn:aws:iam::123456789012:user/native-probe"
+      }
+    },
+    {
+      "case": "service-role-before",
+      "service": "iam",
+      "region": "us-east-1",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "AWSServiceRoleForAmazonGuardDuty"
+      },
+      "at": "2026-09-29T14:40:00.527387+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d9fd438a-a953-401c-b831-42271ab0510c",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/guardduty.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForAmazonGuardDuty",
+          "RoleId": "AROAQAAAAAAAO7HY7DXBH",
+          "Arn": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+          "CreateDate": "2026-09-29 10:17:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "A service-linked role required for Amazon GuardDuty to access your resources. ",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {
+            "LastUsedDate": "2026-09-29 11:01:42+00:00",
+            "Region": "us-west-2"
+          }
+        }
+      }
+    },
+    {
+      "case": "detectors-before-us-west-2",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_detectors",
+      "input": {},
+      "at": "2026-09-29T14:40:01.037388+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "cf0d6970-7c29-4156-8309-5e1f910a6166",
+      "output": {
+        "DetectorIds": []
+      },
+      "wire_output": {
+        "detectorIds": []
+      }
+    },
+    {
+      "case": "event-rules-before-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "list_rules",
+      "input": {
+        "Limit": 100
+      },
+      "at": "2026-09-29T14:40:01.675149+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "23114667-b5ef-41d6-a446-904a5042f3e6",
+      "output": {
+        "Rules": [
+          {
+            "Name": "5z6z7q-local-eb-rule-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/5z6z7q-local-eb-rule-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "ForwardToCustomBus",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/ForwardToCustomBus",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "Description": "Forward all CloudTrail events to the primary event bus",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "deceptiq-cloned-forward-to-primary",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/deceptiq-cloned-forward-to-primary",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED",
+            "Description": "Forward breach events from default bus to primary bus",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "ecr",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/ecr",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "Description": "Capture events on default bus in us-west-2",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "ml3c1d-bedrock-eb-rule-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/ml3c1d-bedrock-eb-rule-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "qop95h-ebkit-eb-rule-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/qop95h-ebkit-eb-rule-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "zluz073m-regional-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/zluz073m-regional-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          }
+        ]
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-5z6z7q-local-eb-rule-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"4b186aa5-cfc9-452e-9e06-42383ded6668\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T14:40:02Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T14:40:02.414321+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "1a440956-7c19-4654-9ec0-a05b44e4d5b8",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-ForwardToCustomBus",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"4b186aa5-cfc9-452e-9e06-42383ded6668\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T14:40:02Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T14:40:02.579991+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "36b9d66c-d073-4fa6-8367-559f842bf142",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-deceptiq-cloned-forward-to-primary",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"4b186aa5-cfc9-452e-9e06-42383ded6668\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T14:40:02Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T14:40:02.745560+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "48955f97-858a-44aa-affd-0ec037e19db8",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-ecr",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"4b186aa5-cfc9-452e-9e06-42383ded6668\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T14:40:02Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T14:40:02.907681+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d1d5a487-fff1-46dc-9c68-44f2bc360148",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-ml3c1d-bedrock-eb-rule-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"4b186aa5-cfc9-452e-9e06-42383ded6668\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T14:40:02Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T14:40:03.073223+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "cd54700b-34c7-41ba-908a-80649c881d58",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-qop95h-ebkit-eb-rule-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"4b186aa5-cfc9-452e-9e06-42383ded6668\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T14:40:02Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T14:40:03.236234+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "dc285dbb-1b7c-4f41-a82d-c8c0e1f61c24",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-zluz073m-regional-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"4b186aa5-cfc9-452e-9e06-42383ded6668\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-29T14:40:02Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-29T14:40:03.402243+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c1da11ae-ce83-4d58-af1f-e70a424f7333",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "empty-boundary-recheck",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_detectors",
+      "input": {},
+      "at": "2026-09-29T14:40:03.568662+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "e93d8eb9-8605-46a3-b35f-9cf8ae5e8cde",
+      "output": {
+        "DetectorIds": []
+      },
+      "wire_output": {
+        "detectorIds": []
+      }
+    },
+    {
+      "case": "service-role-immediate-before",
+      "service": "iam",
+      "region": "us-west-2",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "AWSServiceRoleForAmazonGuardDuty"
+      },
+      "at": "2026-09-29T14:40:03.783851+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d69a4a6e-3e00-4a82-a9ea-16bb57563e3c",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/guardduty.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForAmazonGuardDuty",
+          "RoleId": "AROAQAAAAAAAO7HY7DXBH",
+          "Arn": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+          "CreateDate": "2026-09-29 10:17:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "A service-linked role required for Amazon GuardDuty to access your resources. ",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {
+            "LastUsedDate": "2026-09-29 11:01:42+00:00",
+            "Region": "us-west-2"
+          }
+        }
+      }
+    },
+    {
+      "case": "create-enabled-detector",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_detector",
+      "input": {
+        "Enable": true,
+        "ClientToken": "ed30ac03fd5243c3bb7489f94b106a8c",
+        "Features": [
+          {
+            "Name": "S3_DATA_EVENTS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "EKS_AUDIT_LOGS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "EBS_MALWARE_PROTECTION",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "RDS_LOGIN_EVENTS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "LAMBDA_NETWORK_LOGS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "AI_PROTECTION",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "AI_ANALYST",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "RUNTIME_MONITORING",
+            "Status": "DISABLED",
+            "AdditionalConfiguration": [
+              {
+                "Name": "EKS_ADDON_MANAGEMENT",
+                "Status": "DISABLED"
+              },
+              {
+                "Name": "ECS_FARGATE_AGENT_MANAGEMENT",
+                "Status": "DISABLED"
+              },
+              {
+                "Name": "EC2_AGENT_MANAGEMENT",
+                "Status": "DISABLED"
+              }
+            ]
+          }
+        ],
+        "Tags": {
+          "stackd-probe": "ed30ac03fd5243c3bb7489f94b106a8c"
+        }
+      },
+      "at": "2026-09-29T14:40:04.240821+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d16ce585-e12e-4044-8164-1567620ebd73",
+      "output": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "wire_output": {
+        "detectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      }
+    },
+    {
+      "case": "service-role-after-create",
+      "service": "iam",
+      "region": "us-west-2",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "AWSServiceRoleForAmazonGuardDuty"
+      },
+      "at": "2026-09-29T14:40:04.624799+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "cc88a19d-e015-40a7-8aa7-538e8cf1941e",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/guardduty.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForAmazonGuardDuty",
+          "RoleId": "AROAQAAAAAAAO7HY7DXBH",
+          "Arn": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+          "CreateDate": "2026-09-29 10:17:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "A service-linked role required for Amazon GuardDuty to access your resources. ",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {
+            "LastUsedDate": "2026-09-29 11:01:42+00:00",
+            "Region": "us-west-2"
+          }
+        }
+      }
+    },
+    {
+      "case": "detector-created",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_detector",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:40:04.754860+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6053902d-2a6a-4629-93de-394ac1e9e418",
+      "output": {
+        "CreatedAt": "2026-09-29T14:40:04.436Z",
+        "FindingPublishingFrequency": "SIX_HOURS",
+        "ServiceRole": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+        "Status": "ENABLED",
+        "UpdatedAt": "2026-09-29T14:40:04.436Z",
+        "DataSources": {
+          "CloudTrail": {
+            "Status": "ENABLED"
+          },
+          "DNSLogs": {
+            "Status": "ENABLED"
+          },
+          "FlowLogs": {
+            "Status": "ENABLED"
+          },
+          "S3Logs": {
+            "Status": "DISABLED"
+          },
+          "Kubernetes": {
+            "AuditLogs": {
+              "Status": "DISABLED"
+            }
+          },
+          "MalwareProtection": {
+            "ScanEc2InstanceWithFindings": {
+              "EbsVolumes": {
+                "Status": "DISABLED"
+              }
+            }
+          }
+        },
+        "Tags": {
+          "stackd-probe": "ed30ac03fd5243c3bb7489f94b106a8c"
+        },
+        "Features": [
+          {
+            "Name": "CLOUD_TRAIL",
+            "Status": "ENABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00"
+          },
+          {
+            "Name": "DNS_LOGS",
+            "Status": "ENABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00"
+          },
+          {
+            "Name": "FLOW_LOGS",
+            "Status": "ENABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00"
+          },
+          {
+            "Name": "S3_DATA_EVENTS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00"
+          },
+          {
+            "Name": "EKS_AUDIT_LOGS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00"
+          },
+          {
+            "Name": "EBS_MALWARE_PROTECTION",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00"
+          },
+          {
+            "Name": "RDS_LOGIN_EVENTS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00",
+            "AdditionalConfiguration": []
+          },
+          {
+            "Name": "AI_PROTECTION",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00"
+          },
+          {
+            "Name": "AI_ANALYST",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00"
+          },
+          {
+            "Name": "EKS_RUNTIME_MONITORING",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00",
+            "AdditionalConfiguration": [
+              {
+                "Name": "EKS_ADDON_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-29 15:40:04+01:00"
+              }
+            ]
+          },
+          {
+            "Name": "LAMBDA_NETWORK_LOGS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00"
+          },
+          {
+            "Name": "RUNTIME_MONITORING",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-29 15:40:04+01:00",
+            "AdditionalConfiguration": [
+              {
+                "Name": "EKS_ADDON_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-29 15:40:04+01:00"
+              },
+              {
+                "Name": "ECS_FARGATE_AGENT_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-29 15:40:04+01:00"
+              },
+              {
+                "Name": "EC2_AGENT_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-29 15:40:04+01:00"
+              }
+            ]
+          }
+        ]
+      },
+      "wire_output": {
+        "status": "ENABLED",
+        "createdAt": "2026-09-29T14:40:04.436Z",
+        "updatedAt": "2026-09-29T14:40:04.436Z",
+        "findingPublishingFrequency": "SIX_HOURS",
+        "dataSources": {
+          "cloudTrail": {
+            "status": "ENABLED",
+            "updatedAt": "2026-09-29T14:40:04.947Z"
+          },
+          "dnsLogs": {
+            "status": "ENABLED",
+            "updatedAt": "2026-09-29T14:40:04.950Z"
+          },
+          "flowLogs": {
+            "status": "ENABLED",
+            "updatedAt": "2026-09-29T14:40:04.953Z"
+          },
+          "s3Logs": {
+            "status": "DISABLED",
+            "updatedAt": "2026-09-29T14:40:04.441Z"
+          },
+          "kubernetes": {
+            "auditLogs": {
+              "status": "DISABLED",
+              "updatedAt": "2026-09-29T14:40:04.444Z"
+            }
+          },
+          "malwareProtection": {
+            "scanEc2InstanceWithFindings": {
+              "ebsVolumes": {
+                "status": "DISABLED",
+                "updatedAt": "2026-09-29T14:40:04.448Z"
+              }
+            }
+          },
+          "database": {
+            "rds": {
+              "databaseEvents": {
+                "status": "DISABLED",
+                "updatedAt": "2026-09-29T14:40:04.451Z"
+              }
+            }
+          }
+        },
+        "features": [
+          {
+            "name": "CLOUD_TRAIL",
+            "status": "ENABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "DNS_LOGS",
+            "status": "ENABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "FLOW_LOGS",
+            "status": "ENABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "S3_DATA_EVENTS",
+            "status": "DISABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "EKS_AUDIT_LOGS",
+            "status": "DISABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "EBS_MALWARE_PROTECTION",
+            "status": "DISABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "RDS_LOGIN_EVENTS",
+            "status": "DISABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": []
+          },
+          {
+            "name": "AI_PROTECTION",
+            "status": "DISABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "AI_ANALYST",
+            "status": "DISABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "EKS_RUNTIME_MONITORING",
+            "status": "DISABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": [
+              {
+                "name": "EKS_ADDON_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790692804
+              }
+            ]
+          },
+          {
+            "name": "LAMBDA_NETWORK_LOGS",
+            "status": "DISABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "RUNTIME_MONITORING",
+            "status": "DISABLED",
+            "updatedAt": 1790692804,
+            "additionalConfiguration": [
+              {
+                "name": "EKS_ADDON_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790692804
+              },
+              {
+                "name": "ECS_FARGATE_AGENT_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790692804
+              },
+              {
+                "name": "EC2_AGENT_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790692804
+              }
+            ]
+          }
+        ],
+        "tags": {
+          "stackd-probe": "ed30ac03fd5243c3bb7489f94b106a8c"
+        },
+        "serviceRole": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty"
+      }
+    },
+    {
+      "case": "source-bucket-create",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "create_bucket",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "CreateBucketConfiguration": {
+          "LocationConstraint": "us-west-2"
+        }
+      },
+      "at": "2026-09-29T14:40:05.155706+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "VEV7VQF356FQYRDX",
+      "output": {
+        "Location": "http://stackd-gd-lists-76a01192d24745ac.s3.amazonaws.com/",
+        "BucketArn": "arn:aws:s3:::stackd-gd-lists-76a01192d24745ac"
+      }
+    },
+    {
+      "case": "source-bucket-tag",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_bucket_tagging",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "Tagging": {
+          "TagSet": [
+            {
+              "Key": "stackd-probe",
+              "Value": "stackd-gd-lists-76a01192d24745ac"
+            }
+          ]
+        }
+      },
+      "at": "2026-09-29T14:40:06.236142+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "YDB7W17817Z92MBJ",
+      "output": {}
+    },
+    {
+      "case": "source-bucket-private",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_public_access_block",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        }
+      },
+      "at": "2026-09-29T14:40:06.820987+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "YDB04PXZ065QQYVC",
+      "output": {}
+    },
+    {
+      "case": "ip-source-put-initial",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_object",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "Key": "ip.txt",
+        "Body": "192.0.2.0/24\n198.51.100.1\n203.0.113.1\n",
+        "ContentType": "text/plain",
+        "ServerSideEncryption": "AES256",
+        "Tagging": "stackd-probe=stackd-gd-lists-76a01192d24745ac"
+      },
+      "at": "2026-09-29T14:40:07.093099+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "NGPZBGYYBEV51B3E",
+      "output": {
+        "ETag": "\"358862010e980077c3281aea165ac59e\"",
+        "ChecksumCRC32": "IWGOwA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "AES256"
+      }
+    },
+    {
+      "case": "threat-source-put-initial",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_object",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "Key": "threat.txt",
+        "Body": "192.0.2.0/24\n198.51.100.1\n203.0.113.1\n",
+        "ContentType": "text/plain",
+        "ServerSideEncryption": "AES256",
+        "Tagging": "stackd-probe=stackd-gd-lists-76a01192d24745ac"
+      },
+      "at": "2026-09-29T14:40:07.449554+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "NGPS7GE71N0YKM1R",
+      "output": {
+        "ETag": "\"358862010e980077c3281aea165ac59e\"",
+        "ChecksumCRC32": "IWGOwA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "AES256"
+      }
+    },
+    {
+      "case": "ip-missing-id-get",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c68bec6f89304e619be2667a9b578a69"
+      },
+      "at": "2026-09-29T14:40:07.797511+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "7b692f12-b4b8-49b2-b6e7-6fa9220f902a",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-missing-id-update",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c68bec6f89304e619be2667a9b578a69"
+      },
+      "at": "2026-09-29T14:40:08.085808+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "dc5fad20-6d8b-41cd-aed4-110b9c90c1b2",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-missing-id-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c68bec6f89304e619be2667a9b578a69"
+      },
+      "at": "2026-09-29T14:40:08.867573+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "ae0e95fe-ae0e-4abe-bb20-fc4d9af287af",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-empty-list",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_ip_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:40:10.080882+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "1e3562ba-ea58-4c29-b7c7-48a5eec3f6cc",
+      "output": {
+        "IpSetIds": []
+      },
+      "wire_output": {
+        "ipSetIds": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "ip-max-results-0",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_ip_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 0
+      },
+      "at": "2026-09-29T14:40:10.342421+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "9a02f23f-1d19-4df0-b3a0-5c0b75fc9141",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-max-results-51",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_ip_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 51
+      },
+      "at": "2026-09-29T14:40:10.610454+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "13206c85-8d0b-4681-8ffd-ad4fc9fb1eb9",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-invalid-next-token",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_ip_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "NextToken": "not-a-native-token"
+      },
+      "at": "2026-09-29T14:40:10.890178+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "b923993a-ed2a-44cd-9131-f29245a9f3d5",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-create-invalid-format",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "Format": "INVALID",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "81446fba629943febc941e424bd727a3",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:11.166277+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "56a8f783-b3e0-48fd-8ee8-a3b3e55e19ab",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the JSON could not be processed.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the JSON could not be processed.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the JSON could not be processed.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-create-empty-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "6c595d85cc6e4689ac4ac72416904c90",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:11.445079+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "30eafe64-2348-46af-b756-9031719906ba",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter ipSetName has an invalid value.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter ipSetName has an invalid value.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter ipSetName has an invalid value.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-create-invalid-location",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "not-a-location",
+        "ClientToken": "413c0a7fdd8e40caa273b4050b4d118e",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:11.778324+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "0edf82d5-9205-4e83-af7d-a00e22baa589",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-create-invalid-owner-length",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "7bc884fb01384159a8b67d6bcefe4280",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123"
+      },
+      "at": "2026-09-29T14:40:12.068053+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "c591c342-d6e6-4edb-9148-fa3b8127e210",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the 'accountId' was formatted incorrectly.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the 'accountId' was formatted incorrectly.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the 'accountId' was formatted incorrectly.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-create-inactive-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "3d95e104853a405fa47e0f14af8a35e3",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:12.367834+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "bde14b23-c4e1-41ef-bfc5-ed0258f3e38a",
+      "output": {
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "wire_output": {
+        "ipSetId": "c97614feb53b4214be3fc3c306b1e270"
+      }
+    },
+    {
+      "case": "ip-token-replay",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "3d95e104853a405fa47e0f14af8a35e3",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:13.076510+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "debb1089-8e51-4c3f-9bcd-d9e8ec6ec595",
+      "output": {
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "wire_output": {
+        "ipSetId": "c97614feb53b4214be3fc3c306b1e270"
+      }
+    },
+    {
+      "case": "ip-token-conflict-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-changed",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "3d95e104853a405fa47e0f14af8a35e3",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:13.423812+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "a42f4f65-6f55-4d61-9881-3eb84b8d77a0",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-token-conflict-tags",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "3d95e104853a405fa47e0f14af8a35e3",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac",
+          "Changed": "yes"
+        }
+      },
+      "at": "2026-09-29T14:40:13.775619+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "64743ff6-d7f5-4801-ab80-074b6887f30e",
+      "output": {
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "wire_output": {
+        "ipSetId": "c97614feb53b4214be3fc3c306b1e270"
+      }
+    },
+    {
+      "case": "ip-created",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:14.129112+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "bd672f6a-da6f-4efc-bf45-f436b9b8e86e",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-empty",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:14.387926+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6f4e742a-826d-49ca-9f7d-7c101afb52f6",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-after-update-empty",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:15.461281+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "bc7c6379-94b0-45b4-9fce-c8b948cc8a22",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-empty-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:15.727393+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "a869e307-7a0e-47b6-982e-8a1752a61ce4",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-after-update-empty-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:16.208815+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "a65dd4e0-d4e1-485c-aec3-da6314ca3dd7",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-long-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:16.481930+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "eee03ccc-d91a-40ba-8729-659500dece5f",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-after-update-long-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:16.940902+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6aff2d7e-3de3-499f-835c-199a87822635",
+      "output": {
+        "Name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-punctuation-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "owned!list.name",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:17.224771+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "bc8bd8bd-bc50-4e82-b3e6-511d2ff7cf3d",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-after-update-punctuation-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:17.674968+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c9ae3980-98ab-469d-af7a-d74b17a44381",
+      "output": {
+        "Name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-whitespace-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "  owned list _ -  ",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:17.938246+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "fe990e03-4a80-43ae-8b94-873e169fbad7",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-after-update-whitespace-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:18.410795+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "8e41719d-62e4-4c50-862b-1e4c7d913236",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-invalid-location",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Location": "not-a-location",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:18.678182+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "7efc8b15-25ae-4d97-8a96-9bc231df6ac5",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-after-update-invalid-location",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:18.923763+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "4ec8d7fc-4618-4c38-95ec-edc099df81f2",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-s3-uri",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Location": "s3://stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:19.185083+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c3b01bde-4e01-43da-a45c-cc5686647f0f",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-after-update-s3-uri",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:19.670170+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "14f16038-9d9f-40e0-93c0-21bf14c1cd33",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "s3://stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "s3://stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-wrong-owner-inactive",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "ExpectedBucketOwner": "000000000000",
+        "Activate": false,
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:20.008957+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c6ecf1e8-abea-4864-8bac-197b7066203f",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-after-update-wrong-owner-inactive",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:20.476417+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "223c1c6d-ec4e-4619-b254-0b0a4150785a",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "000000000000"
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": "000000000000",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-invalid-owner-length",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ExpectedBucketOwner": "123",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:20.745730+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "a76b1eac-88d7-4de2-bed8-58b41e6daf73",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the 'accountId' was formatted incorrectly.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the 'accountId' was formatted incorrectly.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the 'accountId' was formatted incorrectly.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-after-update-invalid-owner-length",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:21.002141+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "637c9f6a-d69b-4513-8882-23d582c103ef",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "000000000000"
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": "000000000000",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-update-inactive-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ExpectedBucketOwner": "123456789012",
+        "Activate": false,
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:21.263802+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "2e7619c6-8ded-49ec-9b35-5f08b537b319",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-after-update-inactive-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:21.721005+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "882364e4-df58-41ca-8c81-31340c2b3320",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-arn-shape-tags",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_tags_for_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/0f5a08dd485c489cb10257f7483df8b6/ipset/c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:22.085807+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d6b188f2-6f34-4d38-b5fc-f2be0f0e37b4",
+      "output": {
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-tag-merge",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "tag_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/0f5a08dd485c489cb10257f7483df8b6/ipset/c97614feb53b4214be3fc3c306b1e270",
+        "Tags": {
+          "Extra": "one"
+        }
+      },
+      "at": "2026-09-29T14:40:22.306829+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "96feb809-40e0-4e85-a49d-fa3698735953",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-tags-merged",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_tags_for_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/0f5a08dd485c489cb10257f7483df8b6/ipset/c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:22.534370+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ab0ae948-ada2-49ff-ac89-32f1c2021015",
+      "output": {
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac",
+          "Extra": "one"
+        }
+      },
+      "wire_output": {
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac",
+          "Extra": "one"
+        }
+      }
+    },
+    {
+      "case": "ip-untag-extra",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "untag_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/0f5a08dd485c489cb10257f7483df8b6/ipset/c97614feb53b4214be3fc3c306b1e270",
+        "TagKeys": [
+          "Extra"
+        ]
+      },
+      "at": "2026-09-29T14:40:22.773273+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "25e84330-df34-41f4-9249-1b6ec06220ed",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-tags-after-untag",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:22.996695+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "56203400-c282-41c8-9634-4e8c4c02c3ba",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-quota-create-2",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-1",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "ClientToken": "b69ff6d63f3c4ceea637d7bf05ac6de2",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:23.270711+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "349ce12f-4bc3-409d-911a-1aec797372ec",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-page-0",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_ip_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 1
+      },
+      "at": "2026-09-29T14:40:23.604772+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "57fd2469-d979-4e82-82f6-7d2e93e9976e",
+      "output": {
+        "IpSetIds": [
+          "c97614feb53b4214be3fc3c306b1e270"
+        ]
+      },
+      "wire_output": {
+        "ipSetIds": [
+          "c97614feb53b4214be3fc3c306b1e270"
+        ],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "ip-activate-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Activate": true,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ExpectedBucketOwner": "123456789012",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:23.870905+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "4e732373-c2b5-4940-b795-9cecc191c0e7",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the caller is not authorized to call this API.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because the caller is not authorized to call this API.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the caller is not authorized to call this API.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-after-activate-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:42.048909+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "7694f1f1-bc04-4185-ad67-f2b902628918",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "ERROR",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "ERROR",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-activate-wrong-owner",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Activate": true,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "ExpectedBucketOwner": "000000000000",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:42.371817+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "08290a10-ec44-4855-9ab9-389762286d8b",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the expected bucket owner doesn't match the actual S3 bucket owner. Verify the account ID and bucket ownership, and then retry.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the expected bucket owner doesn't match the actual S3 bucket owner. Verify the account ID and bucket ownership, and then retry.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the expected bucket owner doesn't match the actual S3 bucket owner. Verify the account ID and bucket ownership, and then retry.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "ip-after-activate-wrong-owner",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:50.506450+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f7ce4441-53f1-47dc-a689-0356e146a84b",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "Status": "ERROR",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "000000000000"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "format": "TXT",
+        "status": "ERROR",
+        "expectedBucketOwner": "000000000000",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-activate-owned-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Activate": true,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "ExpectedBucketOwner": "123456789012",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:50.789244+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d47c1887-cd8f-45b3-b814-3c004cf8cc32",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-after-activate-owned-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:40:51.523706+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f4e8feed-cc28-42a4-a9d3-3a51f1925692",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "Status": "ACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "format": "TXT",
+        "status": "ACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-missing-id-get",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "850a61f9f51d42198a93400d34a41fb1"
+      },
+      "at": "2026-09-29T14:40:51.806132+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "c3445361-c592-48aa-a7ee-f641251134a1",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-missing-id-update",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "850a61f9f51d42198a93400d34a41fb1"
+      },
+      "at": "2026-09-29T14:40:52.104913+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "09b3f770-6e17-4640-9176-5fe146a0ac96",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-missing-id-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "850a61f9f51d42198a93400d34a41fb1"
+      },
+      "at": "2026-09-29T14:40:52.442443+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "d6317810-8379-4b44-b0b0-efb3c1912064",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-empty-list",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:40:52.845466+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c1583b2a-35a6-4e3d-88b7-ad8982ffd957",
+      "output": {
+        "ThreatIntelSetIds": []
+      },
+      "wire_output": {
+        "threatIntelSetIds": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "threat-max-results-0",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 0
+      },
+      "at": "2026-09-29T14:40:53.110365+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "1f0adc51-6297-4806-8506-4f9727287fa3",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-max-results-51",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 51
+      },
+      "at": "2026-09-29T14:40:53.382989+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "9767d28e-5ce4-4340-af03-de4b650f51cb",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter maxResults is out-of-bounds.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-invalid-next-token",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "NextToken": "not-a-native-token"
+      },
+      "at": "2026-09-29T14:40:53.645387+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "19072c2c-1f9b-4ca4-9054-a13fd72b707c",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-create-invalid-format",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "Format": "INVALID",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "c2410ecd824f4e9ba4aa2923b1316b6d",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:53.899995+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "63a965ca-bb43-44ac-897f-d482751c05f6",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the JSON could not be processed.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the JSON could not be processed.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the JSON could not be processed.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-create-empty-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "88533274896c4776a3f509f4bed6c24d",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:54.169127+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "e1911b29-5c88-4323-a06d-7e3b3231b3db",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter threatIntelSetName has an invalid value.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter threatIntelSetName has an invalid value.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter threatIntelSetName has an invalid value.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-create-invalid-location",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "not-a-location",
+        "ClientToken": "588324d65fc141b5a85bd1d81a5383cb",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:54.499347+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "e874676f-3051-41aa-82df-19f322917fc1",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-create-invalid-owner-length",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "c2d01d75a4994034867ca5a7fe92c6df",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123"
+      },
+      "at": "2026-09-29T14:40:54.801536+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "df066648-9ad2-4058-911d-b5b758b8aae7",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the 'accountId' was formatted incorrectly.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the 'accountId' was formatted incorrectly.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the 'accountId' was formatted incorrectly.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-create-inactive-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "3796c3e754f4486398193ab85924417c",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:55.135714+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "047f47b1-9073-42c3-bf6f-e3fa11d5adc9",
+      "output": {
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "wire_output": {
+        "threatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      }
+    },
+    {
+      "case": "threat-token-replay",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "3796c3e754f4486398193ab85924417c",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:55.795772+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "3b811ef4-3dd9-4859-8dae-b4b4ffc12f80",
+      "output": {
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "wire_output": {
+        "threatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      }
+    },
+    {
+      "case": "threat-token-conflict-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-changed",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "3796c3e754f4486398193ab85924417c",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:40:56.141131+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ef7eb879-084d-4281-8c12-64b7d2f8dcf6",
+      "output": {
+        "ThreatIntelSetId": "ec12e3f23ead4fc5a5d7eab196eba0fa"
+      },
+      "wire_output": {
+        "threatIntelSetId": "ec12e3f23ead4fc5a5d7eab196eba0fa"
+      }
+    },
+    {
+      "case": "threat-token-conflict-tags",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ClientToken": "3796c3e754f4486398193ab85924417c",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac",
+          "Changed": "yes"
+        }
+      },
+      "at": "2026-09-29T14:40:56.640138+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "b65b35c0-cb06-4e70-ae76-4291bf85120f",
+      "output": {
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "wire_output": {
+        "threatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      }
+    },
+    {
+      "case": "threat-created",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:40:57.001266+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "133131e8-837e-45f3-9479-37137885122f",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-empty",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:40:57.264367+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f663b31c-52e8-4c8d-ae99-383a414a8998",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-after-update-empty",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:40:57.722663+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f11bcfe5-1f64-4b89-9c21-fe238e12a56b",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-empty-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:40:58.028860+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "440ae11a-a49f-4941-bf6a-3190dd1548ef",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-after-update-empty-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:40:58.500046+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "56e05b82-a07e-40a3-bad7-42540f94d75b",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-long-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:40:58.782736+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "40939491-04b6-43f5-ac58-356efa8efbf4",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-after-update-long-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:40:59.256663+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6f39e835-74a5-41ca-8c3f-9bbdfded72bf",
+      "output": {
+        "Name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-punctuation-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "owned!list.name",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:40:59.522417+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "eae771fe-9e9a-40aa-8aaf-cd4b69ba36e7",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because an invalid or out-of-range value is specified as an input parameter.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-after-update-punctuation-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:40:59.960749+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "4f747e5f-7d7a-4a69-8797-c69f7acfd68a",
+      "output": {
+        "Name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-whitespace-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "  owned list _ -  ",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:00.242120+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "38e6e91b-8f93-467e-b4a0-1a41198c6b2b",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-after-update-whitespace-name",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:00.687047+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "5c72eae7-c65c-4cd0-bc40-98032b56250e",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-invalid-location",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Location": "not-a-location",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:00.963046+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "d5bfcf4d-6017-4934-a61a-bef903b9cc9b",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the parameter ipSetLocation has an invalid value.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-after-update-invalid-location",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:01.219356+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c8a4f06d-ac0d-40a8-8685-90e2d326bb93",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-s3-uri",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Location": "s3://stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:01.498237+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "03db96c6-bb5c-41c1-94cf-f52219048967",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-after-update-s3-uri",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:01.939255+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "87861419-ead4-4ae7-9e13-44b9d39bda62",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "s3://stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "s3://stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": null,
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-wrong-owner-inactive",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ExpectedBucketOwner": "000000000000",
+        "Activate": false,
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:02.234502+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ecb1000e-34bd-40ed-8071-eb7d9e99d0b2",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-after-update-wrong-owner-inactive",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:02.696594+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "b0a2b26e-3efb-484c-a77a-7604f6cbe232",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "000000000000"
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": "000000000000",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-invalid-owner-length",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ExpectedBucketOwner": "123",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:02.976765+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "193f9603-9e9f-4543-879a-14e32a7e01bc",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the 'accountId' was formatted incorrectly.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the 'accountId' was formatted incorrectly.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the 'accountId' was formatted incorrectly.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-after-update-invalid-owner-length",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:03.218260+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "225d918d-2e3e-4d95-8453-d75f97ed95d5",
+      "output": {
+        "Name": "  owned list _ -  ",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "000000000000"
+      },
+      "wire_output": {
+        "name": "  owned list _ -  ",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": "000000000000",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-update-inactive-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ExpectedBucketOwner": "123456789012",
+        "Activate": false,
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:03.494858+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "175d5588-8662-4623-bea5-bc904e53e87e",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-after-update-inactive-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:03.949642+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "48f35434-d53f-4866-b24a-5d910a98b240",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-arn-shape-tags",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_tags_for_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/0f5a08dd485c489cb10257f7483df8b6/threatintelset/29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:04.212658+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "fc4a99a8-fe5f-4694-a389-c3eea3229618",
+      "output": {
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "wire_output": {
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-tag-merge",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "tag_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/0f5a08dd485c489cb10257f7483df8b6/threatintelset/29ded4d910fb433ba4acd0c075a65d2e",
+        "Tags": {
+          "Extra": "one"
+        }
+      },
+      "at": "2026-09-29T14:41:04.454128+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "c525d455-c6b1-467e-9f20-18c3b2a1bc10",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-tags-merged",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_tags_for_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/0f5a08dd485c489cb10257f7483df8b6/threatintelset/29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:04.684376+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "7ae2bee7-62ae-45e6-a328-b18870a2f1c6",
+      "output": {
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac",
+          "Extra": "one"
+        }
+      },
+      "wire_output": {
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac",
+          "Extra": "one"
+        }
+      }
+    },
+    {
+      "case": "threat-untag-extra",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "untag_resource",
+      "input": {
+        "ResourceArn": "arn:aws:guardduty:us-west-2:123456789012:detector/0f5a08dd485c489cb10257f7483df8b6/threatintelset/29ded4d910fb433ba4acd0c075a65d2e",
+        "TagKeys": [
+          "Extra"
+        ]
+      },
+      "at": "2026-09-29T14:41:04.894069+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "84ff0894-8bb0-4b80-b45a-4f4c172a9e7f",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-tags-after-untag",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:05.113698+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "0ad7b0c9-bd61-48f5-aa90-992bfb5bb127",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "INACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "INACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-quota-create-2",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-1",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ClientToken": "2dc9af32baf14ac3ae03c56df46aa7fc",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:41:05.429278+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9fd3e039-2f34-4cc2-96ac-99628e294bf2",
+      "output": {
+        "ThreatIntelSetId": "c38bcaa342e842bfad9b6b46c2fbf7e7"
+      },
+      "wire_output": {
+        "threatIntelSetId": "c38bcaa342e842bfad9b6b46c2fbf7e7"
+      }
+    },
+    {
+      "case": "threat-quota-create-3",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-2",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ClientToken": "c280a66932364d868f3d86ddd30147e9",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:41:05.924293+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9931ee9d-8ffd-4404-8f73-9f2b3da987f2",
+      "output": {
+        "ThreatIntelSetId": "472245c87d7249188a4af5451c07055d"
+      },
+      "wire_output": {
+        "threatIntelSetId": "472245c87d7249188a4af5451c07055d"
+      }
+    },
+    {
+      "case": "threat-quota-create-4",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-3",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ClientToken": "2271c25bc4bd46c0b058b3628adbb3a1",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:41:06.386587+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "15f40e22-968d-4a4a-824d-26954986532e",
+      "output": {
+        "ThreatIntelSetId": "10c144e3ee424a179043ac83e5226aee"
+      },
+      "wire_output": {
+        "threatIntelSetId": "10c144e3ee424a179043ac83e5226aee"
+      }
+    },
+    {
+      "case": "threat-quota-create-5",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-4",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ClientToken": "ad62324349714866802eba1acd911cf4",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:41:06.845918+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6ad98c28-58bd-4455-9fa3-a95b1810e0e8",
+      "output": {
+        "ThreatIntelSetId": "1065cf3a3be946b8abcc0353de0d17d8"
+      },
+      "wire_output": {
+        "threatIntelSetId": "1065cf3a3be946b8abcc0353de0d17d8"
+      }
+    },
+    {
+      "case": "threat-quota-create-6",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-5",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ClientToken": "8a9738d5d1324bd4984833e4f5ffc795",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:41:07.327706+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "2138ac43-6d95-4aca-94e5-6b55484be9df",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-quota-create-7",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-6",
+        "Format": "TXT",
+        "Activate": false,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ClientToken": "d6647b0ff5d64f92a449194098064714",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      },
+      "at": "2026-09-29T14:41:07.666447+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "8be2a5bd-760d-4ee2-b6ae-9642b60dc201",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because it\u2019s an attempt to create resources beyond the current AWS account limits.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-page-0",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 1
+      },
+      "at": "2026-09-29T14:41:08.024801+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "798c30b2-be12-4679-ac9e-c4bfeebf20e4",
+      "output": {
+        "ThreatIntelSetIds": [
+          "1065cf3a3be946b8abcc0353de0d17d8"
+        ],
+        "NextToken": "1065cf3a3be946b8abcc0353de0d17d8"
+      },
+      "wire_output": {
+        "threatIntelSetIds": [
+          "1065cf3a3be946b8abcc0353de0d17d8"
+        ],
+        "nextToken": "1065cf3a3be946b8abcc0353de0d17d8"
+      }
+    },
+    {
+      "case": "threat-page-1",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 1,
+        "NextToken": "1065cf3a3be946b8abcc0353de0d17d8"
+      },
+      "at": "2026-09-29T14:41:08.287875+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "4be3782d-2b43-41d1-be2f-55c303e6a2f2",
+      "output": {
+        "ThreatIntelSetIds": [
+          "10c144e3ee424a179043ac83e5226aee"
+        ],
+        "NextToken": "10c144e3ee424a179043ac83e5226aee"
+      },
+      "wire_output": {
+        "threatIntelSetIds": [
+          "10c144e3ee424a179043ac83e5226aee"
+        ],
+        "nextToken": "10c144e3ee424a179043ac83e5226aee"
+      }
+    },
+    {
+      "case": "threat-page-2",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 1,
+        "NextToken": "10c144e3ee424a179043ac83e5226aee"
+      },
+      "at": "2026-09-29T14:41:08.556352+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "dd0f6462-e65e-49fd-b4c1-07f0d5568b91",
+      "output": {
+        "ThreatIntelSetIds": [
+          "29ded4d910fb433ba4acd0c075a65d2e"
+        ],
+        "NextToken": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "wire_output": {
+        "threatIntelSetIds": [
+          "29ded4d910fb433ba4acd0c075a65d2e"
+        ],
+        "nextToken": "29ded4d910fb433ba4acd0c075a65d2e"
+      }
+    },
+    {
+      "case": "threat-page-3",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 1,
+        "NextToken": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:08.818860+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "2652046e-c44a-4f34-a415-e6221befba3f",
+      "output": {
+        "ThreatIntelSetIds": [
+          "472245c87d7249188a4af5451c07055d"
+        ],
+        "NextToken": "472245c87d7249188a4af5451c07055d"
+      },
+      "wire_output": {
+        "threatIntelSetIds": [
+          "472245c87d7249188a4af5451c07055d"
+        ],
+        "nextToken": "472245c87d7249188a4af5451c07055d"
+      }
+    },
+    {
+      "case": "threat-page-4",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 1,
+        "NextToken": "472245c87d7249188a4af5451c07055d"
+      },
+      "at": "2026-09-29T14:41:09.081183+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "3f899c09-3c42-4353-a4c0-0e0631afa8a5",
+      "output": {
+        "ThreatIntelSetIds": [
+          "c38bcaa342e842bfad9b6b46c2fbf7e7"
+        ],
+        "NextToken": "c38bcaa342e842bfad9b6b46c2fbf7e7"
+      },
+      "wire_output": {
+        "threatIntelSetIds": [
+          "c38bcaa342e842bfad9b6b46c2fbf7e7"
+        ],
+        "nextToken": "c38bcaa342e842bfad9b6b46c2fbf7e7"
+      }
+    },
+    {
+      "case": "threat-page-5",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "MaxResults": 1,
+        "NextToken": "c38bcaa342e842bfad9b6b46c2fbf7e7"
+      },
+      "at": "2026-09-29T14:41:09.346322+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6f9db9c7-187a-4a36-96e4-d62a00239ac9",
+      "output": {
+        "ThreatIntelSetIds": [
+          "ec12e3f23ead4fc5a5d7eab196eba0fa"
+        ]
+      },
+      "wire_output": {
+        "threatIntelSetIds": [
+          "ec12e3f23ead4fc5a5d7eab196eba0fa"
+        ],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "threat-activate-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Activate": true,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "ExpectedBucketOwner": "123456789012",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:09.604131+00:00",
+      "code": "InternalServerErrorException",
+      "http_status": 400,
+      "request_id": "6f075bbb-8f62-416b-b27c-ae7959cc4cc8",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the caller is not authorized to call this API.",
+          "Code": "InternalServerErrorException"
+        },
+        "Message": "The request is rejected because the caller is not authorized to call this API.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the caller is not authorized to call this API.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-after-activate-missing-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:26.698901+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "388073f8-3479-4668-ae49-2044b1a61bed",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "ERROR",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "ERROR",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-activate-wrong-owner",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Activate": true,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ExpectedBucketOwner": "000000000000",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:26.982600+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "e6f83332-f032-4365-8075-f669f8308c43",
+      "output": {
+        "Error": {
+          "Message": "The request failed because the expected bucket owner doesn't match the actual S3 bucket owner. Verify the account ID and bucket ownership, and then retry.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because the expected bucket owner doesn't match the actual S3 bucket owner. Verify the account ID and bucket ownership, and then retry.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because the expected bucket owner doesn't match the actual S3 bucket owner. Verify the account ID and bucket ownership, and then retry.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-after-activate-wrong-owner",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:27.492810+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6c147715-5316-4d38-a16f-910514409891",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "ERROR",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "000000000000"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "ERROR",
+        "expectedBucketOwner": "000000000000",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-activate-owned-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Activate": true,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ExpectedBucketOwner": "123456789012",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:27.763236+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "97a97d5a-3cfb-4794-9a08-9f269c70b1cc",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-after-activate-owned-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:28.297115+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "a3cec390-b889-4c3b-8bc5-6993eef31d30",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "ACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "ACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-activation-observe",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:41:28.568008+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ffb39b1c-8032-4e89-bad8-8143aaa7e71c",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "Status": "ACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "format": "TXT",
+        "status": "ACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-activation-observe",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:28.909064+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c1d8f7c9-c0eb-4b7c-a17f-4282e482f431",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "ACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "ACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-source-put-modified",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_object",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "Key": "ip.txt",
+        "Body": "192.0.2.128/25\n203.0.113.2\n",
+        "ContentType": "text/plain",
+        "ServerSideEncryption": "AES256",
+        "Tagging": "stackd-probe=stackd-gd-lists-76a01192d24745ac"
+      },
+      "at": "2026-09-29T14:41:29.189402+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "Z4H1DC4WKK0T3XYP",
+      "output": {
+        "ETag": "\"2ba986c5e3eb497e5aee85ebe4396133\"",
+        "ChecksumCRC32": "sFHy7w==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "AES256"
+      }
+    },
+    {
+      "case": "ip-after-source-modification-before-reactivation",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:41:30.014127+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "83b5ddf1-9140-4ebe-abfd-4f246348f723",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "Status": "ACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "format": "TXT",
+        "status": "ACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "ip-reactivate-modified-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Activate": true,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "ExpectedBucketOwner": "123456789012",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:41:30.286990+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "2bd95935-66eb-426b-9942-414837097db9",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "ip-after-reactivation-request",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:41:30.867705+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "8546c962-2a77-4d77-b230-50b2da127314",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "Status": "ACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "format": "TXT",
+        "status": "ACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-source-put-modified",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_object",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "Key": "threat.txt",
+        "Body": "192.0.2.128/25\n203.0.113.2\n",
+        "ContentType": "text/plain",
+        "ServerSideEncryption": "AES256",
+        "Tagging": "stackd-probe=stackd-gd-lists-76a01192d24745ac"
+      },
+      "at": "2026-09-29T14:41:31.140844+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "SVXK29Z1AADTYNK7",
+      "output": {
+        "ETag": "\"2ba986c5e3eb497e5aee85ebe4396133\"",
+        "ChecksumCRC32": "sFHy7w==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "AES256"
+      }
+    },
+    {
+      "case": "threat-after-source-modification-before-reactivation",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:31.500201+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "31b0c5d4-0e8b-47b4-b595-dc7a2f318206",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "ACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "ACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    },
+    {
+      "case": "threat-reactivate-modified-source",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Activate": true,
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "ExpectedBucketOwner": "123456789012",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:31.777056+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "57b33f8b-6ee7-4927-b683-a9eff696e1f6",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-after-reactivation-request",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:32.303638+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "2cc4c278-fd62-462d-9cbf-9fbaaa557cf6",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "ACTIVE",
+        "Tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "ACTIVE",
+        "expectedBucketOwner": "123456789012",
+        "tags": {
+          "stackd-probe": "stackd-gd-lists-76a01192d24745ac"
+        }
+      }
+    }
+  ],
+  "cleanup": [
+    {
+      "case": "ip-delete-owned",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:41:32.568170+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "34610595-d0dc-412f-9b0b-d6f0827bb25e",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-delete-owned",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:33.483612+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "25a46718-0f04-456b-8de9-5e86843e7647",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-delete-owned",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "ec12e3f23ead4fc5a5d7eab196eba0fa"
+      },
+      "at": "2026-09-29T14:41:34.359488+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9f732242-bc87-4e19-abff-54a0b358ea3e",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-delete-owned",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "c38bcaa342e842bfad9b6b46c2fbf7e7"
+      },
+      "at": "2026-09-29T14:41:34.835422+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "70f52ddc-e546-45b2-b77a-1033fb0dfbc0",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-delete-owned",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "472245c87d7249188a4af5451c07055d"
+      },
+      "at": "2026-09-29T14:41:35.341517+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "b4ef01e8-5107-4dce-9d9a-98de67806b7c",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-delete-owned",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "10c144e3ee424a179043ac83e5226aee"
+      },
+      "at": "2026-09-29T14:41:35.809783+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "529d06b3-fd2c-4163-b784-4d467f21c262",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-delete-owned",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "1065cf3a3be946b8abcc0353de0d17d8"
+      },
+      "at": "2026-09-29T14:41:36.287029+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c37d941b-1dda-4984-bee4-f5ce5c88ab97",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "threat-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "ec12e3f23ead4fc5a5d7eab196eba0fa"
+      },
+      "at": "2026-09-29T14:41:36.752272+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "0f6eccfb-68f5-450c-b406-2ffab72c44f0",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-changed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "Status": "DELETED",
+        "Tags": {}
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-changed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/missing.txt",
+        "format": "TXT",
+        "status": "DELETED",
+        "expectedBucketOwner": null,
+        "tags": {}
+      }
+    },
+    {
+      "case": "threat-list-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:41:37.023830+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "2b378967-0317-43d1-ae25-3e71989986ca",
+      "output": {
+        "ThreatIntelSetIds": []
+      },
+      "wire_output": {
+        "threatIntelSetIds": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "threat-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:37.285246+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "eef14da1-8601-4dee-8563-9fdf34c6ad7c",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "DELETED",
+        "Tags": {},
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "DELETED",
+        "expectedBucketOwner": "123456789012",
+        "tags": {}
+      }
+    },
+    {
+      "case": "threat-list-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:41:37.604765+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "d6c717e5-d903-44d1-ba83-21a35cd2b394",
+      "output": {
+        "ThreatIntelSetIds": []
+      },
+      "wire_output": {
+        "threatIntelSetIds": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "threat-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "472245c87d7249188a4af5451c07055d"
+      },
+      "at": "2026-09-29T14:41:37.920828+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "feefb5c6-6c5e-400e-9eb9-d734788417e3",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-2",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "DELETED",
+        "Tags": {}
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-2",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "DELETED",
+        "expectedBucketOwner": null,
+        "tags": {}
+      }
+    },
+    {
+      "case": "threat-list-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:41:38.192756+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f57e6c65-723b-4182-b7f7-4ed640173907",
+      "output": {
+        "ThreatIntelSetIds": []
+      },
+      "wire_output": {
+        "threatIntelSetIds": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "threat-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "c38bcaa342e842bfad9b6b46c2fbf7e7"
+      },
+      "at": "2026-09-29T14:41:38.454623+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "26577223-b66f-4859-9c9b-b96a04b7bd95",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-1",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "DELETED",
+        "Tags": {}
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-1",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "DELETED",
+        "expectedBucketOwner": null,
+        "tags": {}
+      }
+    },
+    {
+      "case": "threat-list-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:41:38.747354+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "fea24f0a-a03d-48dd-8964-a4816565f6a4",
+      "output": {
+        "ThreatIntelSetIds": []
+      },
+      "wire_output": {
+        "threatIntelSetIds": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "ip-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:41:38.999037+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6b43181d-e19a-4ad0-aade-ae127d0d4ca5",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "Status": "DELETED",
+        "Tags": {},
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-ip-renamed",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/ip.txt",
+        "format": "TXT",
+        "status": "DELETED",
+        "expectedBucketOwner": "123456789012",
+        "tags": {}
+      }
+    },
+    {
+      "case": "ip-list-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_ip_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:41:39.265308+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "39d97aca-6b3b-4cbc-8da0-0972ccb85e7f",
+      "output": {
+        "IpSetIds": []
+      },
+      "wire_output": {
+        "ipSetIds": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "threat-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "1065cf3a3be946b8abcc0353de0d17d8"
+      },
+      "at": "2026-09-29T14:41:39.520489+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "59ff7446-292c-4629-9003-df7cbdfa47dc",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-4",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "DELETED",
+        "Tags": {}
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-4",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "DELETED",
+        "expectedBucketOwner": null,
+        "tags": {}
+      }
+    },
+    {
+      "case": "threat-list-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:41:39.800708+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "939a6ed2-a7ae-4684-a5bf-c51e158168c8",
+      "output": {
+        "ThreatIntelSetIds": []
+      },
+      "wire_output": {
+        "threatIntelSetIds": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "threat-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "10c144e3ee424a179043ac83e5226aee"
+      },
+      "at": "2026-09-29T14:41:40.051996+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "3504e34b-630a-4255-bc5a-aa5aef343ab5",
+      "output": {
+        "Name": "stackd-gd-lists-76a01192d24745ac-threat-3",
+        "Format": "TXT",
+        "Location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "Status": "DELETED",
+        "Tags": {}
+      },
+      "wire_output": {
+        "name": "stackd-gd-lists-76a01192d24745ac-threat-3",
+        "location": "https://s3.us-west-2.amazonaws.com/stackd-gd-lists-76a01192d24745ac/threat.txt",
+        "format": "TXT",
+        "status": "DELETED",
+        "expectedBucketOwner": null,
+        "tags": {}
+      }
+    },
+    {
+      "case": "threat-list-after-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_threat_intel_sets",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:41:40.320845+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "31dcf8d3-311d-4910-aa8b-55ffa9827f34",
+      "output": {
+        "ThreatIntelSetIds": []
+      },
+      "wire_output": {
+        "threatIntelSetIds": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "ip-delete-owned-again",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_ip_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "IpSetId": "c97614feb53b4214be3fc3c306b1e270"
+      },
+      "at": "2026-09-29T14:41:40.588579+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "887ae4d3-9972-41d5-abf6-63845a584108",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-delete-owned-again",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "29ded4d910fb433ba4acd0c075a65d2e"
+      },
+      "at": "2026-09-29T14:41:41.014124+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "cf130bec-216e-49ad-a366-3af684be2596",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-delete-owned-again",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "ec12e3f23ead4fc5a5d7eab196eba0fa"
+      },
+      "at": "2026-09-29T14:41:41.469714+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "2299b2e7-2742-4c7d-9782-d45ba5bf4f86",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-delete-owned-again",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "c38bcaa342e842bfad9b6b46c2fbf7e7"
+      },
+      "at": "2026-09-29T14:41:41.947892+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "ce0850f4-1144-424e-b7db-10673ee0df99",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-delete-owned-again",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "472245c87d7249188a4af5451c07055d"
+      },
+      "at": "2026-09-29T14:41:42.390446+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "e820e775-331b-42bc-9a4c-97314fddc325",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-delete-owned-again",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "10c144e3ee424a179043ac83e5226aee"
+      },
+      "at": "2026-09-29T14:41:42.845643+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "195b8aa3-0293-43b1-88d6-7c7a4d7846b6",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "threat-delete-owned-again",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_threat_intel_set",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "ThreatIntelSetId": "1065cf3a3be946b8abcc0353de0d17d8"
+      },
+      "at": "2026-09-29T14:41:43.260369+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "fb918b31-acec-4b71-be79-951355ea75d9",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected since no such resource found.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected since no such resource found.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected since no such resource found.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "suspend-owned-detector",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_detector",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6",
+        "Enable": false
+      },
+      "at": "2026-09-29T14:41:43.700609+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "5a1d7c85-9e25-4034-9e00-9795c21274d9",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "delete-owned-detector",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_detector",
+      "input": {
+        "DetectorId": "0f5a08dd485c489cb10257f7483df8b6"
+      },
+      "at": "2026-09-29T14:41:44.025415+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "30f95245-3b9f-45c7-9763-942c7ce9498d",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "detectors-after-cleanup",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_detectors",
+      "input": {},
+      "at": "2026-09-29T14:41:44.594864+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "6f3b8b7b-b245-4f5c-bbdc-e32b938b0a6b",
+      "output": {
+        "DetectorIds": []
+      },
+      "wire_output": {
+        "detectorIds": []
+      }
+    },
+    {
+      "case": "source-object-delete-ip.txt",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "delete_object",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "Key": "ip.txt",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T14:41:44.799009+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "3ZZNA441C0RC4HJ9",
+      "output": {}
+    },
+    {
+      "case": "source-object-delete-threat.txt",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "delete_object",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "Key": "threat.txt",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T14:41:45.465743+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "3ZZVTRJY8G8DQV79",
+      "output": {}
+    },
+    {
+      "case": "source-bucket-delete",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "delete_bucket",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T14:41:45.648344+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "3ZZW6KQ2GC6A7CEG",
+      "output": {}
+    },
+    {
+      "case": "source-bucket-absent",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "head_bucket",
+      "input": {
+        "Bucket": "stackd-gd-lists-76a01192d24745ac",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-29T14:41:46.076455+00:00",
+      "code": "404",
+      "http_status": 404,
+      "request_id": "CVQ4XPZWTMJRRE1J",
+      "output": {
+        "Error": {
+          "Code": "404",
+          "Message": "Not Found"
+        }
+      }
+    }
+  ],
+  "owned": {
+    "prefix": "stackd-gd-lists-76a01192d24745ac",
+    "lists": {
+      "ip": [
+        "c97614feb53b4214be3fc3c306b1e270"
+      ],
+      "threat": [
+        "29ded4d910fb433ba4acd0c075a65d2e",
+        "ec12e3f23ead4fc5a5d7eab196eba0fa",
+        "c38bcaa342e842bfad9b6b46c2fbf7e7",
+        "472245c87d7249188a4af5451c07055d",
+        "10c144e3ee424a179043ac83e5226aee",
+        "1065cf3a3be946b8abcc0353de0d17d8"
+      ]
+    },
+    "object_keys": [
+      "ip.txt",
+      "threat.txt"
+    ],
+    "detector_id": "0f5a08dd485c489cb10257f7483df8b6",
+    "client_token": "ed30ac03fd5243c3bb7489f94b106a8c",
+    "bucket": "stackd-gd-lists-76a01192d24745ac"
+  },
+  "limitations": [
+    "No detection traffic or sample findings are generated. Lifecycle admission is not evidence of detection effects.",
+    "AWS documents list transitions normally within 15 minutes and sometimes 40 minutes; bounded pending observations do not establish eventual failure.",
+    "Preexisting AWSServiceRoleForAmazonGuardDuty is not adopted for cleanup, even if a prior capture owns it. Its prior native deletion blocker remains outside this probe."
+  ],
+  "bounds": {
+    "observation_seconds": 90,
+    "cleanup_seconds": 90,
+    "poll_seconds": 10,
+    "sdk_total_max_attempts": 1
+  },
+  "execution": {
+    "python": "/home/r/dev/minor/stackd/.stackd/probes/inventory-physical-c5d910ae618f44e7/venv/bin/python",
+    "profile": "default"
+  },
+  "transitions": [
+    {
+      "kind": "ip",
+      "id": "c68bec6f89304e619be2667a9b578a69",
+      "case": "missing-id-get",
+      "at": "2026-09-29T14:40:07.797511+00:00",
+      "code": "BadRequestException",
+      "status": null
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "created",
+      "at": "2026-09-29T14:40:14.129112+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-empty",
+      "at": "2026-09-29T14:40:15.461281+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-empty-name",
+      "at": "2026-09-29T14:40:16.208815+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-long-name",
+      "at": "2026-09-29T14:40:16.940902+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-punctuation-name",
+      "at": "2026-09-29T14:40:17.674968+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-whitespace-name",
+      "at": "2026-09-29T14:40:18.410795+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-invalid-location",
+      "at": "2026-09-29T14:40:18.923763+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-s3-uri",
+      "at": "2026-09-29T14:40:19.670170+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-wrong-owner-inactive",
+      "at": "2026-09-29T14:40:20.476417+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-invalid-owner-length",
+      "at": "2026-09-29T14:40:21.002141+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-update-inactive-missing-source",
+      "at": "2026-09-29T14:40:21.721005+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "tags-after-untag",
+      "at": "2026-09-29T14:40:22.996695+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-activate-missing-source",
+      "at": "2026-09-29T14:40:42.048909+00:00",
+      "code": "Success",
+      "status": "ERROR"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-activate-wrong-owner",
+      "at": "2026-09-29T14:40:50.506450+00:00",
+      "code": "Success",
+      "status": "ERROR"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-activate-owned-source",
+      "at": "2026-09-29T14:40:51.523706+00:00",
+      "code": "Success",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "850a61f9f51d42198a93400d34a41fb1",
+      "case": "missing-id-get",
+      "at": "2026-09-29T14:40:51.806132+00:00",
+      "code": "BadRequestException",
+      "status": null
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "created",
+      "at": "2026-09-29T14:40:57.001266+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-empty",
+      "at": "2026-09-29T14:40:57.722663+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-empty-name",
+      "at": "2026-09-29T14:40:58.500046+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-long-name",
+      "at": "2026-09-29T14:40:59.256663+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-punctuation-name",
+      "at": "2026-09-29T14:40:59.960749+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-whitespace-name",
+      "at": "2026-09-29T14:41:00.687047+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-invalid-location",
+      "at": "2026-09-29T14:41:01.219356+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-s3-uri",
+      "at": "2026-09-29T14:41:01.939255+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-wrong-owner-inactive",
+      "at": "2026-09-29T14:41:02.696594+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-invalid-owner-length",
+      "at": "2026-09-29T14:41:03.218260+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-update-inactive-missing-source",
+      "at": "2026-09-29T14:41:03.949642+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "tags-after-untag",
+      "at": "2026-09-29T14:41:05.113698+00:00",
+      "code": "Success",
+      "status": "INACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-activate-missing-source",
+      "at": "2026-09-29T14:41:26.698901+00:00",
+      "code": "Success",
+      "status": "ERROR"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-activate-wrong-owner",
+      "at": "2026-09-29T14:41:27.492810+00:00",
+      "code": "Success",
+      "status": "ERROR"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-activate-owned-source",
+      "at": "2026-09-29T14:41:28.297115+00:00",
+      "code": "Success",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "activation-observe",
+      "at": "2026-09-29T14:41:28.568008+00:00",
+      "code": "Success",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "activation-observe",
+      "at": "2026-09-29T14:41:28.909064+00:00",
+      "code": "Success",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-source-modification-before-reactivation",
+      "at": "2026-09-29T14:41:30.014127+00:00",
+      "code": "Success",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-reactivation-request",
+      "at": "2026-09-29T14:41:30.867705+00:00",
+      "code": "Success",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-source-modification-before-reactivation",
+      "at": "2026-09-29T14:41:31.500201+00:00",
+      "code": "Success",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-reactivation-request",
+      "at": "2026-09-29T14:41:32.303638+00:00",
+      "code": "Success",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "threat",
+      "id": "ec12e3f23ead4fc5a5d7eab196eba0fa",
+      "case": "after-delete",
+      "at": "2026-09-29T14:41:36.752272+00:00",
+      "code": "Success",
+      "status": "DELETED"
+    },
+    {
+      "kind": "threat",
+      "id": "29ded4d910fb433ba4acd0c075a65d2e",
+      "case": "after-delete",
+      "at": "2026-09-29T14:41:37.285246+00:00",
+      "code": "Success",
+      "status": "DELETED"
+    },
+    {
+      "kind": "threat",
+      "id": "472245c87d7249188a4af5451c07055d",
+      "case": "after-delete",
+      "at": "2026-09-29T14:41:37.920828+00:00",
+      "code": "Success",
+      "status": "DELETED"
+    },
+    {
+      "kind": "threat",
+      "id": "c38bcaa342e842bfad9b6b46c2fbf7e7",
+      "case": "after-delete",
+      "at": "2026-09-29T14:41:38.454623+00:00",
+      "code": "Success",
+      "status": "DELETED"
+    },
+    {
+      "kind": "ip",
+      "id": "c97614feb53b4214be3fc3c306b1e270",
+      "case": "after-delete",
+      "at": "2026-09-29T14:41:38.999037+00:00",
+      "code": "Success",
+      "status": "DELETED"
+    },
+    {
+      "kind": "threat",
+      "id": "1065cf3a3be946b8abcc0353de0d17d8",
+      "case": "after-delete",
+      "at": "2026-09-29T14:41:39.520489+00:00",
+      "code": "Success",
+      "status": "DELETED"
+    },
+    {
+      "kind": "threat",
+      "id": "10c144e3ee424a179043ac83e5226aee",
+      "case": "after-delete",
+      "at": "2026-09-29T14:41:40.051996+00:00",
+      "code": "Success",
+      "status": "DELETED"
+    }
+  ],
+  "service_role_preexisting": true,
+  "region": "us-west-2",
+  "empty_boundary_verified": true,
+  "enabled_at": "2026-09-29T14:40:04.240821+00:00",
+  "requested_features": [
+    {
+      "Name": "S3_DATA_EVENTS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "EKS_AUDIT_LOGS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "EBS_MALWARE_PROTECTION",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "RDS_LOGIN_EVENTS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "LAMBDA_NETWORK_LOGS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "AI_PROTECTION",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "AI_ANALYST",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "RUNTIME_MONITORING",
+      "Status": "DISABLED",
+      "AdditionalConfiguration": [
+        {
+          "Name": "EKS_ADDON_MANAGEMENT",
+          "Status": "DISABLED"
+        },
+        {
+          "Name": "ECS_FARGATE_AGENT_MANAGEMENT",
+          "Status": "DISABLED"
+        },
+        {
+          "Name": "EC2_AGENT_MANAGEMENT",
+          "Status": "DISABLED"
+        }
+      ]
+    }
+  ],
+  "activation_observation_started_at": "2026-09-29T14:41:28.567986+00:00",
+  "activation_observation_elapsed_seconds": 0.621,
+  "activation_pending_at_bound": {},
+  "list_cleanup_before_detector_verified": true,
+  "list_cleanup_pending_at_bound": [],
+  "detector_cleanup_verified": true,
+  "bucket_cleanup_verified": true,
+  "preexisting_service_role_untouched": true,
+  "finished_at": "2026-09-29T14:41:46.249239+00:00",
+  "cleanup_problems": []
+}

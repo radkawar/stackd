@@ -1,0 +1,490 @@
+{
+  "account": "000000000000",
+  "region": "us-east-1",
+  "table": "stackd-ddb-pol-20260917092027-8fd7e7",
+  "sourceReferences": [
+    "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/specifying-conditions.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_ForAllValues",
+    "https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html"
+  ],
+  "notes": [
+    "Additional requested native ambiguity probe. Separate owned IAM user with only inline identity policy. Table owned by concurrently running policy probe. Distinct pk=attributes-probe item."
+  ],
+  "calls": [
+    {
+      "sequence": 1,
+      "label": "create-attribute-user",
+      "service": "iam",
+      "operation": "create-user",
+      "startedAt": "2026-09-17T09:22:04.924820+00:00",
+      "actor": "Delegated",
+      "input": {
+        "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs"
+      },
+      "code": "Success",
+      "output": {
+        "User": {
+          "Path": "/",
+          "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+          "UserId": "AIDAQAAAAAAAGQMFUMK4V",
+          "Arn": "arn:aws:iam::000000000000:user/stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+          "CreateDate": "2026-09-17T09:22:05+00:00"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "label": "create-attribute-key",
+      "service": "iam",
+      "operation": "create-access-key",
+      "startedAt": "2026-09-17T09:22:05.638741+00:00",
+      "actor": "Delegated",
+      "input": {
+        "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs"
+      },
+      "code": "Success",
+      "output": {
+        "AccessKey": {
+          "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+          "AccessKeyId": "[REDACTED]",
+          "Status": "Active",
+          "SecretAccessKey": "[REDACTED]",
+          "CreateDate": "2026-09-17T09:22:06+00:00"
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "label": "attribute-user-auth-ready",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "startedAt": "2026-09-17T09:22:06.360945+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {},
+      "code": "InvalidClientTokenId",
+      "error": {
+        "Code": "InvalidClientTokenId",
+        "Message": "The security token included in the request is invalid."
+      }
+    },
+    {
+      "sequence": 4,
+      "label": "attribute-user-auth-ready",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "startedAt": "2026-09-17T09:22:12.068572+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {},
+      "code": "InvalidClientTokenId",
+      "error": {
+        "Code": "InvalidClientTokenId",
+        "Message": "The security token included in the request is invalid."
+      }
+    },
+    {
+      "sequence": 5,
+      "label": "attribute-user-auth-ready",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "startedAt": "2026-09-17T09:22:17.801981+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {},
+      "code": "Success",
+      "output": {
+        "UserId": "AIDAQAAAAAAAGQMFUMK4V",
+        "Account": "000000000000",
+        "Arn": "arn:aws:iam::000000000000:user/stackd-ddb-pol-20260917092027-8fd7e7-attrs"
+      }
+    },
+    {
+      "sequence": 6,
+      "label": "attach-attributes-only-identity-policy",
+      "service": "iam",
+      "operation": "put-user-policy",
+      "startedAt": "2026-09-17T09:22:18.542118+00:00",
+      "actor": "Delegated",
+      "input": {
+        "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+        "PolicyName": "attributes-only",
+        "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\"],\"Resource\":\"arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7\",\"Condition\":{\"ForAllValues:StringEquals\":{\"dynamodb:Attributes\":[\"pk\",\"allowed\"]}}}]}"
+      },
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 7,
+      "label": "seed-attribute-item",
+      "service": "dynamodb",
+      "operation": "put-item",
+      "startedAt": "2026-09-17T09:22:19.265940+00:00",
+      "actor": "Delegated",
+      "input": {
+        "TableName": "stackd-ddb-pol-20260917092027-8fd7e7",
+        "Item": {
+          "pk": {
+            "S": "attributes-probe"
+          },
+          "allowed": {
+            "S": "public-value"
+          },
+          "secret": {
+            "S": "owned-test-secret-value"
+          }
+        }
+      },
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 8,
+      "label": "projected-allowed-read",
+      "service": "dynamodb",
+      "operation": "get-item",
+      "startedAt": "2026-09-17T09:22:19.990618+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {
+        "TableName": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7",
+        "Key": {
+          "pk": {
+            "S": "attributes-probe"
+          }
+        },
+        "ConsistentRead": true,
+        "ProjectionExpression": "pk, allowed"
+      },
+      "code": "AccessDeniedException",
+      "error": {
+        "Message": "User: arn:aws:iam::000000000000:user/stackd-ddb-pol-20260917092027-8fd7e7-attrs is not authorized to perform: dynamodb:GetItem on resource: arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7 because no identity-based policy allows the dynamodb:GetItem action",
+        "Code": "AccessDeniedException"
+      }
+    },
+    {
+      "sequence": 9,
+      "label": "projected-allowed-read",
+      "service": "dynamodb",
+      "operation": "get-item",
+      "startedAt": "2026-09-17T09:22:25.666060+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {
+        "TableName": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7",
+        "Key": {
+          "pk": {
+            "S": "attributes-probe"
+          }
+        },
+        "ConsistentRead": true,
+        "ProjectionExpression": "pk, allowed"
+      },
+      "code": "AccessDeniedException",
+      "error": {
+        "Message": "User: arn:aws:iam::000000000000:user/stackd-ddb-pol-20260917092027-8fd7e7-attrs is not authorized to perform: dynamodb:GetItem on resource: arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7 because no identity-based policy allows the dynamodb:GetItem action",
+        "Code": "AccessDeniedException"
+      }
+    },
+    {
+      "sequence": 10,
+      "label": "projected-allowed-read",
+      "service": "dynamodb",
+      "operation": "get-item",
+      "startedAt": "2026-09-17T09:22:31.384906+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {
+        "TableName": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7",
+        "Key": {
+          "pk": {
+            "S": "attributes-probe"
+          }
+        },
+        "ConsistentRead": true,
+        "ProjectionExpression": "pk, allowed"
+      },
+      "code": "Success",
+      "output": {
+        "Item": {
+          "allowed": {
+            "S": "public-value"
+          },
+          "pk": {
+            "S": "attributes-probe"
+          }
+        }
+      }
+    },
+    {
+      "sequence": 11,
+      "label": "unprojected-all-attributes-read",
+      "service": "dynamodb",
+      "operation": "get-item",
+      "startedAt": "2026-09-17T09:22:32.202368+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {
+        "TableName": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7",
+        "Key": {
+          "pk": {
+            "S": "attributes-probe"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "code": "Success",
+      "output": {
+        "Item": {
+          "pk": {
+            "S": "attributes-probe"
+          },
+          "secret": {
+            "S": "owned-test-secret-value"
+          },
+          "allowed": {
+            "S": "public-value"
+          }
+        }
+      }
+    },
+    {
+      "sequence": 12,
+      "label": "explicit-secret-projected-read",
+      "service": "dynamodb",
+      "operation": "get-item",
+      "startedAt": "2026-09-17T09:22:32.902649+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {
+        "TableName": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7",
+        "Key": {
+          "pk": {
+            "S": "attributes-probe"
+          }
+        },
+        "ConsistentRead": true,
+        "ProjectionExpression": "pk, allowed, secret"
+      },
+      "code": "AccessDeniedException",
+      "error": {
+        "Message": "User: arn:aws:iam::000000000000:user/stackd-ddb-pol-20260917092027-8fd7e7-attrs is not authorized to perform: dynamodb:GetItem on resource: arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7 because no identity-based policy allows the dynamodb:GetItem action",
+        "Code": "AccessDeniedException"
+      }
+    },
+    {
+      "sequence": 13,
+      "label": "condition-failure-all-old-attributes-only",
+      "service": "dynamodb",
+      "operation": "update-item",
+      "startedAt": "2026-09-17T09:22:33.581963+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {
+        "TableName": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7",
+        "Key": {
+          "pk": {
+            "S": "attributes-probe"
+          }
+        },
+        "UpdateExpression": "SET allowed = :new",
+        "ConditionExpression": "allowed = :impossible",
+        "ExpressionAttributeValues": {
+          ":new": {
+            "S": "changed"
+          },
+          ":impossible": {
+            "S": "not-current"
+          }
+        },
+        "ReturnValuesOnConditionCheckFailure": "ALL_OLD"
+      },
+      "code": "ConditionalCheckFailedException",
+      "error": {
+        "Message": "The conditional request failed",
+        "Code": "ConditionalCheckFailedException",
+        "message": "The conditional request failed",
+        "Item": {
+          "allowed": {
+            "S": "public-value"
+          },
+          "secret": {
+            "S": "owned-test-secret-value"
+          },
+          "pk": {
+            "S": "attributes-probe"
+          }
+        }
+      }
+    },
+    {
+      "sequence": 14,
+      "label": "condition-failure-no-return-attributes-only",
+      "service": "dynamodb",
+      "operation": "update-item",
+      "startedAt": "2026-09-17T09:22:34.256496+00:00",
+      "actor": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+      "input": {
+        "TableName": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7",
+        "Key": {
+          "pk": {
+            "S": "attributes-probe"
+          }
+        },
+        "UpdateExpression": "SET allowed = :new",
+        "ConditionExpression": "allowed = :impossible",
+        "ExpressionAttributeValues": {
+          ":new": {
+            "S": "changed"
+          },
+          ":impossible": {
+            "S": "not-current"
+          }
+        }
+      },
+      "code": "ConditionalCheckFailedException",
+      "error": {
+        "Message": "The conditional request failed",
+        "Code": "ConditionalCheckFailedException",
+        "message": "The conditional request failed"
+      }
+    },
+    {
+      "sequence": 15,
+      "label": "delegated-item-unchanged",
+      "service": "dynamodb",
+      "operation": "get-item",
+      "startedAt": "2026-09-17T09:22:34.929727+00:00",
+      "actor": "Delegated",
+      "input": {
+        "TableName": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-pol-20260917092027-8fd7e7",
+        "Key": {
+          "pk": {
+            "S": "attributes-probe"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "code": "Success",
+      "output": {
+        "Item": {
+          "pk": {
+            "S": "attributes-probe"
+          },
+          "secret": {
+            "S": "owned-test-secret-value"
+          },
+          "allowed": {
+            "S": "public-value"
+          }
+        }
+      }
+    },
+    {
+      "sequence": 16,
+      "label": "cleanup-inline-policy",
+      "service": "iam",
+      "operation": "delete-user-policy",
+      "startedAt": "2026-09-17T09:22:35.599629+00:00",
+      "actor": "Delegated",
+      "input": {
+        "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+        "PolicyName": "attributes-only"
+      },
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 17,
+      "label": "cleanup-key",
+      "service": "iam",
+      "operation": "delete-access-key",
+      "startedAt": "2026-09-17T09:22:36.281944+00:00",
+      "actor": "Delegated",
+      "input": {
+        "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs",
+        "AccessKeyId": "[REDACTED]"
+      },
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 18,
+      "label": "cleanup-keys-empty",
+      "service": "iam",
+      "operation": "list-access-keys",
+      "startedAt": "2026-09-17T09:22:37.005069+00:00",
+      "actor": "Delegated",
+      "input": {
+        "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs"
+      },
+      "code": "Success",
+      "output": {
+        "AccessKeyMetadata": [],
+        "IsTruncated": false
+      }
+    },
+    {
+      "sequence": 19,
+      "label": "cleanup-policies-empty",
+      "service": "iam",
+      "operation": "list-user-policies",
+      "startedAt": "2026-09-17T09:22:37.714402+00:00",
+      "actor": "Delegated",
+      "input": {
+        "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs"
+      },
+      "code": "Success",
+      "output": {
+        "PolicyNames": [],
+        "IsTruncated": false
+      }
+    },
+    {
+      "sequence": 20,
+      "label": "cleanup-user",
+      "service": "iam",
+      "operation": "delete-user",
+      "startedAt": "2026-09-17T09:22:38.425600+00:00",
+      "actor": "Delegated",
+      "input": {
+        "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs"
+      },
+      "code": "Success",
+      "output": {}
+    },
+    {
+      "sequence": 21,
+      "label": "cleanup-user-absent",
+      "service": "iam",
+      "operation": "get-user",
+      "startedAt": "2026-09-17T09:22:39.156547+00:00",
+      "actor": "Delegated",
+      "input": {
+        "UserName": "stackd-ddb-pol-20260917092027-8fd7e7-attrs"
+      },
+      "code": "NoSuchEntity",
+      "error": {
+        "Code": "NoSuchEntity",
+        "Message": "The user with name stackd-ddb-pol-20260917092027-8fd7e7-attrs cannot be found."
+      }
+    },
+    {
+      "sequence": 22,
+      "label": "cleanup-distinct-item",
+      "service": "dynamodb",
+      "operation": "delete-item",
+      "startedAt": "2026-09-17T09:22:39.826995+00:00",
+      "actor": "Delegated",
+      "input": {
+        "TableName": "stackd-ddb-pol-20260917092027-8fd7e7",
+        "Key": {
+          "pk": {
+            "S": "attributes-probe"
+          }
+        }
+      },
+      "code": "Success",
+      "output": {}
+    }
+  ],
+  "cleanup": {
+    "policy": "Success",
+    "key": "Success",
+    "user": "Success",
+    "userAbsent": "NoSuchEntity",
+    "item": "Success"
+  },
+  "completed": true
+}

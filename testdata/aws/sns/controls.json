@@ -1,0 +1,1231 @@
+{
+  "source": "Native AWS CLI using default authorized credentials",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "primary_references": [
+    "https://docs.aws.amazon.com/sns/latest/api/API_CreateTopic.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_SetTopicAttributes.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_GetTopicAttributes.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_AddPermission.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_RemovePermission.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_Subscribe.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_GetSubscriptionAttributes.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_SetSubscriptionAttributes.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_Unsubscribe.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_Publish.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_PublishBatch.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_DeleteTopic.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_TagResource.html",
+    "https://docs.aws.amazon.com/sns/latest/api/API_UntagResource.html",
+    "https://docs.aws.amazon.com/sns/latest/dg/sns-access-policy-use-cases.html",
+    "https://docs.aws.amazon.com/sns/latest/dg/sns-subscription-filter-policies.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Notify_Users_Alarm_Changes.html"
+  ],
+  "evidence_summary": {
+    "resource_footprint": {
+      "unique_standard_topic_names": 2,
+      "unique_standard_queue_names": 2,
+      "scalar_alarms_created": 1,
+      "unique_subscription_arns": 5,
+      "topic_incarnations": 3,
+      "queue_incarnations": 3,
+      "recreation_disclosure": "The initial alarm policy was rejected before alarm creation. Initial resources were fully cleaned, then the same owned alarm topic and q1 queue names were recreated for recovery. No third topic or queue name was introduced.",
+      "explicit_publish_messages": 8,
+      "cloudwatch_action_publish_attempts_observed": 2,
+      "cloudwatch_action_publish_successes_observed": 1,
+      "successful_sqs_message_deletions": 9,
+      "failed_sqs_message_deletions": 0,
+      "cli_requests_total": 131,
+      "experiment_wall_seconds_including_recovery_and_cleanup": 270.029
+    },
+    "findings": [
+      {
+        "labels": [
+          "topic-create-idempotent",
+          "topic-create-conflicting-display",
+          "topic-after-create-conflict",
+          "topic-create-conflicting-tags",
+          "topic-tags-after-create"
+        ],
+        "finding": "Same-name CreateTopic without attributes returned the existing ARN. Conflicting DisplayName and conflicting tags returned InvalidParameter HTTP 400 and retained prior values."
+      },
+      {
+        "labels": [
+          "topic-defaults",
+          "topic-after-attribute-errors",
+          "topic-policy-after-add",
+          "topic-add-permission-repeat",
+          "topic-remove-permission-repeat",
+          "topic-policy-after-remove"
+        ],
+        "finding": "Native default topic attributes expose an owner-scoped default policy, empty DisplayName, subscription counters and EffectiveDeliveryPolicy; TracingConfig and SignatureVersion are not returned in this default read. Invalid attribute/policy updates leave prior attributes intact. Repeated identical AddPermission and repeated RemovePermission both succeeded."
+      },
+      {
+        "labels": [
+          "subscription-defaults",
+          "subscription-repeat",
+          "subscription-old-after-unsubscribe",
+          "subscription-recreate"
+        ],
+        "finding": "Same-account SQS subscription is confirmed immediately. Repeated Subscribe returns the same ARN; unsubscribe followed by subscribe produces a different ARN. The deleted ARN reads NotFound."
+      },
+      {
+        "labels": [
+          "envelope-receive-0",
+          "batch-envelope-receive-0",
+          "batch-envelope-receive-1",
+          "raw-receive-0"
+        ],
+        "finding": "Publish and PublishBatch produced actual SQS messages. Wrapped delivery retains native SNS metadata, optional Subject and typed MessageAttributes. Raw delivery has the exact input message as SQS Body and exposes attributes as native SQS MessageAttributes, without Subject or the SNS envelope."
+      },
+      {
+        "labels": [
+          "filter-attributes-after-errors",
+          "filter-body-attributes",
+          "filter-attributes-round-0-receive-0",
+          "filter-body-round-0-receive-0",
+          "filter-attributes-round-1-receive-0",
+          "filter-body-round-1-receive-0"
+        ],
+        "finding": "Each of two crossed attribute/body pairs delivered only its matched candidate to the respective subscription in both rounds. Invalid FilterPolicy/FilterPolicyScope updates returned InvalidParameter and retained the valid attribute filter. This is bounded admission evidence; a 35-second inter-round sleep is not the documented 15-minute full propagation bound."
+      },
+      {
+        "labels": [
+          "alarm-policy-wrong-source",
+          "recovery-alarm-policy-wrong-source"
+        ],
+        "finding": "Initial policy containing SNS:* was rejected as action out of service scope. Recovery retained the same scoped service statement but replaced the owner wildcard with the explicit native default action list; it succeeded. Wildcard spelling/case variants were not separately tested."
+      },
+      {
+        "labels": [
+          "recovery-alarm-wrong-source-history",
+          "recovery-alarm-wrong-source-receive-0",
+          "recovery-alarm-authorized-0-receive-0",
+          "recovery-alarm-authorized-history-0"
+        ],
+        "finding": "Wrong SourceArn control produced an explicit Failed action history with SNS:Publish authorization error and no SQS message during the 8-second poll. Correct exact alarm SourceArn policy produced a real alarm notification and Succeeded history. State timestamp to SQS SentTimestamp was 55 ms; the receive finished 926 ms after that state timestamp."
+      }
+    ],
+    "unresolved_or_bounded_observations": [
+      "DeleteTopic returned Success and GetTopicAttributes returned NotFound, yet three subscription ARNs still returned attributes seconds later. Explicit owned Unsubscribe then yielded NotFound. No claim of permanent orphaning; asynchronous cascade timing remains unresolved.",
+      "ListSubscriptions returned NextToken on the single requested native page. It was retained but not followed. Both global lists discarded one unrelated row before capture; no pagination semantics or exhaustive account listing claimed.",
+      "CloudWatch's successful history contains generated default/sms/email protocol payloads; only an SQS subscription existed on that topic. No SMS/email endpoint or delivery was created.",
+      "The alarm message includes ActionExecutedAfterMuteWindow=false and Trigger.EvaluateLowSampleCountPercentile as an empty string, while Trigger.Unit is explicit null. These observed fields are preserved rather than synthesized from documentation."
+    ],
+    "cleanup_verified": "Both initial and recovery finally blocks deleted the alarm before dependent resources, removed subscriptions, deleted exact owned topic/queue handles and obtained empty alarm descriptions or native NotFound/NonExistentQueue reads. cleanup_before_recovery and cleanup retain separate verified outcomes."
+  },
+  "cleanup": {
+    "verified": true,
+    "checks": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "cleanup_before_recovery": {
+    "verified": true,
+    "checks": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "limitations": [
+    "One native account and region; no pagination behavior claimed. Lists use --no-paginate; unrelated resource rows are discarded before persistence.",
+    "SNS filter changes can take up to 15 minutes; this experiment is capped at ten minutes. Unmatched non-delivery is bounded non-observation, not an exhaustive filter oracle.",
+    "AWS CLI debug exists only transiently in memory for status extraction; no raw request signing material retained. SNS notification Signature fields are actual public message envelope fields.",
+    "No custom metric data, SMS/email/mobile/HTTP/Lambda endpoints or FIFO resources. CloudWatch state is manually changed with TreatMissingData=ignore.",
+    "Exact native identifiers and field presence retained; no fixture normalization performed.",
+    "Only topic controls are replayed here; delivery probes using local IAM/resource-tag authorization are labeled local regressions, not additional native observations. DisplayName transitions are checked through subsequent CreateTopic conflict admission, not inferred SQS envelope content."
+  ],
+  "bounds": {
+    "seconds_including_cleanup": 600,
+    "cli_calls_including_cleanup": 160,
+    "published_messages": 20,
+    "automatic_retries": false,
+    "ordinary_work_deadline_seconds": 430,
+    "ordinary_call_limit": 133
+  },
+  "source_file": "/tmp/stackd-native-sns-dependency.json",
+  "observations": [
+    {
+      "label": "account-guard",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1789376547459,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376548306
+    },
+    {
+      "label": "topic-create-data",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376548306,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376549183
+    },
+    {
+      "label": "topic-defaults",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376550072,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\"],\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"000000000000\"}}}]}",
+            "Owner": "000000000000",
+            "SubscriptionsPending": "0",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+            "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+            "SubscriptionsConfirmed": "0",
+            "DisplayName": "",
+            "SubscriptionsDeleted": "0"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376550844
+    },
+    {
+      "label": "topic-create-idempotent",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376550844,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376551622
+    },
+    {
+      "label": "topic-display-first",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "AttributeName": "DisplayName",
+        "AttributeValue": "first-owned"
+      },
+      "request_started_ms": 1789376551623,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376552372
+    },
+    {
+      "label": "topic-create-conflicting-display",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-native-sns-fde5a5ebdc164e179618-data",
+        "Attributes": {
+          "DisplayName": "create-conflict"
+        }
+      },
+      "request_started_ms": 1789376552372,
+      "cli_returncode": 254,
+      "result": {
+        "code": "InvalidParameter",
+        "message": "Invalid parameter: Attributes Reason: Topic already exists with different attributes",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789376553138
+    },
+    {
+      "label": "topic-after-create-conflict",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376553138,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\"],\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"000000000000\"}}}]}",
+            "Owner": "000000000000",
+            "SubscriptionsPending": "0",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+            "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+            "SubscriptionsConfirmed": "0",
+            "DisplayName": "first-owned",
+            "SubscriptionsDeleted": "0"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376553961
+    },
+    {
+      "label": "topic-display-replacement",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "AttributeName": "DisplayName",
+        "AttributeValue": "replacement-owned"
+      },
+      "request_started_ms": 1789376553961,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376554702
+    },
+    {
+      "label": "topic-invalid-policy",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "AttributeName": "Policy",
+        "AttributeValue": "{invalid-json"
+      },
+      "request_started_ms": 1789376554702,
+      "cli_returncode": 254,
+      "result": {
+        "code": "InvalidParameter",
+        "message": "Invalid parameter: Policy Error: null",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789376555376
+    },
+    {
+      "label": "topic-invalid-attribute",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "AttributeName": "UnknownOwnedAttribute",
+        "AttributeValue": "ignored?"
+      },
+      "request_started_ms": 1789376555377,
+      "cli_returncode": 254,
+      "result": {
+        "code": "InvalidParameter",
+        "message": "Invalid parameter: AttributeName",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789376556102
+    },
+    {
+      "label": "topic-after-attribute-errors",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376556102,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\"],\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"000000000000\"}}}]}",
+            "Owner": "000000000000",
+            "SubscriptionsPending": "0",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+            "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+            "SubscriptionsConfirmed": "0",
+            "DisplayName": "replacement-owned",
+            "SubscriptionsDeleted": "0"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376556797
+    },
+    {
+      "label": "topic-tags-add",
+      "service": "sns",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "Tags": [
+          {
+            "Key": "stage",
+            "Value": "first"
+          },
+          {
+            "Key": "owned",
+            "Value": "stackd-native-sns-fde5a5ebdc164e179618"
+          }
+        ]
+      },
+      "request_started_ms": 1789376556797,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376557498
+    },
+    {
+      "label": "topic-tags-replace",
+      "service": "sns",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "Tags": [
+          {
+            "Key": "stage",
+            "Value": "replacement"
+          }
+        ]
+      },
+      "request_started_ms": 1789376557499,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376558210
+    },
+    {
+      "label": "topic-tags-list",
+      "service": "sns",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376558210,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "stage",
+              "Value": "replacement"
+            },
+            {
+              "Key": "owned",
+              "Value": "stackd-native-sns-fde5a5ebdc164e179618"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376558939
+    },
+    {
+      "label": "topic-create-conflicting-tags",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-native-sns-fde5a5ebdc164e179618-data",
+        "Tags": [
+          {
+            "Key": "stage",
+            "Value": "create-conflict"
+          }
+        ]
+      },
+      "request_started_ms": 1789376558939,
+      "cli_returncode": 254,
+      "result": {
+        "code": "InvalidParameter",
+        "message": "Invalid parameter: Tags Reason: Topic already exists with different tags",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789376559663
+    },
+    {
+      "label": "topic-tags-after-create",
+      "service": "sns",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376559664,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "stage",
+              "Value": "replacement"
+            },
+            {
+              "Key": "owned",
+              "Value": "stackd-native-sns-fde5a5ebdc164e179618"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376560381
+    },
+    {
+      "label": "topic-tags-remove",
+      "service": "sns",
+      "operation": "untag-resource",
+      "input": {
+        "ResourceArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "TagKeys": [
+          "stage",
+          "absent-owned"
+        ]
+      },
+      "request_started_ms": 1789376560382,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376561113
+    },
+    {
+      "label": "topic-tags-after-remove",
+      "service": "sns",
+      "operation": "list-tags-for-resource",
+      "input": {
+        "ResourceArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376561113,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": [
+            {
+              "Key": "owned",
+              "Value": "stackd-native-sns-fde5a5ebdc164e179618"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376561837
+    },
+    {
+      "label": "topic-add-permission",
+      "service": "sns",
+      "operation": "add-permission",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "Label": "OwnedPublish",
+        "AWSAccountId": [
+          "000000000000"
+        ],
+        "ActionName": [
+          "Publish"
+        ]
+      },
+      "request_started_ms": 1789376561838,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376562611
+    },
+    {
+      "label": "topic-policy-after-add",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376562612,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\"],\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"000000000000\"}}},{\"Sid\":\"OwnedPublish\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::000000000000:root\"},\"Action\":\"SNS:Publish\",\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data\"}]}",
+            "Owner": "000000000000",
+            "SubscriptionsPending": "0",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+            "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+            "SubscriptionsConfirmed": "0",
+            "DisplayName": "replacement-owned",
+            "SubscriptionsDeleted": "0"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376563340
+    },
+    {
+      "label": "topic-add-permission-repeat",
+      "service": "sns",
+      "operation": "add-permission",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "Label": "OwnedPublish",
+        "AWSAccountId": [
+          "000000000000"
+        ],
+        "ActionName": [
+          "Publish"
+        ]
+      },
+      "request_started_ms": 1789376563340,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376564092
+    },
+    {
+      "label": "topic-remove-permission",
+      "service": "sns",
+      "operation": "remove-permission",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "Label": "OwnedPublish"
+      },
+      "request_started_ms": 1789376564092,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376564924
+    },
+    {
+      "label": "topic-remove-permission-repeat",
+      "service": "sns",
+      "operation": "remove-permission",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+        "Label": "OwnedPublish"
+      },
+      "request_started_ms": 1789376564925,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376565723
+    },
+    {
+      "label": "topic-policy-after-remove",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376565723,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "Policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\"],\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"000000000000\"}}}]}",
+            "Owner": "000000000000",
+            "SubscriptionsPending": "0",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+            "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+            "SubscriptionsConfirmed": "0",
+            "DisplayName": "replacement-owned",
+            "SubscriptionsDeleted": "0"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376566467
+    },
+    {
+      "label": "cleanup-delete-alarm",
+      "service": "cloudwatch",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-sns-fde5a5ebdc164e179618-scalar"
+        ]
+      },
+      "request_started_ms": 1789376670270,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376671060
+    },
+    {
+      "label": "cleanup-alarm-absence",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-sns-fde5a5ebdc164e179618-scalar"
+        ]
+      },
+      "request_started_ms": 1789376671062,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376671801
+    },
+    {
+      "label": "cleanup-delete-topic-0",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376671802,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376672614
+    },
+    {
+      "label": "cleanup-topic-absence-0",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376672616,
+      "cli_returncode": 254,
+      "result": {
+        "code": "NotFound",
+        "message": "Topic does not exist",
+        "http_status": 404
+      },
+      "request_finished_ms": 1789376673310
+    },
+    {
+      "label": "cleanup-topic-delete-repeat-0",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data"
+      },
+      "request_started_ms": 1789376673311,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376674038
+    },
+    {
+      "label": "cleanup-delete-topic-1",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm"
+      },
+      "request_started_ms": 1789376674039,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376674853
+    },
+    {
+      "label": "cleanup-topic-absence-1",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm"
+      },
+      "request_started_ms": 1789376674855,
+      "cli_returncode": 254,
+      "result": {
+        "code": "NotFound",
+        "message": "Topic does not exist",
+        "http_status": 404
+      },
+      "request_finished_ms": 1789376675580
+    },
+    {
+      "label": "cleanup-topic-delete-repeat-1",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm"
+      },
+      "request_started_ms": 1789376675581,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376676287
+    },
+    {
+      "label": "cleanup-subscription-absence-0",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data:aab36f8e-7a03-437b-ab4c-1796efdd8c04"
+      },
+      "request_started_ms": 1789376676289,
+      "cli_returncode": 254,
+      "result": {
+        "code": "NotFound",
+        "message": "Subscription does not exist",
+        "http_status": 404
+      },
+      "request_finished_ms": 1789376677008
+    },
+    {
+      "label": "cleanup-subscription-absence-1",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data:2ece883e-848f-4768-b4ba-b87528dd5dfa"
+      },
+      "request_started_ms": 1789376677010,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+            "Owner": "000000000000",
+            "RawMessageDelivery": "false",
+            "FilterPolicy": "{\"kind\":[\"admit\"]}",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+            "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-q0",
+            "FilterPolicyScope": "MessageAttributes",
+            "Protocol": "sqs",
+            "PendingConfirmation": "false",
+            "ConfirmationWasAuthenticated": "true",
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data:2ece883e-848f-4768-b4ba-b87528dd5dfa"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376677754
+    },
+    {
+      "label": "cleanup-explicit-unsubscribe-1",
+      "service": "sns",
+      "operation": "unsubscribe",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data:2ece883e-848f-4768-b4ba-b87528dd5dfa"
+      },
+      "request_started_ms": 1789376677756,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376678550
+    },
+    {
+      "label": "cleanup-subscription-recheck-1",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data:2ece883e-848f-4768-b4ba-b87528dd5dfa"
+      },
+      "request_started_ms": 1789376678552,
+      "cli_returncode": 254,
+      "result": {
+        "code": "NotFound",
+        "message": "Subscription does not exist",
+        "http_status": 404
+      },
+      "request_finished_ms": 1789376679244
+    },
+    {
+      "label": "cleanup-subscription-absence-2",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm:bf620ec6-2308-4808-82fd-a73b852d5774"
+      },
+      "request_started_ms": 1789376679245,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+            "Owner": "000000000000",
+            "RawMessageDelivery": "false",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm",
+            "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-q1",
+            "Protocol": "sqs",
+            "PendingConfirmation": "false",
+            "ConfirmationWasAuthenticated": "true",
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm:bf620ec6-2308-4808-82fd-a73b852d5774"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376680116
+    },
+    {
+      "label": "cleanup-explicit-unsubscribe-2",
+      "service": "sns",
+      "operation": "unsubscribe",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm:bf620ec6-2308-4808-82fd-a73b852d5774"
+      },
+      "request_started_ms": 1789376680117,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376680974
+    },
+    {
+      "label": "cleanup-subscription-recheck-2",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm:bf620ec6-2308-4808-82fd-a73b852d5774"
+      },
+      "request_started_ms": 1789376680976,
+      "cli_returncode": 254,
+      "result": {
+        "code": "NotFound",
+        "message": "Subscription does not exist",
+        "http_status": 404
+      },
+      "request_finished_ms": 1789376681696
+    },
+    {
+      "label": "cleanup-subscription-absence-3",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data:a89d8633-8b5b-4095-9971-a336d36c67a1"
+      },
+      "request_started_ms": 1789376681697,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+            "Owner": "000000000000",
+            "RawMessageDelivery": "true",
+            "FilterPolicy": "{\"kind\":[\"admit\"]}",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data",
+            "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-q1",
+            "FilterPolicyScope": "MessageBody",
+            "Protocol": "sqs",
+            "PendingConfirmation": "false",
+            "ConfirmationWasAuthenticated": "true",
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data:a89d8633-8b5b-4095-9971-a336d36c67a1"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376682450
+    },
+    {
+      "label": "cleanup-explicit-unsubscribe-3",
+      "service": "sns",
+      "operation": "unsubscribe",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data:a89d8633-8b5b-4095-9971-a336d36c67a1"
+      },
+      "request_started_ms": 1789376682451,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376683288
+    },
+    {
+      "label": "cleanup-subscription-recheck-3",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-data:a89d8633-8b5b-4095-9971-a336d36c67a1"
+      },
+      "request_started_ms": 1789376683290,
+      "cli_returncode": 254,
+      "result": {
+        "code": "NotFound",
+        "message": "Subscription does not exist",
+        "http_status": 404
+      },
+      "request_finished_ms": 1789376684026
+    },
+    {
+      "label": "cleanup-delete-queue-0",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-fde5a5ebdc164e179618-q0"
+      },
+      "request_started_ms": 1789376684028,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376684964
+    },
+    {
+      "label": "cleanup-queue-absence-0",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-fde5a5ebdc164e179618-q0",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "request_started_ms": 1789376684984,
+      "cli_returncode": 254,
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789376685757
+    },
+    {
+      "label": "cleanup-delete-queue-1",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-fde5a5ebdc164e179618-q1"
+      },
+      "request_started_ms": 1789376685759,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376686719
+    },
+    {
+      "label": "cleanup-queue-absence-1",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-fde5a5ebdc164e179618-q1",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "request_started_ms": 1789376686720,
+      "cli_returncode": 254,
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789376687435
+    },
+    {
+      "label": "recovery-cleanup-delete-alarm",
+      "service": "cloudwatch",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-sns-fde5a5ebdc164e179618-scalar"
+        ]
+      },
+      "request_started_ms": 1789376811331,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376812154
+    },
+    {
+      "label": "recovery-cleanup-alarm-absence",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "stackd-native-sns-fde5a5ebdc164e179618-scalar"
+        ]
+      },
+      "request_started_ms": 1789376812157,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376812932
+    },
+    {
+      "label": "recovery-cleanup-unsubscribe",
+      "service": "sns",
+      "operation": "unsubscribe",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm:76529651-8234-4702-a571-caadc540e6ca"
+      },
+      "request_started_ms": 1789376812933,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376813748
+    },
+    {
+      "label": "recovery-cleanup-subscription-absence",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm:76529651-8234-4702-a571-caadc540e6ca"
+      },
+      "request_started_ms": 1789376813750,
+      "cli_returncode": 254,
+      "result": {
+        "code": "NotFound",
+        "message": "Subscription does not exist",
+        "http_status": 404
+      },
+      "request_finished_ms": 1789376814445
+    },
+    {
+      "label": "recovery-cleanup-delete-topic",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm"
+      },
+      "request_started_ms": 1789376814448,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376815227
+    },
+    {
+      "label": "recovery-cleanup-topic-absence",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-fde5a5ebdc164e179618-alarm"
+      },
+      "request_started_ms": 1789376815229,
+      "cli_returncode": 254,
+      "result": {
+        "code": "NotFound",
+        "message": "Topic does not exist",
+        "http_status": 404
+      },
+      "request_finished_ms": 1789376815934
+    },
+    {
+      "label": "recovery-cleanup-delete-queue",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-fde5a5ebdc164e179618-q1"
+      },
+      "request_started_ms": 1789376815935,
+      "cli_returncode": 0,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789376816718
+    },
+    {
+      "label": "recovery-cleanup-queue-absence",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-fde5a5ebdc164e179618-q1",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "request_started_ms": 1789376816719,
+      "cli_returncode": 254,
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789376817485
+    }
+  ]
+}

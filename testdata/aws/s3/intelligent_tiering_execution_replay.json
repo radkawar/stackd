@@ -1,0 +1,3605 @@
+{
+  "Source": "DOCUMENT-DERIVED execution expectations; NOT native physical archive evidence",
+  "Sources": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/restoring-objects.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/ev-events.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_RestoreObject.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html"
+  ],
+  "Notes": [
+    "Native control and authority evidence/replay are separate fixtures. No 90/180-day native physical transition or restore completion was captured.",
+    "At/Drain express the local daily scheduler contract, not an AWS completion SLA. Restore durations are the retained local completion contract for documented retrieval tiers.",
+    "Objects below 128 KiB remain active; exact-boundary payloads are compact byte recipes. SHA256 values are independently computed over those recipes, not observed from the emulator.",
+    "Every expectation uses generated SDK calls, exact HTTP headers/errors, consumer body digests or real SQS/EventBridge/CloudTrail delivery. No private state is inspected.",
+    "Reopen replaces the backend service while keeping resource identities, pending scans and pending restores. Versions, payloads, checksums, LastModified and storage class survive access-tier changes.",
+    "Native fixtures establish malformed request precedence separately. Active RestoreObject rejects before Days validation; archived restore calls omit Days and completion has no temporary-copy expiry.",
+    "Notification eventVersion 2.3 is the retained documented Intelligent-Tiering contract, not a claim about newer unified native notification schema revisions.",
+    "The audit workflow drains real PutObject/GetObject delivery before its 90-day clock jump; CloudTrail retains failed deliveries for 30 days, not indefinitely."
+  ],
+  "Payloads": {
+    "below128k": [
+      {
+        "Base64": "eA==",
+        "Repeat": 131071
+      }
+    ],
+    "at128k": [
+      {
+        "Base64": "eA==",
+        "Repeat": 131072
+      }
+    ]
+  },
+  "Workflows": [
+    {
+      "Name": "size-boundary-head-versus-get-and-permanent-standard-restore",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Tierings": [
+                {
+                  "Days": 90,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 1
+        },
+        {
+          "Label": "put-small",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "small",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "below128k",
+          "Output": {
+            "ChecksumSHA256": "Wl5zOf6lGWh1EA6gUECjkIQ73CPfHjUGrJa48l1kD1k="
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "put-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "put-get-access",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "get-access",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "head-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Bind": {
+            "unchangedModified": "LastModified",
+            "unchangedETag": "ETag"
+          },
+          "Sequence": 5
+        },
+        {
+          "Label": "head-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 6
+        },
+        {
+          "Label": "get-get-access",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "get-access",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Sequence": 7
+        },
+        {
+          "Label": "GetObjectTagging",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObjectTagging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Output": {
+            "TagSet": []
+          },
+          "Sequence": 8
+        },
+        {
+          "Label": "ListObjectsV2",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Sequence": 9
+        },
+        {
+          "Label": "head-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ETag": "${unchangedETag}",
+            "LastModified": "${unchangedModified}",
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0=",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 10
+        },
+        {
+          "Label": "get-small",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "small",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131071,
+            "ChecksumSHA256": "Wl5zOf6lGWh1EA6gUECjkIQ73CPfHjUGrJa48l1kD1k="
+          },
+          "Digest": {
+            "Length": 131071,
+            "SHA256": "5a5e7339fea5196875100ea05040a390843bdc23df1e3506ac96b8f25d640f59"
+          },
+          "Sequence": 11
+        },
+        {
+          "Label": "head-get-access",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "get-access",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 12
+        },
+        {
+          "Label": "archived-GetObject-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "ErrorDetails": {
+            "Code": "InvalidObjectState",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "AccessTier": "ARCHIVE_ACCESS"
+          },
+          "Sequence": 13
+        },
+        {
+          "Label": "archived-CopyObject-copy",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CopyObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "copy",
+            "CopySource": "it-size-access/head-only"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "ErrorDetails": {
+            "Code": "InvalidObjectState",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "AccessTier": "ARCHIVE_ACCESS"
+          },
+          "Sequence": 14
+        },
+        {
+          "Label": "restore-head-only-Standard",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 202,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "RestoreRequest": {
+              "GlacierJobParameters": {
+                "Tier": "Standard"
+              }
+            }
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Sequence": 15
+        },
+        {
+          "Label": "head-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\""
+          },
+          "Reopen": true,
+          "Sequence": 16
+        },
+        {
+          "Label": "archived-GetObject-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "ErrorDetails": {
+            "Code": "InvalidObjectState",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "AccessTier": "ARCHIVE_ACCESS"
+          },
+          "Sequence": 17
+        },
+        {
+          "Label": "head-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T15:59:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\""
+          },
+          "Drain": true,
+          "Sequence": 18
+        },
+        {
+          "Label": "head-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T16:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "Restore",
+            "ArchiveStatus"
+          ],
+          "AbsentHeaders": [
+            "x-amz-archive-status",
+            "x-amz-restore"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 19
+        },
+        {
+          "Label": "DeleteBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "DeleteBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Id": "archive"
+          },
+          "At": "2026-12-21T16:00:00Z",
+          "Sequence": 20
+        },
+        {
+          "Label": "get-head-only",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-01-19T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0=",
+            "ETag": "${unchangedETag}",
+            "LastModified": "${unchangedModified}"
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Absent": [
+            "Restore"
+          ],
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 21
+        },
+        {
+          "Label": "RestoreObject",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "it-size-access",
+            "Key": "head-only",
+            "RestoreRequest": {
+              "Days": 1
+            }
+          },
+          "At": "2027-01-19T12:00:00Z",
+          "ErrorDetails": {
+            "Code": "InvalidObjectState"
+          },
+          "Sequence": 22
+        }
+      ]
+    },
+    {
+      "Name": "live-and-tags-config-replacement-deletion-and-forward-only",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Tierings": [
+                {
+                  "Days": 120,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                }
+              ],
+              "Filter": {
+                "And": {
+                  "Prefix": "eligible/",
+                  "Tags": [
+                    {
+                      "Key": "archive",
+                      "Value": "yes"
+                    },
+                    {
+                      "Key": "team",
+                      "Value": "storage"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 1
+        },
+        {
+          "Label": "put-eligible/matched",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/matched",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256",
+            "Tagging": "archive=yes&team=storage"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "put-eligible/late-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/late-tag",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256",
+            "Tagging": "archive=no&team=storage"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "put-other/prefix",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "other/prefix",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256",
+            "Tagging": "archive=yes&team=storage"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "put-eligible/standard",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/standard",
+            "StorageClass": "STANDARD",
+            "ChecksumAlgorithm": "SHA256",
+            "Tagging": "archive=yes&team=storage"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 5
+        },
+        {
+          "Label": "head-eligible/matched",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/matched",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 6
+        },
+        {
+          "Label": "PutBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Tierings": [
+                {
+                  "Days": 90,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                }
+              ],
+              "Filter": {
+                "And": {
+                  "Prefix": "eligible/",
+                  "Tags": [
+                    {
+                      "Key": "archive",
+                      "Value": "yes"
+                    },
+                    {
+                      "Key": "team",
+                      "Value": "storage"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Sequence": 7
+        },
+        {
+          "Label": "DeleteBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "DeleteBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Id": "archive"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Sequence": 8
+        },
+        {
+          "Label": "head-eligible/matched",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/matched",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 9
+        },
+        {
+          "Label": "PutBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Tierings": [
+                {
+                  "Days": 120,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                }
+              ],
+              "Filter": {
+                "And": {
+                  "Prefix": "eligible/",
+                  "Tags": [
+                    {
+                      "Key": "archive",
+                      "Value": "yes"
+                    },
+                    {
+                      "Key": "team",
+                      "Value": "storage"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Sequence": 10
+        },
+        {
+          "Label": "head-eligible/matched",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/matched",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-23T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 11
+        },
+        {
+          "Label": "head-eligible/late-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/late-tag",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-23T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 12
+        },
+        {
+          "Label": "head-other/prefix",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "other/prefix",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-23T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 13
+        },
+        {
+          "Label": "HeadObject",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/standard"
+          },
+          "At": "2026-12-23T12:00:00Z",
+          "Absent": [
+            "StorageClass",
+            "ArchiveStatus"
+          ],
+          "Sequence": 14
+        },
+        {
+          "Label": "replace-live-threshold",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Tierings": [
+                {
+                  "Days": 90,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                }
+              ],
+              "Filter": {
+                "And": {
+                  "Prefix": "eligible/",
+                  "Tags": [
+                    {
+                      "Key": "archive",
+                      "Value": "yes"
+                    },
+                    {
+                      "Key": "team",
+                      "Value": "storage"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "At": "2026-12-23T12:00:00Z",
+          "Sequence": 15
+        },
+        {
+          "Label": "PutObjectTagging",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObjectTagging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/late-tag",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "archive",
+                  "Value": "yes"
+                },
+                {
+                  "Key": "team",
+                  "Value": "storage"
+                }
+              ]
+            }
+          },
+          "At": "2026-12-23T12:00:00Z",
+          "Sequence": 16
+        },
+        {
+          "Label": "head-eligible/late-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/late-tag",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-24T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 17
+        },
+        {
+          "Label": "PutBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Disabled",
+              "Tierings": [
+                {
+                  "Days": 90,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                }
+              ],
+              "Filter": {
+                "And": {
+                  "Prefix": "eligible/",
+                  "Tags": [
+                    {
+                      "Key": "archive",
+                      "Value": "yes"
+                    },
+                    {
+                      "Key": "team",
+                      "Value": "storage"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "At": "2026-12-24T12:00:00Z",
+          "Sequence": 18
+        },
+        {
+          "Label": "head-eligible/matched",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/matched",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-25T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Sequence": 19
+        },
+        {
+          "Label": "DeleteBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "DeleteBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Id": "archive"
+          },
+          "At": "2026-12-25T12:00:00Z",
+          "Sequence": 20
+        },
+        {
+          "Label": "head-eligible/matched",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-live-config",
+            "Key": "eligible/matched",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 21
+        }
+      ]
+    },
+    {
+      "Name": "independent-current-noncurrent-null-access-and-expedited-restore",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Tierings": [
+                {
+                  "Days": 90,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 1
+        },
+        {
+          "Label": "put-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 3
+        },
+        {
+          "Label": "put-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Bind": {
+            "olderVersion": "VersionId"
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "put-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-22T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Bind": {
+            "latestVersion": "VersionId"
+          },
+          "Sequence": 5
+        },
+        {
+          "Label": "get-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "ChecksumMode": "ENABLED",
+            "VersionId": "${olderVersion}"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Sequence": 6
+        },
+        {
+          "Label": "head-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "ChecksumMode": "ENABLED",
+            "VersionId": "null"
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 7
+        },
+        {
+          "Label": "head-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "ChecksumMode": "ENABLED",
+            "VersionId": "${latestVersion}"
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Sequence": 8
+        },
+        {
+          "Label": "head-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "ChecksumMode": "ENABLED",
+            "VersionId": "${olderVersion}"
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 9
+        },
+        {
+          "Label": "ListObjectVersions",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions"
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${latestVersion}",
+                "IsLatest": true,
+                "StorageClass": "INTELLIGENT_TIERING"
+              },
+              {
+                "Key": "key",
+                "VersionId": "${olderVersion}",
+                "IsLatest": false,
+                "StorageClass": "INTELLIGENT_TIERING"
+              },
+              {
+                "Key": "key",
+                "VersionId": "null",
+                "IsLatest": false,
+                "StorageClass": "INTELLIGENT_TIERING"
+              }
+            ],
+            "DeleteMarkers": []
+          },
+          "Sequence": 10
+        },
+        {
+          "Label": "restore-key-Expedited",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 202,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "RestoreRequest": {
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            },
+            "VersionId": "null"
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Sequence": 11
+        },
+        {
+          "Label": "head-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "ChecksumMode": "ENABLED",
+            "VersionId": "null"
+          },
+          "At": "2026-12-22T12:04:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\""
+          },
+          "Sequence": 12
+        },
+        {
+          "Label": "get-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "ChecksumMode": "ENABLED",
+            "VersionId": "null"
+          },
+          "At": "2026-12-22T12:05:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Drain": true,
+          "Absent": [
+            "Restore"
+          ],
+          "Sequence": 13
+        },
+        {
+          "Label": "head-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-independent-versions",
+            "Key": "key",
+            "ChecksumMode": "ENABLED",
+            "VersionId": "${latestVersion}"
+          },
+          "At": "2026-12-22T12:05:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Sequence": 14
+        }
+      ]
+    },
+    {
+      "Name": "copy-source-part-copy-source-and-multipart-completion-access",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Tierings": [
+                {
+                  "Days": 90,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 1
+        },
+        {
+          "Label": "put-copy-source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "copy-source",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "put-part-source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "part-source",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "CreateMultipartUpload",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "uploaded",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Bind": {
+            "upload": "UploadId"
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "UploadPart",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "uploaded",
+            "UploadId": "${upload}",
+            "PartNumber": 1,
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Bind": {
+            "partETag": "ETag"
+          },
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 5
+        },
+        {
+          "Label": "CompleteMultipartUpload",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CompleteMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "uploaded",
+            "UploadId": "${upload}",
+            "MultipartUpload": {
+              "Parts": [
+                {
+                  "PartNumber": 1,
+                  "ETag": "${partETag}",
+                  "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+                }
+              ]
+            }
+          },
+          "At": "2026-12-10T12:00:00Z",
+          "Reopen": true,
+          "Sequence": 6
+        },
+        {
+          "Label": "get-uploaded",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "uploaded",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-10T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "9lxSj+pOT8XRab4ix3ag8eOU1HC0dix4QM4wLnuzslI=-1"
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Sequence": 7
+        },
+        {
+          "Label": "CopyObject",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CopyObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "copied",
+            "CopySource": "it-copy-multipart/copy-source",
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Sequence": 8
+        },
+        {
+          "Label": "CreateMultipartUpload",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "part-copied",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Bind": {
+            "copyUpload": "UploadId"
+          },
+          "Sequence": 9
+        },
+        {
+          "Label": "UploadPartCopy",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "UploadPartCopy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "part-copied",
+            "UploadId": "${copyUpload}",
+            "PartNumber": 1,
+            "CopySource": "it-copy-multipart/part-source"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Bind": {
+            "copyETag": "CopyPartResult.ETag"
+          },
+          "Output": {
+            "CopyPartResult": {
+              "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+            }
+          },
+          "Sequence": 10
+        },
+        {
+          "Label": "CompleteMultipartUpload",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CompleteMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "part-copied",
+            "UploadId": "${copyUpload}",
+            "MultipartUpload": {
+              "Parts": [
+                {
+                  "PartNumber": 1,
+                  "ETag": "${copyETag}",
+                  "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+                }
+              ]
+            }
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Sequence": 11
+        },
+        {
+          "Label": "get-copied",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "copied",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Sequence": 12
+        },
+        {
+          "Label": "get-part-copied",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "part-copied",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-19T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "9lxSj+pOT8XRab4ix3ag8eOU1HC0dix4QM4wLnuzslI=-1"
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Sequence": 13
+        },
+        {
+          "Label": "head-uploaded",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "uploaded",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 14
+        },
+        {
+          "Label": "head-copy-source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "copy-source",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 15
+        },
+        {
+          "Label": "head-part-source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "part-source",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 16
+        },
+        {
+          "Label": "head-uploaded",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "uploaded",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-11T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 17
+        },
+        {
+          "Label": "head-copy-source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "copy-source",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-11T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 18
+        },
+        {
+          "Label": "head-part-source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "part-source",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-11T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 19
+        },
+        {
+          "Label": "head-copy-source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "copy-source",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-20T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 20
+        },
+        {
+          "Label": "head-part-source",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "part-source",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-20T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Sequence": 21
+        },
+        {
+          "Label": "CreateMultipartUpload",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "blocked-part"
+          },
+          "At": "2027-03-20T12:00:00Z",
+          "Bind": {
+            "blockedUpload": "UploadId"
+          },
+          "Sequence": 22
+        },
+        {
+          "Label": "archived-UploadPartCopy-blocked-part",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "UploadPartCopy",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "it-copy-multipart",
+            "Key": "blocked-part",
+            "UploadId": "${blockedUpload}",
+            "PartNumber": 1,
+            "CopySource": "it-copy-multipart/part-source"
+          },
+          "At": "2027-03-20T12:00:00Z",
+          "ErrorDetails": {
+            "Code": "InvalidObjectState",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "AccessTier": "ARCHIVE_ACCESS"
+          },
+          "Sequence": 23
+        }
+      ]
+    },
+    {
+      "Name": "archive-bulk-deep-standard-and-deep-bulk-pending-reopen",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Tierings": [
+                {
+                  "Days": 90,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                },
+                {
+                  "Days": 180,
+                  "AccessTier": "DEEP_ARCHIVE_ACCESS"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 1
+        },
+        {
+          "Label": "put-archive-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "archive-bulk",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "put-deep-standard",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-standard",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "put-deep-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-bulk",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "head-archive-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "archive-bulk",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 5
+        },
+        {
+          "Label": "restore-archive-bulk-Bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 202,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "archive-bulk",
+            "RestoreRequest": {
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Sequence": 6
+        },
+        {
+          "Label": "head-archive-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "archive-bulk",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T23:59:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\""
+          },
+          "Sequence": 7
+        },
+        {
+          "Label": "get-archive-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "archive-bulk",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-22T00:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Absent": [
+            "Restore"
+          ],
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ],
+          "Drain": true,
+          "Sequence": 8
+        },
+        {
+          "Label": "head-deep-standard",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-standard",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "DEEP_ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 9
+        },
+        {
+          "Label": "head-deep-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-bulk",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "DEEP_ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Sequence": 10
+        },
+        {
+          "Label": "archived-GetObject-deep-standard",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-standard"
+          },
+          "At": "2027-03-21T12:00:00Z",
+          "ErrorDetails": {
+            "Code": "InvalidObjectState",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "AccessTier": "DEEP_ARCHIVE_ACCESS"
+          },
+          "Sequence": 11
+        },
+        {
+          "Label": "restore-deep-standard-Standard",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 202,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-standard",
+            "RestoreRequest": {
+              "GlacierJobParameters": {
+                "Tier": "Standard"
+              }
+            }
+          },
+          "At": "2027-03-21T12:00:00Z",
+          "Sequence": 12
+        },
+        {
+          "Label": "restore-deep-bulk-Bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 202,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-bulk",
+            "RestoreRequest": {
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "At": "2027-03-21T12:00:00Z",
+          "Sequence": 13
+        },
+        {
+          "Label": "head-deep-standard",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-standard",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-21T23:59:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "DEEP_ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\""
+          },
+          "Sequence": 14
+        },
+        {
+          "Label": "get-deep-standard",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-standard",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-22T00:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Absent": [
+            "Restore"
+          ],
+          "Drain": true,
+          "Sequence": 15
+        },
+        {
+          "Label": "head-deep-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-bulk",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-22T00:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "DEEP_ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\""
+          },
+          "Sequence": 16
+        },
+        {
+          "Label": "head-deep-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-bulk",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-23T11:59:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "DEEP_ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\""
+          },
+          "Sequence": 17
+        },
+        {
+          "Label": "get-deep-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-bulk",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-23T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Absent": [
+            "Restore"
+          ],
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 18
+        },
+        {
+          "Label": "DeleteBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "DeleteBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Id": "archive"
+          },
+          "At": "2027-03-23T12:00:00Z",
+          "Sequence": 19
+        },
+        {
+          "Label": "get-deep-standard",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-standard",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-04-29T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Absent": [
+            "Restore"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 20
+        },
+        {
+          "Label": "get-deep-bulk",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-restore-tiers",
+            "Key": "deep-bulk",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-04-29T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Absent": [
+            "Restore"
+          ],
+          "Sequence": 21
+        }
+      ]
+    },
+    {
+      "Name": "archive-deep-forward-delivery-and-real-cloudtrail-positive-control",
+      "Setup": [
+        {
+          "Label": "create-it-delivery",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-it-delivery-audit",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery-audit"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "versioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-it-delivery-classic",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "sqs",
+          "Operation": "CreateQueue",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueName": "it-delivery-classic"
+          },
+          "Output": {},
+          "Bind": {
+            "queue_classic": "QueueUrl"
+          }
+        },
+        {
+          "Label": "create-it-delivery-eb",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "sqs",
+          "Operation": "CreateQueue",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueName": "it-delivery-eb"
+          },
+          "Output": {},
+          "Bind": {
+            "queue_eventbridge": "QueueUrl"
+          }
+        },
+        {
+          "Label": "policy-it-delivery-classic",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "sqs",
+          "Operation": "SetQueueAttributes",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/it-delivery-classic",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:it-delivery-classic\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:s3:::it-delivery\"}}}]}"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "policy-it-delivery-eb",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "sqs",
+          "Operation": "SetQueueAttributes",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/it-delivery-eb",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:it-delivery-eb\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/it-delivery-rule\"}}}]}"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "event-rule",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "eventbridge",
+          "Operation": "PutRule",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Name": "it-delivery-rule",
+            "EventPattern": "{\"source\": [\"aws.s3\"], \"detail\": {\"bucket\": {\"name\": [\"it-delivery\"]}}, \"detail-type\": [\"Object Access Tier Changed\"]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "event-target",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "eventbridge",
+          "Operation": "PutTargets",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Rule": "it-delivery-rule",
+            "Targets": [
+              {
+                "Id": "queue",
+                "Arn": "arn:aws:sqs:us-east-1:123456789012:it-delivery-eb"
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Label": "notifications",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "s3",
+          "Operation": "PutBucketNotificationConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery",
+            "NotificationConfiguration": {
+              "EventBridgeConfiguration": {},
+              "QueueConfigurations": [
+                {
+                  "Id": "tiering-events",
+                  "QueueArn": "arn:aws:sqs:us-east-1:123456789012:it-delivery-classic",
+                  "Events": [
+                    "s3:IntelligentTiering"
+                  ]
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "trail-bucket-policy",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-delivery-audit",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::it-delivery-audit\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/it-delivery-trail\"}}}, {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::it-delivery-audit/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-acl\": \"bucket-owner-full-control\", \"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/it-delivery-trail\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-trail",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "cloudtrail",
+          "Operation": "CreateTrail",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Name": "it-delivery-trail",
+            "S3BucketName": "it-delivery-audit",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false
+          },
+          "Output": {}
+        },
+        {
+          "Label": "trail-selectors",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "cloudtrail",
+          "Operation": "PutEventSelectors",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "TrailName": "it-delivery-trail",
+            "AdvancedEventSelectors": [
+              {
+                "Name": "owned-objects",
+                "FieldSelectors": [
+                  {
+                    "Field": "eventCategory",
+                    "Equals": [
+                      "Data"
+                    ]
+                  },
+                  {
+                    "Field": "resources.type",
+                    "Equals": [
+                      "AWS::S3::Object"
+                    ]
+                  },
+                  {
+                    "Field": "resources.ARN",
+                    "StartsWith": [
+                      "arn:aws:s3:::it-delivery/"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Label": "start-trail",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+          "Service": "cloudtrail",
+          "Operation": "StartLogging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Name": "it-delivery-trail"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-delivery",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Tierings": [
+                {
+                  "Days": 90,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                },
+                {
+                  "Days": 180,
+                  "AccessTier": "DEEP_ARCHIVE_ACCESS"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 1
+        },
+        {
+          "Label": "put-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery",
+            "Key": "key",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Output": {
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Bind": {
+            "version": "VersionId"
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "get-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery",
+            "Key": "key",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          },
+          "Bind": {
+            "stableModified": "LastModified",
+            "stableETag": "ETag"
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "deliver-real-api-audit-before-long-idle-window",
+          "Source": "derived:local-retained-delivery-window",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:06:00Z",
+          "Drain": true,
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ],
+          "Sequence": 4
+        },
+        {
+          "Label": "head-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery",
+            "Key": "key",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "VersionId": "${version}",
+            "LastModified": "${stableModified}",
+            "ETag": "${stableETag}",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0=",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Notifications": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+              "Payload": {
+                "eventVersion": "2.3",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventName": "IntelligentTiering",
+                "s3": {
+                  "configurationId": "tiering-events",
+                  "bucket": {
+                    "name": "it-delivery",
+                    "arn": "arn:aws:s3:::it-delivery"
+                  },
+                  "object": {
+                    "key": "key",
+                    "size": 131072,
+                    "versionId": "${version}"
+                  }
+                },
+                "intelligentTieringEventData": {
+                  "destinationAccessTier": "ARCHIVE_ACCESS"
+                }
+              }
+            },
+            {
+              "Queue": "${queue_eventbridge}",
+              "Kind": "eventbridge",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/ev-events.html",
+              "Payload": {
+                "source": "aws.s3",
+                "detail-type": "Object Access Tier Changed",
+                "account": "123456789012",
+                "region": "us-east-1",
+                "resources": [
+                  "arn:aws:s3:::it-delivery"
+                ],
+                "detail": {
+                  "bucket": {
+                    "name": "it-delivery"
+                  },
+                  "object": {
+                    "key": "key",
+                    "size": 131072,
+                    "version-id": "${version}"
+                  },
+                  "destination-access-tier": "ARCHIVE_ACCESS"
+                }
+              }
+            }
+          ],
+          "Sequence": 5
+        },
+        {
+          "Label": "head-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery",
+            "Key": "key",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-21T12:01:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "QuietQueues": [
+            "${queue_classic}",
+            "${queue_eventbridge}"
+          ],
+          "Sequence": 6
+        },
+        {
+          "Label": "head-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery",
+            "Key": "key",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-21T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "VersionId": "${version}",
+            "LastModified": "${stableModified}",
+            "ETag": "${stableETag}",
+            "ContentLength": 131072,
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0=",
+            "ArchiveStatus": "DEEP_ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "Notifications": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html",
+              "Payload": {
+                "eventVersion": "2.3",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventName": "IntelligentTiering",
+                "s3": {
+                  "configurationId": "tiering-events",
+                  "bucket": {
+                    "name": "it-delivery",
+                    "arn": "arn:aws:s3:::it-delivery"
+                  },
+                  "object": {
+                    "key": "key",
+                    "size": 131072,
+                    "versionId": "${version}"
+                  }
+                },
+                "intelligentTieringEventData": {
+                  "destinationAccessTier": "DEEP_ARCHIVE_ACCESS"
+                }
+              }
+            },
+            {
+              "Queue": "${queue_eventbridge}",
+              "Kind": "eventbridge",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/ev-events.html",
+              "Payload": {
+                "source": "aws.s3",
+                "detail-type": "Object Access Tier Changed",
+                "account": "123456789012",
+                "region": "us-east-1",
+                "resources": [
+                  "arn:aws:s3:::it-delivery"
+                ],
+                "detail": {
+                  "bucket": {
+                    "name": "it-delivery"
+                  },
+                  "object": {
+                    "key": "key",
+                    "size": 131072,
+                    "version-id": "${version}"
+                  },
+                  "destination-access-tier": "DEEP_ARCHIVE_ACCESS"
+                }
+              }
+            }
+          ],
+          "Sequence": 7
+        },
+        {
+          "Label": "DeleteBucketIntelligentTieringConfiguration",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "DeleteBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-delivery",
+            "Id": "archive"
+          },
+          "At": "2027-03-21T12:00:00Z",
+          "Sequence": 8
+        },
+        {
+          "Label": "head-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-delivery",
+            "Key": "key",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2027-03-22T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "DEEP_ARCHIVE_ACCESS"
+          },
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true,
+          "QuietQueues": [
+            "${queue_classic}",
+            "${queue_eventbridge}"
+          ],
+          "Sequence": 9
+        }
+      ],
+      "AuditBucket": "it-delivery-audit",
+      "AuditPrefix": "AWSLogs/123456789012/CloudTrail/",
+      "RequiredCloudTrailEvents": [
+        "PutObject",
+        "GetObject"
+      ],
+      "ForbiddenCloudTrailEvents": [
+        "DeleteObject",
+        "DeleteObjects",
+        "CopyObject",
+        "AbortMultipartUpload",
+        "RestoreObject",
+        "IntelligentTiering",
+        "IntelligentTieringTransition",
+        "ArchiveObject",
+        "ObjectAccessTierChanged",
+        "LifecycleTransition"
+      ]
+    },
+    {
+      "Name": "access-tier-dependent-lifecycle-waterfall",
+      "Setup": [
+        {
+          "Label": "create-waterfall-bucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Sequence": 1,
+          "Label": "configure-optional-cold-tiers",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketIntelligentTieringConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Id": "archive",
+            "IntelligentTieringConfiguration": {
+              "Id": "archive",
+              "Status": "Enabled",
+              "Filter": {
+                "Prefix": "cold/"
+              },
+              "Tierings": [
+                {
+                  "Days": 90,
+                  "AccessTier": "ARCHIVE_ACCESS"
+                },
+                {
+                  "Days": 180,
+                  "AccessTier": "DEEP_ARCHIVE_ACCESS"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Sequence": 2,
+          "Label": "configure-lifecycle-waterfall",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "warm",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "warm/"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 91,
+                      "StorageClass": "ONEZONE_IA"
+                    }
+                  ]
+                },
+                {
+                  "ID": "archive",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "cold/archive"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 91,
+                      "StorageClass": "GLACIER_IR"
+                    }
+                  ]
+                },
+                {
+                  "ID": "deep",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "cold/deep"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 181,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Sequence": 3,
+          "Label": "put-warm/object",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "warm/object",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k"
+        },
+        {
+          "Sequence": 4,
+          "Label": "put-cold/archive",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "cold/archive",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k"
+        },
+        {
+          "Sequence": 5,
+          "Label": "put-cold/deep",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "cold/deep",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k"
+        },
+        {
+          "Sequence": 6,
+          "Label": "archive-instant-excludes-one-zone",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "warm/object"
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ]
+        },
+        {
+          "Sequence": 7,
+          "Label": "archive-access-excludes-glacier-instant",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "cold/archive"
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "ARCHIVE_ACCESS"
+          }
+        },
+        {
+          "Sequence": 8,
+          "Label": "read-restores-one-zone-eligibility",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "warm/object"
+          },
+          "At": "2026-12-22T12:00:00Z",
+          "Digest": {
+            "Length": 131072,
+            "SHA256": "15601535eca4a38b7e31ad6494861121cb9f84ccf55d4beb6a707d4f7a87813d"
+          }
+        },
+        {
+          "Sequence": 9,
+          "Label": "permit-archive-access-to-glacier",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "warm",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "warm/"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 91,
+                      "StorageClass": "ONEZONE_IA"
+                    }
+                  ]
+                },
+                {
+                  "ID": "archive",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "cold/archive"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 91,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                },
+                {
+                  "ID": "deep",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "cold/deep"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 181,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-12-22T12:00:00Z"
+        },
+        {
+          "Sequence": 10,
+          "Label": "frequent-access-transitions-to-one-zone",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "warm/object"
+          },
+          "At": "2026-12-23T12:00:00Z",
+          "Drain": true,
+          "Output": {
+            "StorageClass": "ONEZONE_IA"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ]
+        },
+        {
+          "Sequence": 11,
+          "Label": "archive-transition-clears-access-tier",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "cold/archive",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-12-23T12:00:00Z",
+          "Output": {
+            "StorageClass": "GLACIER",
+            "ChecksumSHA256": "FWAVNeyko4t+Ma1klIYRIcufhMz1XUvranB9T3qHgT0="
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ]
+        },
+        {
+          "Sequence": 12,
+          "Label": "glacier-retains-cold-read-barrier",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "cold/archive"
+          },
+          "At": "2026-12-23T12:00:00Z",
+          "ErrorDetails": {
+            "StorageClass": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 13,
+          "Label": "deep-tier-excludes-glacier",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "cold/deep"
+          },
+          "At": "2027-03-22T12:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Output": {
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ArchiveStatus": "DEEP_ARCHIVE_ACCESS"
+          }
+        },
+        {
+          "Sequence": 14,
+          "Label": "permit-deep-tier-to-deep-archive",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "warm",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "warm/"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 91,
+                      "StorageClass": "ONEZONE_IA"
+                    }
+                  ]
+                },
+                {
+                  "ID": "archive",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "cold/archive"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 91,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                },
+                {
+                  "ID": "deep",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "cold/deep"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 181,
+                      "StorageClass": "DEEP_ARCHIVE"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2027-03-22T12:00:00Z"
+        },
+        {
+          "Sequence": 15,
+          "Label": "deep-transition-clears-access-tier",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "it-lifecycle-waterfall",
+            "Key": "cold/deep"
+          },
+          "At": "2027-03-23T12:00:00Z",
+          "Drain": true,
+          "Output": {
+            "StorageClass": "DEEP_ARCHIVE"
+          },
+          "Absent": [
+            "ArchiveStatus"
+          ]
+        }
+      ]
+    }
+  ]
+}

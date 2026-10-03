@@ -1,0 +1,781 @@
+{
+  "Source": "access_logging_evidence.json.gz",
+  "Normalization": "Original event sequences, request XML and modeled response fields retained. Bucket identities rebound. Good native checksums are recomputed with bodyMD5 after rebinding; native bad MD5 and absent/checksum-algorithm-only requests stay unchanged. SDK-origin target-rejection requests use equivalent recomputed Content-MD5 rather than a captured CRC32 over old bucket names. Enabled retention is asserted only where observed (223/227/231/235); missing target/dual format/algorithm-only preserve the disabled state actually captured. Wrong-root acceptance is limited to the observed literal <Wrong/> request.",
+  "Scenarios": [
+    {
+      "Name": "invalid-target-details-preserve-enabled-configuration",
+      "Setup": [
+        {
+          "Label": "local-prerequisite-createrole",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "CreateRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "AssumeRolePolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${account}:root\"},\"Action\":\"sts:AssumeRole\"}]}"
+          },
+          "Output": {},
+          "Bind": {
+            "memberRole": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-prerequisite-putrolepolicy",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Service": "iam",
+          "Actor": "other",
+          "Operation": "PutRolePolicy",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "PolicyName": "NativeOwnershipProbe",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "cross-assume-existing-member-role",
+          "Source": "local-fixture",
+          "Sequence": 0,
+          "Operation": "AssumeRole",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${memberRole}",
+            "RoleSessionName": "logging-native"
+          },
+          "Output": {},
+          "Actor": "caller",
+          "Service": "sts",
+          "Session": "foreign"
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-simple",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest1"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "destination allow policy stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "logging-native-dest1",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedSourceScopedDelivery\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"logging.s3.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::logging-native-dest1/*\", \"Condition\": {\"ArnLike\": {\"aws:SourceArn\": [\"arn:aws:s3:::logging-native-simple\", \"arn:aws:s3:::logging-native-event\", \"arn:aws:s3:::logging-native-delivery\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"${account}\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "enable simple",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 20,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest1",
+                "TargetPrefix": "simple/",
+                "TargetObjectKeyFormat": {
+                  "SimplePrefix": {}
+                }
+              }
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-west",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 103,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-west",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          },
+          "Output": {},
+          "Region": "us-west-2"
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-member",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 146,
+          "Service": "s3",
+          "Actor": "foreign",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-member"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "target absent",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 101,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-MD5": "${bodyMD5}"
+          },
+          "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-absent</TargetBucket><TargetPrefix>rejected/</TargetPrefix></LoggingEnabled></BucketLoggingStatus>",
+          "Status": 400,
+          "Code": "InvalidTargetBucketForLogging",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "ErrorDetails": {
+            "TargetBucket": "logging-native-absent"
+          },
+          "After": [
+            {
+              "Label": "target absent state after",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 102,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {
+                "LoggingEnabled": {
+                  "TargetBucket": "logging-native-dest1",
+                  "TargetPrefix": "simple/",
+                  "TargetObjectKeyFormat": {
+                    "SimplePrefix": {}
+                  }
+                }
+              },
+              "Absent": [
+                "LoggingEnabled.TargetGrants"
+              ],
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "target wrong region",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 105,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-MD5": "${bodyMD5}"
+          },
+          "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-west</TargetBucket><TargetPrefix>rejected/</TargetPrefix></LoggingEnabled></BucketLoggingStatus>",
+          "Status": 403,
+          "Code": "CrossLocationLoggingProhibitted",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "ErrorDetails": {
+            "TargetBucketLocation": "us-west-2"
+          },
+          "After": [
+            {
+              "Label": "target wrong region state after",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 106,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {
+                "LoggingEnabled": {
+                  "TargetBucket": "logging-native-dest1",
+                  "TargetPrefix": "simple/",
+                  "TargetObjectKeyFormat": {
+                    "SimplePrefix": {}
+                  }
+                }
+              },
+              "Absent": [
+                "LoggingEnabled.TargetGrants"
+              ],
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "target wrong owner",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 148,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-MD5": "${bodyMD5}"
+          },
+          "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-member</TargetBucket><TargetPrefix>wrong-owner/</TargetPrefix></LoggingEnabled></BucketLoggingStatus>",
+          "Status": 400,
+          "Code": "InvalidTargetBucketForLogging",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "ErrorDetails": {
+            "TargetBucket": "logging-native-member"
+          },
+          "After": [
+            {
+              "Label": "target wrong owner state after",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 149,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {
+                "LoggingEnabled": {
+                  "TargetBucket": "logging-native-dest1",
+                  "TargetPrefix": "simple/",
+                  "TargetObjectKeyFormat": {
+                    "SimplePrefix": {}
+                  }
+                }
+              },
+              "Absent": [
+                "LoggingEnabled.TargetGrants"
+              ],
+              "Reopen": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "raw-replacement-rejection-and-observed-disable",
+      "Setup": [
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-simple",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest1"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create stackd-sal-caebb7dc8db4-dest2",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 9,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-dest2"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "destination allow policy stackd-sal-caebb7dc8db4-dest1",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 17,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "logging-native-dest1",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedSourceScopedDelivery\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"logging.s3.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::logging-native-dest1/*\", \"Condition\": {\"ArnLike\": {\"aws:SourceArn\": [\"arn:aws:s3:::logging-native-simple\", \"arn:aws:s3:::logging-native-event\", \"arn:aws:s3:::logging-native-delivery\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"${account}\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline before retained rejection checks",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 221,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "logging-native-simple",
+            "BucketLoggingStatus": {
+              "LoggingEnabled": {
+                "TargetBucket": "logging-native-dest1",
+                "TargetPrefix": "simple/",
+                "TargetObjectKeyFormat": {
+                  "SimplePrefix": {}
+                }
+              }
+            }
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "malformed XML retaining enabled",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 223,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-MD5": "${bodyMD5}"
+          },
+          "Body": "<BucketLoggingStatus><",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "malformed XML retaining enabled retained state",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 224,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {
+                "LoggingEnabled": {
+                  "TargetBucket": "logging-native-dest1",
+                  "TargetPrefix": "simple/",
+                  "TargetObjectKeyFormat": {
+                    "SimplePrefix": {}
+                  }
+                }
+              },
+              "Absent": [
+                "LoggingEnabled.TargetGrants"
+              ]
+            }
+          ]
+        },
+        {
+          "Label": "invalid partition retaining enabled",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 227,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-MD5": "${bodyMD5}"
+          },
+          "Body": "<BucketLoggingStatus><LoggingEnabled><TargetBucket>logging-native-dest2</TargetBucket><TargetPrefix>rejected</TargetPrefix><TargetObjectKeyFormat><PartitionedPrefix><PartitionDateSource>Never</PartitionDateSource></PartitionedPrefix></TargetObjectKeyFormat></LoggingEnabled></BucketLoggingStatus>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "invalid partition retaining enabled retained state",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 228,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {
+                "LoggingEnabled": {
+                  "TargetBucket": "logging-native-dest1",
+                  "TargetPrefix": "simple/",
+                  "TargetObjectKeyFormat": {
+                    "SimplePrefix": {}
+                  }
+                }
+              },
+              "Absent": [
+                "LoggingEnabled.TargetGrants"
+              ]
+            }
+          ]
+        },
+        {
+          "Label": "bad MD5 retaining enabled",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 231,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-MD5": "AAAAAAAAAAAAAAAAAAAAAA=="
+          },
+          "Body": "<BucketLoggingStatus/>",
+          "Status": 400,
+          "Code": "BadDigest",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "ErrorDetails": {
+            "CalculatedDigest": "uwqklQUo5s36ac3KB3zBiw==",
+            "ExpectedDigest": "AAAAAAAAAAAAAAAAAAAAAA=="
+          },
+          "After": [
+            {
+              "Label": "bad MD5 retaining enabled retained state",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 232,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {
+                "LoggingEnabled": {
+                  "TargetBucket": "logging-native-dest1",
+                  "TargetPrefix": "simple/",
+                  "TargetObjectKeyFormat": {
+                    "SimplePrefix": {}
+                  }
+                }
+              },
+              "Absent": [
+                "LoggingEnabled.TargetGrants"
+              ],
+              "Reopen": true
+            }
+          ]
+        },
+        {
+          "Label": "unknown child root",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 235,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-MD5": "${bodyMD5}"
+          },
+          "Body": "<BucketLoggingStatus><Unrecognized>ignored?</Unrecognized></BucketLoggingStatus>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "unknown child root retained state",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 236,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {
+                "LoggingEnabled": {
+                  "TargetBucket": "logging-native-dest1",
+                  "TargetPrefix": "simple/",
+                  "TargetObjectKeyFormat": {
+                    "SimplePrefix": {}
+                  }
+                }
+              },
+              "Absent": [
+                "LoggingEnabled.TargetGrants"
+              ]
+            }
+          ]
+        },
+        {
+          "Label": "wrong root",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 130,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-Type": "application/xml",
+            "Content-MD5": "${bodyMD5}"
+          },
+          "Body": "<Wrong/>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "wrong root retained state",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 131,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {},
+              "Absent": [
+                "LoggingEnabled"
+              ]
+            }
+          ]
+        },
+        {
+          "Label": "missing target",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 132,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-Type": "application/xml",
+            "Content-MD5": "${bodyMD5}"
+          },
+          "Body": "<BucketLoggingStatus><LoggingEnabled><TargetPrefix>x</TargetPrefix></LoggingEnabled></BucketLoggingStatus>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "missing target retained state",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 133,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {},
+              "Absent": [
+                "LoggingEnabled"
+              ]
+            }
+          ]
+        },
+        {
+          "Label": "both formats",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 134,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-Type": "application/xml",
+            "Content-MD5": "${bodyMD5}"
+          },
+          "Body": "<BucketLoggingStatus><LoggingEnabled><TargetBucket>logging-native-dest2</TargetBucket><TargetPrefix>x</TargetPrefix><TargetObjectKeyFormat><SimplePrefix/><PartitionedPrefix><PartitionDateSource>EventTime</PartitionDateSource></PartitionedPrefix></TargetObjectKeyFormat></LoggingEnabled></BucketLoggingStatus>",
+          "Status": 400,
+          "Code": "MalformedXML",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "both formats retained state",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 135,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {},
+              "Absent": [
+                "LoggingEnabled"
+              ]
+            }
+          ]
+        },
+        {
+          "Label": "algorithm header missing checksum",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 142,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-Type": "application/xml",
+            "x-amz-sdk-checksum-algorithm": "SHA256"
+          },
+          "Body": "<BucketLoggingStatus/>",
+          "Status": 400,
+          "Code": "InvalidRequest",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "algorithm header missing checksum retained state",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 143,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {},
+              "Absent": [
+                "LoggingEnabled"
+              ]
+            }
+          ]
+        },
+        {
+          "Label": "missing checksum",
+          "Source": "access_logging_evidence.json.gz",
+          "Sequence": 140,
+          "Actor": "caller",
+          "Operation": "PutBucketLogging",
+          "Method": "PUT",
+          "Target": "/logging-native-simple/?logging",
+          "Headers": {
+            "Content-Type": "application/xml"
+          },
+          "Body": "<BucketLoggingStatus/>",
+          "Status": 200,
+          "Code": "",
+          "ResponseHeaders": {},
+          "AbsentHeaders": [
+            "x-amz-request-charged"
+          ],
+          "After": [
+            {
+              "Label": "missing checksum retained state",
+              "Source": "access_logging_evidence.json.gz",
+              "Sequence": 141,
+              "Service": "s3",
+              "Actor": "caller",
+              "Operation": "GetBucketLogging",
+              "Code": "Success",
+              "Status": 200,
+              "Input": {
+                "Bucket": "logging-native-simple"
+              },
+              "Output": {},
+              "Absent": [
+                "LoggingEnabled"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

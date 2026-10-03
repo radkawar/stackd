@@ -1,0 +1,2026 @@
+{
+  "source": "native AWS",
+  "retrieved_at": "2026-09-26T14:55:25.228293+00:00",
+  "region": "us-east-1",
+  "run_suffix": "0b1a7dd9d5004144",
+  "source_revisions": {
+    "aws_sdk_go_v2": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "primary_references": [
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateClassifier.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_UpdateClassifier.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateConnection.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_GetConnection.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_GetDataCatalogEncryptionSettings.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateCrawler.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_UpdateCrawler.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateWorkflow.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_GetWorkflowRunProperties.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateTrigger.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_StartTrigger.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_StopTrigger.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateSecurityConfiguration.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_TagResource.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_GetTags.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateJob.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_UpdateJob.html"
+  ],
+  "bounds": {
+    "max_calls": 110,
+    "wall_seconds": 480,
+    "cli_timeout_seconds": 30,
+    "max_classifiers": 2,
+    "max_connections": 1,
+    "max_crawlers": 1,
+    "max_empty_buckets": 1,
+    "max_workflows": 1,
+    "max_triggers": 1,
+    "max_security_configurations": 2,
+    "max_iam_roles": 1,
+    "max_jobs": 1,
+    "max_databases": 1,
+    "max_job_runs": 0,
+    "max_crawler_runs": 0,
+    "cost_usd_upper_estimate": 0.01,
+    "cost_basis": "Metadata APIs only, zero compute; no standing global resource listings."
+  },
+  "normalization": "Owned names, account/caller/role/query/run IDs and pagination tokens replaced consistently; timestamps, field presence, list order, errors and data bytes retained. Credentials/debug output never persisted.",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_ms": 1790434525228,
+      "finished_ms": 1790434525928,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "OWNEDCALLERID",
+          "Account": "123456789012",
+          "Arn": "arn:aws:iam::123456789012:user/owned-caller"
+        }
+      }
+    },
+    {
+      "label": "create-owned-role",
+      "service": "iam",
+      "operation": "create-role",
+      "input": {
+        "RoleName": "stackd-controls-owned-role",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"glue.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "started_ms": 1790434525937,
+      "finished_ms": 1790434526748,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-controls-owned-role",
+            "RoleId": "CONTROLS_ROLE_ID",
+            "Arn": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+            "CreateDate": "2026-09-26T14:55:26+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "glue.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "create-empty-crawler-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-controls-owned"
+      },
+      "started_ms": 1790434526752,
+      "finished_ms": 1790434527693,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-controls-owned",
+          "BucketArn": "arn:aws:s3:::stackd-controls-owned"
+        }
+      }
+    },
+    {
+      "label": "owned-crawler-policy",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-controls-owned-role",
+        "PolicyName": "owned",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:ListBucket\", \"s3:GetBucketLocation\"], \"Resource\": \"arn:aws:s3:::stackd-controls-owned\"}]}"
+      },
+      "started_ms": 1790434527694,
+      "finished_ms": 1790434528423,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-Csv-classifier",
+      "service": "glue",
+      "operation": "create-classifier",
+      "input": {
+        "CsvClassifier": {
+          "Name": "stackd-controls-owned-csv",
+          "Delimiter": ",",
+          "QuoteSymbol": "\"",
+          "ContainsHeader": "PRESENT",
+          "Header": [
+            "category",
+            "amount"
+          ]
+        }
+      },
+      "started_ms": 1790434528423,
+      "finished_ms": 1790434529268,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "duplicate-Csv-classifier",
+      "service": "glue",
+      "operation": "create-classifier",
+      "input": {
+        "CsvClassifier": {
+          "Name": "stackd-controls-owned-csv",
+          "Delimiter": ",",
+          "QuoteSymbol": "\"",
+          "ContainsHeader": "PRESENT",
+          "Header": [
+            "category",
+            "amount"
+          ]
+        }
+      },
+      "started_ms": 1790434529268,
+      "finished_ms": 1790434530032,
+      "result": {
+        "code": "AlreadyExistsException",
+        "error": {
+          "Message": "Classifier stackd-controls-owned-csv already exists. already exists",
+          "Code": "AlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "get-Csv-classifier",
+      "service": "glue",
+      "operation": "get-classifier",
+      "input": {
+        "Name": "stackd-controls-owned-csv"
+      },
+      "started_ms": 1790434530032,
+      "finished_ms": 1790434530756,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Classifier": {
+            "CsvClassifier": {
+              "Name": "stackd-controls-owned-csv",
+              "CreationTime": "2026-09-26T15:55:29+01:00",
+              "LastUpdated": "2026-09-26T15:55:29+01:00",
+              "Version": 1,
+              "Delimiter": ",",
+              "QuoteSymbol": "\"",
+              "ContainsHeader": "PRESENT",
+              "Header": [
+                "category",
+                "amount"
+              ],
+              "Serde": "None"
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "update-Csv-classifier",
+      "service": "glue",
+      "operation": "update-classifier",
+      "input": {
+        "CsvClassifier": {
+          "Name": "stackd-controls-owned-csv",
+          "Delimiter": "|"
+        }
+      },
+      "started_ms": 1790434530757,
+      "finished_ms": 1790434531508,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "get-updated-Csv-classifier",
+      "service": "glue",
+      "operation": "get-classifier",
+      "input": {
+        "Name": "stackd-controls-owned-csv"
+      },
+      "started_ms": 1790434531508,
+      "finished_ms": 1790434532246,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Classifier": {
+            "CsvClassifier": {
+              "Name": "stackd-controls-owned-csv",
+              "CreationTime": "2026-09-26T15:55:29+01:00",
+              "LastUpdated": "2026-09-26T15:55:29+01:00",
+              "Version": 2,
+              "Delimiter": "|",
+              "Serde": "None"
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "create-Json-classifier",
+      "service": "glue",
+      "operation": "create-classifier",
+      "input": {
+        "JsonClassifier": {
+          "Name": "stackd-controls-owned-json",
+          "JsonPath": "$[*]"
+        }
+      },
+      "started_ms": 1790434532247,
+      "finished_ms": 1790434533015,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "duplicate-Json-classifier",
+      "service": "glue",
+      "operation": "create-classifier",
+      "input": {
+        "JsonClassifier": {
+          "Name": "stackd-controls-owned-json",
+          "JsonPath": "$[*]"
+        }
+      },
+      "started_ms": 1790434533015,
+      "finished_ms": 1790434533759,
+      "result": {
+        "code": "AlreadyExistsException",
+        "error": {
+          "Message": "Classifier stackd-controls-owned-json already exists. already exists",
+          "Code": "AlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "get-Json-classifier",
+      "service": "glue",
+      "operation": "get-classifier",
+      "input": {
+        "Name": "stackd-controls-owned-json"
+      },
+      "started_ms": 1790434533760,
+      "finished_ms": 1790434534505,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Classifier": {
+            "JsonClassifier": {
+              "Name": "stackd-controls-owned-json",
+              "CreationTime": "2026-09-26T15:55:32+01:00",
+              "LastUpdated": "2026-09-26T15:55:32+01:00",
+              "Version": 1,
+              "JsonPath": "$[*]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "update-Json-classifier",
+      "service": "glue",
+      "operation": "update-classifier",
+      "input": {
+        "JsonClassifier": {
+          "Name": "stackd-controls-owned-json",
+          "JsonPath": "$.items[*]"
+        }
+      },
+      "started_ms": 1790434534505,
+      "finished_ms": 1790434535259,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "get-updated-Json-classifier",
+      "service": "glue",
+      "operation": "get-classifier",
+      "input": {
+        "Name": "stackd-controls-owned-json"
+      },
+      "started_ms": 1790434535259,
+      "finished_ms": 1790434536011,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Classifier": {
+            "JsonClassifier": {
+              "Name": "stackd-controls-owned-json",
+              "CreationTime": "2026-09-26T15:55:32+01:00",
+              "LastUpdated": "2026-09-26T15:55:35+01:00",
+              "Version": 2,
+              "JsonPath": "$.items[*]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "catalog-encryption-settings",
+      "service": "glue",
+      "operation": "get-data-catalog-encryption-settings",
+      "input": {
+        "CatalogId": "123456789012"
+      },
+      "started_ms": 1790434536011,
+      "finished_ms": 1790434536771,
+      "result": {
+        "code": "Success",
+        "output": {
+          "DataCatalogEncryptionSettings": {
+            "EncryptionAtRest": {
+              "CatalogEncryptionMode": "DISABLED"
+            },
+            "ConnectionPasswordEncryption": {
+              "ReturnConnectionPasswordEncrypted": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "create-connection",
+      "service": "glue",
+      "operation": "create-connection",
+      "input": {
+        "ConnectionInput": {
+          "Name": "stackd-controls-owned",
+          "ConnectionType": "JDBC",
+          "Description": "first",
+          "ConnectionProperties": {
+            "JDBC_CONNECTION_URL": "jdbc:postgresql://127.0.0.1:5432/owned",
+            "USERNAME": "owned",
+            "PASSWORD": "REDACTED_PRESENT"
+          }
+        }
+      },
+      "started_ms": 1790434536781,
+      "finished_ms": 1790434537557,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "duplicate-connection",
+      "service": "glue",
+      "operation": "create-connection",
+      "input": {
+        "ConnectionInput": {
+          "Name": "stackd-controls-owned",
+          "ConnectionType": "JDBC",
+          "Description": "first",
+          "ConnectionProperties": {
+            "JDBC_CONNECTION_URL": "jdbc:postgresql://127.0.0.1:5432/owned",
+            "USERNAME": "owned",
+            "PASSWORD": "REDACTED_PRESENT"
+          }
+        }
+      },
+      "started_ms": 1790434537558,
+      "finished_ms": 1790434538359,
+      "result": {
+        "code": "AlreadyExistsException",
+        "error": {
+          "Message": "Connection already exists.",
+          "Code": "AlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "get-connection-default",
+      "service": "glue",
+      "operation": "get-connection",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434538359,
+      "finished_ms": 1790434539138,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Connection": {
+            "Name": "stackd-controls-owned",
+            "Description": "first",
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+              "PASSWORD": "REDACTED_PRESENT",
+              "JDBC_CONNECTION_URL": "jdbc:postgresql://127.0.0.1:5432/owned",
+              "USERNAME": "owned"
+            },
+            "CreationTime": "2026-09-26T15:55:37.396000+01:00",
+            "LastUpdatedTime": "2026-09-26T15:55:37.396000+01:00",
+            "LastUpdatedBy": "user/Delegated",
+            "ConnectionSchemaVersion": 1
+          }
+        }
+      }
+    },
+    {
+      "label": "get-connection-visible",
+      "service": "glue",
+      "operation": "get-connection",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "HidePassword": false
+      },
+      "started_ms": 1790434539139,
+      "finished_ms": 1790434539929,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Connection": {
+            "Name": "stackd-controls-owned",
+            "Description": "first",
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+              "PASSWORD": "REDACTED_PRESENT",
+              "JDBC_CONNECTION_URL": "jdbc:postgresql://127.0.0.1:5432/owned",
+              "USERNAME": "owned"
+            },
+            "CreationTime": "2026-09-26T15:55:37.396000+01:00",
+            "LastUpdatedTime": "2026-09-26T15:55:37.396000+01:00",
+            "LastUpdatedBy": "user/Delegated",
+            "ConnectionSchemaVersion": 1
+          }
+        }
+      }
+    },
+    {
+      "label": "get-connection-hidden",
+      "service": "glue",
+      "operation": "get-connection",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "HidePassword": true
+      },
+      "started_ms": 1790434539930,
+      "finished_ms": 1790434540700,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Connection": {
+            "Name": "stackd-controls-owned",
+            "Description": "first",
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+              "JDBC_CONNECTION_URL": "jdbc:postgresql://127.0.0.1:5432/owned",
+              "USERNAME": "owned"
+            },
+            "CreationTime": "2026-09-26T15:55:37.396000+01:00",
+            "LastUpdatedTime": "2026-09-26T15:55:37.396000+01:00",
+            "LastUpdatedBy": "user/Delegated",
+            "ConnectionSchemaVersion": 1
+          }
+        }
+      }
+    },
+    {
+      "label": "get-connection-other-catalog",
+      "service": "glue",
+      "operation": "get-connection",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "CatalogId": "917546008205",
+        "HidePassword": true
+      },
+      "started_ms": 1790434540701,
+      "finished_ms": 1790434541477,
+      "result": {
+        "code": "AccessDeniedException",
+        "error": {
+          "Message": "User: arn:aws:iam::123456789012:user/owned-caller is not authorized to perform: glue:GetConnection on resource: arn:aws:glue:us-east-1:917546008205:catalog because no resource-based policy allows the glue:GetConnection action",
+          "Code": "AccessDeniedException"
+        }
+      }
+    },
+    {
+      "label": "update-connection",
+      "service": "glue",
+      "operation": "update-connection",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "ConnectionInput": {
+          "Name": "stackd-controls-owned",
+          "ConnectionType": "JDBC",
+          "Description": "second",
+          "ConnectionProperties": {
+            "JDBC_CONNECTION_URL": "jdbc:postgresql://127.0.0.1:5432/owned",
+            "USERNAME": "owned",
+            "PASSWORD": "REDACTED_PRESENT"
+          }
+        }
+      },
+      "started_ms": 1790434541478,
+      "finished_ms": 1790434542275,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "get-connection-after-update",
+      "service": "glue",
+      "operation": "get-connection",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "HidePassword": true
+      },
+      "started_ms": 1790434542276,
+      "finished_ms": 1790434543036,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Connection": {
+            "Name": "stackd-controls-owned",
+            "Description": "second",
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+              "JDBC_CONNECTION_URL": "jdbc:postgresql://127.0.0.1:5432/owned",
+              "USERNAME": "owned"
+            },
+            "CreationTime": "2026-09-26T15:55:37.396000+01:00",
+            "LastUpdatedTime": "2026-09-26T15:55:42.105000+01:00",
+            "LastUpdatedBy": "user/Delegated",
+            "ConnectionSchemaVersion": 1
+          }
+        }
+      }
+    },
+    {
+      "label": "create-crawler-database",
+      "service": "glue",
+      "operation": "create-database",
+      "input": {
+        "DatabaseInput": {
+          "Name": "stackd_controls_owned"
+        }
+      },
+      "started_ms": 1790434543037,
+      "finished_ms": 1790434543842,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-crawler-invalid-targets",
+      "service": "glue",
+      "operation": "create-crawler",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+        "DatabaseName": "stackd_controls_owned",
+        "Targets": {},
+        "Classifiers": [
+          "stackd-controls-owned-csv"
+        ]
+      },
+      "started_ms": 1790434543843,
+      "finished_ms": 1790434544652,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "Targets are not defined",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "create-crawler",
+      "service": "glue",
+      "operation": "create-crawler",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+        "DatabaseName": "stackd_controls_owned",
+        "Targets": {
+          "S3Targets": [
+            {
+              "Path": "s3://stackd-controls-owned/never-scanned/"
+            }
+          ]
+        },
+        "Classifiers": [
+          "stackd-controls-owned-csv"
+        ]
+      },
+      "started_ms": 1790434544652,
+      "finished_ms": 1790434545579,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "duplicate-crawler",
+      "service": "glue",
+      "operation": "create-crawler",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+        "DatabaseName": "stackd_controls_owned",
+        "Targets": {
+          "S3Targets": [
+            {
+              "Path": "s3://stackd-controls-owned/never-scanned/"
+            }
+          ]
+        },
+        "Classifiers": [
+          "stackd-controls-owned-csv"
+        ]
+      },
+      "started_ms": 1790434545580,
+      "finished_ms": 1790434546472,
+      "result": {
+        "code": "AlreadyExistsException",
+        "error": {
+          "Message": "123456789012:stackd-controls-owned already exists",
+          "Code": "AlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "get-crawler",
+      "service": "glue",
+      "operation": "get-crawler",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434546472,
+      "finished_ms": 1790434547206,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Crawler": {
+            "Name": "stackd-controls-owned",
+            "Role": "stackd-controls-owned-role",
+            "Targets": {
+              "S3Targets": [
+                {
+                  "Path": "s3://stackd-controls-owned/never-scanned/",
+                  "Exclusions": []
+                }
+              ],
+              "JdbcTargets": [],
+              "MongoDBTargets": [],
+              "DynamoDBTargets": [],
+              "CatalogTargets": [],
+              "DeltaTargets": [],
+              "IcebergTargets": [],
+              "HudiTargets": []
+            },
+            "DatabaseName": "stackd_controls_owned",
+            "Classifiers": [
+              "stackd-controls-owned-csv"
+            ],
+            "RecrawlPolicy": {
+              "RecrawlBehavior": "CRAWL_EVERYTHING"
+            },
+            "SchemaChangePolicy": {
+              "UpdateBehavior": "UPDATE_IN_DATABASE",
+              "DeleteBehavior": "DEPRECATE_IN_DATABASE"
+            },
+            "LineageConfiguration": {
+              "CrawlerLineageSettings": "DISABLE"
+            },
+            "State": "READY",
+            "CrawlElapsedTime": 0,
+            "CreationTime": "2026-09-26T15:55:45+01:00",
+            "LastUpdated": "2026-09-26T15:55:45+01:00",
+            "Version": 1,
+            "LakeFormationConfiguration": {
+              "UseLakeFormationCredentials": false,
+              "AccountId": ""
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "update-crawler",
+      "service": "glue",
+      "operation": "update-crawler",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Description": "updated",
+        "RecrawlPolicy": {
+          "RecrawlBehavior": "CRAWL_NEW_FOLDERS_ONLY"
+        }
+      },
+      "started_ms": 1790434547207,
+      "finished_ms": 1790434547971,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "The SchemaChangePolicy for \"Crawl new folders only\" Amazon S3 target can have only LOG DeleteBehavior value and LOG UpdateBehavior value.",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "get-updated-crawler",
+      "service": "glue",
+      "operation": "get-crawler",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434547972,
+      "finished_ms": 1790434548696,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Crawler": {
+            "Name": "stackd-controls-owned",
+            "Role": "stackd-controls-owned-role",
+            "Targets": {
+              "S3Targets": [
+                {
+                  "Path": "s3://stackd-controls-owned/never-scanned/",
+                  "Exclusions": []
+                }
+              ],
+              "JdbcTargets": [],
+              "MongoDBTargets": [],
+              "DynamoDBTargets": [],
+              "CatalogTargets": [],
+              "DeltaTargets": [],
+              "IcebergTargets": [],
+              "HudiTargets": []
+            },
+            "DatabaseName": "stackd_controls_owned",
+            "Classifiers": [
+              "stackd-controls-owned-csv"
+            ],
+            "RecrawlPolicy": {
+              "RecrawlBehavior": "CRAWL_EVERYTHING"
+            },
+            "SchemaChangePolicy": {
+              "UpdateBehavior": "UPDATE_IN_DATABASE",
+              "DeleteBehavior": "DEPRECATE_IN_DATABASE"
+            },
+            "LineageConfiguration": {
+              "CrawlerLineageSettings": "DISABLE"
+            },
+            "State": "READY",
+            "CrawlElapsedTime": 0,
+            "CreationTime": "2026-09-26T15:55:45+01:00",
+            "LastUpdated": "2026-09-26T15:55:45+01:00",
+            "Version": 1,
+            "LakeFormationConfiguration": {
+              "UseLakeFormationCredentials": false,
+              "AccountId": ""
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "stop-ready-crawler",
+      "service": "glue",
+      "operation": "stop-crawler",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434548696,
+      "finished_ms": 1790434549410,
+      "result": {
+        "code": "CrawlerNotRunningException",
+        "error": {
+          "Message": "Crawler with name stackd-controls-owned is not running",
+          "Code": "CrawlerNotRunningException"
+        }
+      }
+    },
+    {
+      "label": "create-workflow",
+      "service": "glue",
+      "operation": "create-workflow",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "DefaultRunProperties": {
+          "first": "one",
+          "retained": "yes"
+        },
+        "MaxConcurrentRuns": 1,
+        "Tags": {
+          "owned": "yes"
+        }
+      },
+      "started_ms": 1790434549411,
+      "finished_ms": 1790434550229,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-controls-owned"
+        }
+      }
+    },
+    {
+      "label": "duplicate-workflow",
+      "service": "glue",
+      "operation": "create-workflow",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "DefaultRunProperties": {
+          "first": "one",
+          "retained": "yes"
+        },
+        "MaxConcurrentRuns": 1,
+        "Tags": {
+          "owned": "yes"
+        }
+      },
+      "started_ms": 1790434550230,
+      "finished_ms": 1790434551012,
+      "result": {
+        "code": "AlreadyExistsException",
+        "error": {
+          "Message": "Workflow with given name already Exists",
+          "Code": "AlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "get-workflow",
+      "service": "glue",
+      "operation": "get-workflow",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "IncludeGraph": true
+      },
+      "started_ms": 1790434551013,
+      "finished_ms": 1790434551738,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Workflow": {
+            "Name": "stackd-controls-owned",
+            "DefaultRunProperties": {
+              "retained": "yes",
+              "first": "one"
+            },
+            "CreatedOn": "2026-09-26T15:55:50.060000+01:00",
+            "LastModifiedOn": "2026-09-26T15:55:50.060000+01:00",
+            "Graph": {
+              "Nodes": [],
+              "Edges": []
+            },
+            "MaxConcurrentRuns": 1
+          }
+        }
+      }
+    },
+    {
+      "label": "update-workflow",
+      "service": "glue",
+      "operation": "update-workflow",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "DefaultRunProperties": {
+          "second": "two"
+        }
+      },
+      "started_ms": 1790434551740,
+      "finished_ms": 1790434552501,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-controls-owned"
+        }
+      }
+    },
+    {
+      "label": "get-updated-workflow",
+      "service": "glue",
+      "operation": "get-workflow",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "IncludeGraph": true
+      },
+      "started_ms": 1790434552501,
+      "finished_ms": 1790434553224,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Workflow": {
+            "Name": "stackd-controls-owned",
+            "DefaultRunProperties": {
+              "second": "two"
+            },
+            "CreatedOn": "2026-09-26T15:55:50.060000+01:00",
+            "LastModifiedOn": "2026-09-26T15:55:52.371000+01:00",
+            "Graph": {
+              "Nodes": [],
+              "Edges": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "get-missing-workflow-run-properties",
+      "service": "glue",
+      "operation": "get-workflow-run-properties",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "RunId": "wr_0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "started_ms": 1790434553225,
+      "finished_ms": 1790434553989,
+      "result": {
+        "code": "EntityNotFoundException",
+        "error": {
+          "Message": "Entity not found",
+          "Code": "EntityNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "create-on-demand-start-on-creation",
+      "service": "glue",
+      "operation": "create-trigger",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Type": "ON_DEMAND",
+        "Actions": [
+          {
+            "JobName": "stackd-controls-owned-nonexistent"
+          }
+        ],
+        "WorkflowName": "stackd-controls-owned",
+        "StartOnCreation": true
+      },
+      "started_ms": 1790434553990,
+      "finished_ms": 1790434554711,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "Starting trigger on create is not supported for ON_DEMAND trigger type.",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "create-on-demand-trigger",
+      "service": "glue",
+      "operation": "create-trigger",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Type": "ON_DEMAND",
+        "Actions": [
+          {
+            "JobName": "stackd-controls-owned-nonexistent"
+          }
+        ],
+        "WorkflowName": "stackd-controls-owned"
+      },
+      "started_ms": 1790434554712,
+      "finished_ms": 1790434555528,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-controls-owned"
+        }
+      }
+    },
+    {
+      "label": "get-trigger",
+      "service": "glue",
+      "operation": "get-trigger",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434555529,
+      "finished_ms": 1790434556284,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trigger": {
+            "Name": "stackd-controls-owned",
+            "WorkflowName": "stackd-controls-owned",
+            "Type": "ON_DEMAND",
+            "State": "CREATED",
+            "Actions": [
+              {
+                "JobName": "stackd-controls-owned-nonexistent"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "label": "start-trigger-missing-job",
+      "service": "glue",
+      "operation": "start-trigger",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434556285,
+      "finished_ms": 1790434557648,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-controls-owned"
+        }
+      }
+    },
+    {
+      "label": "get-trigger-after-start",
+      "service": "glue",
+      "operation": "get-trigger",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434557650,
+      "finished_ms": 1790434558372,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trigger": {
+            "Name": "stackd-controls-owned",
+            "WorkflowName": "stackd-controls-owned",
+            "Type": "ON_DEMAND",
+            "State": "CREATED",
+            "Actions": [
+              {
+                "JobName": "stackd-controls-owned-nonexistent"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "label": "stop-on-demand-trigger",
+      "service": "glue",
+      "operation": "stop-trigger",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434558373,
+      "finished_ms": 1790434559099,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "The operation is not allowed when trigger is in state: CREATED",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "get-trigger-after-stop",
+      "service": "glue",
+      "operation": "get-trigger",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434559100,
+      "finished_ms": 1790434559837,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trigger": {
+            "Name": "stackd-controls-owned",
+            "WorkflowName": "stackd-controls-owned",
+            "Type": "ON_DEMAND",
+            "State": "CREATED",
+            "Actions": [
+              {
+                "JobName": "stackd-controls-owned-nonexistent"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "label": "create-security",
+      "service": "glue",
+      "operation": "create-security-configuration",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "EncryptionConfiguration": {
+          "S3Encryption": [
+            {
+              "S3EncryptionMode": "SSE-S3"
+            }
+          ],
+          "CloudWatchEncryption": {
+            "CloudWatchEncryptionMode": "DISABLED"
+          },
+          "JobBookmarksEncryption": {
+            "JobBookmarksEncryptionMode": "DISABLED"
+          }
+        }
+      },
+      "started_ms": 1790434559838,
+      "finished_ms": 1790434560625,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-controls-owned",
+          "CreatedTimestamp": "2026-09-26T15:56:00.514000+01:00"
+        }
+      }
+    },
+    {
+      "label": "duplicate-security",
+      "service": "glue",
+      "operation": "create-security-configuration",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "EncryptionConfiguration": {
+          "S3Encryption": [
+            {
+              "S3EncryptionMode": "SSE-S3"
+            }
+          ],
+          "CloudWatchEncryption": {
+            "CloudWatchEncryptionMode": "DISABLED"
+          },
+          "JobBookmarksEncryption": {
+            "JobBookmarksEncryptionMode": "DISABLED"
+          }
+        }
+      },
+      "started_ms": 1790434560626,
+      "finished_ms": 1790434561354,
+      "result": {
+        "code": "AlreadyExistsException",
+        "error": {
+          "Message": "",
+          "Code": "AlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "get-security",
+      "service": "glue",
+      "operation": "get-security-configuration",
+      "input": {
+        "Name": "stackd-controls-owned"
+      },
+      "started_ms": 1790434561356,
+      "finished_ms": 1790434562095,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SecurityConfiguration": {
+            "Name": "stackd-controls-owned",
+            "CreatedTimeStamp": "2026-09-26T15:56:00.514000+01:00",
+            "EncryptionConfiguration": {
+              "S3Encryption": [
+                {
+                  "S3EncryptionMode": "SSE-S3"
+                }
+              ],
+              "CloudWatchEncryption": {
+                "CloudWatchEncryptionMode": "DISABLED"
+              },
+              "JobBookmarksEncryption": {
+                "JobBookmarksEncryptionMode": "DISABLED"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "create-security-missing-kms-key",
+      "service": "glue",
+      "operation": "create-security-configuration",
+      "input": {
+        "Name": "stackd-controls-owned-invalid",
+        "EncryptionConfiguration": {
+          "JobBookmarksEncryption": {
+            "JobBookmarksEncryptionMode": "CSE-KMS"
+          }
+        }
+      },
+      "started_ms": 1790434562097,
+      "finished_ms": 1790434562819,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "kmsKeyArn can only be empty for jobBookmarksEncryptionMode CSE_KMS",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "get-workflow-tags",
+      "service": "glue",
+      "operation": "get-tags",
+      "input": {
+        "ResourceArn": "arn:aws:glue:us-east-1:123456789012:workflow/stackd-controls-owned"
+      },
+      "started_ms": 1790434562820,
+      "finished_ms": 1790434563572,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": {
+            "owned": "yes"
+          }
+        }
+      }
+    },
+    {
+      "label": "merge-workflow-tags",
+      "service": "glue",
+      "operation": "tag-resource",
+      "input": {
+        "ResourceArn": "arn:aws:glue:us-east-1:123456789012:workflow/stackd-controls-owned",
+        "TagsToAdd": {
+          "added": "two",
+          "owned": "updated"
+        }
+      },
+      "started_ms": 1790434563574,
+      "finished_ms": 1790434564322,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "get-merged-workflow-tags",
+      "service": "glue",
+      "operation": "get-tags",
+      "input": {
+        "ResourceArn": "arn:aws:glue:us-east-1:123456789012:workflow/stackd-controls-owned"
+      },
+      "started_ms": 1790434564324,
+      "finished_ms": 1790434565087,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": {
+            "added": "two",
+            "owned": "updated"
+          }
+        }
+      }
+    },
+    {
+      "label": "remove-workflow-tags",
+      "service": "glue",
+      "operation": "untag-resource",
+      "input": {
+        "ResourceArn": "arn:aws:glue:us-east-1:123456789012:workflow/stackd-controls-owned",
+        "TagsToRemove": [
+          "owned",
+          "missing"
+        ]
+      },
+      "started_ms": 1790434565088,
+      "finished_ms": 1790434565821,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "get-remaining-workflow-tags",
+      "service": "glue",
+      "operation": "get-tags",
+      "input": {
+        "ResourceArn": "arn:aws:glue:us-east-1:123456789012:workflow/stackd-controls-owned"
+      },
+      "started_ms": 1790434565822,
+      "finished_ms": 1790434566579,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": {
+            "added": "two"
+          }
+        }
+      }
+    },
+    {
+      "label": "get-tags-malformed-arn",
+      "service": "glue",
+      "operation": "get-tags",
+      "input": {
+        "ResourceArn": "not-an-arn"
+      },
+      "started_ms": 1790434566581,
+      "finished_ms": 1790434567286,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "get-tags-missing-resource",
+      "service": "glue",
+      "operation": "get-tags",
+      "input": {
+        "ResourceArn": "arn:aws:glue:us-east-1:123456789012:workflow/stackd-controls-owned-missing"
+      },
+      "started_ms": 1790434567288,
+      "finished_ms": 1790434568037,
+      "result": {
+        "code": "EntityNotFoundException",
+        "error": {
+          "Message": "Entity not found",
+          "Code": "EntityNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "get-tags-other-region",
+      "service": "glue",
+      "operation": "get-tags",
+      "input": {
+        "ResourceArn": "arn:aws:glue:us-west-2:123456789012:workflow/stackd-controls-owned"
+      },
+      "started_ms": 1790434568038,
+      "finished_ms": 1790434568799,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Tags": {}
+        }
+      }
+    },
+    {
+      "label": "create-job-no-run",
+      "service": "glue",
+      "operation": "create-job",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+        "Command": {
+          "Name": "pythonshell",
+          "PythonVersion": "3.9",
+          "ScriptLocation": "s3://stackd-controls-owned/not-executed.py"
+        },
+        "Description": "first",
+        "DefaultArguments": {
+          "--owned": "initial"
+        },
+        "MaxCapacity": 0.0625,
+        "MaxRetries": 0,
+        "Timeout": 1
+      },
+      "started_ms": 1790434568800,
+      "finished_ms": 1790434569599,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-controls-owned"
+        }
+      }
+    },
+    {
+      "label": "create-job-exact-duplicate",
+      "service": "glue",
+      "operation": "create-job",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+        "Command": {
+          "Name": "pythonshell",
+          "PythonVersion": "3.9",
+          "ScriptLocation": "s3://stackd-controls-owned/not-executed.py"
+        },
+        "Description": "first",
+        "DefaultArguments": {
+          "--owned": "initial"
+        },
+        "MaxCapacity": 0.0625,
+        "MaxRetries": 0,
+        "Timeout": 1
+      },
+      "started_ms": 1790434569600,
+      "finished_ms": 1790434570362,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-controls-owned"
+        }
+      }
+    },
+    {
+      "label": "create-job-changed-description",
+      "service": "glue",
+      "operation": "create-job",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+        "Command": {
+          "Name": "pythonshell",
+          "PythonVersion": "3.9",
+          "ScriptLocation": "s3://stackd-controls-owned/not-executed.py"
+        },
+        "Description": "second",
+        "DefaultArguments": {
+          "--owned": "initial"
+        },
+        "MaxCapacity": 0.0625,
+        "MaxRetries": 0,
+        "Timeout": 1
+      },
+      "started_ms": 1790434570363,
+      "finished_ms": 1790434571146,
+      "result": {
+        "code": "IdempotentParameterMismatchException",
+        "error": {
+          "Message": "Job already submitted with different configuration.",
+          "Code": "IdempotentParameterMismatchException"
+        }
+      }
+    },
+    {
+      "label": "get-job-after-duplicate",
+      "service": "glue",
+      "operation": "get-job",
+      "input": {
+        "JobName": "stackd-controls-owned"
+      },
+      "started_ms": 1790434571147,
+      "finished_ms": 1790434571847,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Job": {
+            "Name": "stackd-controls-owned",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "Description": "first",
+            "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+            "CreatedOn": "2026-09-26T15:56:09.455000+01:00",
+            "LastModifiedOn": "2026-09-26T15:56:09.455000+01:00",
+            "ExecutionProperty": {
+              "MaxConcurrentRuns": 1
+            },
+            "Command": {
+              "Name": "pythonshell",
+              "ScriptLocation": "s3://stackd-controls-owned/not-executed.py",
+              "PythonVersion": "3.9"
+            },
+            "DefaultArguments": {
+              "--owned": "initial"
+            },
+            "MaxRetries": 0,
+            "AllocatedCapacity": 0,
+            "Timeout": 1,
+            "MaxCapacity": 0.0625,
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    },
+    {
+      "label": "create-job-changed-script",
+      "service": "glue",
+      "operation": "create-job",
+      "input": {
+        "Name": "stackd-controls-owned",
+        "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+        "Command": {
+          "Name": "pythonshell",
+          "PythonVersion": "3.9",
+          "ScriptLocation": "s3://stackd-controls-owned/different.py"
+        },
+        "Description": "first",
+        "DefaultArguments": {
+          "--owned": "initial"
+        },
+        "MaxCapacity": 0.0625,
+        "MaxRetries": 0,
+        "Timeout": 1
+      },
+      "started_ms": 1790434571848,
+      "finished_ms": 1790434572598,
+      "result": {
+        "code": "IdempotentParameterMismatchException",
+        "error": {
+          "Message": "Job already submitted with different configuration.",
+          "Code": "IdempotentParameterMismatchException"
+        }
+      }
+    },
+    {
+      "label": "update-job-omitted-fields",
+      "service": "glue",
+      "operation": "update-job",
+      "input": {
+        "JobName": "stackd-controls-owned",
+        "JobUpdate": {
+          "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+          "Command": {
+            "Name": "pythonshell",
+            "PythonVersion": "3.9",
+            "ScriptLocation": "s3://stackd-controls-owned/not-executed.py"
+          },
+          "MaxCapacity": 0.0625,
+          "MaxRetries": 0,
+          "Timeout": 1
+        }
+      },
+      "started_ms": 1790434572599,
+      "finished_ms": 1790434573391,
+      "result": {
+        "code": "Success",
+        "output": {
+          "JobName": "stackd-controls-owned"
+        }
+      }
+    },
+    {
+      "label": "get-job-after-replacement",
+      "service": "glue",
+      "operation": "get-job",
+      "input": {
+        "JobName": "stackd-controls-owned"
+      },
+      "started_ms": 1790434573393,
+      "finished_ms": 1790434574109,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Job": {
+            "Name": "stackd-controls-owned",
+            "JobMode": "SCRIPT",
+            "JobRunQueuingEnabled": false,
+            "Role": "arn:aws:iam::123456789012:role/stackd-controls-owned-role",
+            "CreatedOn": "2026-09-26T15:56:09.455000+01:00",
+            "LastModifiedOn": "2026-09-26T15:56:13.266000+01:00",
+            "ExecutionProperty": {
+              "MaxConcurrentRuns": 1
+            },
+            "Command": {
+              "Name": "pythonshell",
+              "ScriptLocation": "s3://stackd-controls-owned/not-executed.py",
+              "PythonVersion": "3.9"
+            },
+            "MaxRetries": 0,
+            "AllocatedCapacity": 0,
+            "Timeout": 1,
+            "MaxCapacity": 0.0625,
+            "GlueVersion": "6.0"
+          }
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "cleanup-job",
+        "service": "glue",
+        "operation": "delete-job",
+        "input": {
+          "JobName": "stackd-controls-owned"
+        },
+        "started_ms": 1790434574110,
+        "finished_ms": 1790434574908,
+        "result": {
+          "code": "Success",
+          "output": {
+            "JobName": "stackd-controls-owned"
+          }
+        }
+      },
+      {
+        "label": "verify-job-absent",
+        "service": "glue",
+        "operation": "get-job",
+        "input": {
+          "JobName": "stackd-controls-owned"
+        },
+        "started_ms": 1790434574909,
+        "finished_ms": 1790434575622,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Job not found.",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-trigger",
+        "service": "glue",
+        "operation": "delete-trigger",
+        "input": {
+          "Name": "stackd-controls-owned"
+        },
+        "started_ms": 1790434575624,
+        "finished_ms": 1790434576378,
+        "result": {
+          "code": "Success",
+          "output": {
+            "Name": "stackd-controls-owned"
+          }
+        }
+      },
+      {
+        "label": "verify-trigger-absent",
+        "service": "glue",
+        "operation": "get-trigger",
+        "input": {
+          "Name": "stackd-controls-owned"
+        },
+        "started_ms": 1790434576379,
+        "finished_ms": 1790434577103,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Trigger not found.",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-workflow",
+        "service": "glue",
+        "operation": "delete-workflow",
+        "input": {
+          "Name": "stackd-controls-owned"
+        },
+        "started_ms": 1790434577105,
+        "finished_ms": 1790434577888,
+        "result": {
+          "code": "Success",
+          "output": {
+            "Name": "stackd-controls-owned"
+          }
+        }
+      },
+      {
+        "label": "verify-workflow-absent",
+        "service": "glue",
+        "operation": "get-workflow",
+        "input": {
+          "Name": "stackd-controls-owned"
+        },
+        "started_ms": 1790434577890,
+        "finished_ms": 1790434578619,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Entity not found",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-crawler",
+        "service": "glue",
+        "operation": "delete-crawler",
+        "input": {
+          "Name": "stackd-controls-owned"
+        },
+        "started_ms": 1790434578620,
+        "finished_ms": 1790434579390,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-crawler-absent",
+        "service": "glue",
+        "operation": "get-crawler",
+        "input": {
+          "Name": "stackd-controls-owned"
+        },
+        "started_ms": 1790434579392,
+        "finished_ms": 1790434580127,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Crawler entry with name stackd-controls-owned does not exist",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-connection",
+        "service": "glue",
+        "operation": "delete-connection",
+        "input": {
+          "ConnectionName": "stackd-controls-owned"
+        },
+        "started_ms": 1790434580129,
+        "finished_ms": 1790434580983,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-connection-absent",
+        "service": "glue",
+        "operation": "get-connection",
+        "input": {
+          "Name": "stackd-controls-owned"
+        },
+        "started_ms": 1790434580985,
+        "finished_ms": 1790434581755,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Connection with name stackd-controls-owned in account 123456789012 is not found",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-database",
+        "service": "glue",
+        "operation": "delete-database",
+        "input": {
+          "Name": "stackd_controls_owned"
+        },
+        "started_ms": 1790434581757,
+        "finished_ms": 1790434582602,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-database-absent",
+        "service": "glue",
+        "operation": "get-database",
+        "input": {
+          "Name": "stackd_controls_owned"
+        },
+        "started_ms": 1790434582603,
+        "finished_ms": 1790434583332,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Database stackd_controls_owned not found.",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-classifier",
+        "service": "glue",
+        "operation": "delete-classifier",
+        "input": {
+          "Name": "stackd-controls-owned-csv"
+        },
+        "started_ms": 1790434583334,
+        "finished_ms": 1790434584058,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-classifier-absent",
+        "service": "glue",
+        "operation": "get-classifier",
+        "input": {
+          "Name": "stackd-controls-owned-csv"
+        },
+        "started_ms": 1790434584059,
+        "finished_ms": 1790434584794,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Classifier stackd-controls-owned-csv not found. not found.",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-classifier",
+        "service": "glue",
+        "operation": "delete-classifier",
+        "input": {
+          "Name": "stackd-controls-owned-json"
+        },
+        "started_ms": 1790434584796,
+        "finished_ms": 1790434585499,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-classifier-absent",
+        "service": "glue",
+        "operation": "get-classifier",
+        "input": {
+          "Name": "stackd-controls-owned-json"
+        },
+        "started_ms": 1790434585500,
+        "finished_ms": 1790434586232,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Classifier stackd-controls-owned-json not found. not found.",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-security",
+        "service": "glue",
+        "operation": "delete-security-configuration",
+        "input": {
+          "Name": "stackd-controls-owned"
+        },
+        "started_ms": 1790434586234,
+        "finished_ms": 1790434586994,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-security-absent",
+        "service": "glue",
+        "operation": "get-security-configuration",
+        "input": {
+          "Name": "stackd-controls-owned"
+        },
+        "started_ms": 1790434586996,
+        "finished_ms": 1790434587733,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-security",
+        "service": "glue",
+        "operation": "delete-security-configuration",
+        "input": {
+          "Name": "stackd-controls-owned-invalid"
+        },
+        "started_ms": 1790434587735,
+        "finished_ms": 1790434588505,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "verify-security-absent",
+        "service": "glue",
+        "operation": "get-security-configuration",
+        "input": {
+          "Name": "stackd-controls-owned-invalid"
+        },
+        "started_ms": 1790434588507,
+        "finished_ms": 1790434589274,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-empty-bucket",
+        "service": "s3api",
+        "operation": "delete-bucket",
+        "input": {
+          "Bucket": "stackd-controls-owned"
+        },
+        "started_ms": 1790434589275,
+        "finished_ms": 1790434590280,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-empty-bucket-absent",
+        "service": "s3api",
+        "operation": "head-bucket",
+        "input": {
+          "Bucket": "stackd-controls-owned"
+        },
+        "started_ms": 1790434590281,
+        "finished_ms": 1790434590982,
+        "result": {
+          "code": "404",
+          "error": {
+            "Code": "404",
+            "Message": "Not Found"
+          }
+        }
+      },
+      {
+        "label": "cleanup-owned-policy",
+        "service": "iam",
+        "operation": "delete-role-policy",
+        "input": {
+          "RoleName": "stackd-controls-owned-role",
+          "PolicyName": "owned"
+        },
+        "started_ms": 1790434590984,
+        "finished_ms": 1790434591742,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "cleanup-role",
+        "service": "iam",
+        "operation": "delete-role",
+        "input": {
+          "RoleName": "stackd-controls-owned-role"
+        },
+        "started_ms": 1790434591743,
+        "finished_ms": 1790434592518,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-role-absent",
+        "service": "iam",
+        "operation": "get-role",
+        "input": {
+          "RoleName": "stackd-controls-owned-role"
+        },
+        "started_ms": 1790434592520,
+        "finished_ms": 1790434593225,
+        "result": {
+          "code": "NoSuchEntity",
+          "error": {
+            "Code": "NoSuchEntity",
+            "Message": "The role with name stackd-controls-owned-role cannot be found."
+          }
+        }
+      }
+    ],
+    "remaining_owned": []
+  },
+  "completed": true,
+  "cli_calls": 88,
+  "elapsed_seconds": 67.999,
+  "account": "123456789012",
+  "uncertainty": [
+    "Metadata controls only; no crawler classification, JDBC connectivity, workflow execution or KMS-protected password retrieval exercised.",
+    "All PASSWORD/ENCRYPTED_PASSWORD values are redacted before persistence, including synthetic inputs; presence and HidePassword removal retained.",
+    "GetDataCatalogEncryptionSettings is a single read of this account's default configuration, not a standing-resource scan or mutation."
+  ]
+}

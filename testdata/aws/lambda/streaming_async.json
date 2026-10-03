@@ -1,0 +1,2639 @@
+{
+  "source": "Native ordinary asynchronous Invoke of the unchanged captured streaming ZIP.",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "prefix": "stackd-stream-async-2eac2a1c0259",
+  "started_at": "2026-09-15T11:08:47.208817+00:00",
+  "script_path": "/tmp/stackd-streaming-async-probe.py",
+  "output_path": "/tmp/stackd-stream-async-2eac2a1c0259.json",
+  "sdk": {
+    "boto3": "1.43.94",
+    "botocore": "1.43.94"
+  },
+  "endpoints": {
+    "sts": "https://sts.us-east-1.amazonaws.com",
+    "iam": "https://iam.amazonaws.com",
+    "lambda": "https://lambda.us-east-1.amazonaws.com",
+    "logs": "https://logs.us-east-1.amazonaws.com",
+    "sqs": "https://sqs.us-east-1.amazonaws.com"
+  },
+  "artifact": {
+    "fixture_path": "testdata/aws/lambda/streaming.json",
+    "fixture_json_pointer": "/artifact",
+    "source_utf8": "const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));\nexports.streaming = awslambda.streamifyResponse(async (event, stream, context) => {\n    stream.setContentType(\"application/x-stackd-stream\");\n    console.log(\"PROBE_START\", event.token, context.awsRequestId, context.functionVersion);\n    if (event.mode === \"throw_before\") throw new Error(\"probe-before\");\n    if (event.mode === \"large\") {\n        const {once} = require(\"node:events\");\n        const block = Buffer.alloc(65536, 120);\n        for (let sent = 0; sent < event.bytes; sent += block.length) {\n            if (!stream.write(block.subarray(0, Math.min(block.length, event.bytes - sent)))) {\n                await once(stream, \"drain\");\n            }\n        }\n        stream.end();\n    } else if (event.mode === \"empty\") {\n        stream.end();\n    } else {\n        stream.write(Buffer.from([65, 0, 255, 10]));\n        await sleep(event.mode === \"disconnect\" ? 3000 : 150);\n        if (event.mode === \"throw_after\") throw new Error(\"probe-after\");\n        stream.write(JSON.stringify({version: context.functionVersion,\n            invokedArn: context.invokedFunctionArn, token: event.token}));\n        stream.end();\n    }\n    console.log(\"PROBE_COMPLETE\", event.token, context.awsRequestId, context.functionVersion);\n});\nexports.plain = async (event, context) => {\n    console.log(\"PROBE_PLAIN\", event.token, context.awsRequestId);\n    return {plain: true, version: context.functionVersion, token: event.token};\n};\n",
+    "zip_base64": "UEsDBBQAAAAAAAAAIVzKZ4tm1wUAANcFAAAIAAAAZW50cnkuanNjb25zdCBzbGVlcCA9IG1zID0+IG5ldyBQcm9taXNlKHJlc29sdmUgPT4gc2V0VGltZW91dChyZXNvbHZlLCBtcykpOwpleHBvcnRzLnN0cmVhbWluZyA9IGF3c2xhbWJkYS5zdHJlYW1pZnlSZXNwb25zZShhc3luYyAoZXZlbnQsIHN0cmVhbSwgY29udGV4dCkgPT4gewogICAgc3RyZWFtLnNldENvbnRlbnRUeXBlKCJhcHBsaWNhdGlvbi94LXN0YWNrZC1zdHJlYW0iKTsKICAgIGNvbnNvbGUubG9nKCJQUk9CRV9TVEFSVCIsIGV2ZW50LnRva2VuLCBjb250ZXh0LmF3c1JlcXVlc3RJZCwgY29udGV4dC5mdW5jdGlvblZlcnNpb24pOwogICAgaWYgKGV2ZW50Lm1vZGUgPT09ICJ0aHJvd19iZWZvcmUiKSB0aHJvdyBuZXcgRXJyb3IoInByb2JlLWJlZm9yZSIpOwogICAgaWYgKGV2ZW50Lm1vZGUgPT09ICJsYXJnZSIpIHsKICAgICAgICBjb25zdCB7b25jZX0gPSByZXF1aXJlKCJub2RlOmV2ZW50cyIpOwogICAgICAgIGNvbnN0IGJsb2NrID0gQnVmZmVyLmFsbG9jKDY1NTM2LCAxMjApOwogICAgICAgIGZvciAobGV0IHNlbnQgPSAwOyBzZW50IDwgZXZlbnQuYnl0ZXM7IHNlbnQgKz0gYmxvY2subGVuZ3RoKSB7CiAgICAgICAgICAgIGlmICghc3RyZWFtLndyaXRlKGJsb2NrLnN1YmFycmF5KDAsIE1hdGgubWluKGJsb2NrLmxlbmd0aCwgZXZlbnQuYnl0ZXMgLSBzZW50KSkpKSB7CiAgICAgICAgICAgICAgICBhd2FpdCBvbmNlKHN0cmVhbSwgImRyYWluIik7CiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICAgICAgc3RyZWFtLmVuZCgpOwogICAgfSBlbHNlIGlmIChldmVudC5tb2RlID09PSAiZW1wdHkiKSB7CiAgICAgICAgc3RyZWFtLmVuZCgpOwogICAgfSBlbHNlIHsKICAgICAgICBzdHJlYW0ud3JpdGUoQnVmZmVyLmZyb20oWzY1LCAwLCAyNTUsIDEwXSkpOwogICAgICAgIGF3YWl0IHNsZWVwKGV2ZW50Lm1vZGUgPT09ICJkaXNjb25uZWN0IiA/IDMwMDAgOiAxNTApOwogICAgICAgIGlmIChldmVudC5tb2RlID09PSAidGhyb3dfYWZ0ZXIiKSB0aHJvdyBuZXcgRXJyb3IoInByb2JlLWFmdGVyIik7CiAgICAgICAgc3RyZWFtLndyaXRlKEpTT04uc3RyaW5naWZ5KHt2ZXJzaW9uOiBjb250ZXh0LmZ1bmN0aW9uVmVyc2lvbiwKICAgICAgICAgICAgaW52b2tlZEFybjogY29udGV4dC5pbnZva2VkRnVuY3Rpb25Bcm4sIHRva2VuOiBldmVudC50b2tlbn0pKTsKICAgICAgICBzdHJlYW0uZW5kKCk7CiAgICB9CiAgICBjb25zb2xlLmxvZygiUFJPQkVfQ09NUExFVEUiLCBldmVudC50b2tlbiwgY29udGV4dC5hd3NSZXF1ZXN0SWQsIGNvbnRleHQuZnVuY3Rpb25WZXJzaW9uKTsKfSk7CmV4cG9ydHMucGxhaW4gPSBhc3luYyAoZXZlbnQsIGNvbnRleHQpID0+IHsKICAgIGNvbnNvbGUubG9nKCJQUk9CRV9QTEFJTiIsIGV2ZW50LnRva2VuLCBjb250ZXh0LmF3c1JlcXVlc3RJZCk7CiAgICByZXR1cm4ge3BsYWluOiB0cnVlLCB2ZXJzaW9uOiBjb250ZXh0LmZ1bmN0aW9uVmVyc2lvbiwgdG9rZW46IGV2ZW50LnRva2VufTsKfTsKUEsBAhQDFAAAAAAAAAAhXMpni2bXBQAA1wUAAAgAAAAAAAAAAAAAAIABAAAAAGVudHJ5LmpzUEsFBgAAAAABAAEANgAAAP0FAAAAAA==",
+    "zip_sha256": "eaf21205de8890278b906daa848d9bd825e68782fd34c5371931cf92793e8835",
+    "unchanged_source_and_zip": true
+  },
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get_caller_identity",
+      "input": {},
+      "started_at": "2026-09-15T11:08:47.208849+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated",
+          "ResponseMetadata": {
+            "RequestId": "ef90b412-d802-49a8-b413-e3f4426e9829",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "ef90b412-d802-49a8-b413-e3f4426e9829",
+              "x-amz-sts-extended-request-id": "MTp1cy1lYXN0LTE6UzoxNzg5NDcwNTI3NTcwOlI6UDE0bXNVZFQ=",
+              "content-type": "text/xml",
+              "content-length": "406",
+              "date": "Tue, 15 Sep 2026 11:08:47 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:08:47.635897+00:00"
+    },
+    {
+      "label": "create_success_queue",
+      "service": "sqs",
+      "operation": "create_queue",
+      "input": {
+        "QueueName": "stackd-stream-async-2eac2a1c0259-success",
+        "Attributes": {
+          "MessageRetentionPeriod": "3600"
+        }
+      },
+      "started_at": "2026-09-15T11:08:47.636148+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success",
+          "ResponseMetadata": {
+            "RequestId": "e2ec5d22-0349-514e-911a-3e012ac94782",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "e2ec5d22-0349-514e-911a-3e012ac94782",
+              "date": "Tue, 15 Sep 2026 11:08:48 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "104",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:08:48.205511+00:00"
+    },
+    {
+      "label": "read_success_queue",
+      "service": "sqs",
+      "operation": "get_queue_attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "started_at": "2026-09-15T11:08:48.205707+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-success"
+          },
+          "ResponseMetadata": {
+            "RequestId": "fde46dd4-48a8-55c6-92c8-0ef76128430a",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "fde46dd4-48a8-55c6-92c8-0ef76128430a",
+              "date": "Tue, 15 Sep 2026 11:08:48 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "105",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:08:48.307347+00:00"
+    },
+    {
+      "label": "create_failure_queue",
+      "service": "sqs",
+      "operation": "create_queue",
+      "input": {
+        "QueueName": "stackd-stream-async-2eac2a1c0259-failure",
+        "Attributes": {
+          "MessageRetentionPeriod": "3600"
+        }
+      },
+      "started_at": "2026-09-15T11:08:48.307506+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-failure",
+          "ResponseMetadata": {
+            "RequestId": "68d61502-5f02-5f16-b3bd-76217682e9da",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "68d61502-5f02-5f16-b3bd-76217682e9da",
+              "date": "Tue, 15 Sep 2026 11:08:48 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "104",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:08:48.437522+00:00"
+    },
+    {
+      "label": "read_failure_queue",
+      "service": "sqs",
+      "operation": "get_queue_attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-failure",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "started_at": "2026-09-15T11:08:48.437740+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-failure"
+          },
+          "ResponseMetadata": {
+            "RequestId": "f6600fe6-e9d4-5f0a-8855-6cc5c054d9c6",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "f6600fe6-e9d4-5f0a-8855-6cc5c054d9c6",
+              "date": "Tue, 15 Sep 2026 11:08:48 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "105",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:08:48.536637+00:00"
+    },
+    {
+      "label": "create_log_group",
+      "service": "logs",
+      "operation": "create_log_group",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:08:48.536849+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "5633872d-c79a-4a2c-972e-f73f84601320",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "5633872d-c79a-4a2c-972e-f73f84601320",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "0",
+              "date": "Tue, 15 Sep 2026 11:08:48 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:08:49.032260+00:00"
+    },
+    {
+      "label": "create_role",
+      "service": "iam",
+      "operation": "create_role",
+      "input": {
+        "RoleName": "stackd-stream-async-2eac2a1c0259-role",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"lambda.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "started_at": "2026-09-15T11:08:49.032510+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-stream-async-2eac2a1c0259-role",
+            "RoleId": "AROAQAAAAAAAKLWIQ6U5O",
+            "Arn": "arn:aws:iam::000000000000:role/stackd-stream-async-2eac2a1c0259-role",
+            "CreateDate": "2026-09-15T11:08:49+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "lambda.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          },
+          "ResponseMetadata": {
+            "RequestId": "0a7586c8-e888-4e50-b614-3a83a2c3a45d",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:08:49 GMT",
+              "x-amzn-requestid": "0a7586c8-e888-4e50-b614-3a83a2c3a45d",
+              "content-type": "text/xml",
+              "content-length": "828"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:08:49.576309+00:00"
+    },
+    {
+      "label": "put_owned_policy",
+      "service": "iam",
+      "operation": "put_role_policy",
+      "input": {
+        "RoleName": "stackd-stream-async-2eac2a1c0259-role",
+        "PolicyName": "owned-destinations-and-logs",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": \"arn:aws:logs:us-east-1:000000000000:log-group:/aws/lambda/stackd-stream-async-2eac2a1c0259:log-stream:*\"}, {\"Effect\": \"Allow\", \"Action\": \"sqs:SendMessage\", \"Resource\": [\"arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-success\", \"arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-failure\"]}]}"
+      },
+      "started_at": "2026-09-15T11:08:49.576575+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "3396b140-82fd-4661-a45e-702b3caf5396",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:08:49 GMT",
+              "x-amzn-requestid": "3396b140-82fd-4661-a45e-702b3caf5396",
+              "content-type": "text/xml",
+              "content-length": "206"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:08:49.746258+00:00"
+    },
+    {
+      "label": "read_owned_policy",
+      "service": "iam",
+      "operation": "get_role_policy",
+      "input": {
+        "RoleName": "stackd-stream-async-2eac2a1c0259-role",
+        "PolicyName": "owned-destinations-and-logs"
+      },
+      "started_at": "2026-09-15T11:08:49.746545+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "RoleName": "stackd-stream-async-2eac2a1c0259-role",
+          "PolicyName": "owned-destinations-and-logs",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "logs:CreateLogStream",
+                  "logs:PutLogEvents"
+                ],
+                "Resource": "arn:aws:logs:us-east-1:000000000000:log-group:/aws/lambda/stackd-stream-async-2eac2a1c0259:log-stream:*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": "sqs:SendMessage",
+                "Resource": [
+                  "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-success",
+                  "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-failure"
+                ]
+              }
+            ]
+          },
+          "ResponseMetadata": {
+            "RequestId": "b0350129-af75-409c-be6a-e82290935693",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:08:49 GMT",
+              "x-amzn-requestid": "b0350129-af75-409c-be6a-e82290935693",
+              "content-type": "text/xml",
+              "content-length": "1078"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:08:49.869324+00:00"
+    },
+    {
+      "label": "create_function_0",
+      "service": "lambda",
+      "operation": "create_function",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259",
+        "Runtime": "nodejs22.x",
+        "Role": "arn:aws:iam::000000000000:role/stackd-stream-async-2eac2a1c0259-role",
+        "Handler": "entry.streaming",
+        "Code": {
+          "ZipFile": {
+            "base64": "UEsDBBQAAAAAAAAAIVzKZ4tm1wUAANcFAAAIAAAAZW50cnkuanNjb25zdCBzbGVlcCA9IG1zID0+IG5ldyBQcm9taXNlKHJlc29sdmUgPT4gc2V0VGltZW91dChyZXNvbHZlLCBtcykpOwpleHBvcnRzLnN0cmVhbWluZyA9IGF3c2xhbWJkYS5zdHJlYW1pZnlSZXNwb25zZShhc3luYyAoZXZlbnQsIHN0cmVhbSwgY29udGV4dCkgPT4gewogICAgc3RyZWFtLnNldENvbnRlbnRUeXBlKCJhcHBsaWNhdGlvbi94LXN0YWNrZC1zdHJlYW0iKTsKICAgIGNvbnNvbGUubG9nKCJQUk9CRV9TVEFSVCIsIGV2ZW50LnRva2VuLCBjb250ZXh0LmF3c1JlcXVlc3RJZCwgY29udGV4dC5mdW5jdGlvblZlcnNpb24pOwogICAgaWYgKGV2ZW50Lm1vZGUgPT09ICJ0aHJvd19iZWZvcmUiKSB0aHJvdyBuZXcgRXJyb3IoInByb2JlLWJlZm9yZSIpOwogICAgaWYgKGV2ZW50Lm1vZGUgPT09ICJsYXJnZSIpIHsKICAgICAgICBjb25zdCB7b25jZX0gPSByZXF1aXJlKCJub2RlOmV2ZW50cyIpOwogICAgICAgIGNvbnN0IGJsb2NrID0gQnVmZmVyLmFsbG9jKDY1NTM2LCAxMjApOwogICAgICAgIGZvciAobGV0IHNlbnQgPSAwOyBzZW50IDwgZXZlbnQuYnl0ZXM7IHNlbnQgKz0gYmxvY2subGVuZ3RoKSB7CiAgICAgICAgICAgIGlmICghc3RyZWFtLndyaXRlKGJsb2NrLnN1YmFycmF5KDAsIE1hdGgubWluKGJsb2NrLmxlbmd0aCwgZXZlbnQuYnl0ZXMgLSBzZW50KSkpKSB7CiAgICAgICAgICAgICAgICBhd2FpdCBvbmNlKHN0cmVhbSwgImRyYWluIik7CiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICAgICAgc3RyZWFtLmVuZCgpOwogICAgfSBlbHNlIGlmIChldmVudC5tb2RlID09PSAiZW1wdHkiKSB7CiAgICAgICAgc3RyZWFtLmVuZCgpOwogICAgfSBlbHNlIHsKICAgICAgICBzdHJlYW0ud3JpdGUoQnVmZmVyLmZyb20oWzY1LCAwLCAyNTUsIDEwXSkpOwogICAgICAgIGF3YWl0IHNsZWVwKGV2ZW50Lm1vZGUgPT09ICJkaXNjb25uZWN0IiA/IDMwMDAgOiAxNTApOwogICAgICAgIGlmIChldmVudC5tb2RlID09PSAidGhyb3dfYWZ0ZXIiKSB0aHJvdyBuZXcgRXJyb3IoInByb2JlLWFmdGVyIik7CiAgICAgICAgc3RyZWFtLndyaXRlKEpTT04uc3RyaW5naWZ5KHt2ZXJzaW9uOiBjb250ZXh0LmZ1bmN0aW9uVmVyc2lvbiwKICAgICAgICAgICAgaW52b2tlZEFybjogY29udGV4dC5pbnZva2VkRnVuY3Rpb25Bcm4sIHRva2VuOiBldmVudC50b2tlbn0pKTsKICAgICAgICBzdHJlYW0uZW5kKCk7CiAgICB9CiAgICBjb25zb2xlLmxvZygiUFJPQkVfQ09NUExFVEUiLCBldmVudC50b2tlbiwgY29udGV4dC5hd3NSZXF1ZXN0SWQsIGNvbnRleHQuZnVuY3Rpb25WZXJzaW9uKTsKfSk7CmV4cG9ydHMucGxhaW4gPSBhc3luYyAoZXZlbnQsIGNvbnRleHQpID0+IHsKICAgIGNvbnNvbGUubG9nKCJQUk9CRV9QTEFJTiIsIGV2ZW50LnRva2VuLCBjb250ZXh0LmF3c1JlcXVlc3RJZCk7CiAgICByZXR1cm4ge3BsYWluOiB0cnVlLCB2ZXJzaW9uOiBjb250ZXh0LmZ1bmN0aW9uVmVyc2lvbiwgdG9rZW46IGV2ZW50LnRva2VufTsKfTsKUEsBAhQDFAAAAAAAAAAhXMpni2bXBQAA1wUAAAgAAAAAAAAAAAAAAIABAAAAAGVudHJ5LmpzUEsFBgAAAAABAAEANgAAAP0FAAAAAA==",
+            "length": 1609
+          }
+        },
+        "Timeout": 5,
+        "MemorySize": 128,
+        "Architectures": [
+          "x86_64"
+        ],
+        "LoggingConfig": {
+          "LogFormat": "Text",
+          "LogGroup": "/aws/lambda/stackd-stream-async-2eac2a1c0259"
+        }
+      },
+      "started_at": "2026-09-15T11:09:09.869706+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "151b0e44-6548-4f20-96e9-171b9add0564",
+            "HTTPStatusCode": 201,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:10 GMT",
+              "content-type": "application/json",
+              "content-length": "1457",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "151b0e44-6548-4f20-96e9-171b9add0564"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionName": "stackd-stream-async-2eac2a1c0259",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259",
+          "Runtime": "nodejs22.x",
+          "Role": "arn:aws:iam::000000000000:role/stackd-stream-async-2eac2a1c0259-role",
+          "Handler": "entry.streaming",
+          "CodeSize": 1609,
+          "Description": "",
+          "Timeout": 5,
+          "MemorySize": 128,
+          "LastModified": "2026-09-15T11:09:10.364+0000",
+          "CodeSha256": "6vISBd6IkCeLkG2qhI2b2CXmh4L9NMU3GTHPknk+iDU=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "797fc682-b221-4f2f-a6ee-8aa422ee19a3",
+          "State": "Pending",
+          "StateReason": "The function is being created.",
+          "StateReasonCode": "Creating",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-stream-async-2eac2a1c0259"
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:10.631933+00:00"
+    },
+    {
+      "label": "ready_function",
+      "service": "lambda",
+      "operation": "get_function_configuration",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:09:10.632459+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "8f2f9873-70a6-4a68-8b1b-ad19287ce6d7",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:10 GMT",
+              "content-type": "application/json",
+              "content-length": "1457",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "8f2f9873-70a6-4a68-8b1b-ad19287ce6d7"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionName": "stackd-stream-async-2eac2a1c0259",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259",
+          "Runtime": "nodejs22.x",
+          "Role": "arn:aws:iam::000000000000:role/stackd-stream-async-2eac2a1c0259-role",
+          "Handler": "entry.streaming",
+          "CodeSize": 1609,
+          "Description": "",
+          "Timeout": 5,
+          "MemorySize": 128,
+          "LastModified": "2026-09-15T11:09:10.364+0000",
+          "CodeSha256": "6vISBd6IkCeLkG2qhI2b2CXmh4L9NMU3GTHPknk+iDU=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "797fc682-b221-4f2f-a6ee-8aa422ee19a3",
+          "State": "Pending",
+          "StateReason": "The function is being created.",
+          "StateReasonCode": "Creating",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-stream-async-2eac2a1c0259"
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:10.807280+00:00"
+    },
+    {
+      "label": "ready_function",
+      "service": "lambda",
+      "operation": "get_function_configuration",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:09:12.807974+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "c75fbf43-b3f3-4c3f-a4dc-36af18101e52",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:12 GMT",
+              "content-type": "application/json",
+              "content-length": "1430",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "c75fbf43-b3f3-4c3f-a4dc-36af18101e52"
+            },
+            "RetryAttempts": 0
+          },
+          "FunctionName": "stackd-stream-async-2eac2a1c0259",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259",
+          "Runtime": "nodejs22.x",
+          "Role": "arn:aws:iam::000000000000:role/stackd-stream-async-2eac2a1c0259-role",
+          "Handler": "entry.streaming",
+          "CodeSize": 1609,
+          "Description": "",
+          "Timeout": 5,
+          "MemorySize": 128,
+          "LastModified": "2026-09-15T11:09:10.364+0000",
+          "CodeSha256": "6vISBd6IkCeLkG2qhI2b2CXmh4L9NMU3GTHPknk+iDU=",
+          "Version": "$LATEST",
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "RevisionId": "8b4e999c-a3a8-42f6-86b2-900e32efdf0c",
+          "State": "Active",
+          "LastUpdateStatus": "Successful",
+          "PackageType": "Zip",
+          "Architectures": [
+            "x86_64"
+          ],
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f"
+          },
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-stream-async-2eac2a1c0259"
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:13.045805+00:00"
+    },
+    {
+      "label": "configure_async_destinations",
+      "service": "lambda",
+      "operation": "put_function_event_invoke_config",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259",
+        "MaximumRetryAttempts": 0,
+        "MaximumEventAgeInSeconds": 60,
+        "DestinationConfig": {
+          "OnSuccess": {
+            "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-success"
+          },
+          "OnFailure": {
+            "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-failure"
+          }
+        }
+      },
+      "started_at": "2026-09-15T11:09:13.046411+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "4885300e-8370-4d28-a283-629bdd9682f5",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:13 GMT",
+              "content-type": "application/json",
+              "content-length": "425",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "4885300e-8370-4d28-a283-629bdd9682f5"
+            },
+            "RetryAttempts": 0
+          },
+          "LastModified": "2026-09-15T12:09:13.270000+01:00",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST",
+          "MaximumRetryAttempts": 0,
+          "MaximumEventAgeInSeconds": 60,
+          "DestinationConfig": {
+            "OnSuccess": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-success"
+            },
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-failure"
+            }
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:13.344812+00:00"
+    },
+    {
+      "label": "read_async_destinations",
+      "service": "lambda",
+      "operation": "get_function_event_invoke_config",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:09:13.345276+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "8a389763-2948-4e02-a87a-98e77fedff5b",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:13 GMT",
+              "content-type": "application/json",
+              "content-length": "425",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "8a389763-2948-4e02-a87a-98e77fedff5b"
+            },
+            "RetryAttempts": 0
+          },
+          "LastModified": "2026-09-15T12:09:13.270000+01:00",
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST",
+          "MaximumRetryAttempts": 0,
+          "MaximumEventAgeInSeconds": 60,
+          "DestinationConfig": {
+            "OnSuccess": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-success"
+            },
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-failure"
+            }
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:13.506194+00:00"
+    },
+    {
+      "label": "invoke_success",
+      "service": "lambda",
+      "operation": "invoke",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259",
+        "InvocationType": "Event",
+        "Payload": {
+          "base64": "eyJtb2RlIjogInN1Y2Nlc3MiLCAidG9rZW4iOiAic3RhY2tkLXN0cmVhbS1hc3luYy0yZWFjMmExYzAyNTktc3VjY2VzcyIsICJieXRlcyI6IDB9",
+          "length": 84
+        }
+      },
+      "started_at": "2026-09-15T11:09:28.506794+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "c109a9c6-44f8-4e11-8b81-c39c6e430ea0",
+            "HTTPStatusCode": 202,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:28 GMT",
+              "content-length": "0",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "c109a9c6-44f8-4e11-8b81-c39c6e430ea0",
+              "x-amzn-remapped-content-length": "0",
+              "x-amzn-trace-id": "root=1-6aa92768-6c01c0456109f876383d0056;parent=005f78c734e70c99;sampled=0"
+            },
+            "RetryAttempts": 0
+          },
+          "StatusCode": 202,
+          "Payload": {
+            "base64": "",
+            "length": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:28.649071+00:00"
+    },
+    {
+      "label": "invoke_throw_before",
+      "service": "lambda",
+      "operation": "invoke",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259",
+        "InvocationType": "Event",
+        "Payload": {
+          "base64": "eyJtb2RlIjogInRocm93X2JlZm9yZSIsICJ0b2tlbiI6ICJzdGFja2Qtc3RyZWFtLWFzeW5jLTJlYWMyYTFjMDI1OS10aHJvd19iZWZvcmUiLCAiYnl0ZXMiOiAwfQ==",
+          "length": 94
+        }
+      },
+      "started_at": "2026-09-15T11:09:28.649555+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "a5b5ec95-e265-4368-a190-3fc177463270",
+            "HTTPStatusCode": 202,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:28 GMT",
+              "content-length": "0",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "a5b5ec95-e265-4368-a190-3fc177463270",
+              "x-amzn-remapped-content-length": "0",
+              "x-amzn-trace-id": "root=1-6aa92768-587e3b446d4a77fd058f5da0;parent=64b51fdc86452052;sampled=0"
+            },
+            "RetryAttempts": 0
+          },
+          "StatusCode": 202,
+          "Payload": {
+            "base64": "",
+            "length": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:28.790199+00:00"
+    },
+    {
+      "label": "invoke_throw_after",
+      "service": "lambda",
+      "operation": "invoke",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259",
+        "InvocationType": "Event",
+        "Payload": {
+          "base64": "eyJtb2RlIjogInRocm93X2FmdGVyIiwgInRva2VuIjogInN0YWNrZC1zdHJlYW0tYXN5bmMtMmVhYzJhMWMwMjU5LXRocm93X2FmdGVyIiwgImJ5dGVzIjogMH0=",
+          "length": 92
+        }
+      },
+      "started_at": "2026-09-15T11:09:28.790665+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "90e8e298-63e2-4229-8334-c6133993c440",
+            "HTTPStatusCode": 202,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:28 GMT",
+              "content-length": "0",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "90e8e298-63e2-4229-8334-c6133993c440",
+              "x-amzn-remapped-content-length": "0",
+              "x-amzn-trace-id": "root=1-6aa92768-266ba81a2bbf43735d8574c6;parent=741c19be41872377;sampled=0"
+            },
+            "RetryAttempts": 0
+          },
+          "StatusCode": 202,
+          "Payload": {
+            "base64": "",
+            "length": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:28.933602+00:00"
+    },
+    {
+      "label": "poll_success_destination",
+      "service": "sqs",
+      "operation": "receive_message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 3,
+        "VisibilityTimeout": 30,
+        "MessageSystemAttributeNames": [
+          "All"
+        ],
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "started_at": "2026-09-15T11:09:28.934105+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "fc1b8490-20a7-4dbb-86e6-ccc0669382bd",
+              "ReceiptHandle": "AQEBdGCnpM3rj41tj3U7lcmMHRqa7WTKc2EyRlAI5GEyvzwaXgKwFMtr1N96Vebxlvt2iPz7lNgZJtNlLlHumHfiItclmC0pRzCBvOdYE+57zQlqMoE9nYcQhXbGTmghYwSs1HGIYgQlm9ga2TOu9V0Gd6u1fJ798EumWKGFrS4FomL4Or4JBM72OGZJaP4cF3yn6keS6RjCkZ/WQz1zIMu5yJBz6XRCLRABQfhegv/oZs9X0PIfLR4ehr4DlKolibbxq0n6DYV1gvF3UgN6qUJLa34UDnpoVvZX7y6O7u50lzY7s0LGl0aXiTSV1d8PpITuIhw8ckDEU5R3Y8FEjEHn5bW0tFIWOROG98t8hV06HqElB9YOY8fNkQpCFCldU3Xfs2pC6Mfs0vhH3qUeGFg33s/AL0cE3b/Ql1qRv/zVang=",
+              "MD5OfBody": "ce9e6ebcd8fce35f9c80725bdf6af336",
+              "Body": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.293Z\",\"requestContext\":{\"requestId\":\"c109a9c6-44f8-4e11-8b81-c39c6e430ea0\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"success\", \"token\": \"stackd-stream-async-2eac2a1c0259-success\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+              "Attributes": {
+                "SenderId": "AROAQAAAAAAAKLWIQ6U5O:awslambda_841_20260915110929295",
+                "ApproximateFirstReceiveTimestamp": "1789470569343",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1789470569336",
+                "AWSTraceHeader": "Root=1-6aa92768-6c01c0456109f876383d0056;Parent=005f78c734e70c99;Sampled=0;Lineage=1:0093da40:0"
+              }
+            }
+          ],
+          "ResponseMetadata": {
+            "RequestId": "5e404c1a-1e2c-5004-add4-2f39378416c8",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "5e404c1a-1e2c-5004-add4-2f39378416c8",
+              "date": "Tue, 15 Sep 2026 11:09:29 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "1543",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:29.425784+00:00"
+    },
+    {
+      "label": "delete_received_message",
+      "service": "sqs",
+      "operation": "delete_message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success",
+        "ReceiptHandle": "AQEBdGCnpM3rj41tj3U7lcmMHRqa7WTKc2EyRlAI5GEyvzwaXgKwFMtr1N96Vebxlvt2iPz7lNgZJtNlLlHumHfiItclmC0pRzCBvOdYE+57zQlqMoE9nYcQhXbGTmghYwSs1HGIYgQlm9ga2TOu9V0Gd6u1fJ798EumWKGFrS4FomL4Or4JBM72OGZJaP4cF3yn6keS6RjCkZ/WQz1zIMu5yJBz6XRCLRABQfhegv/oZs9X0PIfLR4ehr4DlKolibbxq0n6DYV1gvF3UgN6qUJLa34UDnpoVvZX7y6O7u50lzY7s0LGl0aXiTSV1d8PpITuIhw8ckDEU5R3Y8FEjEHn5bW0tFIWOROG98t8hV06HqElB9YOY8fNkQpCFCldU3Xfs2pC6Mfs0vhH3qUeGFg33s/AL0cE3b/Ql1qRv/zVang="
+      },
+      "started_at": "2026-09-15T11:09:29.426328+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "b438f7d2-753a-5702-a2e1-94f15c93a1ce",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "b438f7d2-753a-5702-a2e1-94f15c93a1ce",
+              "date": "Tue, 15 Sep 2026 11:09:29 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "0",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:29.528443+00:00"
+    },
+    {
+      "label": "poll_failure_destination",
+      "service": "sqs",
+      "operation": "receive_message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-failure",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 3,
+        "VisibilityTimeout": 30,
+        "MessageSystemAttributeNames": [
+          "All"
+        ],
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "started_at": "2026-09-15T11:09:29.529005+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "b7e263c1-9aee-52cc-97c3-00e2b347c400",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "b7e263c1-9aee-52cc-97c3-00e2b347c400",
+              "date": "Tue, 15 Sep 2026 11:09:32 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "2",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:32.629779+00:00"
+    },
+    {
+      "label": "poll_invocation_logs",
+      "service": "logs",
+      "operation": "filter_log_events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-stream-async-2eac2a1c0259",
+        "startTime": 1789470567506
+      },
+      "started_at": "2026-09-15T11:09:32.630368+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470568896,
+              "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527197219334658524641681957419737066114255934390272"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569031,
+              "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527200229935260326275806729670402684973352899313664"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569037,
+              "message": "START RequestId: a5b5ec95-e265-4368-a190-3fc177463270 Version: $LATEST\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527200363739731517459544913956013509533228277628929"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569091,
+              "message": "2026-09-15T11:09:29.091Z\ta5b5ec95-e265-4368-a190-3fc177463270\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_before a5b5ec95-e265-4368-a190-3fc177463270 $LATEST\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527201567979972238113194556884800232544749600571394"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569130,
+              "message": "2026-09-15T11:09:29.130Z\ta5b5ec95-e265-4368-a190-3fc177463270\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-before\",\"stack\":[\"Error: probe-before\",\"    at Runtime.handler (/var/task/entry.js:5:46)\",\"    at Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1233:38)\"]}\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527202437709034980807497076777812865830848333807619"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569169,
+              "message": "START RequestId: 90e8e298-63e2-4229-8334-c6133993c440 Version: $LATEST\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527203307438097723501800261599524310447240724611073"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569219,
+              "message": "2026-09-15T11:09:29.219Z\t90e8e298-63e2-4229-8334-c6133993c440\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_after 90e8e298-63e2-4229-8334-c6133993c440 $LATEST\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527204422475357650032957338385437942865316023631874"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569272,
+              "message": "END RequestId: a5b5ec95-e265-4368-a190-3fc177463270\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527205604414853172155983174849807581898182183026692"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569272,
+              "message": "REPORT RequestId: a5b5ec95-e265-4368-a190-3fc177463270\tDuration: 234.31 ms\tBilled Duration: 372 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 137.20 ms\t\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527205604414853172155983174849807581898182183026693"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569393,
+              "message": "2026-09-15T11:09:29.393Z\t90e8e298-63e2-4229-8334-c6133993c440\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-after\",\"stack\":[\"Error: probe-after\",\"    at Runtime.handler (/var/task/entry.js:20:49)\",\"    at async Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1240:26)\"]}\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527208302805022194361383965600417383680218064224259"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569481,
+              "message": "END RequestId: 90e8e298-63e2-4229-8334-c6133993c440\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527210265270599665056220420743625376736030590500868"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569481,
+              "message": "REPORT RequestId: 90e8e298-63e2-4229-8334-c6133993c440\tDuration: 310.68 ms\tBilled Duration: 445 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 134.27 ms\t\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527210265270599665056220420743625376736030590500869"
+            }
+          ],
+          "searchedLogStreams": [],
+          "nextToken": "Bxkq6kVGFtq2y_MoigeqscPOdhXVbhiVtLoAmXb5jCq1JnGJUsjPyNy3PAnDaySiFAkspwnkULSQcn6sCaWuzv4tRtOKDJ0dS3xGmpew7jrUsZgRy6vcC1VTLwUp0S1Yjyq9ab7EE9Vcazj70ux1rz1GKR88lAslgtKKrVW78_BZ8lkeu_SkwwYKSmM3vPHQSkL395PYdLYlBnrQ2zAZHVOK5TT_56zXbQIC0iLRpawx4bFQhT_tz-V559YGTQK7-FPplKUssWzdd-ZNJqr4d_q8ioZmh4tVQ83ykusQdjm2t2dy4RIxFk93So1x-6qpXc59t9HuWuLml_gG_xd7Rw",
+          "ResponseMetadata": {
+            "RequestId": "7ecf97b3-9fa6-4fae-a5a1-2748078e35b9",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "7ecf97b3-9fa6-4fae-a5a1-2748078e35b9",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "5321",
+              "date": "Tue, 15 Sep 2026 11:09:33 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:33.226670+00:00"
+    },
+    {
+      "label": "poll_success_destination",
+      "service": "sqs",
+      "operation": "receive_message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 3,
+        "VisibilityTimeout": 30,
+        "MessageSystemAttributeNames": [
+          "All"
+        ],
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "started_at": "2026-09-15T11:09:33.237036+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "3debf300-dd8a-4724-9b95-8cc7b77d1019",
+              "ReceiptHandle": "AQEBvw4gKzjwICPCEtHmXrJ8WPQZVKACoAlucCt90jV++H9bhXyeweYB5W6paFzGYgFUpCmMOWwxETR/fY3zezy14QqZd1zFlBy2boxSqgTIxxmSEDm8jrSzVUALIgh9MkIzMnQvCQubN7dGKYWRcxupEtJKAa5GY9l7aUWJP1KyYqamvk9EfRX88JXFYl99m7EPH2AnMSgV0tJgGExafXQKLEtdYEO8QZsfK0Umi83OMPJfq1xw7jXs5EWl4B0bhWujd2V/NG1JUzDbNAqsS0Wyty1WbBVdx/2xIj/hJXTAxYVKD4t+uYOTloVWcA8GNyOQLV5ijHuSq76ecyMuLy0iE3JRt+RdxnC2jdJB/VOdchTrDC/DAG3ICH/eGXQBdSm1PVVX71O0MXGYd8eVV3KrO76M71PRLX7/2kxB3Edaxbc=",
+              "MD5OfBody": "f458fb6d87a05c19421c810d42784f8b",
+              "Body": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.507Z\",\"requestContext\":{\"requestId\":\"90e8e298-63e2-4229-8334-c6133993c440\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_after\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_after\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+              "Attributes": {
+                "SenderId": "AROAQAAAAAAAKLWIQ6U5O:awslambda_250_20260915110929510",
+                "ApproximateFirstReceiveTimestamp": "1789470573286",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1789470569542",
+                "AWSTraceHeader": "Root=1-6aa92768-266ba81a2bbf43735d8574c6;Parent=741c19be41872377;Sampled=0;Lineage=1:0093da40:0"
+              }
+            }
+          ],
+          "ResponseMetadata": {
+            "RequestId": "40192b80-9761-5e00-9e6a-48a3beccd8cc",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "40192b80-9761-5e00-9e6a-48a3beccd8cc",
+              "date": "Tue, 15 Sep 2026 11:09:33 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "1551",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:33.366831+00:00"
+    },
+    {
+      "label": "delete_received_message",
+      "service": "sqs",
+      "operation": "delete_message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success",
+        "ReceiptHandle": "AQEBvw4gKzjwICPCEtHmXrJ8WPQZVKACoAlucCt90jV++H9bhXyeweYB5W6paFzGYgFUpCmMOWwxETR/fY3zezy14QqZd1zFlBy2boxSqgTIxxmSEDm8jrSzVUALIgh9MkIzMnQvCQubN7dGKYWRcxupEtJKAa5GY9l7aUWJP1KyYqamvk9EfRX88JXFYl99m7EPH2AnMSgV0tJgGExafXQKLEtdYEO8QZsfK0Umi83OMPJfq1xw7jXs5EWl4B0bhWujd2V/NG1JUzDbNAqsS0Wyty1WbBVdx/2xIj/hJXTAxYVKD4t+uYOTloVWcA8GNyOQLV5ijHuSq76ecyMuLy0iE3JRt+RdxnC2jdJB/VOdchTrDC/DAG3ICH/eGXQBdSm1PVVX71O0MXGYd8eVV3KrO76M71PRLX7/2kxB3Edaxbc="
+      },
+      "started_at": "2026-09-15T11:09:33.367608+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "aa4272cd-073a-577b-af4b-11ee2e97f1b7",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "aa4272cd-073a-577b-af4b-11ee2e97f1b7",
+              "date": "Tue, 15 Sep 2026 11:09:33 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "0",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:33.468445+00:00"
+    },
+    {
+      "label": "poll_failure_destination",
+      "service": "sqs",
+      "operation": "receive_message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-failure",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 3,
+        "VisibilityTimeout": 30,
+        "MessageSystemAttributeNames": [
+          "All"
+        ],
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "started_at": "2026-09-15T11:09:33.469150+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "25c39576-6514-57ee-9b54-f6554cb9c122",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "25c39576-6514-57ee-9b54-f6554cb9c122",
+              "date": "Tue, 15 Sep 2026 11:09:36 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "2",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:36.569130+00:00"
+    },
+    {
+      "label": "poll_invocation_logs",
+      "service": "logs",
+      "operation": "filter_log_events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-stream-async-2eac2a1c0259",
+        "startTime": 1789470567506
+      },
+      "started_at": "2026-09-15T11:09:36.569864+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470568753,
+              "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527194030328095134762575076545478540054347300339712"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470568892,
+              "message": "START RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0 Version: $LATEST\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527197130131677730519191750010318438176596631617537"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470568896,
+              "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527197219334658524641681957419737066114255934390272"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470568945,
+              "message": "2026-09-15T11:09:28.945Z\tc109a9c6-44f8-4e11-8b81-c39c6e430ea0\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-success c109a9c6-44f8-4e11-8b81-c39c6e430ea0 $LATEST\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527198312071173252642218251403386888539756448579586"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569031,
+              "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527200229935260326275806729670402684973352899313664"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569037,
+              "message": "START RequestId: a5b5ec95-e265-4368-a190-3fc177463270 Version: $LATEST\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527200363739731517459544913956013509533228277628929"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569091,
+              "message": "2026-09-15T11:09:29.091Z\ta5b5ec95-e265-4368-a190-3fc177463270\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_before a5b5ec95-e265-4368-a190-3fc177463270 $LATEST\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527201567979972238113194556884800232544749600571394"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569130,
+              "message": "2026-09-15T11:09:29.130Z\ta5b5ec95-e265-4368-a190-3fc177463270\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-before\",\"stack\":[\"Error: probe-before\",\"    at Runtime.handler (/var/task/entry.js:5:46)\",\"    at Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1233:38)\"]}\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527202437709034980807497076777812865830848333807619"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470569138,
+              "message": "2026-09-15T11:09:29.138Z\tc109a9c6-44f8-4e11-8b81-c39c6e430ea0\tINFO\tPROBE_COMPLETE stackd-stream-async-2eac2a1c0259-success c109a9c6-44f8-4e11-8b81-c39c6e430ea0 $LATEST\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527202616114996569052484567797013509673527102799875"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569169,
+              "message": "START RequestId: 90e8e298-63e2-4229-8334-c6133993c440 Version: $LATEST\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527203307438097723501800261599524310447240724611073"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569219,
+              "message": "2026-09-15T11:09:29.219Z\t90e8e298-63e2-4229-8334-c6133993c440\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_after 90e8e298-63e2-4229-8334-c6133993c440 $LATEST\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527204422475357650032957338385437942865316023631874"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470569227,
+              "message": "END RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527204600881319238277944164475939775377701135056900"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470569227,
+              "message": "REPORT RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0\tDuration: 334.11 ms\tBilled Duration: 470 ms\tMemory Size: 128 MB\tMax Memory Used: 77 MB\tInit Duration: 135.67 ms\t\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527204600881319238277944164475939775377701135056901"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569272,
+              "message": "END RequestId: a5b5ec95-e265-4368-a190-3fc177463270\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527205604414853172155983174849807581898182183026692"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569272,
+              "message": "REPORT RequestId: a5b5ec95-e265-4368-a190-3fc177463270\tDuration: 234.31 ms\tBilled Duration: 372 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 137.20 ms\t\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527205604414853172155983174849807581898182183026693"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569393,
+              "message": "2026-09-15T11:09:29.393Z\t90e8e298-63e2-4229-8334-c6133993c440\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-after\",\"stack\":[\"Error: probe-after\",\"    at Runtime.handler (/var/task/entry.js:20:49)\",\"    at async Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1240:26)\"]}\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527208302805022194361383965600417383680218064224259"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569481,
+              "message": "END RequestId: 90e8e298-63e2-4229-8334-c6133993c440\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527210265270599665056220420743625376736030590500868"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569481,
+              "message": "REPORT RequestId: 90e8e298-63e2-4229-8334-c6133993c440\tDuration: 310.68 ms\tBilled Duration: 445 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 134.27 ms\t\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527210265270599665056220420743625376736030590500869"
+            }
+          ],
+          "searchedLogStreams": [],
+          "nextToken": "Bxkq6kVGFtq2y_MoigeqscPOdhXVbhiVtLoAmXb5jCq1JnGJUsjPyNy3PAnDaySiFAkspwnkULSQcn6sCaWuzv4tRtOKDJ0dS3xGmpew7jrUsZgRy6vcC1VTLwUp0S1Yjyq9ab7EE9Vcazj70ux1rz1GKR88lAslgtKKrVW78_BZ8lkeu_SkwwYKSmM3vPHQSkL395PYdLYlBnrQ2zAZHVOK5TT_56zXbQIC0iLRpawx4bFQhT_tz-V559YGTQK7-FPplKUssWzdd-ZNJqr4d_q8ioZmh4tVQ83ykusQdjm2t2dy4RIxFk93So1x-6qpXc59t9HuWuLml_gG_xd7Rw",
+          "ResponseMetadata": {
+            "RequestId": "fdc6a39f-dacd-4897-91bb-c56f75542a8f",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "fdc6a39f-dacd-4897-91bb-c56f75542a8f",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "7593",
+              "date": "Tue, 15 Sep 2026 11:09:36 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:36.813076+00:00"
+    },
+    {
+      "label": "poll_success_destination",
+      "service": "sqs",
+      "operation": "receive_message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 3,
+        "VisibilityTimeout": 30,
+        "MessageSystemAttributeNames": [
+          "All"
+        ],
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "started_at": "2026-09-15T11:09:36.823088+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "2fc7eb9e-981c-4bf1-a990-859f3b12e7f8",
+              "ReceiptHandle": "AQEBLBG4pJbpxAGGn9FF+vCff8pH10E7VqteBdmzDisdHYN5AvSN/FYsm5+fxMS1rcvcvz9FQooGgtBuhc2ixeqfkEuFoZIvNj98vVGdn8BQSVIpumH5uu/VaanuJGCwJSLPOkGMofhhIEzTUGH8mzRVJdZk/KvqqYNZsNx3O+cMZDSuJ964G8cX6IPhRxyS0bPmi4+YLpwwYRH1YbGE33yY9d8VIT/ZvFjAeSHkOPeqUwzHZaV663UErPpy6ju3uk34FCQdr5ZwkMegcJnhHm13/KLBFfrJj1I8M+Xo0+oz+nZ10BOECOroN/FTUvehbSgX/tNlJ0YOENc1O1+3pi+O+yJn2fVPuIg5G1RaaCYXpAk/kmk0xIcBWZpqGeZYm1Ux4toGOfQeyQzuqsSkPaz18hAMSEmuFxcbNWN5Zj1c18M=",
+              "MD5OfBody": "8dd672bcf5988cbf0ce91e6ddbdbecfc",
+              "Body": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.372Z\",\"requestContext\":{\"requestId\":\"a5b5ec95-e265-4368-a190-3fc177463270\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_before\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_before\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"}}",
+              "Attributes": {
+                "SenderId": "AROAQAAAAAAAKLWIQ6U5O:awslambda_740_20260915110929372",
+                "ApproximateFirstReceiveTimestamp": "1789470576882",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1789470569415",
+                "AWSTraceHeader": "Root=1-6aa92768-587e3b446d4a77fd058f5da0;Parent=64b51fdc86452052;Sampled=0;Lineage=1:0093da40:0"
+              }
+            }
+          ],
+          "ResponseMetadata": {
+            "RequestId": "207d7370-e521-5aed-b766-1053cc918c21",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "207d7370-e521-5aed-b766-1053cc918c21",
+              "date": "Tue, 15 Sep 2026 11:09:36 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "1385",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:36.963795+00:00"
+    },
+    {
+      "label": "delete_received_message",
+      "service": "sqs",
+      "operation": "delete_message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success",
+        "ReceiptHandle": "AQEBLBG4pJbpxAGGn9FF+vCff8pH10E7VqteBdmzDisdHYN5AvSN/FYsm5+fxMS1rcvcvz9FQooGgtBuhc2ixeqfkEuFoZIvNj98vVGdn8BQSVIpumH5uu/VaanuJGCwJSLPOkGMofhhIEzTUGH8mzRVJdZk/KvqqYNZsNx3O+cMZDSuJ964G8cX6IPhRxyS0bPmi4+YLpwwYRH1YbGE33yY9d8VIT/ZvFjAeSHkOPeqUwzHZaV663UErPpy6ju3uk34FCQdr5ZwkMegcJnhHm13/KLBFfrJj1I8M+Xo0+oz+nZ10BOECOroN/FTUvehbSgX/tNlJ0YOENc1O1+3pi+O+yJn2fVPuIg5G1RaaCYXpAk/kmk0xIcBWZpqGeZYm1Ux4toGOfQeyQzuqsSkPaz18hAMSEmuFxcbNWN5Zj1c18M="
+      },
+      "started_at": "2026-09-15T11:09:36.964785+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "93920a95-9678-5d68-85ac-69b6bfc9aba4",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "93920a95-9678-5d68-85ac-69b6bfc9aba4",
+              "date": "Tue, 15 Sep 2026 11:09:37 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "0",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:37.064611+00:00"
+    },
+    {
+      "label": "poll_failure_destination",
+      "service": "sqs",
+      "operation": "receive_message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-failure",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 3,
+        "VisibilityTimeout": 30,
+        "MessageSystemAttributeNames": [
+          "All"
+        ],
+        "MessageAttributeNames": [
+          "All"
+        ]
+      },
+      "started_at": "2026-09-15T11:09:37.065574+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "4bda8faf-88a7-5f0d-ba3d-ec8ca116b9c1",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "4bda8faf-88a7-5f0d-ba3d-ec8ca116b9c1",
+              "date": "Tue, 15 Sep 2026 11:09:40 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "2",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:40.166251+00:00"
+    },
+    {
+      "label": "poll_invocation_logs",
+      "service": "logs",
+      "operation": "filter_log_events",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-stream-async-2eac2a1c0259",
+        "startTime": 1789470567506
+      },
+      "started_at": "2026-09-15T11:09:40.167278+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470568753,
+              "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527194030328095134762575076545478540054347300339712"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470568892,
+              "message": "START RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0 Version: $LATEST\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527197130131677730519191750010318438176596631617537"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470568896,
+              "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527197219334658524641681957419737066114255934390272"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470568945,
+              "message": "2026-09-15T11:09:28.945Z\tc109a9c6-44f8-4e11-8b81-c39c6e430ea0\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-success c109a9c6-44f8-4e11-8b81-c39c6e430ea0 $LATEST\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527198312071173252642218251403386888539756448579586"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569031,
+              "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527200229935260326275806729670402684973352899313664"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569037,
+              "message": "START RequestId: a5b5ec95-e265-4368-a190-3fc177463270 Version: $LATEST\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527200363739731517459544913956013509533228277628929"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569091,
+              "message": "2026-09-15T11:09:29.091Z\ta5b5ec95-e265-4368-a190-3fc177463270\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_before a5b5ec95-e265-4368-a190-3fc177463270 $LATEST\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527201567979972238113194556884800232544749600571394"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569130,
+              "message": "2026-09-15T11:09:29.130Z\ta5b5ec95-e265-4368-a190-3fc177463270\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-before\",\"stack\":[\"Error: probe-before\",\"    at Runtime.handler (/var/task/entry.js:5:46)\",\"    at Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1233:38)\"]}\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527202437709034980807497076777812865830848333807619"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470569138,
+              "message": "2026-09-15T11:09:29.138Z\tc109a9c6-44f8-4e11-8b81-c39c6e430ea0\tINFO\tPROBE_COMPLETE stackd-stream-async-2eac2a1c0259-success c109a9c6-44f8-4e11-8b81-c39c6e430ea0 $LATEST\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527202616114996569052484567797013509673527102799875"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569169,
+              "message": "START RequestId: 90e8e298-63e2-4229-8334-c6133993c440 Version: $LATEST\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527203307438097723501800261599524310447240724611073"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569219,
+              "message": "2026-09-15T11:09:29.219Z\t90e8e298-63e2-4229-8334-c6133993c440\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_after 90e8e298-63e2-4229-8334-c6133993c440 $LATEST\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527204422475357650032957338385437942865316023631874"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470569227,
+              "message": "END RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527204600881319238277944164475939775377701135056900"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+              "timestamp": 1789470569227,
+              "message": "REPORT RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0\tDuration: 334.11 ms\tBilled Duration: 470 ms\tMemory Size: 128 MB\tMax Memory Used: 77 MB\tInit Duration: 135.67 ms\t\n",
+              "ingestionTime": 1789470573592,
+              "eventId": "39906527204600881319238277944164475939775377701135056901"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569272,
+              "message": "END RequestId: a5b5ec95-e265-4368-a190-3fc177463270\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527205604414853172155983174849807581898182183026692"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+              "timestamp": 1789470569272,
+              "message": "REPORT RequestId: a5b5ec95-e265-4368-a190-3fc177463270\tDuration: 234.31 ms\tBilled Duration: 372 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 137.20 ms\t\n",
+              "ingestionTime": 1789470571641,
+              "eventId": "39906527205604414853172155983174849807581898182183026693"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569393,
+              "message": "2026-09-15T11:09:29.393Z\t90e8e298-63e2-4229-8334-c6133993c440\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-after\",\"stack\":[\"Error: probe-after\",\"    at Runtime.handler (/var/task/entry.js:20:49)\",\"    at async Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1240:26)\"]}\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527208302805022194361383965600417383680218064224259"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569481,
+              "message": "END RequestId: 90e8e298-63e2-4229-8334-c6133993c440\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527210265270599665056220420743625376736030590500868"
+            },
+            {
+              "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+              "timestamp": 1789470569481,
+              "message": "REPORT RequestId: 90e8e298-63e2-4229-8334-c6133993c440\tDuration: 310.68 ms\tBilled Duration: 445 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 134.27 ms\t\n",
+              "ingestionTime": 1789470572191,
+              "eventId": "39906527210265270599665056220420743625376736030590500869"
+            }
+          ],
+          "searchedLogStreams": [],
+          "nextToken": "Bxkq6kVGFtq2y_MoigeqscPOdhXVbhiVtLoAmXb5jCq1JnGJUsjPyNy3PAnDaySiFAkspwnkULSQcn6sCaWuzv4tRtOKDJ0dS3xGmpew7jrUsZgRy6vcC1VTLwUp0S1Yjyq9ab7EE9Vcazj70ux1rz1GKR88lAslgtKKrVW78_BZ8lkeu_SkwwYKSmM3vPHQSkL395PYdLYlBnrQ2zAZHVOK5TT_56zXbQIC0iLRpawx4bFQhT_tz-V559YGTQK7-FPplKUssWzdd-ZNJqr4d_q8ioZmh4tVQ83ykusQdjm2t2dy4RIxFk93So1x-6qpXc59t9HuWuLml_gG_xd7Rw",
+          "ResponseMetadata": {
+            "RequestId": "55bd7a62-f8b3-4351-908d-0c5f0128c250",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "55bd7a62-f8b3-4351-908d-0c5f0128c250",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "7593",
+              "date": "Tue, 15 Sep 2026 11:09:40 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:40.826344+00:00"
+    }
+  ],
+  "invocations": [
+    {
+      "mode": "success",
+      "token": "stackd-stream-async-2eac2a1c0259-success",
+      "payload_json": {
+        "mode": "success",
+        "token": "stackd-stream-async-2eac2a1c0259-success",
+        "bytes": 0
+      },
+      "request_observation_label": "invoke_success",
+      "admission_request_id": "c109a9c6-44f8-4e11-8b81-c39c6e430ea0",
+      "admission_status_code": 202,
+      "destination_messages": [
+        {
+          "route": "success",
+          "received_at": "2026-09-15T11:09:29.426315+00:00",
+          "message": {
+            "MessageId": "fc1b8490-20a7-4dbb-86e6-ccc0669382bd",
+            "ReceiptHandle": "AQEBdGCnpM3rj41tj3U7lcmMHRqa7WTKc2EyRlAI5GEyvzwaXgKwFMtr1N96Vebxlvt2iPz7lNgZJtNlLlHumHfiItclmC0pRzCBvOdYE+57zQlqMoE9nYcQhXbGTmghYwSs1HGIYgQlm9ga2TOu9V0Gd6u1fJ798EumWKGFrS4FomL4Or4JBM72OGZJaP4cF3yn6keS6RjCkZ/WQz1zIMu5yJBz6XRCLRABQfhegv/oZs9X0PIfLR4ehr4DlKolibbxq0n6DYV1gvF3UgN6qUJLa34UDnpoVvZX7y6O7u50lzY7s0LGl0aXiTSV1d8PpITuIhw8ckDEU5R3Y8FEjEHn5bW0tFIWOROG98t8hV06HqElB9YOY8fNkQpCFCldU3Xfs2pC6Mfs0vhH3qUeGFg33s/AL0cE3b/Ql1qRv/zVang=",
+            "MD5OfBody": "ce9e6ebcd8fce35f9c80725bdf6af336",
+            "Body": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.293Z\",\"requestContext\":{\"requestId\":\"c109a9c6-44f8-4e11-8b81-c39c6e430ea0\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"success\", \"token\": \"stackd-stream-async-2eac2a1c0259-success\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+            "Attributes": {
+              "SenderId": "AROAQAAAAAAAKLWIQ6U5O:awslambda_841_20260915110929295",
+              "ApproximateFirstReceiveTimestamp": "1789470569343",
+              "ApproximateReceiveCount": "1",
+              "SentTimestamp": "1789470569336",
+              "AWSTraceHeader": "Root=1-6aa92768-6c01c0456109f876383d0056;Parent=005f78c734e70c99;Sampled=0;Lineage=1:0093da40:0"
+            }
+          },
+          "body_utf8": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.293Z\",\"requestContext\":{\"requestId\":\"c109a9c6-44f8-4e11-8b81-c39c6e430ea0\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"success\", \"token\": \"stackd-stream-async-2eac2a1c0259-success\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+          "envelope": {
+            "version": "1.0",
+            "timestamp": "2026-09-15T11:09:29.293Z",
+            "requestContext": {
+              "requestId": "c109a9c6-44f8-4e11-8b81-c39c6e430ea0",
+              "functionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST",
+              "condition": "Success",
+              "approximateInvokeCount": 1
+            },
+            "requestPayload": {
+              "mode": "success",
+              "token": "stackd-stream-async-2eac2a1c0259-success",
+              "bytes": 0
+            },
+            "responseContext": {
+              "statusCode": 200,
+              "executedVersion": "$LATEST"
+            },
+            "deliveryError": {
+              "statusCode": 400,
+              "errorCode": "InvalidRequestContentException",
+              "errorMessage": "The function response payload could not be parsed as JSON."
+            }
+          }
+        }
+      ],
+      "start_logs": [
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+          "timestamp": 1789470568945,
+          "message": "2026-09-15T11:09:28.945Z\tc109a9c6-44f8-4e11-8b81-c39c6e430ea0\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-success c109a9c6-44f8-4e11-8b81-c39c6e430ea0 $LATEST\n",
+          "ingestionTime": 1789470573592,
+          "eventId": "39906527198312071173252642218251403386888539756448579586"
+        }
+      ],
+      "matching_logs": [
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+          "timestamp": 1789470568892,
+          "message": "START RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0 Version: $LATEST\n",
+          "ingestionTime": 1789470573592,
+          "eventId": "39906527197130131677730519191750010318438176596631617537"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+          "timestamp": 1789470568945,
+          "message": "2026-09-15T11:09:28.945Z\tc109a9c6-44f8-4e11-8b81-c39c6e430ea0\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-success c109a9c6-44f8-4e11-8b81-c39c6e430ea0 $LATEST\n",
+          "ingestionTime": 1789470573592,
+          "eventId": "39906527198312071173252642218251403386888539756448579586"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+          "timestamp": 1789470569138,
+          "message": "2026-09-15T11:09:29.138Z\tc109a9c6-44f8-4e11-8b81-c39c6e430ea0\tINFO\tPROBE_COMPLETE stackd-stream-async-2eac2a1c0259-success c109a9c6-44f8-4e11-8b81-c39c6e430ea0 $LATEST\n",
+          "ingestionTime": 1789470573592,
+          "eventId": "39906527202616114996569052484567797013509673527102799875"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+          "timestamp": 1789470569227,
+          "message": "END RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0\n",
+          "ingestionTime": 1789470573592,
+          "eventId": "39906527204600881319238277944164475939775377701135056900"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+          "timestamp": 1789470569227,
+          "message": "REPORT RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0\tDuration: 334.11 ms\tBilled Duration: 470 ms\tMemory Size: 128 MB\tMax Memory Used: 77 MB\tInit Duration: 135.67 ms\t\n",
+          "ingestionTime": 1789470573592,
+          "eventId": "39906527204600881319238277944164475939775377701135056901"
+        }
+      ],
+      "report_logs": [
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+          "timestamp": 1789470569227,
+          "message": "REPORT RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0\tDuration: 334.11 ms\tBilled Duration: 470 ms\tMemory Size: 128 MB\tMax Memory Used: 77 MB\tInit Duration: 135.67 ms\t\n",
+          "ingestionTime": 1789470573592,
+          "eventId": "39906527204600881319238277944164475939775377701135056901"
+        }
+      ]
+    },
+    {
+      "mode": "throw_before",
+      "token": "stackd-stream-async-2eac2a1c0259-throw_before",
+      "payload_json": {
+        "mode": "throw_before",
+        "token": "stackd-stream-async-2eac2a1c0259-throw_before",
+        "bytes": 0
+      },
+      "request_observation_label": "invoke_throw_before",
+      "admission_request_id": "a5b5ec95-e265-4368-a190-3fc177463270",
+      "admission_status_code": 202,
+      "destination_messages": [
+        {
+          "route": "success",
+          "received_at": "2026-09-15T11:09:36.964772+00:00",
+          "message": {
+            "MessageId": "2fc7eb9e-981c-4bf1-a990-859f3b12e7f8",
+            "ReceiptHandle": "AQEBLBG4pJbpxAGGn9FF+vCff8pH10E7VqteBdmzDisdHYN5AvSN/FYsm5+fxMS1rcvcvz9FQooGgtBuhc2ixeqfkEuFoZIvNj98vVGdn8BQSVIpumH5uu/VaanuJGCwJSLPOkGMofhhIEzTUGH8mzRVJdZk/KvqqYNZsNx3O+cMZDSuJ964G8cX6IPhRxyS0bPmi4+YLpwwYRH1YbGE33yY9d8VIT/ZvFjAeSHkOPeqUwzHZaV663UErPpy6ju3uk34FCQdr5ZwkMegcJnhHm13/KLBFfrJj1I8M+Xo0+oz+nZ10BOECOroN/FTUvehbSgX/tNlJ0YOENc1O1+3pi+O+yJn2fVPuIg5G1RaaCYXpAk/kmk0xIcBWZpqGeZYm1Ux4toGOfQeyQzuqsSkPaz18hAMSEmuFxcbNWN5Zj1c18M=",
+            "MD5OfBody": "8dd672bcf5988cbf0ce91e6ddbdbecfc",
+            "Body": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.372Z\",\"requestContext\":{\"requestId\":\"a5b5ec95-e265-4368-a190-3fc177463270\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_before\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_before\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"}}",
+            "Attributes": {
+              "SenderId": "AROAQAAAAAAAKLWIQ6U5O:awslambda_740_20260915110929372",
+              "ApproximateFirstReceiveTimestamp": "1789470576882",
+              "ApproximateReceiveCount": "1",
+              "SentTimestamp": "1789470569415",
+              "AWSTraceHeader": "Root=1-6aa92768-587e3b446d4a77fd058f5da0;Parent=64b51fdc86452052;Sampled=0;Lineage=1:0093da40:0"
+            }
+          },
+          "body_utf8": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.372Z\",\"requestContext\":{\"requestId\":\"a5b5ec95-e265-4368-a190-3fc177463270\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_before\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_before\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"}}",
+          "envelope": {
+            "version": "1.0",
+            "timestamp": "2026-09-15T11:09:29.372Z",
+            "requestContext": {
+              "requestId": "a5b5ec95-e265-4368-a190-3fc177463270",
+              "functionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST",
+              "condition": "Success",
+              "approximateInvokeCount": 1
+            },
+            "requestPayload": {
+              "mode": "throw_before",
+              "token": "stackd-stream-async-2eac2a1c0259-throw_before",
+              "bytes": 0
+            },
+            "responseContext": {
+              "statusCode": 200,
+              "executedVersion": "$LATEST"
+            }
+          }
+        }
+      ],
+      "start_logs": [
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+          "timestamp": 1789470569091,
+          "message": "2026-09-15T11:09:29.091Z\ta5b5ec95-e265-4368-a190-3fc177463270\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_before a5b5ec95-e265-4368-a190-3fc177463270 $LATEST\n",
+          "ingestionTime": 1789470571641,
+          "eventId": "39906527201567979972238113194556884800232544749600571394"
+        }
+      ],
+      "matching_logs": [
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+          "timestamp": 1789470569037,
+          "message": "START RequestId: a5b5ec95-e265-4368-a190-3fc177463270 Version: $LATEST\n",
+          "ingestionTime": 1789470571641,
+          "eventId": "39906527200363739731517459544913956013509533228277628929"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+          "timestamp": 1789470569091,
+          "message": "2026-09-15T11:09:29.091Z\ta5b5ec95-e265-4368-a190-3fc177463270\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_before a5b5ec95-e265-4368-a190-3fc177463270 $LATEST\n",
+          "ingestionTime": 1789470571641,
+          "eventId": "39906527201567979972238113194556884800232544749600571394"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+          "timestamp": 1789470569130,
+          "message": "2026-09-15T11:09:29.130Z\ta5b5ec95-e265-4368-a190-3fc177463270\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-before\",\"stack\":[\"Error: probe-before\",\"    at Runtime.handler (/var/task/entry.js:5:46)\",\"    at Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1233:38)\"]}\n",
+          "ingestionTime": 1789470571641,
+          "eventId": "39906527202437709034980807497076777812865830848333807619"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+          "timestamp": 1789470569272,
+          "message": "END RequestId: a5b5ec95-e265-4368-a190-3fc177463270\n",
+          "ingestionTime": 1789470571641,
+          "eventId": "39906527205604414853172155983174849807581898182183026692"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+          "timestamp": 1789470569272,
+          "message": "REPORT RequestId: a5b5ec95-e265-4368-a190-3fc177463270\tDuration: 234.31 ms\tBilled Duration: 372 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 137.20 ms\t\n",
+          "ingestionTime": 1789470571641,
+          "eventId": "39906527205604414853172155983174849807581898182183026693"
+        }
+      ],
+      "report_logs": [
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+          "timestamp": 1789470569272,
+          "message": "REPORT RequestId: a5b5ec95-e265-4368-a190-3fc177463270\tDuration: 234.31 ms\tBilled Duration: 372 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 137.20 ms\t\n",
+          "ingestionTime": 1789470571641,
+          "eventId": "39906527205604414853172155983174849807581898182183026693"
+        }
+      ]
+    },
+    {
+      "mode": "throw_after",
+      "token": "stackd-stream-async-2eac2a1c0259-throw_after",
+      "payload_json": {
+        "mode": "throw_after",
+        "token": "stackd-stream-async-2eac2a1c0259-throw_after",
+        "bytes": 0
+      },
+      "request_observation_label": "invoke_throw_after",
+      "admission_request_id": "90e8e298-63e2-4229-8334-c6133993c440",
+      "admission_status_code": 202,
+      "destination_messages": [
+        {
+          "route": "success",
+          "received_at": "2026-09-15T11:09:33.367594+00:00",
+          "message": {
+            "MessageId": "3debf300-dd8a-4724-9b95-8cc7b77d1019",
+            "ReceiptHandle": "AQEBvw4gKzjwICPCEtHmXrJ8WPQZVKACoAlucCt90jV++H9bhXyeweYB5W6paFzGYgFUpCmMOWwxETR/fY3zezy14QqZd1zFlBy2boxSqgTIxxmSEDm8jrSzVUALIgh9MkIzMnQvCQubN7dGKYWRcxupEtJKAa5GY9l7aUWJP1KyYqamvk9EfRX88JXFYl99m7EPH2AnMSgV0tJgGExafXQKLEtdYEO8QZsfK0Umi83OMPJfq1xw7jXs5EWl4B0bhWujd2V/NG1JUzDbNAqsS0Wyty1WbBVdx/2xIj/hJXTAxYVKD4t+uYOTloVWcA8GNyOQLV5ijHuSq76ecyMuLy0iE3JRt+RdxnC2jdJB/VOdchTrDC/DAG3ICH/eGXQBdSm1PVVX71O0MXGYd8eVV3KrO76M71PRLX7/2kxB3Edaxbc=",
+            "MD5OfBody": "f458fb6d87a05c19421c810d42784f8b",
+            "Body": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.507Z\",\"requestContext\":{\"requestId\":\"90e8e298-63e2-4229-8334-c6133993c440\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_after\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_after\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+            "Attributes": {
+              "SenderId": "AROAQAAAAAAAKLWIQ6U5O:awslambda_250_20260915110929510",
+              "ApproximateFirstReceiveTimestamp": "1789470573286",
+              "ApproximateReceiveCount": "1",
+              "SentTimestamp": "1789470569542",
+              "AWSTraceHeader": "Root=1-6aa92768-266ba81a2bbf43735d8574c6;Parent=741c19be41872377;Sampled=0;Lineage=1:0093da40:0"
+            }
+          },
+          "body_utf8": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.507Z\",\"requestContext\":{\"requestId\":\"90e8e298-63e2-4229-8334-c6133993c440\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_after\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_after\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+          "envelope": {
+            "version": "1.0",
+            "timestamp": "2026-09-15T11:09:29.507Z",
+            "requestContext": {
+              "requestId": "90e8e298-63e2-4229-8334-c6133993c440",
+              "functionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST",
+              "condition": "Success",
+              "approximateInvokeCount": 1
+            },
+            "requestPayload": {
+              "mode": "throw_after",
+              "token": "stackd-stream-async-2eac2a1c0259-throw_after",
+              "bytes": 0
+            },
+            "responseContext": {
+              "statusCode": 200,
+              "executedVersion": "$LATEST"
+            },
+            "deliveryError": {
+              "statusCode": 400,
+              "errorCode": "InvalidRequestContentException",
+              "errorMessage": "The function response payload could not be parsed as JSON."
+            }
+          }
+        }
+      ],
+      "start_logs": [
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+          "timestamp": 1789470569219,
+          "message": "2026-09-15T11:09:29.219Z\t90e8e298-63e2-4229-8334-c6133993c440\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_after 90e8e298-63e2-4229-8334-c6133993c440 $LATEST\n",
+          "ingestionTime": 1789470572191,
+          "eventId": "39906527204422475357650032957338385437942865316023631874"
+        }
+      ],
+      "matching_logs": [
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+          "timestamp": 1789470569169,
+          "message": "START RequestId: 90e8e298-63e2-4229-8334-c6133993c440 Version: $LATEST\n",
+          "ingestionTime": 1789470572191,
+          "eventId": "39906527203307438097723501800261599524310447240724611073"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+          "timestamp": 1789470569219,
+          "message": "2026-09-15T11:09:29.219Z\t90e8e298-63e2-4229-8334-c6133993c440\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_after 90e8e298-63e2-4229-8334-c6133993c440 $LATEST\n",
+          "ingestionTime": 1789470572191,
+          "eventId": "39906527204422475357650032957338385437942865316023631874"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+          "timestamp": 1789470569393,
+          "message": "2026-09-15T11:09:29.393Z\t90e8e298-63e2-4229-8334-c6133993c440\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-after\",\"stack\":[\"Error: probe-after\",\"    at Runtime.handler (/var/task/entry.js:20:49)\",\"    at async Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1240:26)\"]}\n",
+          "ingestionTime": 1789470572191,
+          "eventId": "39906527208302805022194361383965600417383680218064224259"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+          "timestamp": 1789470569481,
+          "message": "END RequestId: 90e8e298-63e2-4229-8334-c6133993c440\n",
+          "ingestionTime": 1789470572191,
+          "eventId": "39906527210265270599665056220420743625376736030590500868"
+        },
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+          "timestamp": 1789470569481,
+          "message": "REPORT RequestId: 90e8e298-63e2-4229-8334-c6133993c440\tDuration: 310.68 ms\tBilled Duration: 445 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 134.27 ms\t\n",
+          "ingestionTime": 1789470572191,
+          "eventId": "39906527210265270599665056220420743625376736030590500869"
+        }
+      ],
+      "report_logs": [
+        {
+          "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+          "timestamp": 1789470569481,
+          "message": "REPORT RequestId: 90e8e298-63e2-4229-8334-c6133993c440\tDuration: 310.68 ms\tBilled Duration: 445 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 134.27 ms\t\n",
+          "ingestionTime": 1789470572191,
+          "eventId": "39906527210265270599665056220420743625376736030590500869"
+        }
+      ]
+    }
+  ],
+  "destination_messages": [
+    {
+      "route": "success",
+      "received_at": "2026-09-15T11:09:29.426315+00:00",
+      "message": {
+        "MessageId": "fc1b8490-20a7-4dbb-86e6-ccc0669382bd",
+        "ReceiptHandle": "AQEBdGCnpM3rj41tj3U7lcmMHRqa7WTKc2EyRlAI5GEyvzwaXgKwFMtr1N96Vebxlvt2iPz7lNgZJtNlLlHumHfiItclmC0pRzCBvOdYE+57zQlqMoE9nYcQhXbGTmghYwSs1HGIYgQlm9ga2TOu9V0Gd6u1fJ798EumWKGFrS4FomL4Or4JBM72OGZJaP4cF3yn6keS6RjCkZ/WQz1zIMu5yJBz6XRCLRABQfhegv/oZs9X0PIfLR4ehr4DlKolibbxq0n6DYV1gvF3UgN6qUJLa34UDnpoVvZX7y6O7u50lzY7s0LGl0aXiTSV1d8PpITuIhw8ckDEU5R3Y8FEjEHn5bW0tFIWOROG98t8hV06HqElB9YOY8fNkQpCFCldU3Xfs2pC6Mfs0vhH3qUeGFg33s/AL0cE3b/Ql1qRv/zVang=",
+        "MD5OfBody": "ce9e6ebcd8fce35f9c80725bdf6af336",
+        "Body": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.293Z\",\"requestContext\":{\"requestId\":\"c109a9c6-44f8-4e11-8b81-c39c6e430ea0\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"success\", \"token\": \"stackd-stream-async-2eac2a1c0259-success\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+        "Attributes": {
+          "SenderId": "AROAQAAAAAAAKLWIQ6U5O:awslambda_841_20260915110929295",
+          "ApproximateFirstReceiveTimestamp": "1789470569343",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1789470569336",
+          "AWSTraceHeader": "Root=1-6aa92768-6c01c0456109f876383d0056;Parent=005f78c734e70c99;Sampled=0;Lineage=1:0093da40:0"
+        }
+      },
+      "body_utf8": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.293Z\",\"requestContext\":{\"requestId\":\"c109a9c6-44f8-4e11-8b81-c39c6e430ea0\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"success\", \"token\": \"stackd-stream-async-2eac2a1c0259-success\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+      "envelope": {
+        "version": "1.0",
+        "timestamp": "2026-09-15T11:09:29.293Z",
+        "requestContext": {
+          "requestId": "c109a9c6-44f8-4e11-8b81-c39c6e430ea0",
+          "functionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST",
+          "condition": "Success",
+          "approximateInvokeCount": 1
+        },
+        "requestPayload": {
+          "mode": "success",
+          "token": "stackd-stream-async-2eac2a1c0259-success",
+          "bytes": 0
+        },
+        "responseContext": {
+          "statusCode": 200,
+          "executedVersion": "$LATEST"
+        },
+        "deliveryError": {
+          "statusCode": 400,
+          "errorCode": "InvalidRequestContentException",
+          "errorMessage": "The function response payload could not be parsed as JSON."
+        }
+      }
+    },
+    {
+      "route": "success",
+      "received_at": "2026-09-15T11:09:33.367594+00:00",
+      "message": {
+        "MessageId": "3debf300-dd8a-4724-9b95-8cc7b77d1019",
+        "ReceiptHandle": "AQEBvw4gKzjwICPCEtHmXrJ8WPQZVKACoAlucCt90jV++H9bhXyeweYB5W6paFzGYgFUpCmMOWwxETR/fY3zezy14QqZd1zFlBy2boxSqgTIxxmSEDm8jrSzVUALIgh9MkIzMnQvCQubN7dGKYWRcxupEtJKAa5GY9l7aUWJP1KyYqamvk9EfRX88JXFYl99m7EPH2AnMSgV0tJgGExafXQKLEtdYEO8QZsfK0Umi83OMPJfq1xw7jXs5EWl4B0bhWujd2V/NG1JUzDbNAqsS0Wyty1WbBVdx/2xIj/hJXTAxYVKD4t+uYOTloVWcA8GNyOQLV5ijHuSq76ecyMuLy0iE3JRt+RdxnC2jdJB/VOdchTrDC/DAG3ICH/eGXQBdSm1PVVX71O0MXGYd8eVV3KrO76M71PRLX7/2kxB3Edaxbc=",
+        "MD5OfBody": "f458fb6d87a05c19421c810d42784f8b",
+        "Body": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.507Z\",\"requestContext\":{\"requestId\":\"90e8e298-63e2-4229-8334-c6133993c440\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_after\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_after\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+        "Attributes": {
+          "SenderId": "AROAQAAAAAAAKLWIQ6U5O:awslambda_250_20260915110929510",
+          "ApproximateFirstReceiveTimestamp": "1789470573286",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1789470569542",
+          "AWSTraceHeader": "Root=1-6aa92768-266ba81a2bbf43735d8574c6;Parent=741c19be41872377;Sampled=0;Lineage=1:0093da40:0"
+        }
+      },
+      "body_utf8": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.507Z\",\"requestContext\":{\"requestId\":\"90e8e298-63e2-4229-8334-c6133993c440\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_after\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_after\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"},\"deliveryError\":{\"statusCode\":400,\"errorCode\":\"InvalidRequestContentException\",\"errorMessage\":\"The function response payload could not be parsed as JSON.\"}}",
+      "envelope": {
+        "version": "1.0",
+        "timestamp": "2026-09-15T11:09:29.507Z",
+        "requestContext": {
+          "requestId": "90e8e298-63e2-4229-8334-c6133993c440",
+          "functionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST",
+          "condition": "Success",
+          "approximateInvokeCount": 1
+        },
+        "requestPayload": {
+          "mode": "throw_after",
+          "token": "stackd-stream-async-2eac2a1c0259-throw_after",
+          "bytes": 0
+        },
+        "responseContext": {
+          "statusCode": 200,
+          "executedVersion": "$LATEST"
+        },
+        "deliveryError": {
+          "statusCode": 400,
+          "errorCode": "InvalidRequestContentException",
+          "errorMessage": "The function response payload could not be parsed as JSON."
+        }
+      }
+    },
+    {
+      "route": "success",
+      "received_at": "2026-09-15T11:09:36.964772+00:00",
+      "message": {
+        "MessageId": "2fc7eb9e-981c-4bf1-a990-859f3b12e7f8",
+        "ReceiptHandle": "AQEBLBG4pJbpxAGGn9FF+vCff8pH10E7VqteBdmzDisdHYN5AvSN/FYsm5+fxMS1rcvcvz9FQooGgtBuhc2ixeqfkEuFoZIvNj98vVGdn8BQSVIpumH5uu/VaanuJGCwJSLPOkGMofhhIEzTUGH8mzRVJdZk/KvqqYNZsNx3O+cMZDSuJ964G8cX6IPhRxyS0bPmi4+YLpwwYRH1YbGE33yY9d8VIT/ZvFjAeSHkOPeqUwzHZaV663UErPpy6ju3uk34FCQdr5ZwkMegcJnhHm13/KLBFfrJj1I8M+Xo0+oz+nZ10BOECOroN/FTUvehbSgX/tNlJ0YOENc1O1+3pi+O+yJn2fVPuIg5G1RaaCYXpAk/kmk0xIcBWZpqGeZYm1Ux4toGOfQeyQzuqsSkPaz18hAMSEmuFxcbNWN5Zj1c18M=",
+        "MD5OfBody": "8dd672bcf5988cbf0ce91e6ddbdbecfc",
+        "Body": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.372Z\",\"requestContext\":{\"requestId\":\"a5b5ec95-e265-4368-a190-3fc177463270\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_before\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_before\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"}}",
+        "Attributes": {
+          "SenderId": "AROAQAAAAAAAKLWIQ6U5O:awslambda_740_20260915110929372",
+          "ApproximateFirstReceiveTimestamp": "1789470576882",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1789470569415",
+          "AWSTraceHeader": "Root=1-6aa92768-587e3b446d4a77fd058f5da0;Parent=64b51fdc86452052;Sampled=0;Lineage=1:0093da40:0"
+        }
+      },
+      "body_utf8": "{\"version\":\"1.0\",\"timestamp\":\"2026-09-15T11:09:29.372Z\",\"requestContext\":{\"requestId\":\"a5b5ec95-e265-4368-a190-3fc177463270\",\"functionArn\":\"arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST\",\"condition\":\"Success\",\"approximateInvokeCount\":1},\"requestPayload\":{\"mode\": \"throw_before\", \"token\": \"stackd-stream-async-2eac2a1c0259-throw_before\", \"bytes\": 0},\"responseContext\":{\"statusCode\":200,\"executedVersion\":\"$LATEST\"}}",
+      "envelope": {
+        "version": "1.0",
+        "timestamp": "2026-09-15T11:09:29.372Z",
+        "requestContext": {
+          "requestId": "a5b5ec95-e265-4368-a190-3fc177463270",
+          "functionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST",
+          "condition": "Success",
+          "approximateInvokeCount": 1
+        },
+        "requestPayload": {
+          "mode": "throw_before",
+          "token": "stackd-stream-async-2eac2a1c0259-throw_before",
+          "bytes": 0
+        },
+        "responseContext": {
+          "statusCode": 200,
+          "executedVersion": "$LATEST"
+        }
+      }
+    }
+  ],
+  "log_events": [
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+      "timestamp": 1789470568753,
+      "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+      "ingestionTime": 1789470573592,
+      "eventId": "39906527194030328095134762575076545478540054347300339712"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+      "timestamp": 1789470568892,
+      "message": "START RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0 Version: $LATEST\n",
+      "ingestionTime": 1789470573592,
+      "eventId": "39906527197130131677730519191750010318438176596631617537"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+      "timestamp": 1789470568896,
+      "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+      "ingestionTime": 1789470571641,
+      "eventId": "39906527197219334658524641681957419737066114255934390272"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+      "timestamp": 1789470568945,
+      "message": "2026-09-15T11:09:28.945Z\tc109a9c6-44f8-4e11-8b81-c39c6e430ea0\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-success c109a9c6-44f8-4e11-8b81-c39c6e430ea0 $LATEST\n",
+      "ingestionTime": 1789470573592,
+      "eventId": "39906527198312071173252642218251403386888539756448579586"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+      "timestamp": 1789470569031,
+      "message": "INIT_START Runtime Version: nodejs:22.mainline.v98\tRuntime Version ARN: arn:aws:lambda:us-east-1::runtime:c568234e6028396ac3a5553b96da2d2ff0ece8ab6c9ba9d01a2f77ff033cbb6f\n",
+      "ingestionTime": 1789470572191,
+      "eventId": "39906527200229935260326275806729670402684973352899313664"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+      "timestamp": 1789470569037,
+      "message": "START RequestId: a5b5ec95-e265-4368-a190-3fc177463270 Version: $LATEST\n",
+      "ingestionTime": 1789470571641,
+      "eventId": "39906527200363739731517459544913956013509533228277628929"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+      "timestamp": 1789470569091,
+      "message": "2026-09-15T11:09:29.091Z\ta5b5ec95-e265-4368-a190-3fc177463270\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_before a5b5ec95-e265-4368-a190-3fc177463270 $LATEST\n",
+      "ingestionTime": 1789470571641,
+      "eventId": "39906527201567979972238113194556884800232544749600571394"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+      "timestamp": 1789470569130,
+      "message": "2026-09-15T11:09:29.130Z\ta5b5ec95-e265-4368-a190-3fc177463270\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-before\",\"stack\":[\"Error: probe-before\",\"    at Runtime.handler (/var/task/entry.js:5:46)\",\"    at Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1233:38)\"]}\n",
+      "ingestionTime": 1789470571641,
+      "eventId": "39906527202437709034980807497076777812865830848333807619"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+      "timestamp": 1789470569138,
+      "message": "2026-09-15T11:09:29.138Z\tc109a9c6-44f8-4e11-8b81-c39c6e430ea0\tINFO\tPROBE_COMPLETE stackd-stream-async-2eac2a1c0259-success c109a9c6-44f8-4e11-8b81-c39c6e430ea0 $LATEST\n",
+      "ingestionTime": 1789470573592,
+      "eventId": "39906527202616114996569052484567797013509673527102799875"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+      "timestamp": 1789470569169,
+      "message": "START RequestId: 90e8e298-63e2-4229-8334-c6133993c440 Version: $LATEST\n",
+      "ingestionTime": 1789470572191,
+      "eventId": "39906527203307438097723501800261599524310447240724611073"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+      "timestamp": 1789470569219,
+      "message": "2026-09-15T11:09:29.219Z\t90e8e298-63e2-4229-8334-c6133993c440\tINFO\tPROBE_START stackd-stream-async-2eac2a1c0259-throw_after 90e8e298-63e2-4229-8334-c6133993c440 $LATEST\n",
+      "ingestionTime": 1789470572191,
+      "eventId": "39906527204422475357650032957338385437942865316023631874"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+      "timestamp": 1789470569227,
+      "message": "END RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0\n",
+      "ingestionTime": 1789470573592,
+      "eventId": "39906527204600881319238277944164475939775377701135056900"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]b44295b85c5b4d28a03b79d09e9d99b7",
+      "timestamp": 1789470569227,
+      "message": "REPORT RequestId: c109a9c6-44f8-4e11-8b81-c39c6e430ea0\tDuration: 334.11 ms\tBilled Duration: 470 ms\tMemory Size: 128 MB\tMax Memory Used: 77 MB\tInit Duration: 135.67 ms\t\n",
+      "ingestionTime": 1789470573592,
+      "eventId": "39906527204600881319238277944164475939775377701135056901"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+      "timestamp": 1789470569272,
+      "message": "END RequestId: a5b5ec95-e265-4368-a190-3fc177463270\n",
+      "ingestionTime": 1789470571641,
+      "eventId": "39906527205604414853172155983174849807581898182183026692"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]32974aae14044b62b4ae35c64a4bff18",
+      "timestamp": 1789470569272,
+      "message": "REPORT RequestId: a5b5ec95-e265-4368-a190-3fc177463270\tDuration: 234.31 ms\tBilled Duration: 372 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 137.20 ms\t\n",
+      "ingestionTime": 1789470571641,
+      "eventId": "39906527205604414853172155983174849807581898182183026693"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+      "timestamp": 1789470569393,
+      "message": "2026-09-15T11:09:29.393Z\t90e8e298-63e2-4229-8334-c6133993c440\tERROR\tInvoke Error \t{\"errorType\":\"Error\",\"errorMessage\":\"probe-after\",\"stack\":[\"Error: probe-after\",\"    at Runtime.handler (/var/task/entry.js:20:49)\",\"    at async Runtime.handleOnceStreaming (file:///var/runtime/index.mjs:1240:26)\"]}\n",
+      "ingestionTime": 1789470572191,
+      "eventId": "39906527208302805022194361383965600417383680218064224259"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+      "timestamp": 1789470569481,
+      "message": "END RequestId: 90e8e298-63e2-4229-8334-c6133993c440\n",
+      "ingestionTime": 1789470572191,
+      "eventId": "39906527210265270599665056220420743625376736030590500868"
+    },
+    {
+      "logStreamName": "2026/09/15/stackd-stream-async-2eac2a1c0259[$LATEST]fc28eaa340174bc383d3d618c1e85db6",
+      "timestamp": 1789470569481,
+      "message": "REPORT RequestId: 90e8e298-63e2-4229-8334-c6133993c440\tDuration: 310.68 ms\tBilled Duration: 445 ms\tMemory Size: 128 MB\tMax Memory Used: 76 MB\tInit Duration: 134.27 ms\t\n",
+      "ingestionTime": 1789470572191,
+      "eventId": "39906527210265270599665056220420743625376736030590500869"
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "delete_async_configuration",
+      "service": "lambda",
+      "operation": "delete_function_event_invoke_config",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:09:40.836424+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "ee0721e5-4f8e-4850-92e5-a8bb0855e918",
+            "HTTPStatusCode": 204,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:40 GMT",
+              "content-type": "application/json",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "ee0721e5-4f8e-4850-92e5-a8bb0855e918"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:41.011441+00:00"
+    },
+    {
+      "label": "verify_absent_async_configuration",
+      "service": "lambda",
+      "operation": "get_function_event_invoke_config",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:09:41.012550+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Error": {
+            "Message": "The function arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST doesn't have an EventInvokeConfig",
+            "Code": "ResourceNotFoundException"
+          },
+          "ResponseMetadata": {
+            "RequestId": "f6dd4671-726b-416d-b7a5-7878240ef036",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:41 GMT",
+              "content-type": "application/json",
+              "content-length": "162",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "f6dd4671-726b-416d-b7a5-7878240ef036",
+              "x-amzn-errortype": "ResourceNotFoundException"
+            },
+            "RetryAttempts": 0
+          },
+          "Type": "User",
+          "Message": "The function arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259:$LATEST doesn't have an EventInvokeConfig"
+        }
+      },
+      "finished_at": "2026-09-15T11:09:41.177003+00:00"
+    },
+    {
+      "label": "delete_function",
+      "service": "lambda",
+      "operation": "delete_function",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:09:41.178071+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "2e74d058-a4a8-4013-bc8b-50e41bb8a922",
+            "HTTPStatusCode": 204,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:41 GMT",
+              "content-type": "application/json",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "2e74d058-a4a8-4013-bc8b-50e41bb8a922"
+            },
+            "RetryAttempts": 0
+          },
+          "StatusCode": 204
+        }
+      },
+      "finished_at": "2026-09-15T11:09:41.458052+00:00"
+    },
+    {
+      "label": "verify_absent_function",
+      "service": "lambda",
+      "operation": "get_function_configuration",
+      "input": {
+        "FunctionName": "stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:09:41.459164+00:00",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Error": {
+            "Message": "Function not found: arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259",
+            "Code": "ResourceNotFoundException"
+          },
+          "ResponseMetadata": {
+            "RequestId": "27e948db-ae0b-48f3-b771-4d3f015d89bb",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:41 GMT",
+              "content-type": "application/json",
+              "content-length": "127",
+              "connection": "keep-alive",
+              "x-amzn-requestid": "27e948db-ae0b-48f3-b771-4d3f015d89bb",
+              "x-amzn-errortype": "ResourceNotFoundException"
+            },
+            "RetryAttempts": 0
+          },
+          "Type": "User",
+          "Message": "Function not found: arn:aws:lambda:us-east-1:000000000000:function:stackd-stream-async-2eac2a1c0259"
+        }
+      },
+      "finished_at": "2026-09-15T11:09:41.618982+00:00"
+    },
+    {
+      "label": "delete_owned_policy",
+      "service": "iam",
+      "operation": "delete_role_policy",
+      "input": {
+        "RoleName": "stackd-stream-async-2eac2a1c0259-role",
+        "PolicyName": "owned-destinations-and-logs"
+      },
+      "started_at": "2026-09-15T11:09:41.620075+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "75024dca-353e-4025-b63c-64002e8834cc",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:41 GMT",
+              "x-amzn-requestid": "75024dca-353e-4025-b63c-64002e8834cc",
+              "content-type": "text/xml",
+              "content-length": "212"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:41.772877+00:00"
+    },
+    {
+      "label": "verify_absent_policy",
+      "service": "iam",
+      "operation": "get_role_policy",
+      "input": {
+        "RoleName": "stackd-stream-async-2eac2a1c0259-role",
+        "PolicyName": "owned-destinations-and-logs"
+      },
+      "started_at": "2026-09-15T11:09:41.774017+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Error": {
+            "Type": "Sender",
+            "Code": "NoSuchEntity",
+            "Message": "The role policy with name owned-destinations-and-logs cannot be found."
+          },
+          "ResponseMetadata": {
+            "RequestId": "1513519b-b422-4815-b72d-a22f83584aa1",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:41 GMT",
+              "x-amzn-requestid": "1513519b-b422-4815-b72d-a22f83584aa1",
+              "content-type": "text/xml",
+              "content-length": "314"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:41.898368+00:00"
+    },
+    {
+      "label": "delete_role",
+      "service": "iam",
+      "operation": "delete_role",
+      "input": {
+        "RoleName": "stackd-stream-async-2eac2a1c0259-role"
+      },
+      "started_at": "2026-09-15T11:09:41.899464+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "7538e249-7823-4942-a9bc-6fb05eb0b50f",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:42 GMT",
+              "x-amzn-requestid": "7538e249-7823-4942-a9bc-6fb05eb0b50f",
+              "content-type": "text/xml",
+              "content-length": "200"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:42.078139+00:00"
+    },
+    {
+      "label": "verify_absent_role",
+      "service": "iam",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "stackd-stream-async-2eac2a1c0259-role"
+      },
+      "started_at": "2026-09-15T11:09:42.079962+00:00",
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Error": {
+            "Type": "Sender",
+            "Code": "NoSuchEntity",
+            "Message": "The role with name stackd-stream-async-2eac2a1c0259-role cannot be found."
+          },
+          "ResponseMetadata": {
+            "RequestId": "ae68571b-d472-4849-984e-2be1bdea6d9c",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+              "date": "Tue, 15 Sep 2026 11:09:42 GMT",
+              "x-amzn-requestid": "ae68571b-d472-4849-984e-2be1bdea6d9c",
+              "content-type": "text/xml",
+              "content-length": "317"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:42.206628+00:00"
+    },
+    {
+      "label": "delete_success_queue",
+      "service": "sqs",
+      "operation": "delete_queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success"
+      },
+      "started_at": "2026-09-15T11:09:42.207797+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "4ab76b1a-e9cf-53a7-960c-0839c079356b",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "4ab76b1a-e9cf-53a7-960c-0839c079356b",
+              "date": "Tue, 15 Sep 2026 11:09:42 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "0",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:42.654285+00:00"
+    },
+    {
+      "label": "delete_failure_queue",
+      "service": "sqs",
+      "operation": "delete_queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-failure"
+      },
+      "started_at": "2026-09-15T11:09:42.655447+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "ffb993b6-1058-5e29-adad-f09539eef8e5",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "ffb993b6-1058-5e29-adad-f09539eef8e5",
+              "date": "Tue, 15 Sep 2026 11:09:42 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "0",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:09:42.930325+00:00"
+    },
+    {
+      "label": "delete_settled_log_group",
+      "service": "logs",
+      "operation": "delete_log_group",
+      "input": {
+        "logGroupName": "/aws/lambda/stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:10:02.931579+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "0442e49b-de6e-45ca-bac2-23b76ef50a0a",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "0442e49b-de6e-45ca-bac2-23b76ef50a0a",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "0",
+              "date": "Tue, 15 Sep 2026 11:10:03 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:10:03.492258+00:00"
+    },
+    {
+      "label": "verify_absent_settled_log_groups",
+      "service": "logs",
+      "operation": "describe_log_groups",
+      "input": {
+        "logGroupNamePrefix": "/aws/lambda/stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:10:08.493501+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "logGroups": [],
+          "ResponseMetadata": {
+            "RequestId": "bb018307-96c5-4511-94aa-5beb55c52524",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "bb018307-96c5-4511-94aa-5beb55c52524",
+              "content-type": "application/x-amz-json-1.1",
+              "content-length": "16",
+              "date": "Tue, 15 Sep 2026 11:10:08 GMT"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:10:08.608868+00:00"
+    },
+    {
+      "label": "verify_absent_success_queue",
+      "service": "sqs",
+      "operation": "get_queue_url",
+      "input": {
+        "QueueName": "stackd-stream-async-2eac2a1c0259-success",
+        "QueueOwnerAWSAccountId": "000000000000"
+      },
+      "started_at": "2026-09-15T11:10:08.610216+00:00",
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "error": {
+          "Error": {
+            "Message": "The specified queue does not exist.",
+            "Code": "AWS.SimpleQueueService.NonExistentQueue",
+            "QueryErrorCode": "QueueDoesNotExist",
+            "Type": "Sender"
+          },
+          "ResponseMetadata": {
+            "RequestId": "6d0d1e71-3f67-5a11-b5bd-7d5216b75cdd",
+            "HTTPStatusCode": 400,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "6d0d1e71-3f67-5a11-b5bd-7d5216b75cdd",
+              "x-amzn-query-error": "AWS.SimpleQueueService.NonExistentQueue;Sender",
+              "date": "Tue, 15 Sep 2026 11:10:08 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "96",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:10:08.729072+00:00"
+    },
+    {
+      "label": "verify_absent_failure_queue",
+      "service": "sqs",
+      "operation": "get_queue_url",
+      "input": {
+        "QueueName": "stackd-stream-async-2eac2a1c0259-failure",
+        "QueueOwnerAWSAccountId": "000000000000"
+      },
+      "started_at": "2026-09-15T11:10:08.730239+00:00",
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "error": {
+          "Error": {
+            "Message": "The specified queue does not exist.",
+            "Code": "AWS.SimpleQueueService.NonExistentQueue",
+            "QueryErrorCode": "QueueDoesNotExist",
+            "Type": "Sender"
+          },
+          "ResponseMetadata": {
+            "RequestId": "4c2be5d2-c7e1-506e-92f2-86f1ee3136a2",
+            "HTTPStatusCode": 400,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "4c2be5d2-c7e1-506e-92f2-86f1ee3136a2",
+              "x-amzn-query-error": "AWS.SimpleQueueService.NonExistentQueue;Sender",
+              "date": "Tue, 15 Sep 2026 11:10:08 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "96",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:10:08.848543+00:00"
+    },
+    {
+      "label": "verify_absent_owned_queues",
+      "service": "sqs",
+      "operation": "list_queues",
+      "input": {
+        "QueueNamePrefix": "stackd-stream-async-2eac2a1c0259"
+      },
+      "started_at": "2026-09-15T11:10:08.849779+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "ResponseMetadata": {
+            "RequestId": "4e5f7410-87fd-555f-8939-1733ae2da393",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+              "x-amzn-requestid": "4e5f7410-87fd-555f-8939-1733ae2da393",
+              "date": "Tue, 15 Sep 2026 11:10:08 GMT",
+              "content-type": "application/x-amz-json-1.0",
+              "content-length": "2",
+              "connection": "keep-alive"
+            },
+            "RetryAttempts": 0
+          }
+        }
+      },
+      "finished_at": "2026-09-15T11:10:08.953409+00:00"
+    }
+  ],
+  "workflow_complete": true,
+  "cleanup_verified": true,
+  "bounds": {
+    "iam_propagation_seconds": 20,
+    "create_retry_attempts": 10,
+    "active_poll_seconds": 120,
+    "configuration_settling_seconds": 15,
+    "destination_and_logs_poll_seconds": 180,
+    "cleanup_log_settling_seconds": 25
+  },
+  "limitations": [
+    "Single account/region/run; destination-envelope fields are observations, not inference from synchronous APIs.",
+    "Metrics are outside this probe: missing metrics are not measured zero.",
+    "Configured retry limit is zero; no claims about retry-enabled behavior.",
+    "A bounded missing destination or log is unresolved, not an observed successful or failed terminal outcome."
+  ],
+  "actor": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated",
+    "ResponseMetadata": {
+      "RequestId": "ef90b412-d802-49a8-b413-e3f4426e9829",
+      "HTTPStatusCode": 200,
+      "HTTPHeaders": {
+        "x-amzn-requestid": "ef90b412-d802-49a8-b413-e3f4426e9829",
+        "x-amz-sts-extended-request-id": "MTp1cy1lYXN0LTE6UzoxNzg5NDcwNTI3NTcwOlI6UDE0bXNVZFQ=",
+        "content-type": "text/xml",
+        "content-length": "406",
+        "date": "Tue, 15 Sep 2026 11:08:47 GMT"
+      },
+      "RetryAttempts": 0
+    }
+  },
+  "queues": {
+    "success": {
+      "name": "stackd-stream-async-2eac2a1c0259-success",
+      "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-success",
+      "arn": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-success"
+    },
+    "failure": {
+      "name": "stackd-stream-async-2eac2a1c0259-failure",
+      "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-stream-async-2eac2a1c0259-failure",
+      "arn": "arn:aws:sqs:us-east-1:000000000000:stackd-stream-async-2eac2a1c0259-failure"
+    }
+  },
+  "poll_elapsed_seconds": 11.902311575599015,
+  "all_destinations_and_reports_observed": true,
+  "findings": [
+    {
+      "mode": "success",
+      "token": "stackd-stream-async-2eac2a1c0259-success",
+      "route": "success",
+      "request_id": "c109a9c6-44f8-4e11-8b81-c39c6e430ea0",
+      "condition": "Success",
+      "approximateInvokeCount": 1,
+      "functionError_present": false,
+      "functionError": null,
+      "responsePayload_present": false,
+      "responsePayload": null,
+      "matching_start_log_count": 1,
+      "matching_report_log_count": 1
+    },
+    {
+      "mode": "throw_before",
+      "token": "stackd-stream-async-2eac2a1c0259-throw_before",
+      "route": "success",
+      "request_id": "a5b5ec95-e265-4368-a190-3fc177463270",
+      "condition": "Success",
+      "approximateInvokeCount": 1,
+      "functionError_present": false,
+      "functionError": null,
+      "responsePayload_present": false,
+      "responsePayload": null,
+      "matching_start_log_count": 1,
+      "matching_report_log_count": 1
+    },
+    {
+      "mode": "throw_after",
+      "token": "stackd-stream-async-2eac2a1c0259-throw_after",
+      "route": "success",
+      "request_id": "90e8e298-63e2-4229-8334-c6133993c440",
+      "condition": "Success",
+      "approximateInvokeCount": 1,
+      "functionError_present": false,
+      "functionError": null,
+      "responsePayload_present": false,
+      "responsePayload": null,
+      "matching_start_log_count": 1,
+      "matching_report_log_count": 1
+    }
+  ],
+  "unresolved": [],
+  "cleanup_errors": [],
+  "finished_at": "2026-09-15T11:10:08.955324+00:00"
+}

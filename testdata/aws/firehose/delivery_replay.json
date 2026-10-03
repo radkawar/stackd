@@ -1,0 +1,24 @@
+{
+  "source": "s3_delivery.json.gz",
+  "metricSource": "metric_statistics.json.gz",
+  "setup": ["create-bucket", "create-log-group", "create-log-stream-plain", "create-log-stream-gzip", "create-role", "allow-delivery-policy", "create-plain", "create-gzip"],
+  "plain": {"create": "create-plain", "puts": ["plain-single", "plain-batch-order"], "headSequence": 38, "metricPrefix": "plain"},
+  "gzip": {"create": "create-gzip", "puts": ["gzip-single", "gzip-batch-order"], "headSequence": 35, "metricPrefix": "gzip"},
+  "buffered": {
+    "lengthen": "set-longer-buffer",
+    "before": "buffer-before-prefix-update",
+    "update": "prefix-update-with-buffered-record",
+    "after": "buffer-after-prefix-update",
+    "shorten": "restore-short-buffer"
+  },
+  "boundaries": ["boundary-empty-record", "boundary-one-byte-record", "boundary-record-1024000", "boundary-record-1024001", "boundary-empty-batch", "boundary-500-records", "boundary-501-records", "boundary-batch-bytes-4194304", "boundary-batch-bytes-4194305"],
+  "denied": {
+    "policy": "deny-current-role-s3-writes",
+    "put": "accepted-while-s3-role-denied",
+    "describe": "stream-active-while-role-denied",
+    "logs": "delivery-errors-during-denial",
+    "restore": "restore-current-role-s3-writes",
+    "after": "after-role-permission-restored"
+  },
+  "scope": "Native fixture selects actual SDK requests and native outcome codes. Replay uses bounded local manual-clock progress, not native buffering/retry/publication timing. Native ordering, object packing, generated key suffixes, compressed byte identity and log wording are deliberately excluded. Empty records are indistinguishable in S3 bytes and are defended by incoming and delivery metric statistics. Restart retention is a local persistence contract exercised around the native workflows."
+}

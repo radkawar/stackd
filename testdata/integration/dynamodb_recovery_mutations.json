@@ -1,0 +1,624 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-17T23:59:00Z",
+  "steps": [
+    {
+      "name": "create",
+      "advance": "0s",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-recovery-mutations",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "initial-item",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-mutations",
+        "Item": {
+          "pk": {
+            "S": "row"
+          },
+          "n": {
+            "N": "1"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "enable",
+      "advance": "1m",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-recovery-mutations",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true,
+          "RecoveryPeriodInDays": 1
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "put-typed-postimage",
+      "advance": "1s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-mutations",
+        "Item": {
+          "pk": {
+            "S": "row"
+          },
+          "n": {
+            "N": "2"
+          },
+          "blob": {
+            "B": "AQID"
+          },
+          "nested": {
+            "M": {
+              "flag": {
+                "BOOL": true
+              },
+              "labels": {
+                "SS": [
+                  "blue",
+                  "red"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "batch-put-and-delete",
+      "advance": "1s",
+      "operation": "BatchWriteItem",
+      "input": {
+        "RequestItems": {
+          "stackd-recovery-mutations": [
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "batch"
+                  },
+                  "n": {
+                    "N": "2"
+                  }
+                }
+              }
+            },
+            {
+              "DeleteRequest": {
+                "Key": {
+                  "pk": {
+                    "S": "row"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "want": {
+        "UnprocessedItems": {}
+      }
+    },
+    {
+      "name": "transaction-check-put-delete",
+      "advance": "1s",
+      "operation": "TransactWriteItems",
+      "input": {
+        "ClientRequestToken": "pitr-write-transaction",
+        "TransactItems": [
+          {
+            "ConditionCheck": {
+              "TableName": "stackd-recovery-mutations",
+              "Key": {
+                "pk": {
+                  "S": "guard"
+                }
+              },
+              "ConditionExpression": "attribute_not_exists(pk)"
+            }
+          },
+          {
+            "Put": {
+              "TableName": "stackd-recovery-mutations",
+              "Item": {
+                "pk": {
+                  "S": "row"
+                },
+                "n": {
+                  "N": "3"
+                }
+              }
+            }
+          },
+          {
+            "Delete": {
+              "TableName": "stackd-recovery-mutations",
+              "Key": {
+                "pk": {
+                  "S": "batch"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "partiql-update",
+      "advance": "1s",
+      "operation": "ExecuteStatement",
+      "input": {
+        "Statement": "UPDATE \"stackd-recovery-mutations\" SET \"n\"=? WHERE \"pk\"=?",
+        "Parameters": [
+          {
+            "N": "4"
+          },
+          {
+            "S": "row"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "partiql-batch",
+      "advance": "1s",
+      "operation": "BatchExecuteStatement",
+      "input": {
+        "Statements": [
+          {
+            "Statement": "INSERT INTO \"stackd-recovery-mutations\" VALUE {'pk':?,'n':?}",
+            "Parameters": [
+              {
+                "S": "batch"
+              },
+              {
+                "N": "5"
+              }
+            ]
+          },
+          {
+            "Statement": "DELETE FROM \"stackd-recovery-mutations\" WHERE \"pk\"=?",
+            "Parameters": [
+              {
+                "S": "row"
+              }
+            ]
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "partiql-transaction",
+      "advance": "1s",
+      "operation": "ExecuteTransaction",
+      "input": {
+        "ClientRequestToken": "pitr-partiql-transaction",
+        "TransactStatements": [
+          {
+            "Statement": "UPDATE \"stackd-recovery-mutations\" SET \"n\"=? WHERE \"pk\"=?",
+            "Parameters": [
+              {
+                "N": "6"
+              },
+              {
+                "S": "batch"
+              }
+            ]
+          },
+          {
+            "Statement": "INSERT INTO \"stackd-recovery-mutations\" VALUE {'pk':?,'n':?}",
+            "Parameters": [
+              {
+                "S": "txn"
+              },
+              {
+                "N": "7"
+              }
+            ]
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "rejected-condition-never-overwrites-history",
+      "advance": "1s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-mutations",
+        "Item": {
+          "pk": {
+            "S": "batch"
+          },
+          "n": {
+            "N": "900"
+          }
+        },
+        "ConditionExpression": "attribute_not_exists(pk)"
+      },
+      "want": {},
+      "code": "ConditionalCheckFailedException"
+    },
+    {
+      "name": "reopen-retained-images",
+      "advance": "1s",
+      "reopen": true
+    },
+    {
+      "name": "restore-cut-1",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-mutations",
+        "TargetTableName": "stackd-recovery-mutation-cut-1",
+        "RestoreDateTime": 1789689601
+      },
+      "want": {}
+    },
+    {
+      "name": "read-cut-1",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-mutation-cut-1",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Items": [
+          {
+            "pk": {
+              "S": "row"
+            },
+            "n": {
+              "N": "2"
+            },
+            "blob": {
+              "B": "AQID"
+            },
+            "nested": {
+              "M": {
+                "flag": {
+                  "BOOL": true
+                },
+                "labels": {
+                  "SS": [
+                    "blue",
+                    "red"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "Count": 1
+      }
+    },
+    {
+      "name": "restore-cut-2",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-mutations",
+        "TargetTableName": "stackd-recovery-mutation-cut-2",
+        "RestoreDateTime": 1789689602
+      },
+      "want": {}
+    },
+    {
+      "name": "read-cut-2",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-mutation-cut-2",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Items": [
+          {
+            "pk": {
+              "S": "batch"
+            },
+            "n": {
+              "N": "2"
+            }
+          }
+        ],
+        "Count": 1
+      }
+    },
+    {
+      "name": "restore-cut-3",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-mutations",
+        "TargetTableName": "stackd-recovery-mutation-cut-3",
+        "RestoreDateTime": 1789689603
+      },
+      "want": {}
+    },
+    {
+      "name": "read-cut-3",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-mutation-cut-3",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Items": [
+          {
+            "pk": {
+              "S": "row"
+            },
+            "n": {
+              "N": "3"
+            }
+          }
+        ],
+        "Count": 1
+      }
+    },
+    {
+      "name": "restore-cut-5",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-mutations",
+        "TargetTableName": "stackd-recovery-mutation-cut-5",
+        "RestoreDateTime": 1789689605
+      },
+      "want": {}
+    },
+    {
+      "name": "read-cut-5",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-mutation-cut-5",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Items": [
+          {
+            "pk": {
+              "S": "batch"
+            },
+            "n": {
+              "N": "5"
+            }
+          }
+        ],
+        "Count": 1
+      }
+    },
+    {
+      "name": "restore-cut-7",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-mutations",
+        "TargetTableName": "stackd-recovery-mutation-cut-7",
+        "RestoreDateTime": 1789689607
+      },
+      "want": {}
+    },
+    {
+      "name": "read-cut-7",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-mutation-cut-7",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Items": [
+          {
+            "pk": {
+              "S": "batch"
+            },
+            "n": {
+              "N": "6"
+            }
+          },
+          {
+            "pk": {
+              "S": "txn"
+            },
+            "n": {
+              "N": "7"
+            }
+          }
+        ],
+        "Count": 2
+      }
+    },
+    {
+      "name": "enable-ttl-without-public-streams",
+      "advance": "1s",
+      "operation": "UpdateTimeToLive",
+      "input": {
+        "TableName": "stackd-recovery-mutations",
+        "TimeToLiveSpecification": {
+          "Enabled": true,
+          "AttributeName": "ttl"
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "put-expiring-item",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-mutations",
+        "Item": {
+          "pk": {
+            "S": "expired"
+          },
+          "n": {
+            "N": "8"
+          },
+          "ttl": {
+            "N": "1789689610"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "put-not-expired-item",
+      "advance": "0s",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-recovery-mutations",
+        "Item": {
+          "pk": {
+            "S": "fresh"
+          },
+          "n": {
+            "N": "9"
+          },
+          "ttl": {
+            "N": "1789690600"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "await-real-ttl-removal",
+      "advance": "61s",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-recovery-mutations",
+        "Key": {
+          "pk": {
+            "S": "expired"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitItemAbsent": true
+    },
+    {
+      "name": "restore-before-ttl",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-mutations",
+        "TargetTableName": "stackd-recovery-before-ttl",
+        "RestoreDateTime": 1789689609
+      },
+      "want": {}
+    },
+    {
+      "name": "before-ttl-retains-item",
+      "advance": "0s",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-recovery-before-ttl",
+        "Key": {
+          "pk": {
+            "S": "expired"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "expired"
+          },
+          "n": {
+            "N": "8"
+          },
+          "ttl": {
+            "N": "1789689610"
+          }
+        }
+      }
+    },
+    {
+      "name": "restore-after-ttl",
+      "advance": "0s",
+      "operation": "RestoreTableToPointInTime",
+      "input": {
+        "SourceTableName": "stackd-recovery-mutations",
+        "TargetTableName": "stackd-recovery-after-ttl",
+        "RestoreDateTime": 1789689670
+      },
+      "want": {}
+    },
+    {
+      "name": "after-ttl-preserves-other-items",
+      "advance": "0s",
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-recovery-after-ttl",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Items": [
+          {
+            "pk": {
+              "S": "batch"
+            },
+            "n": {
+              "N": "6"
+            }
+          },
+          {
+            "pk": {
+              "S": "txn"
+            },
+            "n": {
+              "N": "7"
+            }
+          },
+          {
+            "pk": {
+              "S": "fresh"
+            },
+            "n": {
+              "N": "9"
+            },
+            "ttl": {
+              "N": "1789690600"
+            }
+          }
+        ],
+        "Count": 3
+      }
+    }
+  ]
+}

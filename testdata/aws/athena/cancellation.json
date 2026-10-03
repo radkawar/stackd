@@ -1,0 +1,183 @@
+{
+  "source": "native AWS",
+  "retrieved_at": "2026-09-26T15:02:19.299588+00:00",
+  "region": "us-east-1",
+  "run_suffix": "afd81e249e234b9e",
+  "source_revisions": {
+    "aws_sdk_go_v2": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "primary_references": [
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_StopQueryExecution.html",
+    "https://docs.aws.amazon.com/athena/latest/APIReference/API_QueryExecutionStatus.html",
+    "https://aws.amazon.com/athena/pricing/"
+  ],
+  "bounds": {
+    "max_calls": 45,
+    "wall_seconds": 150,
+    "max_buckets": 1,
+    "max_workgroups": 1,
+    "max_queries": 1,
+    "scan_cutoff_bytes": 10485760,
+    "poll_seconds": 60,
+    "max_generated_join_pairs": 100000000,
+    "cost_usd_upper_estimate": 0.01,
+    "cost_basis": "No customer data scan or provisioned compute; immediate cancellation; allowance covers tiny result/S3 requests."
+  },
+  "normalization": "Owned names, account/caller/role/query/run IDs and pagination tokens replaced consistently; timestamps, field presence, list order, errors and data bytes retained. Credentials/debug output never persisted.",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_ms": 1790434939299,
+      "finished_ms": 1790434940012,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "OWNEDCALLERID",
+          "Account": "123456789012",
+          "Arn": "arn:aws:iam::123456789012:user/owned-caller"
+        }
+      }
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-athena-cancel-owned"
+      },
+      "started_ms": 1790434940012,
+      "finished_ms": 1790434940968,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-athena-cancel-owned",
+          "BucketArn": "arn:aws:s3:::stackd-athena-cancel-owned"
+        }
+      }
+    },
+    {
+      "label": "create-workgroup",
+      "service": "athena",
+      "operation": "create-work-group",
+      "input": {
+        "Name": "stackd-athena-cancel-owned-wg",
+        "Configuration": {
+          "BytesScannedCutoffPerQuery": 10485760,
+          "PublishCloudWatchMetricsEnabled": false,
+          "ResultConfiguration": {
+            "OutputLocation": "s3://stackd-athena-cancel-owned/results/"
+          }
+        }
+      },
+      "started_ms": 1790434940968,
+      "finished_ms": 1790434941719,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "cleanup-workgroup",
+        "service": "athena",
+        "operation": "delete-work-group",
+        "input": {
+          "WorkGroup": "stackd-athena-cancel-owned-wg",
+          "RecursiveDeleteOption": true
+        },
+        "started_ms": 1790434942326,
+        "finished_ms": 1790434943140,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-workgroup-absent",
+        "service": "athena",
+        "operation": "get-work-group",
+        "input": {
+          "WorkGroup": "stackd-athena-cancel-owned-wg"
+        },
+        "started_ms": 1790434943140,
+        "finished_ms": 1790434943839,
+        "result": {
+          "code": "InvalidRequestException",
+          "error": {
+            "Message": "WorkGroup is not found.",
+            "Code": "InvalidRequestException",
+            "AthenaErrorCode": "INVALID_INPUT"
+          }
+        }
+      },
+      {
+        "label": "cleanup-owned-results",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-athena-cancel-owned",
+          "MaxKeys": 10
+        },
+        "started_ms": 1790434943839,
+        "finished_ms": 1790434944560,
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-athena-cancel-owned",
+            "Prefix": "",
+            "MaxKeys": 10,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "cleanup-bucket",
+        "service": "s3api",
+        "operation": "delete-bucket",
+        "input": {
+          "Bucket": "stackd-athena-cancel-owned"
+        },
+        "started_ms": 1790434944560,
+        "finished_ms": 1790434945451,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-bucket-absent-0",
+        "service": "s3api",
+        "operation": "head-bucket",
+        "input": {
+          "Bucket": "stackd-athena-cancel-owned"
+        },
+        "started_ms": 1790434945451,
+        "finished_ms": 1790434946197,
+        "result": {
+          "code": "404",
+          "error": {
+            "Code": "404",
+            "Message": "Not Found"
+          }
+        }
+      }
+    ],
+    "remaining_owned": []
+  },
+  "completed": false,
+  "cli_calls": 9,
+  "elapsed_seconds": 6.898,
+  "account": "123456789012",
+  "failure": {
+    "type": "JSONDecodeError",
+    "message": "Expecting value: line 1 column 1 (char 0)"
+  }
+}

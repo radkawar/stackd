@@ -1,0 +1,553 @@
+{
+  "Source": "s3/acceleration_routing_evidence.json.gz",
+  "Notes": [
+    "Raw requests preserve captured endpoint hosts and signing regions; owned bucket/account/access-point names are rebound.",
+    "Botocore selected CRC32 on captured PutObject calls; SDK v2 replay explicitly requests that observed algorithm.",
+    "The repeat us-east-1 CreateBucket success is retained in raw evidence but belongs to the generic bucket-creation compatibility gap, not acceleration-specific dispatch. Bare accelerator DNS failure is not an AWS API response.",
+    "Replay advances a deterministic local second between calls; captured timestamps remain in the raw evidence and do not define an AWS timing guarantee."
+  ],
+  "Scenarios": [
+    {
+      "Name": "regional-accelerator-routing",
+      "Calls": [
+        {
+          "Sequence": 1,
+          "Label": "create-acceleration-routing",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[0].Rows[Sequence=1]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "acceleration-routing"
+          },
+          "Output": {
+            "Location": "/acceleration-routing",
+            "BucketArn": "arn:aws:s3:::acceleration-routing"
+          },
+          "At": "2026-09-22T10:00:01.000Z"
+        },
+        {
+          "Sequence": 2,
+          "Label": "seed-acceleration-routing",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[0].Rows[Sequence=2]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "acceleration-routing",
+            "Key": "key",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"06db2df3a5938b7641601280040fcd2b\"",
+            "ChecksumCRC32": "JDQYZw==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "YWNjZWxlcmF0aW9uLXJvdXRpbmctYnl0ZXM=",
+          "At": "2026-09-22T10:00:02.000Z"
+        },
+        {
+          "Sequence": 3,
+          "Label": "create-acceleration-routing-west",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[0].Rows[Sequence=3]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-west-2",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "acceleration-routing-west",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          },
+          "Output": {
+            "Location": "http://acceleration-routing-west.s3.amazonaws.com/",
+            "BucketArn": "arn:aws:s3:::acceleration-routing-west"
+          },
+          "At": "2026-09-22T10:00:03.000Z"
+        },
+        {
+          "Sequence": 4,
+          "Label": "seed-acceleration-routing-west",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[0].Rows[Sequence=4]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-west-2",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "acceleration-routing-west",
+            "Key": "key",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"06db2df3a5938b7641601280040fcd2b\"",
+            "ChecksumCRC32": "JDQYZw==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "YWNjZWxlcmF0aW9uLXJvdXRpbmctYnl0ZXM=",
+          "At": "2026-09-22T10:00:04.000Z"
+        },
+        {
+          "Sequence": 5,
+          "Label": "enable",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[0].Rows[Sequence=5]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "PutBucketAccelerateConfiguration",
+          "Input": {
+            "Bucket": "acceleration-routing",
+            "AccelerateConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {},
+          "Reopen": true,
+          "At": "2026-09-22T10:00:05.000Z"
+        },
+        {
+          "Sequence": 6,
+          "Label": "wrong-signing-region",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[0].Rows[Sequence=6]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-west-2",
+          "Code": "AuthorizationHeaderMalformed",
+          "Status": 400,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "acceleration-routing.s3-accelerate.amazonaws.com",
+            "Region": "us-west-2",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {},
+            "ErrorDetails": {
+              "Region": "us-east-1"
+            }
+          },
+          "At": "2026-09-22T10:00:06.000Z"
+        },
+        {
+          "Sequence": 7,
+          "Label": "cross-region-copy",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[0].Rows[Sequence=7]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "CopyObject",
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/copied",
+            "RequestHost": "acceleration-routing.s3-accelerate.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "x-amz-copy-source": "/acceleration-routing-west/key"
+            },
+            "Body": "",
+            "ResponseHeaders": {},
+            "BodyContains": [
+              "<ChecksumCRC32>JDQYZw==</ChecksumCRC32>",
+              "<ChecksumType>FULL_OBJECT</ChecksumType>"
+            ]
+          },
+          "At": "2026-09-22T10:00:07.000Z"
+        }
+      ]
+    },
+    {
+      "Name": "access-point-alias-shares-bucket-acceleration",
+      "Calls": [
+        {
+          "Sequence": 1,
+          "Label": "create-bucket",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=1]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "CreateBucket",
+          "Input": {
+            "Bucket": "acceleration-alias-bucket"
+          },
+          "Output": {
+            "Location": "/acceleration-alias-bucket",
+            "BucketArn": "arn:aws:s3:::acceleration-alias-bucket"
+          },
+          "At": "2026-09-22T10:00:01.000Z"
+        },
+        {
+          "Sequence": 2,
+          "Label": "seed-object",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=2]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "PutObject",
+          "Input": {
+            "Bucket": "acceleration-alias-bucket",
+            "Key": "key",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"605e1f179170ff98b1127ee4e6703f10\"",
+            "ChecksumCRC32": "v5wFhw==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "YWNjZWxlcmF0aW9uLWFsaWFzLWJ5dGVz",
+          "At": "2026-09-22T10:00:02.000Z"
+        },
+        {
+          "Sequence": 3,
+          "Label": "create-access-point",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=3]",
+          "Actor": "caller",
+          "Service": "s3control",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "CreateAccessPoint",
+          "Input": {
+            "AccountId": "${account}",
+            "Name": "acceleration-alias",
+            "Bucket": "acceleration-alias-bucket"
+          },
+          "Output": {
+            "AccessPointArn": "arn:aws:s3:us-east-1:${account}:accesspoint/acceleration-alias"
+          },
+          "Bind": {
+            "accessPointAlias": "Alias"
+          },
+          "At": "2026-09-22T10:00:03.000Z"
+        },
+        {
+          "Sequence": 4,
+          "Label": "unset-alias-ordinary",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=4]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "${accessPointAlias}.s3.us-east-1.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {
+              "ETag": "\"605e1f179170ff98b1127ee4e6703f10\""
+            },
+            "ResponseDigest": {
+              "Length": 24,
+              "SHA256": "cc5c9aa6d9817e265ba49161d67c18ab03ab6c8cdc23697ef1186f9730b6eb40"
+            }
+          },
+          "At": "2026-09-22T10:00:04.000Z"
+        },
+        {
+          "Sequence": 5,
+          "Label": "unset-alias-accelerated",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=5]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "InvalidRequest",
+          "Status": 400,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "${accessPointAlias}.s3-accelerate.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {}
+          },
+          "At": "2026-09-22T10:00:05.000Z"
+        },
+        {
+          "Sequence": 6,
+          "Label": "unset-alias-dualstack",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=6]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "InvalidRequest",
+          "Status": 400,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "${accessPointAlias}.s3-accelerate.dualstack.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {}
+          },
+          "At": "2026-09-22T10:00:06.000Z"
+        },
+        {
+          "Sequence": 7,
+          "Label": "set-Enabled",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=7]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "PutBucketAccelerateConfiguration",
+          "Input": {
+            "Bucket": "acceleration-alias-bucket",
+            "AccelerateConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {},
+          "Reopen": true,
+          "At": "2026-09-22T10:00:07.000Z"
+        },
+        {
+          "Sequence": 8,
+          "Label": "Enabled-alias-ordinary",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=8]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "${accessPointAlias}.s3.us-east-1.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {
+              "ETag": "\"605e1f179170ff98b1127ee4e6703f10\""
+            },
+            "ResponseDigest": {
+              "Length": 24,
+              "SHA256": "cc5c9aa6d9817e265ba49161d67c18ab03ab6c8cdc23697ef1186f9730b6eb40"
+            }
+          },
+          "At": "2026-09-22T10:00:08.000Z"
+        },
+        {
+          "Sequence": 9,
+          "Label": "Enabled-alias-accelerated",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=9]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "${accessPointAlias}.s3-accelerate.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {
+              "ETag": "\"605e1f179170ff98b1127ee4e6703f10\""
+            },
+            "ResponseDigest": {
+              "Length": 24,
+              "SHA256": "cc5c9aa6d9817e265ba49161d67c18ab03ab6c8cdc23697ef1186f9730b6eb40"
+            }
+          },
+          "At": "2026-09-22T10:00:09.000Z"
+        },
+        {
+          "Sequence": 10,
+          "Label": "Enabled-alias-dualstack",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=10]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "${accessPointAlias}.s3-accelerate.dualstack.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {
+              "ETag": "\"605e1f179170ff98b1127ee4e6703f10\""
+            },
+            "ResponseDigest": {
+              "Length": 24,
+              "SHA256": "cc5c9aa6d9817e265ba49161d67c18ab03ab6c8cdc23697ef1186f9730b6eb40"
+            }
+          },
+          "At": "2026-09-22T10:00:10.000Z"
+        },
+        {
+          "Sequence": 11,
+          "Label": "accelerator-configuration",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=11]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "GetBucketAccelerateConfiguration",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/?accelerate",
+            "RequestHost": "acceleration-alias-bucket.s3-accelerate.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {},
+            "BodyContains": [
+              "<Status>Enabled</Status>"
+            ]
+          },
+          "At": "2026-09-22T10:00:11.000Z"
+        },
+        {
+          "Sequence": 12,
+          "Label": "set-Suspended",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=12]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "PutBucketAccelerateConfiguration",
+          "Input": {
+            "Bucket": "acceleration-alias-bucket",
+            "AccelerateConfiguration": {
+              "Status": "Suspended"
+            }
+          },
+          "Output": {},
+          "Reopen": true,
+          "At": "2026-09-22T10:00:12.000Z"
+        },
+        {
+          "Sequence": 13,
+          "Label": "Suspended-alias-ordinary",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=13]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "Success",
+          "Status": 200,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "${accessPointAlias}.s3.us-east-1.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {
+              "ETag": "\"605e1f179170ff98b1127ee4e6703f10\""
+            },
+            "ResponseDigest": {
+              "Length": 24,
+              "SHA256": "cc5c9aa6d9817e265ba49161d67c18ab03ab6c8cdc23697ef1186f9730b6eb40"
+            }
+          },
+          "At": "2026-09-22T10:00:13.000Z"
+        },
+        {
+          "Sequence": 14,
+          "Label": "Suspended-alias-accelerated",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=14]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "InvalidRequest",
+          "Status": 400,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "${accessPointAlias}.s3-accelerate.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {}
+          },
+          "At": "2026-09-22T10:00:14.000Z"
+        },
+        {
+          "Sequence": 15,
+          "Label": "Suspended-alias-dualstack",
+          "Source": "acceleration_routing_evidence.json.gz#Runs[2].Rows[Sequence=15]",
+          "Actor": "caller",
+          "Service": "s3",
+          "Region": "us-east-1",
+          "Code": "InvalidRequest",
+          "Status": 400,
+          "Operation": "GetObject",
+          "Raw": {
+            "Method": "GET",
+            "Target": "/key",
+            "RequestHost": "${accessPointAlias}.s3-accelerate.dualstack.amazonaws.com",
+            "Region": "us-east-1",
+            "Headers": {
+              "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Body": "",
+            "ResponseHeaders": {}
+          },
+          "At": "2026-09-22T10:00:15.000Z"
+        }
+      ]
+    }
+  ]
+}

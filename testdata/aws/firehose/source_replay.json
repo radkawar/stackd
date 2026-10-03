@@ -1,0 +1,52 @@
+{
+  "source": "kinesis_source.json.gz",
+  "setup": ["create-source", "create-bucket", "create-log-group", "create-log-stream", "create-role-source", "create-role-destination", "destination-policy", "source-policy-initial", "admission-absent-source", "admission-deny-DescribeStream", "admission-source-denied-DescribeStream", "source-permissions-restored-for-main"],
+  "beforeCreate": "marker-before-firehose-create",
+  "create": "create-main",
+  "beforeActive": "marker-after-create-before-active",
+  "steps": [
+    {
+      "name": "create-time-boundary",
+      "calls": ["marker-after-firehose-active", "direct-put-record-to-kinesis-source", "direct-put-record-batch-to-kinesis-source"],
+      "objects": ["initial-delivery-4-get"],
+      "status": "initial-delivery-status-3",
+      "reopen": true
+    },
+    {
+      "name": "denied-source-read",
+      "calls": ["runtime-deny-get-records", "marker-during-get-records-deny"],
+      "objects": ["initial-delivery-4-get"],
+      "diagnostic": "denied-source-logs",
+      "status": "get-records-denied-status-12",
+      "reopen": true
+    },
+    {
+      "name": "recover-retained-position",
+      "calls": ["runtime-restore-get-records", "marker-after-get-records-restored"],
+      "objects": ["initial-delivery-4-get", "get-records-restored-4-get"],
+      "status": "get-records-restored-status-3",
+      "reopen": true
+    },
+    {
+      "name": "source-disappearance",
+      "calls": ["source-disappearance-delete"],
+      "objects": ["initial-delivery-4-get", "get-records-restored-4-get"],
+      "diagnostic": "source-absent-logs",
+      "status": "source-absent-status-6",
+      "sourceAbsent": true
+    }
+  ],
+  "logs": {
+    "reference": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#FirehoseExample",
+    "source": "../testdata/aws/logs/kinesis-subscriptions.json",
+    "destinationSetup": ["create-bucket", "create-role-destination", "destination-policy"],
+    "setup": ["create-group", "create-log-stream-alpha", "create-role-delivery", "create-role-badtrust", "create-role-caller", "grant-caller-no-passrole"],
+    "deliveries": [
+      {"calls": ["publish-by-stream-first-alpha"], "stages": ["by-stream-first"]},
+      {"calls": ["change-pattern", "invalid-distribution-preserves-filter", "publish-filtered-alpha"], "stages": ["filtered"]},
+      {"calls": ["publish-by-stream-second-alpha"], "stages": ["by-stream-second"], "onlyKeep": true}
+    ],
+    "bounds": "Configured direct Logs-to-Firehose composition follows the official example. Retained Kinesis subscription commands and payloads are reused as inputs, not claimed as native Firehose admission evidence. The third delivery uses the retained keep-only filter after reopen. Logical Firehose destinations remain explicitly unsupported."
+  },
+  "bounds": "Native same-ARN source recreation was observed for only 300 seconds; this replay makes no permanent-loss or guaranteed-recovery assertion for that unproven boundary. Reopening stackd is a local durability extension, not a native AWS restart observation. Object packing, S3 key ordering, and native latency are not replay contracts."
+}

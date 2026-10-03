@@ -1,0 +1,1369 @@
+{
+  "Source": "DOCUMENT-DERIVED retained execution; native admission and audit evidence are separate",
+  "Sources": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/storage-inventory.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/storage-inventory-location.html",
+    "https://docs.aws.amazon.com/kms/latest/developerguide/conditions-kms.html#conditions-kms-via-service"
+  ],
+  "Notes": [
+    "At and Drain express the local next-UTC-midnight first report and Sunday weekly recurrence, not an AWS completion SLA.",
+    "Assertions consume manifests, checksums, CSV data and symlinks through actual SDK requests. Rows have no ordering guarantee.",
+    "No native physical inventory report was captured; optional-cell representation remains document-derived."
+  ],
+  "Workflows": [
+    {
+      "Name": "retained-version-snapshot-disable-replace-delete",
+      "Setup": [
+        {
+          "Label": "source",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-source"
+          }
+        },
+        {
+          "Label": "destination",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-destination"
+          }
+        },
+        {
+          "Label": "versioned-reports",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-destination",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          }
+        },
+        {
+          "Label": "delivery-authority",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-retained-destination",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::inventory-retained-destination/*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::inventory-retained-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"}}}]}"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 1,
+          "Label": "null-version",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Key": "p/old"
+          },
+          "Body": "b2xk"
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 2,
+          "Label": "enable-versions",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          }
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 3,
+          "Label": "new-version",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Key": "p/old"
+          },
+          "Body": "bmV3",
+          "Bind": {
+            "newVersion": "VersionId"
+          }
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 4,
+          "Label": "delete-marker",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Key": "p/old"
+          },
+          "Bind": {
+            "marker": "VersionId"
+          }
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 5,
+          "Label": "special-key",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Key": "p/space + % , \"\n/日本語",
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "liveVersion": "VersionId"
+          }
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 6,
+          "Label": "excluded-prefix",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Key": "outside"
+          },
+          "Body": "bm90IHNlbGVjdGVk"
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 7,
+          "Label": "forbid-customer-reads",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":[\"s3:GetObject\",\"s3:GetObjectVersion\",\"s3:ListBucket\",\"s3:ListBucketVersions\"],\"Resource\":[\"arn:aws:s3:::inventory-retained-source\",\"arn:aws:s3:::inventory-retained-source/*\"]}]}"
+          }
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 8,
+          "Label": "all-versions",
+          "Service": "s3",
+          "Operation": "PutBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Id": "all",
+            "InventoryConfiguration": {
+              "Id": "all",
+              "IsEnabled": true,
+              "IncludedObjectVersions": "All",
+              "Schedule": {
+                "Frequency": "Daily"
+              },
+              "Destination": {
+                "S3BucketDestination": {
+                  "Bucket": "arn:aws:s3:::inventory-retained-destination",
+                  "Format": "CSV",
+                  "Prefix": "reports"
+                }
+              },
+              "Filter": {
+                "Prefix": "p/"
+              },
+              "OptionalFields": [
+                "EncryptionStatus",
+                "IsMultipartUploaded",
+                "StorageClass",
+                "LastModifiedDate",
+                "Size"
+              ]
+            }
+          }
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 9,
+          "Label": "current-versions",
+          "Service": "s3",
+          "Operation": "PutBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Id": "current",
+            "InventoryConfiguration": {
+              "Id": "current",
+              "IsEnabled": true,
+              "IncludedObjectVersions": "Current",
+              "Schedule": {
+                "Frequency": "Daily"
+              },
+              "Destination": {
+                "S3BucketDestination": {
+                  "Bucket": "arn:aws:s3:::inventory-retained-destination",
+                  "Format": "CSV",
+                  "Prefix": "reports"
+                }
+              },
+              "Filter": {
+                "Prefix": "p/"
+              },
+              "OptionalFields": [
+                "EncryptionStatus",
+                "IsMultipartUploaded",
+                "StorageClass",
+                "LastModifiedDate",
+                "Size"
+              ]
+            }
+          }
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 10,
+          "Label": "restart-pending-and-consume",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-destination",
+            "Prefix": "reports/"
+          },
+          "Reopen": true,
+          "Drain": true,
+          "Output": {
+            "KeyCount": 8
+          },
+          "InventoryReports": [
+            {
+              "Bucket": "inventory-retained-destination",
+              "SourceBucket": "inventory-retained-source",
+              "Manifest": "reports/inventory-retained-source/all/2025-03-21T00-00Z/manifest.json",
+              "Columns": [
+                "Bucket",
+                "Key",
+                "VersionId",
+                "IsLatest",
+                "IsDeleteMarker",
+                "Size",
+                "LastModifiedDate",
+                "StorageClass",
+                "IsMultipartUploaded",
+                "EncryptionStatus"
+              ],
+              "Rows": [
+                {
+                  "Key": "p/old",
+                  "VersionId": "",
+                  "IsLatest": "false",
+                  "IsDeleteMarker": "false",
+                  "Size": "3",
+                  "EncryptionStatus": "SSE-S3"
+                },
+                {
+                  "Key": "p/old",
+                  "VersionId": "${newVersion}",
+                  "IsLatest": "false",
+                  "IsDeleteMarker": "false",
+                  "Size": "3"
+                },
+                {
+                  "Key": "p/old",
+                  "VersionId": "${marker}",
+                  "IsLatest": "true",
+                  "IsDeleteMarker": "true",
+                  "Size": ""
+                },
+                {
+                  "Key": "p/space + % , \"\n/日本語",
+                  "VersionId": "${liveVersion}",
+                  "IsLatest": "true",
+                  "IsDeleteMarker": "false",
+                  "Size": "7",
+                  "StorageClass": "INTELLIGENT_TIERING",
+                  "IsMultipartUploaded": "false"
+                }
+              ]
+            },
+            {
+              "Bucket": "inventory-retained-destination",
+              "SourceBucket": "inventory-retained-source",
+              "Manifest": "reports/inventory-retained-source/current/2025-03-21T00-00Z/manifest.json",
+              "Columns": [
+                "Bucket",
+                "Key",
+                "Size",
+                "LastModifiedDate",
+                "StorageClass",
+                "IsMultipartUploaded",
+                "EncryptionStatus"
+              ],
+              "Rows": [
+                {
+                  "Key": "p/space + % , \"\n/日本語",
+                  "Size": "7"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 11,
+          "Label": "capture-completed-version",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-destination",
+            "Key": "reports/inventory-retained-source/all/2025-03-21T00-00Z/manifest.json"
+          },
+          "Bind": {
+            "reportVersion": "VersionId"
+          }
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 12,
+          "Label": "completed-occurrence-is-not-repeated",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-destination",
+            "Key": "reports/inventory-retained-source/all/2025-03-21T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true,
+          "Output": {
+            "VersionId": "${reportVersion}"
+          }
+        },
+        {
+          "At": "2025-03-21T01:00:00Z",
+          "Sequence": 13,
+          "Label": "delete-current",
+          "Service": "s3",
+          "Operation": "DeleteBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Id": "current"
+          }
+        },
+        {
+          "At": "2025-03-21T01:00:00Z",
+          "Sequence": 14,
+          "Label": "disable-all",
+          "Service": "s3",
+          "Operation": "PutBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Id": "all",
+            "InventoryConfiguration": {
+              "Id": "all",
+              "IsEnabled": false,
+              "IncludedObjectVersions": "Current",
+              "Schedule": {
+                "Frequency": "Daily"
+              },
+              "Destination": {
+                "S3BucketDestination": {
+                  "Bucket": "arn:aws:s3:::inventory-retained-destination",
+                  "Format": "CSV",
+                  "Prefix": "reports"
+                }
+              }
+            }
+          }
+        },
+        {
+          "At": "2025-03-22T00:00:00Z",
+          "Sequence": 15,
+          "Label": "disabled-deadline-stays-cancelled",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "NotFound",
+          "Status": 404,
+          "Input": {
+            "Bucket": "inventory-retained-destination",
+            "Key": "reports/inventory-retained-source/all/2025-03-22T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true
+        },
+        {
+          "At": "2025-03-22T00:00:00Z",
+          "Sequence": 16,
+          "Label": "deleted-deadline-stays-cancelled",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "NotFound",
+          "Status": 404,
+          "Input": {
+            "Bucket": "inventory-retained-destination",
+            "Key": "reports/inventory-retained-source/current/2025-03-22T00-00Z/manifest.json"
+          }
+        },
+        {
+          "At": "2025-03-22T00:00:00Z",
+          "Sequence": 17,
+          "Label": "replace-and-reenable",
+          "Service": "s3",
+          "Operation": "PutBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Id": "all",
+            "InventoryConfiguration": {
+              "Id": "all",
+              "IsEnabled": true,
+              "IncludedObjectVersions": "Current",
+              "Schedule": {
+                "Frequency": "Daily"
+              },
+              "Destination": {
+                "S3BucketDestination": {
+                  "Bucket": "arn:aws:s3:::inventory-retained-destination",
+                  "Format": "CSV",
+                  "Prefix": "replacement"
+                }
+              },
+              "Filter": {
+                "Prefix": "p/"
+              },
+              "OptionalFields": [
+                "Size"
+              ]
+            }
+          }
+        },
+        {
+          "At": "2025-03-23T00:00:00Z",
+          "Sequence": 18,
+          "Label": "replacement-survives-restart",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-retained-destination",
+            "Key": "replacement/inventory-retained-source/all/2025-03-23T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true,
+          "InventoryReports": [
+            {
+              "Bucket": "inventory-retained-destination",
+              "SourceBucket": "inventory-retained-source",
+              "Manifest": "replacement/inventory-retained-source/all/2025-03-23T00-00Z/manifest.json",
+              "Columns": [
+                "Bucket",
+                "Key",
+                "Size"
+              ],
+              "Rows": [
+                {
+                  "Key": "p/space + % , \"\n/日本語",
+                  "Size": "7"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "At": "2025-03-23T00:00:00Z",
+          "Sequence": 19,
+          "Label": "delete-last",
+          "Service": "s3",
+          "Operation": "DeleteBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-retained-source",
+            "Id": "all"
+          }
+        },
+        {
+          "At": "2025-03-24T00:00:00Z",
+          "Sequence": 20,
+          "Label": "deleted-replacement-stays-cancelled",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "NotFound",
+          "Status": 404,
+          "Input": {
+            "Bucket": "inventory-retained-destination",
+            "Key": "replacement/inventory-retained-source/all/2025-03-24T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true
+        }
+      ]
+    },
+    {
+      "Name": "direct-service-kms-and-live-delivery-authority",
+      "Setup": [
+        {
+          "Label": "create-inventory-key-source",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-key-source"
+          }
+        },
+        {
+          "Label": "create-inventory-managed-target",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-managed-target"
+          }
+        },
+        {
+          "Label": "create-inventory-customer-target",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-customer-target"
+          }
+        },
+        {
+          "Label": "customer-key",
+          "Service": "kms",
+          "Operation": "CreateKey",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::123456789012:root\"},\"Action\":\"kms:*\",\"Resource\":\"*\"},{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"kms:GenerateDataKey\",\"Resource\":\"*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::inventory-key-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"},\"Null\":{\"kms:ViaService\":\"true\"},\"Bool\":{\"aws:ViaAWSService\":\"false\"}}}]}"
+          },
+          "Bind": {
+            "cmk": "KeyMetadata.Arn"
+          }
+        },
+        {
+          "Label": "managed-encryption",
+          "Service": "s3",
+          "Operation": "PutBucketEncryption",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-managed-target",
+            "ServerSideEncryptionConfiguration": {
+              "Rules": [
+                {
+                  "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "aws:kms"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "customer-encryption",
+          "Service": "s3",
+          "Operation": "PutBucketEncryption",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-customer-target",
+            "ServerSideEncryptionConfiguration": {
+              "Rules": [
+                {
+                  "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "aws:kms",
+                    "KMSMasterKeyID": "${cmk}"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "ordinary-caller-can-use-managed-key",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-managed-target",
+            "Key": "positive-control"
+          },
+          "Body": "b3JkaW5hcnkgZm9yd2FyZGluZw==",
+          "Bind": {
+            "managedKey": "SSEKMSKeyId"
+          }
+        },
+        {
+          "Label": "allow-delivery-inventory-managed-target",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-managed-target",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::inventory-managed-target/*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::inventory-key-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"}}}]}"
+          }
+        },
+        {
+          "Label": "allow-delivery-inventory-customer-target",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-customer-target",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::inventory-customer-target/*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::inventory-key-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"}}}]}"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 1,
+          "Label": "managed-key-arn-admitted",
+          "Service": "s3",
+          "Operation": "PutBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-key-source",
+            "Id": "managed",
+            "InventoryConfiguration": {
+              "Id": "managed",
+              "IsEnabled": true,
+              "IncludedObjectVersions": "Current",
+              "Schedule": {
+                "Frequency": "Daily"
+              },
+              "Destination": {
+                "S3BucketDestination": {
+                  "Bucket": "arn:aws:s3:::inventory-managed-target",
+                  "Format": "CSV",
+                  "Prefix": "reports",
+                  "Encryption": {
+                    "SSEKMS": {
+                      "KeyId": "${managedKey}"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 2,
+          "Label": "customer-key-admitted",
+          "Service": "s3",
+          "Operation": "PutBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-key-source",
+            "Id": "customer",
+            "InventoryConfiguration": {
+              "Id": "customer",
+              "IsEnabled": true,
+              "IncludedObjectVersions": "Current",
+              "Schedule": {
+                "Frequency": "Daily"
+              },
+              "Destination": {
+                "S3BucketDestination": {
+                  "Bucket": "arn:aws:s3:::inventory-customer-target",
+                  "Format": "CSV",
+                  "Prefix": "reports"
+                }
+              }
+            }
+          }
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 3,
+          "Label": "aws-managed-key-cannot-authorize-direct-service",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "NotFound",
+          "Status": 404,
+          "Input": {
+            "Bucket": "inventory-managed-target",
+            "Key": "reports/inventory-key-source/managed/2025-03-21T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 4,
+          "Label": "customer-policy-distinguishes-service-from-forwarding",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-customer-target",
+            "Key": "reports/inventory-key-source/customer/2025-03-21T00-00Z/manifest.json"
+          },
+          "Output": {
+            "SSEKMSKeyId": "${cmk}"
+          },
+          "InventoryReports": [
+            {
+              "Bucket": "inventory-customer-target",
+              "SourceBucket": "inventory-key-source",
+              "Manifest": "reports/inventory-key-source/customer/2025-03-21T00-00Z/manifest.json",
+              "Columns": [
+                "Bucket",
+                "Key"
+              ],
+              "Rows": []
+            }
+          ]
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 5,
+          "Label": "revoke-source-authority",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-customer-target",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::inventory-customer-target/*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::different-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"}}}]}"
+          }
+        },
+        {
+          "At": "2025-03-22T00:00:00Z",
+          "Sequence": 6,
+          "Label": "destination-policy-is-evaluated-at-delivery",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "NotFound",
+          "Status": 404,
+          "Input": {
+            "Bucket": "inventory-customer-target",
+            "Key": "reports/inventory-key-source/customer/2025-03-22T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true
+        },
+        {
+          "At": "2025-03-22T00:00:00Z",
+          "Sequence": 7,
+          "Label": "restore-source-authority",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-customer-target",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::inventory-customer-target/*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::inventory-key-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"}}}]}"
+          }
+        },
+        {
+          "At": "2025-03-22T00:00:00Z",
+          "Sequence": 8,
+          "Label": "disable-customer-key",
+          "Service": "kms",
+          "Operation": "DisableKey",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "KeyId": "${cmk}"
+          }
+        },
+        {
+          "At": "2025-03-23T00:00:00Z",
+          "Sequence": 9,
+          "Label": "key-state-is-evaluated-at-delivery",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "NotFound",
+          "Status": 404,
+          "Input": {
+            "Bucket": "inventory-customer-target",
+            "Key": "reports/inventory-key-source/customer/2025-03-23T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true
+        },
+        {
+          "At": "2025-03-23T00:00:00Z",
+          "Sequence": 10,
+          "Label": "restore-customer-key",
+          "Service": "kms",
+          "Operation": "EnableKey",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "KeyId": "${cmk}"
+          }
+        },
+        {
+          "At": "2025-03-24T00:00:00Z",
+          "Sequence": 11,
+          "Label": "next-occurrence-recovers-without-new-configuration",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-customer-target",
+            "Key": "reports/inventory-key-source/customer/2025-03-24T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true,
+          "InventoryReports": [
+            {
+              "Bucket": "inventory-customer-target",
+              "SourceBucket": "inventory-key-source",
+              "Manifest": "reports/inventory-key-source/customer/2025-03-24T00-00Z/manifest.json",
+              "Columns": [
+                "Bucket",
+                "Key"
+              ],
+              "Rows": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "cross-account-destination-ownership-and-owner-check",
+      "Setup": [
+        {
+          "Label": "source",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-cross-source"
+          }
+        },
+        {
+          "Label": "foreign-destination",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "other",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-cross-destination"
+          }
+        },
+        {
+          "Label": "destination-owner",
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "other",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-cross-destination"
+          },
+          "Bind": {
+            "destinationOwner": "Owner.ID"
+          }
+        },
+        {
+          "Label": "foreign-key",
+          "Service": "kms",
+          "Operation": "CreateKey",
+          "Actor": "other",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::222222222222:root\"},\"Action\":\"kms:*\",\"Resource\":\"*\"},{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"kms:GenerateDataKey\",\"Resource\":\"*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::inventory-cross-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"},\"Null\":{\"kms:ViaService\":\"true\"},\"Bool\":{\"aws:ViaAWSService\":\"false\"}}}]}"
+          },
+          "Bind": {
+            "foreignKey": "KeyMetadata.Arn"
+          }
+        },
+        {
+          "Label": "foreign-default-encryption",
+          "Service": "s3",
+          "Operation": "PutBucketEncryption",
+          "Actor": "other",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-cross-destination",
+            "ServerSideEncryptionConfiguration": {
+              "Rules": [
+                {
+                  "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "aws:kms",
+                    "KMSMasterKeyID": "${foreignKey}"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "foreign-destination-policy",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "other",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-cross-destination",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::inventory-cross-destination/*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::inventory-cross-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"}}}]}"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 1,
+          "Label": "source-object",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-cross-source",
+            "Key": "key"
+          },
+          "Body": "c291cmNl"
+        },
+        {
+          "At": "2025-03-20T12:00:00Z",
+          "Sequence": 2,
+          "Label": "foreign-owner-admitted",
+          "Service": "s3",
+          "Operation": "PutBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-cross-source",
+            "Id": "cross",
+            "InventoryConfiguration": {
+              "Id": "cross",
+              "IsEnabled": true,
+              "IncludedObjectVersions": "Current",
+              "Schedule": {
+                "Frequency": "Daily"
+              },
+              "Destination": {
+                "S3BucketDestination": {
+                  "Bucket": "arn:aws:s3:::inventory-cross-destination",
+                  "AccountId": "222222222222",
+                  "Format": "CSV",
+                  "Prefix": "reports"
+                }
+              },
+              "OptionalFields": [
+                "Size"
+              ]
+            }
+          }
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 3,
+          "Label": "foreign-owner-reads-encrypted-report",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "other",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-cross-destination",
+            "Key": "reports/inventory-cross-source/cross/2025-03-21T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true,
+          "Output": {
+            "SSEKMSKeyId": "${foreignKey}"
+          },
+          "InventoryReports": [
+            {
+              "Actor": "other",
+              "Bucket": "inventory-cross-destination",
+              "SourceBucket": "inventory-cross-source",
+              "Manifest": "reports/inventory-cross-source/cross/2025-03-21T00-00Z/manifest.json",
+              "Columns": [
+                "Bucket",
+                "Key",
+                "Size"
+              ],
+              "Rows": [
+                {
+                  "Key": "key",
+                  "Size": "6"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 4,
+          "Label": "report-belongs-to-destination-owner",
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "other",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-cross-destination",
+            "Key": "reports/inventory-cross-source/cross/2025-03-21T00-00Z/manifest.json"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${destinationOwner}"
+            }
+          }
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 5,
+          "Label": "source-caller-is-not-implicitly-a-reader",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "inventory-cross-destination",
+            "Key": "reports/inventory-cross-source/cross/2025-03-21T00-00Z/manifest.json"
+          }
+        },
+        {
+          "At": "2025-03-21T00:00:00Z",
+          "Sequence": 6,
+          "Label": "wrong-owner-is-not-preflighted",
+          "Service": "s3",
+          "Operation": "PutBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-cross-source",
+            "Id": "cross",
+            "InventoryConfiguration": {
+              "Id": "cross",
+              "IsEnabled": true,
+              "IncludedObjectVersions": "Current",
+              "Schedule": {
+                "Frequency": "Daily"
+              },
+              "Destination": {
+                "S3BucketDestination": {
+                  "Bucket": "arn:aws:s3:::inventory-cross-destination",
+                  "AccountId": "123456789012",
+                  "Format": "CSV",
+                  "Prefix": "reports"
+                }
+              }
+            }
+          }
+        },
+        {
+          "At": "2025-03-22T00:00:00Z",
+          "Sequence": 7,
+          "Label": "wrong-owner-prevents-delivery",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "other",
+          "Code": "NotFound",
+          "Status": 404,
+          "Input": {
+            "Bucket": "inventory-cross-destination",
+            "Key": "reports/inventory-cross-source/cross/2025-03-22T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true
+        }
+      ]
+    },
+    {
+      "Name": "weekly-calendar-history-and-source-deletion",
+      "Setup": [
+        {
+          "Label": "source",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-weekly-source"
+          }
+        },
+        {
+          "Label": "destination",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-weekly-destination"
+          }
+        },
+        {
+          "Label": "delivery-authority",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-weekly-destination",
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::inventory-weekly-destination/*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:s3:::inventory-weekly-source\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"}}}]}"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "At": "2025-03-24T12:00:00Z",
+          "Sequence": 1,
+          "Label": "weekly",
+          "Service": "s3",
+          "Operation": "PutBucketInventoryConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-weekly-source",
+            "Id": "weekly",
+            "InventoryConfiguration": {
+              "Id": "weekly",
+              "IsEnabled": true,
+              "IncludedObjectVersions": "Current",
+              "Schedule": {
+                "Frequency": "Weekly"
+              },
+              "Destination": {
+                "S3BucketDestination": {
+                  "Bucket": "arn:aws:s3:::inventory-weekly-destination",
+                  "Format": "CSV",
+                  "Prefix": "reports"
+                }
+              }
+            }
+          }
+        },
+        {
+          "At": "2025-03-25T00:00:00Z",
+          "Sequence": 2,
+          "Label": "first-weekly-report-is-not-delayed-until-sunday",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-weekly-destination",
+            "Key": "reports/inventory-weekly-source/weekly/2025-03-25T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true,
+          "InventoryReports": [
+            {
+              "Bucket": "inventory-weekly-destination",
+              "SourceBucket": "inventory-weekly-source",
+              "Manifest": "reports/inventory-weekly-source/weekly/2025-03-25T00-00Z/manifest.json",
+              "Columns": [
+                "Bucket",
+                "Key"
+              ],
+              "Rows": []
+            }
+          ]
+        },
+        {
+          "At": "2025-03-26T00:00:00Z",
+          "Sequence": 3,
+          "Label": "no-daily-weekly-report",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "NotFound",
+          "Status": 404,
+          "Input": {
+            "Bucket": "inventory-weekly-destination",
+            "Key": "reports/inventory-weekly-source/weekly/2025-03-26T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true
+        },
+        {
+          "At": "2025-03-26T00:00:00Z",
+          "Sequence": 4,
+          "Label": "inventory-history-does-not-index-bucket-name",
+          "Service": "cloudtrail",
+          "Operation": "LookupEvents",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "LookupAttributes": [
+              {
+                "AttributeKey": "ResourceName",
+                "AttributeValue": "inventory-weekly-source"
+              }
+            ]
+          },
+          "Output": {
+            "Events": [
+              {
+                "EventName": "CreateBucket"
+              }
+            ]
+          }
+        },
+        {
+          "At": "2025-03-30T00:00:00Z",
+          "Sequence": 5,
+          "Label": "sunday-recurrence",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "inventory-weekly-destination",
+            "Key": "reports/inventory-weekly-source/weekly/2025-03-30T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true,
+          "InventoryReports": [
+            {
+              "Bucket": "inventory-weekly-destination",
+              "SourceBucket": "inventory-weekly-source",
+              "Manifest": "reports/inventory-weekly-source/weekly/2025-03-30T00-00Z/manifest.json",
+              "Columns": [
+                "Bucket",
+                "Key"
+              ],
+              "Rows": []
+            }
+          ]
+        },
+        {
+          "At": "2025-03-30T00:00:00Z",
+          "Sequence": 6,
+          "Label": "source-deletion-cascades-pending-configuration",
+          "Service": "s3",
+          "Operation": "DeleteBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "inventory-weekly-source"
+          }
+        },
+        {
+          "At": "2025-04-06T00:00:00Z",
+          "Sequence": 7,
+          "Label": "deleted-source-cannot-reappear",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "NotFound",
+          "Status": 404,
+          "Input": {
+            "Bucket": "inventory-weekly-destination",
+            "Key": "reports/inventory-weekly-source/weekly/2025-04-06T00-00Z/manifest.json"
+          },
+          "Reopen": true,
+          "Drain": true
+        }
+      ]
+    }
+  ]
+}

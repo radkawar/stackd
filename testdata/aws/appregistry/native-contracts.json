@@ -1,0 +1,172 @@
+{
+  "description": "Native AppRegistry eligibility/error evidence and separately identified online AWS primary-documentation contracts. This is not a successful application-membership capture and does not establish whole-service conformance.",
+  "reviewed_on": "2026-09-28",
+  "reproduce": [
+    "python3 -B scripts/aws/appregistry_capture.py",
+    "python3 -B scripts/aws/appregistry_capture.py --boundaries",
+    "python3 -B scripts/aws/appregistry_capture.py --audit"
+  ],
+  "safety": {
+    "account": "000000000000",
+    "caller": "arn:aws:iam::000000000000:user/Delegated",
+    "region": "us-east-1",
+    "prefix": "stackd-ar-3493ad4799c4",
+    "settings": "GetAccountSettings and GetConfiguration only. Before and after values were GroupLifecycleEventsStatus INACTIVE and tagQueryConfiguration {}. No PutAccountSettings, PutConfiguration, IAM role/policy changes or standing-resource mutations.",
+    "resources": "CreateApplication and CreateAttributeGroup were refused. No S3, SQS, SSM or CloudFormation owners were provisioned after that concrete prerequisite failure. Manually tagging an owner with an invented application ARN would not prove AppRegistry behavior.",
+    "cleanup": "The exact application and attribute-group names attempted by the eligibility probe return ResourceNotFoundException in native-boundaries.json cleanup. The documented legacy group name also returns NotFoundException. No created resources remain and no settings need restoring.",
+    "credentials": "No credentials are retained. Audit removes accessKeyId, secretAccessKey, sessionToken, authorization and credentials fields recursively. Exact response request-ID matching excludes unrelated CloudTrail events."
+  },
+  "native_evidence": {
+    "eligibility": {
+      "fixture": "native-eligibility.json",
+      "observations": 6,
+      "create_application_request_id": "7a797fe6-4c59-4fa5-9957-3bea4bed723d",
+      "create_attribute_group_request_id": "bb4273ac-187a-4ed0-aef8-b33a250fbaff",
+      "result": "Both HTTP403 AccessDeniedException: AWS Service Catalog AppRegistry is in maintenance mode and is no longer available to new customers as of July 30, 2026.",
+      "inference_boundary": "This caller/account cannot create the required owners. The documented existing-customer path remains a real target; this observation must not become an unconditional emulator denial. Successful GetConfiguration and the reachable lookup/validation errors demonstrate that not every action is globally refused."
+    },
+    "boundaries": {
+      "fixture": "native-boundaries.json",
+      "observations": 43,
+      "rules": [
+        "GetApplication, UpdateApplication with omitted fields/description/name, and DeleteApplication on the exact attempted missing name return ResourceNotFoundException. The observed name-update outcome does not establish support for renaming existing applications.",
+        "GetAttributeGroup, UpdateAttributeGroup with omitted fields/description/name, and DeleteAttributeGroup on the exact attempted missing name return ResourceNotFoundException. Native get uses 'Attribute Group', whereas update/delete use 'Attribute group', in their error message.",
+        "Trailing-space application or attribute identifiers and 1025-character descriptions return ValidationException before missing-target lookup.",
+        "Empty attributes string returns ValidationException for minimum length and pattern. Nonempty malformed JSON, array, scalar, empty-object and escaped-Unicode JSON strings return missing-attribute ResourceNotFoundException; this is lookup precedence, NOT successful acceptance of those attribute documents.",
+        "AssociateAttributeGroup, DisassociateAttributeGroup, ListAssociatedAttributeGroups, ListAttributeGroupsForApplication and ListAssociatedResources on missing applications return ResourceNotFoundException identifying the application.",
+        "CFN_STACK AssociateResource with APPLY_APPLICATION_TAG, GetAssociatedResource and DisassociateResource return missing-application ResourceNotFoundException for the exact-owned nonexistent stack ARN.",
+        "RESOURCE_TAG_VALUE AssociateResource returns ValidationException 'No tag key configured for account 000000000000.' before missing-application lookup; GetAssociatedResource and DisassociateResource for the same type return missing-application ResourceNotFoundException instead. The read-only configuration contains no tagKey.",
+        "GetGroup, GetGroupConfiguration, ListGroupResources, ListGroupingStatuses, GroupResources and UngroupResources on the uncreated documented legacy application-group name all return NotFoundException 'The specified group does not exist'. This does not calibrate any successful managed-group operation."
+      ]
+    },
+    "audit": {
+      "fixture": "native-audit.json",
+      "scope": "Read-only bounded CloudTrail collection found 49 events matching all 49 exact API response request IDs in the two native fixtures, including settings reads, across 12 pages and four rounds. No missing IDs, page-cap truncation or collection errors. The first round saw only six events; resumed bounded observation found the delayed remaining records.",
+      "observed_rules": [
+        "AppRegistry eventSource is servicecatalog-appregistry.amazonaws.com.",
+        "The two maintenance-mode Create calls have errorCode AccessDenied, readOnly false and responseElements.Message containing the maintenance refusal. Their HTTP SDK errors were AccessDeniedException. Neither event contains errorMessage.",
+        "GetConfiguration events are readOnly true with requestParameters null and responseElements null.",
+        "All observed AppRegistry Get/List errors are readOnly true with responseElements null. Observed Update/Delete/Associate/Disassociate errors are readOnly false and retain lowercase responseElements.message. Every captured event omits errorMessage.",
+        "GetApplication, GetAttributeGroup, GetAssociatedResource, ListAssociatedResources, ListAssociatedAttributeGroups and ListAttributeGroupsForApplication retain event resources on missing-target/validation errors; observed Update/Delete and refused Create calls omit resources.",
+        "Associate/DisassociateResource retain the application event resource; Associate/DisassociateAttributeGroup retain both attribute-group and application resources. Missing-name resources use AWS::ServiceCatalogAppRegistry::Application or ::AttributeGroup and wildcard ARN suffix /applications/* or /attribute-groups/*, not the missing supplied name as an ID.",
+        "URI-bound request parameters remain percent-encoded in native audit, including the CloudFormation resource ARN and a trailing-space malformed application/attribute identifier.",
+        "Observed events are Management AwsApiCall records with managementEvent true."
+      ],
+      "absence_boundary": "Missing/late events within the bounded lookup are not evidence AWS omits those events. Only observed operation/error projections can be calibrated; successful create/update/delete audit is unavailable."
+    }
+  },
+  "primary_documentation_contracts": [
+    {
+      "area": "Eligibility is customer-specific, not a universal service shutdown",
+      "sources": ["https://docs.aws.amazon.com/servicecatalog/latest/arguide/app-registry-availability-change.html"],
+      "facts": [
+        "Starting July 30, 2026, accounts that have not previously used AppRegistry cannot access it; established customers continue normally.",
+        "The awsApplication tag is a user tag, persists indefinitely, and need not be removed or replaced because of the availability transition. This is not a guarantee that DeleteApplication removes tags."
+      ]
+    },
+    {
+      "area": "Applications, attributes, identity and updates",
+      "sources": [
+        "https://docs.aws.amazon.com/servicecatalog/latest/APIReference/API_app-registry_CreateApplication.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/APIReference/API_app-registry_GetApplication.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/APIReference/API_app-registry_GetAttributeGroup.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/APIReference/API_app-registry_UpdateApplication.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/APIReference/API_app-registry_UpdateAttributeGroup.html"
+      ],
+      "facts": [
+        "CreateApplication requires a region-unique name and clientToken. Same successful token/parameters is idempotent; changing successful-token parameters fails.",
+        "Application ID is 26 lowercase alphanumeric characters; the servicecatalog application ARN has /applications/<id>. GetApplication accepts ARN, ID or name and expressly recommends ARN/ID to avoid the ABA addressing problem after name reuse.",
+        "GetApplication exposes independent integrations.resourceGroup and integrations.applicationTagResourceGroup plus applicationTag and associatedResourceCount (top-level registered resources). Do not replace these with one indistinguishable group.",
+        "UpdateApplication and UpdateAttributeGroup name fields are deprecated: AWS states that name updates are no longer supported. Description updates and attribute-document updates are distinct from rename.",
+        "GetAttributeGroup returns the JSON attributes string and optional createdBy service principal; UpdateAttributeGroup returns attribute-group metadata, not an attributes field in its response object."
+      ]
+    },
+    {
+      "area": "Legacy AppRegistry-managed group create/update/delete ownership",
+      "sources": ["https://docs.aws.amazon.com/ARG/latest/userguide/about-slg-types.html"],
+      "facts": [
+        "AWS::AppRegistry::Application groups are created, updated and deleted only through AppRegistry, not direct user group operations. Their documented names are AWS_AppRegistry_Application-<application-name>, with Name and Arn configuration parameters.",
+        "Associating a CloudFormation stack creates an additional AWS::CloudFormation::Stack service-linked group named AWS_CloudFormation_Stack-<stack-name>, with Name and Arn configuration parameters. The legacy application group contains these child stack groups; the stack groups contain deployed stack resources.",
+        "Automatically managed groups do not count against the ordinary resource-group quota."
+      ],
+      "existing_native_cross_reference": "../resourcegroups/native.json captures ForbiddenException for direct AppRegistry/CloudFormation managed configuration creation, and BadRequestException Operation is not supported for direct AWS::ResourceGroups::ApplicationGroup creation. It does not capture successful AppRegistry-managed creation."
+    },
+    {
+      "area": "Modern application tag groups are distinct from legacy stack collections",
+      "sources": [
+        "https://docs.aws.amazon.com/ARG/latest/APIReference/API_Group.html",
+        "https://docs.aws.amazon.com/ARG/latest/APIReference/API_UpdateGroup.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/arguide/ar-user-tags.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/arguide/existing-customer-usecases.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/arguide/supported-resource-types.html"
+      ],
+      "facts": [
+        "The precise Group.ApplicationTag schema uses key awsApplication and a RESOURCE-GROUPS ARN value containing group/<name>/<id>, not the separate servicecatalog application ARN. The existing-customer tutorial explicitly says the application group ARN is the awsApplication value; generic 'application ARN' guide wording must not be interpreted as a servicecatalog ARN.",
+        "For applications created after November 8, 2023, the tag is vended at creation; older applications receive it after first association. Retrieve its actual value from GetApplication.applicationTag rather than deriving it from the servicecatalog ARN.",
+        "For existing applications, AssociateResource does not automatically apply the tag unless options contains APPLY_APPLICATION_TAG. The tag is not retroactively applied to existing untagged resources.",
+        "S3 bucket, SQS queue and SSM parameter are explicitly listed supported application resource types. This is published eligibility, not successful native tagging evidence for this capture.",
+        "UpdateGroup documents mutable DisplayName, Owner and Criticality for modern application groups. The legacy AWS::AppRegistry::Application restriction must not be generalized into rejection of those documented modern application metadata updates."
+      ]
+    },
+    {
+      "area": "Direct GroupResources, UngroupResources and status observations",
+      "sources": [
+        "https://docs.aws.amazon.com/ARG/latest/APIReference/API_GroupResources.html",
+        "https://docs.aws.amazon.com/ARG/latest/APIReference/API_UngroupResources.html",
+        "https://docs.aws.amazon.com/ARG/latest/APIReference/API_ListGroupingStatuses.html",
+        "https://docs.aws.amazon.com/ARG/latest/APIReference/API_GroupingStatusesItem.html",
+        "https://docs.aws.amazon.com/ARG/latest/APIReference/API_ListGroupingStatusesFilter.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/arguide/existing-customer-usecases.html"
+      ],
+      "facts": [
+        "GroupResources supports AWS::ResourceGroups::ApplicationGroup, HostManagement and CapacityReservationPool. It does not list the legacy AWS::AppRegistry::Application group as a supported target.",
+        "Use the modern application group ARN from applicationTag to add arbitrary supported owner resources with GroupResources. The existing-customer tutorial explicitly documents this route.",
+        "Both grouping APIs accept 1..10 resource ARNs and have distinct Succeeded, Failed and Pending per-resource results. HTTP200 alone does not establish success, and Pending continues asynchronously.",
+        "ListGroupResources can observe asynchronous membership; a pending ungrouped resource eventually disappears if removal succeeds.",
+        "ListGroupingStatuses is specifically for application groups and reports the LAST grouping or ungrouping action for each resource, not an unlimited history. Actions GROUP/UNGROUP, states SUCCESS/FAILED/IN_PROGRESS/SKIPPED, UpdatedAt and error fields are documented. Filters status/resource-arn are case-sensitive and MaxResults is 1..50."
+      ],
+      "unobserved": "No successful Pending-to-terminal transition, tag timing, duplicate behavior, per-owner error, tag overwrite precedence, owner delete/recreate incarnation handling or status retention duration was observed."
+    },
+    {
+      "area": "Association, disassociation and deletion cleanup",
+      "sources": [
+        "https://docs.aws.amazon.com/servicecatalog/latest/APIReference/API_app-registry_AssociateResource.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/APIReference/API_app-registry_DisassociateResource.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/APIReference/API_app-registry_DeleteApplication.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/arguide/delete-app-details.html"
+      ],
+      "facts": [
+        "AppRegistry AssociateResource supports CFN_STACK and RESOURCE_TAG_VALUE, not arbitrary S3/SQS/SSM ARN types; arbitrary supported owners are managed using their application tag/application group.",
+        "AssociateResource options are APPLY_APPLICATION_TAG or SKIP_APPLICATION_TAG. Applying requires tag:GetResources, tag:TagResources and service-specific tagging permissions, with resource-groups:AssociateResource and cloudformation:UpdateStack/DescribeStacks additionally documented.",
+        "Removing an association that used APPLY_APPLICATION_TAG requires tag:GetResources, tag:UntagResources and owner tagging permissions, with resource-groups:DisassociateResource and cloudformation:UpdateStack/DescribeStacks additionally documented.",
+        "DeleteApplication API requires all associated resources and attribute groups to be disassociated first. The deletion guide also requires removing application tags from associated resources before deleting. Therefore automatic removal of all owner tags on DeleteApplication must not be inferred from deletion admission alone."
+      ],
+      "unobserved": "A real stack APPLY/SKIP association, subsequent disassociation/tag cleanup, deleting nonempty applications, and recreating same-name applications or owners remain blocked by account eligibility. No native outcome or error wording is claimed for those paths."
+    },
+    {
+      "area": "Current caller IAM, service-linked role and delegated tagging",
+      "sources": [
+        "https://docs.aws.amazon.com/service-authorization/latest/reference/list_service-catalog.html",
+        "https://servicereference.us-east-1.amazonaws.com/v1/servicecatalog/servicecatalog.json",
+        "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSServiceCatalogAppRegistryFullAccess.html",
+        "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSServiceCatalogAppRegistryServiceRolePolicy.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/arguide/slr-appregistry.html",
+        "https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/API_TagResources.html",
+        "https://docs.aws.amazon.com/servicecatalog/latest/arguide/app-tag-sync.html",
+        "https://docs.aws.amazon.com/ARG/latest/APIReference/API_StartTagSyncTask.html"
+      ],
+      "facts": [
+        "IAM prefix is servicecatalog, despite the SDK service name servicecatalog-appregistry. AssociateAttributeGroup authorizes both Application and AttributeGroup resource types. AssociateResource supports servicecatalog:Resource and servicecatalog:ResourceType condition keys; create supports aws:RequestTag/${TagKey} and aws:TagKeys.",
+        "AWSServiceCatalogAppRegistryFullAccess default v7 was edited August 12, 2026. CFN UpdateStack/tag:GetResources and RG managed-group integration permissions are conditioned on aws:CalledVia including servicecatalog-appregistry.amazonaws.com. CFN TagResource/UntagResource additionally require cloudformation:CreateAction UpdateStack. This does not grant arbitrary owner tagging authority by itself.",
+        "AWSServiceRoleForAWSServiceCatalogAppRegistry trusts servicecatalog-appregistry.amazonaws.com and is automatically created on application create/update when needed. The caller must be allowed iam:CreateServiceLinkedRole for that service.",
+        "Its AWSServiceCatalogAppRegistryServiceRolePolicy default v4 permits RG create/tag with request tag EnableAWSServiceCatalogAppRegistry=true and update/delete/tag/untag with that resource tag. Removing this ownership tag can remove the service role's management authority; it is not an unconditional service-principal bypass.",
+        "RG tagging requires the service-specific owner tagging action in addition to tag:TagResources/tag:UntagResources. S3 tagging also requires s3:GetBucketTagging; the delegated tag-sync guide explicitly cites sqs:TagQueue for queue resources.",
+        "Tag-sync caller admission requires resource-groups:StartTagSyncTask on the application group, resource-groups:CreateGroup and iam:PassRole on the supplied role.",
+        "The tagging role trusts resource-groups.amazonaws.com for sts:AssumeRole and needs GroupResources/UngroupResources, tag:GetResources/TagResources/UntagResources plus each owner's tagging permissions. Source-tag additions/removals cause awsApplication additions/removals. Those delegated effects are distinct from the AppRegistry legacy service-linked role.",
+        "The tag-sync guide documents that some existing accounts need an UpdateApplication call to make an older application usable by tag-sync after GroupNotFound. This does not imply enabling account-wide GLE on an ineligible account."
+      ],
+      "unobserved": "No native role denial/revocation/PassRole or successful delegated tag effects were exercised because an eligible managed application could not be created. No account setting was changed to bypass the maintenance gate."
+    }
+  ],
+  "required_missing_prerequisite": "An authorized grandfathered AppRegistry account with successful exact-owned CreateApplication/CreateAttributeGroup admission is needed to capture the requested positive managed-group/owner-tag workflow. The current account provides reliable refusal, lookup/validation and audit evidence only."
+}

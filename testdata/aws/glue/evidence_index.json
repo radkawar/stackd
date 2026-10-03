@@ -1,0 +1,66 @@
+{
+  "captured_on": "2026-09-26",
+  "scope": "Bounded owned native AWS semantics in us-east-1, not complete Glue conformance",
+  "native_account_normalized": "123456789012",
+  "cli_version": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+  "source_revisions": {
+    "aws_sdk_go_v2": "113bc91bf12edc3af1d3aba1c70be28494d54c2a",
+    "primary_aws_docs": "Unversioned primary URLs and retrieval timestamps are recorded in each capture; the SDK/model revision above is an immutable reference revision."
+  },
+  "canonical_fixtures": {
+    "catalog_verified.json": {
+      "probe": "scripts/aws/glue_catalog_probe.py",
+      "consumer_kind": "catalog",
+      "recorded_calls": 54,
+      "elapsed_seconds": 42.933,
+      "observed": ["Database/table case-insensitive lookup and account/region scope", "Archived versions, SkipArchive and current-version deletion rejection", "Malformed-arity whole-batch rejection versus duplicate/missing per-item partial failures", "Partition filtering, pagination, parameter replacement and database recreation"]
+    },
+    "registry_complete.json": {
+      "probe": "scripts/aws/glue_registry_probe.py",
+      "consumer_kind": "registry",
+      "recorded_calls": 56,
+      "elapsed_seconds": 44.842,
+      "observed": ["AVRO/JSON/PROTOBUF validity and mandatory compatibility", "Canonical duplicate definitions and retained incompatible FAILURE versions", "Metadata multivalues, removal and partial version deletion errors"]
+    },
+    "registry_boundaries.json": {
+      "probe": "scripts/aws/glue_registry_boundaries_probe.py",
+      "consumer_kind": "registry-boundaries",
+      "recorded_calls": 20,
+      "elapsed_seconds": 23.478,
+      "observed": ["BACKWARD_ALL/FULL_ALL noncheckpoint deletion", "Failed-version duplicate identity", "LatestVersion selects AVAILABLE version rather than newer FAILURE"]
+    },
+    "controls_native.json": {
+      "probe": "scripts/aws/glue_controls_probe.py",
+      "consumer_kind": "controls",
+      "recorded_calls": 88,
+      "elapsed_seconds": 67.999,
+      "observed": ["CSV/JSON classifier replacement/versioning", "JDBC HidePassword field presence with all password values redacted", "Crawler admission and READY stop rejection, no crawler execution", "Workflow properties, ON_DEMAND trigger state/errors, security configuration validation and tags", "CreateJob idempotent exact duplicate versus changed-parameter rejection; UpdateJob replacement"]
+    },
+    "python_shell_metrics.json": {
+      "probe": "scripts/aws/glue_metrics_probe.py",
+      "recorded_calls": 3,
+      "elapsed_seconds": 3.011,
+      "observed": ["Exact owned JobName-filtered ListMetrics in Glue and AWS/Glue returned empty arrays; finite observation only, not permanent absence"],
+      "source_capture": "../athena/application_verified.json"
+    },
+    "../athena/application_verified.json": {
+      "probe": "scripts/aws/athena_application_probe.py",
+      "consumer": "scripts/aws/athena_fixture_consumer.py",
+      "observed": ["Actual Python shell 3.9 producer and deliberate failure", "Actual S3 input transformation, Glue catalog and Athena aggregate result bytes", "Current IAM/S3 denial, GetJobRun statistics, BatchStop partial errors and native EventBridge events"]
+    }
+  },
+  "consumer_command_example": "PYTHONPATH=scripts/aws python3 -P scripts/aws/glue_fixture_consumer.py --kind catalog --reference testdata/aws/glue/catalog_verified.json --actual LOCAL_CAPTURE.json",
+  "local_capture_command_example": "PYTHONPATH=scripts/aws python3 -P scripts/aws/glue_catalog_probe.py --endpoint-url http://127.0.0.1:PORT --output LOCAL_CAPTURE.json",
+  "verification_exercised": "All four Glue fixture-consumer invariant modes executed against canonical native captures. No assembled emulator replay, project tests, builds, lint or formatting performed by this owner.",
+  "preserved_earlier_captures": {
+    "catalog.json": "Failed after malformed batch prevented later partition creation; cleanup verified. Contains explicit mutable-input erratum.",
+    "catalog_complete.json": "Cleanup verified, but update-table-archive request description mutated after transmission in old recorder. Explicit erratum retained; do not use as authoritative request replay.",
+    "registry.json": "Omitted CreateSchema Compatibility rejected; cleanup verified.",
+    "controls.json": "Missing crawler DatabaseName; DeleteConnection CLI parameter bug left owned connection. Exact cleanup proven separately by controls_cleanup.json.",
+    "controls_cleanup.json": "Deletes only prior owned connection; GetConnection proves absence.",
+    "controls_complete.json": "Native crawler creation rejects nonexistent S3 bucket; all owned resources cleaned. Preserved native failure, not fake crawler success."
+  },
+  "owned_cleanup_complete": true,
+  "cleanup_scope": "Only unique owned names were read/deleted; no standing-resource scans, catalog encryption changes, crawler starts, Spark runs, EC2 guests or default log-group changes. Successful canonical cleanup and explicit recovery fixtures cover every created owned resource.",
+  "remaining_boundaries": ["No Spark/GlueContext profiling or full ETL runtime conformance", "No crawler execution, real JDBC connectivity, successful workflow data-plane execution, Lake Formation grants or KMS-encrypted connection password proof. ON_DEMAND StartTrigger pointed at a nonexistent job and may have created workflow-run metadata; no StartWorkflowRun call was made.", "No complete schema-language compatibility claim from small native samples", "No claim that native best-effort event delivery order/timing or missing metric delivery is contractual"]
+}

@@ -1,0 +1,149 @@
+{
+  "captured_at": "2026-09-27T09:05:43.853897+00:00",
+  "region": "us-east-1",
+  "account": "000000000000",
+  "safety": "No identities or account settings changed; only reserved invalid sender and AWS simulator recipients. No cleanup required.",
+  "calls": [
+    {
+      "label": "account",
+      "operation": "get-account",
+      "parameters": {},
+      "code": "Success",
+      "output": {
+        "DedicatedIpAutoWarmupEnabled": true,
+        "EnforcementStatus": "HEALTHY",
+        "ProductionAccessEnabled": false,
+        "SendQuota": {
+          "Max24HourSend": 200.0,
+          "MaxSendRate": 1.0,
+          "SentLast24Hours": 0.0
+        },
+        "SendingEnabled": true,
+        "SuppressionAttributes": {
+          "SuppressedReasons": [
+            "BOUNCE",
+            "COMPLAINT"
+          ]
+        },
+        "Details": {
+          "MailType": "TRANSACTIONAL",
+          "WebsiteURL": "https://www.deceptiq.com/",
+          "ContactLanguage": "EN",
+          "ReviewDetails": {
+            "Status": "DENIED",
+            "CaseId": "174813161700568"
+          }
+        },
+        "PricingAttributes": {
+          "CurrentPlan": "NONE"
+        }
+      }
+    },
+    {
+      "label": "unverified-sender",
+      "operation": "send-email",
+      "parameters": {
+        "FromEmailAddress": "stackd-probe@example.invalid",
+        "Destination": {
+          "ToAddresses": [
+            "success@simulator.amazonses.com"
+          ]
+        },
+        "Content": {
+          "Simple": {
+            "Subject": {
+              "Data": "stackd validation probe"
+            },
+            "Body": {
+              "Text": {
+                "Data": "Not delivered: unverified reserved invalid sender."
+              }
+            }
+          }
+        }
+      },
+      "code": "MessageRejected",
+      "error": {
+        "Message": "Email address is not verified. The following identities failed the check in region US-EAST-1: stackd-probe@example.invalid",
+        "Code": "MessageRejected"
+      }
+    },
+    {
+      "label": "malformed-address",
+      "operation": "send-email",
+      "parameters": {
+        "FromEmailAddress": "stackd-probe@example.invalid",
+        "Destination": {
+          "ToAddresses": [
+            "not-an-address"
+          ]
+        },
+        "Content": {
+          "Simple": {
+            "Subject": {
+              "Data": "stackd validation probe"
+            },
+            "Body": {
+              "Text": {
+                "Data": "Not delivered: unverified reserved invalid sender."
+              }
+            }
+          }
+        }
+      },
+      "code": "BadRequestException",
+      "error": {
+        "Message": "Missing final '@domain'",
+        "Code": "BadRequestException"
+      }
+    },
+    {
+      "label": "empty-body",
+      "operation": "send-email",
+      "parameters": {
+        "FromEmailAddress": "stackd-probe@example.invalid",
+        "Destination": {
+          "ToAddresses": [
+            "success@simulator.amazonses.com"
+          ]
+        },
+        "Content": {
+          "Simple": {
+            "Subject": {
+              "Data": "validation"
+            },
+            "Body": {}
+          }
+        }
+      },
+      "code": "BadRequestException",
+      "error": {
+        "Message": "Value null at both body.text and body.html.",
+        "Code": "BadRequestException"
+      }
+    },
+    {
+      "label": "missing-template",
+      "operation": "send-email",
+      "parameters": {
+        "FromEmailAddress": "stackd-probe@example.invalid",
+        "Destination": {
+          "ToAddresses": [
+            "success@simulator.amazonses.com"
+          ]
+        },
+        "Content": {
+          "Template": {
+            "TemplateName": "stackd-never-created-validation-template",
+            "TemplateData": "{}"
+          }
+        }
+      },
+      "code": "MessageRejected",
+      "error": {
+        "Message": "Email address is not verified. The following identities failed the check in region US-EAST-1: stackd-probe@example.invalid",
+        "Code": "MessageRejected"
+      }
+    }
+  ]
+}

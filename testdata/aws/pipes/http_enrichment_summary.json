@@ -1,0 +1,104 @@
+{
+  "schema": "stackd-native-pipes-http-enrichment-summary-v1",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "actor": "arn:aws:iam::000000000000:user/Delegated",
+  "captures": [
+    {
+      "path": "testdata/aws/pipes/http_enrichment.json",
+      "sha256": "a8e3bf989f45671b091e2afa61c1b1e9a49e89f74dd1f46332faebbba8c04e87",
+      "prefix": "stackd-phe-a5a0870a736c",
+      "result": "Native CreatePipe rejected BatchSize 2; failed-before evidence retained.",
+      "cleanup_complete": true,
+      "cleanup_finished_at": "2026-10-01T03:15:53.842979+00:00"
+    },
+    {
+      "path": "testdata/aws/pipes/http_enrichment_delivery.json",
+      "sha256": "39ba265798e9af9c0a36d6aa3d05ae39211e159914d20a43784b8f4bceecbdea",
+      "prefix": "stackd-phe-b47daa2f754b",
+      "result": "Native BatchSize 1 admitted; real HTTPS endpoint transformed source data and downstream SQS messages were received.",
+      "cleanup_complete": true,
+      "cleanup_finished_at": "2026-10-01T03:24:34.144148+00:00"
+    }
+  ],
+  "probe": {
+    "path": "scripts/aws/pipes_http_enrichment_probe.py",
+    "current_sha256": "25b4db424ce2cd89d8847c539a034a62392d25b7867d2299a7108210a5e91cd0",
+    "source_version_note": "The first run used BatchSize 2; the delivery run used BatchSize 1. After starting the delivery run, the helper was improved to allow expired-inventory cleanup-only execution, record its source hash in future captures, and preserve repeated observation windows rather than replacing their summary. Raw calls/messages in retained captures are unchanged. The current helper hash is not claimed as either historical execution source hash.",
+    "deployment_archive_sha256": [
+      "5c691d546f64c36ba35f4cf37605148325af495e223edd2d02516a8f9d3ef29e",
+      "d4ad61986af3e856e8d1d518def86e499e094f74fcca0f8a920877bd6fa0d2ea"
+    ]
+  },
+  "observed": [
+    {
+      "contract": "API destination enrichment is non-batchable at admission.",
+      "evidence": "CreatePipe BatchSize=2 returned ValidationException: The configured batch size 2 is greater than the max supported batch size 1 for enrichment api-destination. BatchSize=1 succeeded in the delivery capture."
+    },
+    {
+      "contract": "API destination request body is a scalar record, not the Lambda-style one-element batch array.",
+      "evidence": "Audited initial HTTPS payloads are SQS record objects containing messageId/body/attributes/eventSource; InputTemplate later yields a scalar transformed object."
+    },
+    {
+      "contract": "Nonempty object and one-item array JSON responses both reach SQS as scalar transformed objects.",
+      "evidence": "HTTP object response {marker,calculated:31,upper:OWNED-NATIVE} reached target unchanged. HTTP response [{marker,calculated:38,upper:OWNED-NATIVE}] reached target as its scalar element. Calculation is input number*7+3 and text uppercase, not an echo."
+    },
+    {
+      "contract": "Empty array and empty object response cases produced no downstream message during bounded observation.",
+      "evidence": "Endpoint audited status200 response bodies [] and {}. No associated target messages in each 20-second window or later retained messages. This supports the documented enrichment filtering contract without claiming permanent absence from bounded observation."
+    },
+    {
+      "contract": "Enrichment dynamic header/path/query values use pre-template source data; connection header/query values win collisions.",
+      "evidence": "The dynamic request body contained route=template-route/query=template-query. Actual path was /capture/original-route, query was shared=connection&dynamic=original-query, x-dynamic header was original-route, and x-shared header was connection. HttpParameters supplied x-dynamic=$.body.route, path=$.body.route, dynamic query=$.body.query, and pipe values for both shared collisions.",
+      "documentation_difference": "The current AWS targets page excludes PipeEnrichmentHttpParameters.HeaderParameters from dynamic syntax, but this native enrichment wire sample resolves it. No assertion is made about target HttpParameters behavior."
+    },
+    {
+      "contract": "Explicit empty HttpParameters clears persisted enrichment fields.",
+      "evidence": "UpdatePipe EnrichmentParameters={InputTemplate:...,HttpParameters:{}} read back HttpParameters={}. Subsequent update containing only InputTemplate still read back HttpParameters={}. No HTTPS invocation or target observed in either subsequent 45-second window while the endpoint retained a wildcard.",
+      "boundary": "Omitting HttpParameters directly from a nonempty configuration was not measured; the omission sample follows an explicit clear."
+    },
+    {
+      "contract": "Current role/connection authority changes were exercised with bounded downstream evidence.",
+      "evidence": "An exact-resource explicit Deny on events:InvokeApiDestination was added to the current owned pipe role; after15s, role-denied marker produced no endpoint or target observation in25s. Removing Deny did not recover that same marker within70s. Wrong connection API key then yielded no endpoint audit or target in20s. Restoring the key and sending a fresh connection-recovered marker produced an audited status200 transformed response and downstream scalar SQS object.",
+      "boundary": "Fresh-marker recovery under the restored role/key is measured; same-message role/connection retry recovery is not. The API-key rejection path deliberately does not write audit messages. No native service-linked-role policy mutation was performed."
+    },
+    {
+      "contract": "HTTP503 response was not forwarded as successful enrichment.",
+      "evidence": "Endpoint audited one HTTP503 attempt with Retry-After=1 and transformed JSON body. No target was observed within35s.",
+      "boundary": "No second attempt observed in35s, so retry timing/count/recovery is unmeasured; this is not evidence that AWS never retries503."
+    }
+  ],
+  "cleanup": {
+    "scope": "Only exact persisted owned identifiers were deleted; existing API-destination service-linked role was checked but not changed.",
+    "absence_verified_for_each_capture": [
+      "Pipe via DescribePipe NotFoundException",
+      "API destination via DescribeApiDestination ResourceNotFoundException",
+      "Connection via DescribeConnection ResourceNotFoundException",
+      "Lambda function via GetFunction ResourceNotFoundException",
+      "Function URL via GetFunctionUrlConfig ResourceNotFoundException",
+      "Connection-managed secret via DescribeSecret ResourceNotFoundException",
+      "Both owned IAM roles via GetRole NoSuchEntity",
+      "Source, target, audit queues via GetQueueUrl AWS.SimpleQueueService.NonExistentQueue"
+    ],
+    "public_exposure": "Ethics-reviewed short-lived Function URL AuthType NONE with 256-bit application API key, handler expiry, reserved concurrency1, timeout3s, memory128MB, and only exact audit SQS SendMessage permission. URL deleted before Pipe teardown; credentials/key redacted from persisted captures. No live public endpoint remains."
+  },
+  "unmeasured_boundaries": [
+    "Handler retained only x-shared, x-dynamic, x-template and content-type request headers. Range and Accept-Encoding were not retained and are NOT native observations in these captures.",
+    "No native evidence about six-MiB response boundary, Range first-MiB interaction, compression, large payloads, timeouts, redirects or private network behavior.",
+    "No multi-item response-array fanout observation; successful arrays contained one result.",
+    "The two-source-message batch-array send produced one observed audit/target pair in75s; delivery of the other source marker was not observed and is not claimed.",
+    "Empty string, null, scalar string/number and malformed JSON response cases were not measured.",
+    "No OAuth/BASIC authentication, concurrency scaling, service-linked secret policy mutation, durable retry count or terminal DLQ calibration.",
+    "No CloudTrail data trail was created; raw native calls, endpoint audit SQS messages and target SQS messages are the execution evidence.",
+    "No additional resource set was provisioned after the two retained runs."
+  ],
+  "primary_sources": [
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/pipes-enrichment.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-event-target.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-batching-concurrency.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-input-transformation.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-api-destinations.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/pipes-reference/API_PipeEnrichmentHttpParameters.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html"
+  ]
+}

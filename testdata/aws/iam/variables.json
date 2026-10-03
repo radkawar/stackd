@@ -1,0 +1,531 @@
+{
+  "provenance": {
+    "source": "AWS IAM SimulateCustomPolicy",
+    "observedAt": "2026-09-11T08:55:56.721999+00:00",
+    "region": "us-east-1",
+    "endpoint": "https://iam.amazonaws.com",
+    "client": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+    "authorization": "User authorized read-only behavior testing with real AWS credentials. No resources created or changed.",
+    "scope": "Offline replay compares only EvalDecision for these exact custom policy, action, resource, and context inputs. MissingContextValues are retained as observations, not asserted as evaluator diagnostics. This does not establish general IAM parity.",
+    "documentation": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html",
+    "contextEligibility": "String condition probes use s3:ExistingObjectTag/owner for s3:GetObject; interpolation uses aws:PrincipalTag keys. Diagnostic probes using unrelated s3:prefix or fabricated test:* keys were excluded because service-context eligibility is outside policy-template evaluation.",
+    "command": [
+      "aws",
+      "iam",
+      "simulate-custom-policy",
+      "--region",
+      "us-east-1",
+      "--endpoint-url",
+      "https://iam.amazonaws.com",
+      "--policy-input-list",
+      "<policy JSON>",
+      "--action-names",
+      "<request.action>",
+      "--resource-arns",
+      "<request.resource>",
+      "--context-entries",
+      "<request.context entries with ContextKeyType string>",
+      "--output",
+      "json",
+      "--no-cli-pager"
+    ],
+    "commandNote": "The --context-entries argument is omitted when request.context is empty. Each recorded context value uses ContextKeyType string."
+  },
+  "scenarios": [
+    {
+      "name": "missing_resource",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::example/${aws:username}/*"
+        },
+        "Version": "2012-10-17"
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/alice/file",
+        "context": {}
+      },
+      "expectedDecision": "implicitDeny",
+      "observedMissingContextValues": [
+        "aws:username"
+      ]
+    },
+    {
+      "name": "missing_notresource_excludes_nothing",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "NotResource": "arn:aws:s3:::example/${aws:username}/*"
+        },
+        "Version": "2012-10-17"
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/alice/file",
+        "context": {}
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "resource_variable_literal_wildcard",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::example/${aws:PrincipalTag/team}/*"
+        },
+        "Version": "2012-10-17"
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/anything/file",
+        "context": {
+          "aws:PrincipalTag/team": [
+            "*"
+          ]
+        }
+      },
+      "expectedDecision": "implicitDeny",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "resource_variable_literal_wildcard_matches_literal",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::example/${aws:PrincipalTag/team}/*"
+        },
+        "Version": "2012-10-17"
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/*/file",
+        "context": {
+          "aws:PrincipalTag/team": [
+            "*"
+          ]
+        }
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "default_missing",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::example/${aws:PrincipalTag/team, 'company-wide'}/*"
+        },
+        "Version": "2012-10-17"
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/company-wide/file",
+        "context": {}
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "default_empty_value",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::example/${aws:PrincipalTag/team, 'company-wide'}/*"
+        },
+        "Version": "2012-10-17"
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/company-wide/file",
+        "context": {
+          "aws:PrincipalTag/team": [
+            ""
+          ]
+        }
+      },
+      "expectedDecision": "implicitDeny",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "legacy_variable_literal",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::example/${aws:username}/*"
+        },
+        "Version": "2008-10-17"
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/${aws:username}/file",
+        "context": {
+          "aws:username": [
+            "alice"
+          ]
+        }
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "missing_version_variable_literal",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::example/${aws:username}/*"
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/${aws:username}/file",
+        "context": {
+          "aws:username": [
+            "alice"
+          ]
+        }
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "special_literal_star",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::example/${*}/*"
+        },
+        "Version": "2012-10-17"
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/*/file",
+        "context": {}
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "special_literal_star_not_wildcard",
+      "policy": {
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::example/${*}/*"
+        },
+        "Version": "2012-10-17"
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/other/file",
+        "context": {}
+      },
+      "expectedDecision": "implicitDeny",
+      "observedMissingContextValues": [
+        "*"
+      ]
+    },
+    {
+      "name": "valid_arn_piece",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "ArnEquals": {
+              "aws:PrincipalArn": "arn:aws:iam::111111111111:role/${aws:PrincipalTag/team}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "aws:PrincipalArn": [
+            "arn:aws:iam::111111111111:role/Role"
+          ],
+          "aws:PrincipalTag/team": [
+            "Role"
+          ]
+        }
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "condition_string_variable",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "StringEquals": {
+              "s3:ExistingObjectTag/owner": "${aws:PrincipalTag/team}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "s3:ExistingObjectTag/owner": [
+            "value"
+          ],
+          "aws:PrincipalTag/team": [
+            "value"
+          ]
+        }
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "condition_variable_star_is_literal",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "StringLike": {
+              "s3:ExistingObjectTag/owner": "${aws:PrincipalTag/team}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "s3:ExistingObjectTag/owner": [
+            "value"
+          ],
+          "aws:PrincipalTag/team": [
+            "*"
+          ]
+        }
+      },
+      "expectedDecision": "implicitDeny",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "condition_variable_star_matches_literal",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "StringLike": {
+              "s3:ExistingObjectTag/owner": "${aws:PrincipalTag/team}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "s3:ExistingObjectTag/owner": [
+            "*"
+          ],
+          "aws:PrincipalTag/team": [
+            "*"
+          ]
+        }
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "condition_fallback_star_is_literal",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "StringLike": {
+              "s3:ExistingObjectTag/owner": "${aws:PrincipalTag/team, '*'}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "s3:ExistingObjectTag/owner": [
+            "value"
+          ]
+        }
+      },
+      "expectedDecision": "implicitDeny",
+      "observedMissingContextValues": [
+        "aws:PrincipalTag/team"
+      ]
+    },
+    {
+      "name": "condition_fallback_star_matches_literal",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "StringLike": {
+              "s3:ExistingObjectTag/owner": "${aws:PrincipalTag/team, '*'}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "s3:ExistingObjectTag/owner": [
+            "*"
+          ]
+        }
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "condition_variable_missing_positive",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "StringLike": {
+              "s3:ExistingObjectTag/owner": "prefix-${aws:PrincipalTag/team}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "s3:ExistingObjectTag/owner": [
+            "prefix-"
+          ]
+        }
+      },
+      "expectedDecision": "implicitDeny",
+      "observedMissingContextValues": [
+        "aws:PrincipalTag/team"
+      ]
+    },
+    {
+      "name": "condition_variable_missing_negative",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "StringNotLike": {
+              "s3:ExistingObjectTag/owner": "prefix-${aws:PrincipalTag/team}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "s3:ExistingObjectTag/owner": [
+            "prefix-"
+          ]
+        }
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "condition_empty_variable",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "StringEquals": {
+              "s3:ExistingObjectTag/owner": "${aws:PrincipalTag/team}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "s3:ExistingObjectTag/owner": [
+            ""
+          ],
+          "aws:PrincipalTag/team": [
+            ""
+          ]
+        }
+      },
+      "expectedDecision": "allowed",
+      "observedMissingContextValues": []
+    },
+    {
+      "name": "condition_empty_variable_no_fallback",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": {
+          "Effect": "Allow",
+          "Action": "s3:GetObject",
+          "Resource": "*",
+          "Condition": {
+            "StringEquals": {
+              "s3:ExistingObjectTag/owner": "${aws:PrincipalTag/team, 'fallback'}"
+            }
+          }
+        }
+      },
+      "request": {
+        "action": "s3:GetObject",
+        "resource": "arn:aws:s3:::example/file",
+        "context": {
+          "s3:ExistingObjectTag/owner": [
+            "fallback"
+          ],
+          "aws:PrincipalTag/team": [
+            ""
+          ]
+        }
+      },
+      "expectedDecision": "implicitDeny",
+      "observedMissingContextValues": []
+    }
+  ]
+}

@@ -1,0 +1,636 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Local real-engine regression scenarios for independently admitted membership transitions and retained delivery after source deletion. Not a native concurrent-control timing claim.",
+  "steps": [
+    {
+      "name": "create-stackd-replication-transitions",
+      "operation": "CreateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "create-us-east-2-from-us-east-1",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-east-2",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "create-us-west-1-from-us-east-1",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-west-1"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "create-us-west-2-from-us-east-2",
+      "operation": "UpdateTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-west-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-east-2",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-west-1",
+      "operation": "DescribeTable",
+      "region": "us-west-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-west-2",
+      "operation": "DescribeTable",
+      "region": "us-west-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "write-through-joined-member",
+      "operation": "PutItem",
+      "region": "us-west-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "Item": {
+          "pk": {
+            "S": "joined"
+          },
+          "value": {
+            "S": "four-members"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "joined-write-us-east-1",
+      "operation": "GetItem",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "Key": {
+          "pk": {
+            "S": "joined"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item.value.S": "four-members"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "joined-write-us-east-2",
+      "operation": "GetItem",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "Key": {
+          "pk": {
+            "S": "joined"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item.value.S": "four-members"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "joined-write-us-west-1",
+      "operation": "GetItem",
+      "region": "us-west-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "Key": {
+          "pk": {
+            "S": "joined"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item.value.S": "four-members"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "joined-write-us-west-2",
+      "operation": "GetItem",
+      "region": "us-west-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "Key": {
+          "pk": {
+            "S": "joined"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item.value.S": "four-members"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-us-west-1-from-us-east-1",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "25h",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-west-1"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "delete-us-west-2-from-us-east-2",
+      "operation": "UpdateTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-west-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "absent-stackd-replication-transitions-us-west-1",
+      "operation": "DescribeTable",
+      "region": "us-west-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "absent-stackd-replication-transitions-us-west-2",
+      "operation": "DescribeTable",
+      "region": "us-west-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-east-2",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-us-east-2-from-us-east-1",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "absent-stackd-replication-transitions-us-east-2",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "ready-stackd-replication-transitions-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-transition-source",
+      "operation": "DeleteTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {}
+    },
+    {
+      "name": "absent-stackd-replication-transitions-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-transitions"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "create-stackd-replication-retirement",
+      "operation": "CreateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "ready-stackd-replication-retirement-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "create-us-east-2-from-us-east-1",
+      "operation": "UpdateTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "ready-stackd-replication-retirement-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ready-stackd-replication-retirement-us-east-2",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "block-survivor-before-source-deletion",
+      "operation": "PutResourcePolicy",
+      "region": "us-east-2",
+      "advance": "25h",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-retirement",
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"arn:aws:iam::000000000000:role/aws-service-role/replication.dynamodb.amazonaws.com/AWSServiceRoleForDynamoDBReplication\"},\"Action\":\"dynamodb:PutItem\",\"Resource\":\"arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-retirement\"}]}"
+      },
+      "want": {}
+    },
+    {
+      "name": "accepted-final-source-write",
+      "operation": "PutItem",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement",
+        "Item": {
+          "pk": {
+            "S": "final"
+          },
+          "value": {
+            "S": "must-survive-source"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "survivor-reports-blocked-delivery",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {
+        "Table.Replicas.0.ReplicaStatus": "REPLICATION_NOT_AUTHORIZED"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-source-with-retained-backlog",
+      "async": true,
+      "operation": "DeleteTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {}
+    },
+    {
+      "name": "source-deletion-awaits-survivor",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {
+        "Table.TableStatus": "DELETING"
+      }
+    },
+    {
+      "name": "repair-survivor-after-source-deletion",
+      "operation": "DeleteResourcePolicy",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-retirement"
+      },
+      "want": {}
+    },
+    {
+      "name": "survivor-receives-final-source-write",
+      "operation": "GetItem",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement",
+        "Key": {
+          "pk": {
+            "S": "final"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item.value.S": "must-survive-source"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "absent-stackd-replication-retirement-us-east-1",
+      "operation": "DescribeTable",
+      "region": "us-east-1",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "survivor-demotes-only-after-delivery",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-retirement-survivor",
+      "operation": "DeleteTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {}
+    },
+    {
+      "name": "absent-stackd-replication-retirement-us-east-2",
+      "operation": "DescribeTable",
+      "region": "us-east-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replication-retirement"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    }
+  ]
+}

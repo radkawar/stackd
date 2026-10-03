@@ -1,0 +1,34 @@
+{
+  "source": "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/master/docs/iam-policy.md",
+  "cases": [
+    {
+      "name": "subnet VPC deny overrides broad allow",
+      "policy": {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"ec2:CreateNetworkInterface","Resource":"*"},{"Effect":"Deny","Action":"ec2:CreateNetworkInterface","Resource":"arn:aws:ec2:*:*:subnet/*","Condition":{"ArnEquals":{"ec2:Vpc":"$ALLOWED_VPC_ARN"}}}]},
+      "input": {"SubnetId":"$ALLOWED_SUBNET"},
+      "error": "UnauthorizedOperation"
+    },
+    {
+      "name": "resolved default group retains its VPC deny",
+      "policy": {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"ec2:CreateNetworkInterface","Resource":"*"},{"Effect":"Deny","Action":"ec2:CreateNetworkInterface","Resource":"arn:aws:ec2:*:*:security-group/*","Condition":{"ArnEquals":{"ec2:Vpc":"$ALLOWED_VPC_ARN"}}}]},
+      "input": {"SubnetId":"$ALLOWED_SUBNET"},
+      "error": "UnauthorizedOperation"
+    },
+    {
+      "name": "scoped CNI dependency allow creates interface",
+      "policy": {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"ec2:CreateNetworkInterface","Resource":"arn:aws:ec2:*:*:network-interface/*"},{"Effect":"Allow","Action":"ec2:CreateNetworkInterface","Resource":["arn:aws:ec2:*:*:subnet/*","arn:aws:ec2:*:*:security-group/*"],"Condition":{"ArnEquals":{"ec2:Vpc":"$ALLOWED_VPC_ARN"}}}]},
+      "input": {"SubnetId":"$ALLOWED_SUBNET"}
+    },
+    {
+      "name": "scoped dependency allow cannot cross VPC",
+      "policy": {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"ec2:CreateNetworkInterface","Resource":"arn:aws:ec2:*:*:network-interface/*"},{"Effect":"Allow","Action":"ec2:CreateNetworkInterface","Resource":["arn:aws:ec2:*:*:subnet/*","arn:aws:ec2:*:*:security-group/*"],"Condition":{"ArnEquals":{"ec2:Vpc":"$ALLOWED_VPC_ARN"}}}]},
+      "input": {"SubnetId":"$FOREIGN_SUBNET"},
+      "error": "UnauthorizedOperation"
+    },
+    {
+      "name": "foreign group authorization uses its own VPC",
+      "policy": {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"ec2:CreateNetworkInterface","Resource":"*"},{"Effect":"Deny","Action":"ec2:CreateNetworkInterface","Resource":"arn:aws:ec2:*:*:security-group/*","Condition":{"ArnEquals":{"ec2:Vpc":"$FOREIGN_VPC_ARN"}}}]},
+      "input": {"SubnetId":"$ALLOWED_SUBNET","Groups":["$FOREIGN_GROUP"]},
+      "error": "UnauthorizedOperation"
+    }
+  ]
+}

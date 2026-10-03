@@ -1,0 +1,2180 @@
+{
+  "source": "Native AWS captures; retained consumer documents, not emulator-generated expectations",
+  "sources": [
+    {
+      "file": "/tmp/stackd-native-alarm-delivery.json",
+      "source": "Native AWS via scripts/aws/aws_cli.py run/result(debug=True)"
+    },
+    {
+      "file": "/tmp/stackd-native-alarm-suppressed-actions.json",
+      "source": "Native AWS using scripts/aws/aws_cli.py"
+    }
+  ],
+  "primary_references": [
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-actions-Lambda.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-and-eventbridge.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_SetAlarmState.html",
+    "clones/aws-sdk-go-v2/codegen/sdk-codegen/aws-models/cloudwatch.json"
+  ],
+  "account": "123456789012",
+  "normalization": "Only account 123456789012 is replaced with 123456789012 in retained requests and documents. Capture indexes identify zero-based observations/calls. Runtime replay uses the account returned by its IAM role API and Python 3.12 instead of the metric capture Python 3.13.",
+  "limitations": [
+    "No automatic CLI retries or pagination. Explicit recovery recreated the same role three times and same Lambda/alarm/rule/queue identities twice after deletion; never more than one of each existed concurrently. Transport failures are not AWS semantic evidence.",
+    "No PutMetricData calls; zero intentional retained custom metric points. Lambda publishes normal AWS service metrics, which have no deletion API.",
+    "Negative action observations are bounded windows, not a universal proof about arbitrarily delayed delivery. Final alarm history contains one missing-permission failure and two intended successes. Collected log pages contain two unique handler events.",
+    "Observed SQS receive order was not alarm transition order; consumers must not assume ordering or exactly-once delivery from this sample.",
+    "Alarm history includes initial recovered creation/deletion and final workflow because CloudWatch retained history across deleting and recreating the same alarm name.",
+    "Only same-account unqualified Python Lambda actions tested; wrong-source policies, qualified aliases/versions, cross-account delivery, Lambda handler errors and retry behavior not exercised.",
+    "All absence verifications succeeded; an API not-found result in cleanup verification is expected evidence of absence rather than failed cleanup.",
+    "The final unpaginated FilterLogEvents request returned an empty page with nextToken, despite earlier requests capturing both real handler events. No pagination was performed, as required; use logs_enabled_ok and logs_enabled_alarm as invocation payload evidence, not final_lambda_logs. Log capture is not an exhaustive stream inventory.",
+    "Composite source EventBridge rule selected state changes only, so this fixture does not claim composite configuration-event evidence.",
+    "Composite handler records are actual FilterLogEvents stdout payloads. WaitPeriod and ExtensionPeriod release retained equal ALARM values with suppression phase in previousState.",
+    "Native wall-clock receive order/latency is not a scheduling guarantee. Replay separates one-second composite notification ticks from independent configured five-second suppression deadlines.",
+    "Comparisons preserve field presence, JSON-string reasonData and parsed structured data; generated prose, opaque IDs, and absolute wall-clock timestamps are not golden strings. Timestamp equality/order is checked per semantic field, without equating child mutation time with delayed composite processing time.",
+    "Action failure prose is retained as evidence but compared as a nonempty error, not a stable AWS wording contract. Action timestamp relations and null fields remain significant."
+  ],
+  "scenarios": [
+    {
+      "name": "permission_and_configuration",
+      "alarm_name": "stackd-native-alarm-delivery-4b416420a7",
+      "alarm_type": "MetricAlarm",
+      "log_prefix": "STACKD_ALARM_EVENT ",
+      "setup": [
+        {
+          "capture_index": 22,
+          "label": "create_owned_execution_role",
+          "service": "iam",
+          "operation": "create-role",
+          "input": {
+            "RoleName": "stackd-native-alarm-delivery-4b416420a7",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"lambda.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}",
+            "Description": "Owned short-lived CloudWatch alarm delivery native probe"
+          }
+        },
+        {
+          "capture_index": 23,
+          "label": "create_owned_lambda_log_group",
+          "service": "logs",
+          "operation": "create-log-group",
+          "input": {
+            "logGroupName": "/aws/lambda/stackd-native-alarm-delivery-4b416420a7"
+          }
+        },
+        {
+          "capture_index": 24,
+          "label": "attach_minimum_owned_log_permissions",
+          "service": "iam",
+          "operation": "put-role-policy",
+          "input": {
+            "RoleName": "stackd-native-alarm-delivery-4b416420a7",
+            "PolicyName": "stackd-native-alarm-delivery-4b416420a7",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": \"arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/stackd-native-alarm-delivery-4b416420a7:*\"}]}"
+          }
+        },
+        {
+          "capture_index": 25,
+          "label": "create_owned_event_queue",
+          "service": "sqs",
+          "operation": "create-queue",
+          "input": {
+            "QueueName": "stackd-native-alarm-delivery-4b416420a7",
+            "Attributes": {
+              "MessageRetentionPeriod": "3600"
+            }
+          }
+        },
+        {
+          "capture_index": 27,
+          "label": "create_exact_alarm_event_rule",
+          "service": "events",
+          "operation": "put-rule",
+          "input": {
+            "Name": "stackd-native-alarm-delivery-4b416420a7",
+            "EventPattern": "{\"source\": [\"aws.cloudwatch\"], \"resources\": [\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7\"], \"detail\": {\"alarmName\": [\"stackd-native-alarm-delivery-4b416420a7\"]}}",
+            "State": "ENABLED",
+            "Description": "Owned native probe exact alarm only"
+          }
+        },
+        {
+          "capture_index": 28,
+          "label": "scope_queue_permission_to_owned_rule",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-native-alarm-delivery-4b416420a7",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedEventBridgeOnly\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-native-alarm-delivery-4b416420a7\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/stackd-native-alarm-delivery-4b416420a7\"}, \"StringEquals\": {\"aws:SourceAccount\": \"123456789012\"}}}]}"
+            }
+          }
+        },
+        {
+          "capture_index": 29,
+          "label": "target_owned_queue",
+          "service": "events",
+          "operation": "put-targets",
+          "input": {
+            "Rule": "stackd-native-alarm-delivery-4b416420a7",
+            "Targets": [
+              {
+                "Id": "OwnedAlarmQueue",
+                "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-native-alarm-delivery-4b416420a7"
+              }
+            ]
+          }
+        },
+        {
+          "capture_index": 30,
+          "label": "create_owned_real_lambda",
+          "service": "lambda",
+          "operation": "create-function",
+          "input": {
+            "FunctionName": "stackd-native-alarm-delivery-4b416420a7",
+            "Runtime": "python3.13",
+            "Role": "arn:aws:iam::123456789012:role/stackd-native-alarm-delivery-4b416420a7",
+            "Handler": "handler.handler",
+            "Code": {
+              "ZipFile": "UEsDBBQAAAAIAEE1Ll2LZmSJjQAAAKMAAAAKAAAAaGFuZGxlci5weTXMywrCMBCF4X2fYphVg8UHCHQRtCsvCw1uS2lGrLVJmEyLIr67teDZncX/dUMMLHBPwWeOrnBrvHsQ5zSRlwLa4IWeonQG8yJ3XnI8W7PZbWuzN6dDXV2qowWE1WKs3TjE9K/TTNc9vVJpeaT5U2y4kcCpzLHAAlCjUmqxmWRkD29kaqmbyKGGX/XJvlBLAQIUAxQAAAAIAEE1Ll2LZmSJjQAAAKMAAAAKAAAAAAAAAAAAAACAAQAAAABoYW5kbGVyLnB5UEsFBgAAAAABAAEAOAAAALUAAAAAAA=="
+            },
+            "Description": "Owned native CloudWatch alarm action payload capture",
+            "Timeout": 3,
+            "MemorySize": 128,
+            "Publish": false
+          }
+        }
+      ],
+      "steps": [
+        {
+          "call": {
+            "capture_index": 32,
+            "label": "create_alarm_without_lambda_resource_permission",
+            "service": "cloudwatch",
+            "operation": "put-metric-alarm",
+            "input": {
+              "AlarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "AlarmDescription": "native delivery initial configuration",
+              "ActionsEnabled": true,
+              "AlarmActions": [
+                "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+              ],
+              "OKActions": [
+                "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+              ],
+              "Namespace": "Stackd/NativeAlarmDelivery",
+              "MetricName": "UnpublishedValue",
+              "Dimensions": [
+                {
+                  "Name": "Probe",
+                  "Value": "stackd-native-alarm-delivery-4b416420a7"
+                }
+              ],
+              "Statistic": "Average",
+              "Period": 60,
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore"
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            1
+          ],
+          "payloads": [],
+          "history": []
+        },
+        {
+          "call": {
+            "capture_index": 34,
+            "label": "missing_permission_transition_alarm",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "StateValue": "ALARM",
+              "StateReason": "missing_permission_transition_alarm",
+              "StateReasonData": "{\"probe\":\"missing_permission_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}"
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            0
+          ],
+          "payloads": [],
+          "history": [
+            0
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 42,
+            "label": "allow_exact_alarm_lambda_invocation",
+            "service": "lambda",
+            "operation": "add-permission",
+            "input": {
+              "FunctionName": "stackd-native-alarm-delivery-4b416420a7",
+              "StatementId": "OwnedAlarmAction",
+              "Action": "lambda:InvokeFunction",
+              "Principal": "lambda.alarms.cloudwatch.amazonaws.com",
+              "SourceAccount": "123456789012",
+              "SourceArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            }
+          },
+          "advance_ms": 0,
+          "events": [],
+          "payloads": [],
+          "history": [
+            0
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 43,
+            "label": "disable_actions",
+            "service": "cloudwatch",
+            "operation": "disable-alarm-actions",
+            "input": {
+              "AlarmNames": [
+                "stackd-native-alarm-delivery-4b416420a7"
+              ]
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            4
+          ],
+          "payloads": [],
+          "history": [
+            0
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 44,
+            "label": "disabled_transition_ok",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "StateValue": "OK",
+              "StateReason": "disabled_transition_ok",
+              "StateReasonData": "{\"probe\":\"disabled_transition_ok\",\"nested\":{\"number\":7,\"enabled\":true}}"
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            3
+          ],
+          "payloads": [],
+          "history": [
+            0
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 45,
+            "label": "disabled_transition_alarm",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "StateValue": "ALARM",
+              "StateReason": "disabled_transition_alarm",
+              "StateReasonData": "{\"probe\":\"disabled_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}"
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            2
+          ],
+          "payloads": [],
+          "history": [
+            0
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 53,
+            "label": "reenable_actions_without_transition",
+            "service": "cloudwatch",
+            "operation": "enable-alarm-actions",
+            "input": {
+              "AlarmNames": [
+                "stackd-native-alarm-delivery-4b416420a7"
+              ]
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            5
+          ],
+          "payloads": [],
+          "history": [
+            0
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 60,
+            "label": "enabled_same_state_new_reason",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "StateValue": "ALARM",
+              "StateReason": "enabled_same_state_new_reason",
+              "StateReasonData": "{\"probe\":\"enabled_same_state_new_reason\",\"nested\":{\"number\":7,\"enabled\":true}}"
+            }
+          },
+          "advance_ms": 0,
+          "events": [],
+          "payloads": [],
+          "history": [
+            0
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 65,
+            "label": "enabled_transition_ok",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "StateValue": "OK",
+              "StateReason": "enabled_transition_ok",
+              "StateReasonData": "{\"probe\":\"enabled_transition_ok\",\"nested\":{\"number\":7,\"enabled\":true}}"
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            6
+          ],
+          "payloads": [
+            0
+          ],
+          "history": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 72,
+            "label": "enabled_transition_alarm",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "StateValue": "ALARM",
+              "StateReason": "enabled_transition_alarm",
+              "StateReasonData": "{\"probe\":\"enabled_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}"
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            7
+          ],
+          "payloads": [
+            0,
+            1
+          ],
+          "history": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 79,
+            "label": "update_existing_alarm_configuration",
+            "service": "cloudwatch",
+            "operation": "put-metric-alarm",
+            "input": {
+              "AlarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "AlarmDescription": "native delivery updated configuration",
+              "ActionsEnabled": true,
+              "AlarmActions": [
+                "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+              ],
+              "OKActions": [
+                "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+              ],
+              "Namespace": "Stackd/NativeAlarmDelivery",
+              "MetricName": "UnpublishedValue",
+              "Dimensions": [
+                {
+                  "Name": "Probe",
+                  "Value": "stackd-native-alarm-delivery-4b416420a7"
+                }
+              ],
+              "Statistic": "Average",
+              "Period": 60,
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 20,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore"
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            8
+          ],
+          "payloads": [
+            0,
+            1
+          ],
+          "history": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 85,
+            "label": "delete_alarm_for_event_capture",
+            "service": "cloudwatch",
+            "operation": "delete-alarms",
+            "input": {
+              "AlarmNames": [
+                "stackd-native-alarm-delivery-4b416420a7"
+              ]
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            9
+          ],
+          "payloads": [
+            0,
+            1
+          ],
+          "history": [
+            0,
+            1,
+            2
+          ]
+        }
+      ],
+      "events": [
+        {
+          "capture_index": 38,
+          "label": "events_creation_and_missing_permission_0",
+          "document": {
+            "version": "0",
+            "id": "1b82f0f6-8b4a-b8fb-b2c1-f1fed8d8a516",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:42:42Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "state": {
+                "value": "ALARM",
+                "reason": "missing_permission_transition_alarm",
+                "reasonData": "{\"probe\":\"missing_permission_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:42:42.142+0000"
+              },
+              "previousState": {
+                "value": "INSUFFICIENT_DATA",
+                "reason": "Unchecked: Initial alarm creation",
+                "timestamp": "2026-09-14T05:42:25.543+0000"
+              },
+              "configuration": {
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "description": "native delivery initial configuration"
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 40,
+          "label": "events_creation_and_missing_permission_1",
+          "document": {
+            "version": "0",
+            "id": "89f41474-6db8-2d9e-c7a4-2602c7e9031f",
+            "detail-type": "CloudWatch Alarm Configuration Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:42:25Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "operation": "create",
+              "state": {
+                "value": "INSUFFICIENT_DATA",
+                "timestamp": "2026-09-14T05:42:25.543+0000"
+              },
+              "configuration": {
+                "evaluationPeriods": 1,
+                "datapointsToAlarm": 1,
+                "threshold": 10,
+                "comparisonOperator": "GreaterThanThreshold",
+                "treatMissingData": "ignore",
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+                "description": "native delivery initial configuration",
+                "actionsEnabled": true,
+                "timestamp": "2026-09-14T05:42:25.543+0000",
+                "okActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "alarmActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "insufficientDataActions": []
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 49,
+          "label": "events_disabled_actions_0",
+          "document": {
+            "version": "0",
+            "id": "de4afe2e-3649-762c-358a-4023e6954385",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:43:17Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "state": {
+                "value": "ALARM",
+                "reason": "disabled_transition_alarm",
+                "reasonData": "{\"probe\":\"disabled_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:43:17.764+0000"
+              },
+              "previousState": {
+                "value": "OK",
+                "reason": "disabled_transition_ok",
+                "reasonData": "{\"probe\":\"disabled_transition_ok\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:43:16.885+0000"
+              },
+              "configuration": {
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "description": "native delivery initial configuration"
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 51,
+          "label": "events_disabled_actions_1",
+          "document": {
+            "version": "0",
+            "id": "0ef9deb4-6d74-5c4c-64b5-58901ceeefc1",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:43:16Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "state": {
+                "value": "OK",
+                "reason": "disabled_transition_ok",
+                "reasonData": "{\"probe\":\"disabled_transition_ok\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:43:16.885+0000"
+              },
+              "previousState": {
+                "value": "ALARM",
+                "reason": "missing_permission_transition_alarm",
+                "reasonData": "{\"probe\":\"missing_permission_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:42:42.142+0000"
+              },
+              "configuration": {
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "description": "native delivery initial configuration"
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 57,
+          "label": "events_reenable_no_transition_0",
+          "document": {
+            "version": "0",
+            "id": "8db10346-6635-c20a-0572-6dd679e9b05d",
+            "detail-type": "CloudWatch Alarm Configuration Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:43:15Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "operation": "update",
+              "state": {
+                "value": "ALARM",
+                "timestamp": "2026-09-14T05:42:42.142+0000"
+              },
+              "configuration": {
+                "evaluationPeriods": 1,
+                "datapointsToAlarm": 1,
+                "threshold": 10,
+                "comparisonOperator": "GreaterThanThreshold",
+                "treatMissingData": "ignore",
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+                "description": "native delivery initial configuration",
+                "actionsEnabled": false,
+                "timestamp": "2026-09-14T05:43:15.945+0000",
+                "okActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "alarmActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "insufficientDataActions": []
+              },
+              "previousConfiguration": {
+                "evaluationPeriods": 1,
+                "datapointsToAlarm": 1,
+                "threshold": 10,
+                "comparisonOperator": "GreaterThanThreshold",
+                "treatMissingData": "ignore",
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+                "description": "native delivery initial configuration",
+                "actionsEnabled": true,
+                "timestamp": "2026-09-14T05:42:25.543+0000",
+                "okActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "alarmActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "insufficientDataActions": []
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 57,
+          "label": "events_reenable_no_transition_0",
+          "document": {
+            "version": "0",
+            "id": "26be9fd9-b6a8-708f-386d-41cc78d5a746",
+            "detail-type": "CloudWatch Alarm Configuration Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:43:51Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "operation": "update",
+              "state": {
+                "value": "ALARM",
+                "timestamp": "2026-09-14T05:43:17.764+0000"
+              },
+              "configuration": {
+                "evaluationPeriods": 1,
+                "datapointsToAlarm": 1,
+                "threshold": 10,
+                "comparisonOperator": "GreaterThanThreshold",
+                "treatMissingData": "ignore",
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+                "description": "native delivery initial configuration",
+                "actionsEnabled": true,
+                "timestamp": "2026-09-14T05:43:51.837+0000",
+                "okActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "alarmActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "insufficientDataActions": []
+              },
+              "previousConfiguration": {
+                "evaluationPeriods": 1,
+                "datapointsToAlarm": 1,
+                "threshold": 10,
+                "comparisonOperator": "GreaterThanThreshold",
+                "treatMissingData": "ignore",
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+                "description": "native delivery initial configuration",
+                "actionsEnabled": false,
+                "timestamp": "2026-09-14T05:43:15.945+0000",
+                "okActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "alarmActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "insufficientDataActions": []
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 69,
+          "label": "events_enabled_ok_0",
+          "document": {
+            "version": "0",
+            "id": "d653ac49-8c83-e6b4-0220-0cacdb08170e",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:45:02Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "state": {
+                "value": "OK",
+                "reason": "enabled_transition_ok",
+                "reasonData": "{\"probe\":\"enabled_transition_ok\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:45:02.890+0000"
+              },
+              "previousState": {
+                "value": "ALARM",
+                "reason": "disabled_transition_alarm",
+                "reasonData": "{\"probe\":\"disabled_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:43:17.764+0000"
+              },
+              "configuration": {
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "description": "native delivery initial configuration"
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 76,
+          "label": "events_enabled_alarm_0",
+          "document": {
+            "version": "0",
+            "id": "a01408a5-1a86-2b47-97b3-616f02335eed",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:45:39Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "state": {
+                "value": "ALARM",
+                "reason": "enabled_transition_alarm",
+                "reasonData": "{\"probe\":\"enabled_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:45:39.688+0000"
+              },
+              "previousState": {
+                "value": "OK",
+                "reason": "enabled_transition_ok",
+                "reasonData": "{\"probe\":\"enabled_transition_ok\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:45:02.890+0000"
+              },
+              "configuration": {
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "description": "native delivery initial configuration"
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 82,
+          "label": "events_configuration_update_0",
+          "document": {
+            "version": "0",
+            "id": "5624b97c-9157-a159-b282-f120a91936f8",
+            "detail-type": "CloudWatch Alarm Configuration Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:46:16Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "operation": "update",
+              "state": {
+                "value": "ALARM",
+                "timestamp": "2026-09-14T05:45:39.688+0000"
+              },
+              "configuration": {
+                "evaluationPeriods": 1,
+                "datapointsToAlarm": 1,
+                "threshold": 20,
+                "comparisonOperator": "GreaterThanThreshold",
+                "treatMissingData": "ignore",
+                "metrics": [
+                  {
+                    "id": "0ed04f39-d666-f87b-141f-a38f771e1efe",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+                "description": "native delivery updated configuration",
+                "actionsEnabled": true,
+                "timestamp": "2026-09-14T05:46:16.142+0000",
+                "okActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "alarmActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "insufficientDataActions": []
+              },
+              "previousConfiguration": {
+                "evaluationPeriods": 1,
+                "datapointsToAlarm": 1,
+                "threshold": 10,
+                "comparisonOperator": "GreaterThanThreshold",
+                "treatMissingData": "ignore",
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+                "description": "native delivery initial configuration",
+                "actionsEnabled": true,
+                "timestamp": "2026-09-14T05:43:51.837+0000",
+                "okActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "alarmActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "insufficientDataActions": []
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 88,
+          "label": "events_deletion_0",
+          "document": {
+            "version": "0",
+            "id": "25464201-8296-d352-da84-d7543c74bf10",
+            "detail-type": "CloudWatch Alarm Configuration Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T05:46:46Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "operation": "delete",
+              "state": {
+                "value": "ALARM",
+                "reason": "enabled_transition_alarm",
+                "timestamp": "2026-09-14T05:45:39.688+0000"
+              },
+              "configuration": {
+                "evaluationPeriods": 1,
+                "datapointsToAlarm": 1,
+                "threshold": 20,
+                "comparisonOperator": "GreaterThanThreshold",
+                "treatMissingData": "ignore",
+                "metrics": [
+                  {
+                    "id": "0ed04f39-d666-f87b-141f-a38f771e1efe",
+                    "metricStat": {
+                      "metric": {
+                        "namespace": "Stackd/NativeAlarmDelivery",
+                        "name": "UnpublishedValue",
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        }
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ],
+                "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+                "description": "native delivery updated configuration",
+                "actionsEnabled": true,
+                "timestamp": "2026-09-14T05:46:16.142+0000",
+                "okActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "alarmActions": [
+                  "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7"
+                ],
+                "insufficientDataActions": []
+              }
+            }
+          }
+        }
+      ],
+      "payloads": [
+        {
+          "capture_index": 68,
+          "label": "logs_enabled_ok",
+          "log_event_id": "39904166312928460887553300724401204376644158457234915330",
+          "log_timestamp": 1789364703183,
+          "document": {
+            "accountId": "123456789012",
+            "alarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7",
+            "alarmData": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "configuration": {
+                "description": "native delivery initial configuration",
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        },
+                        "name": "UnpublishedValue",
+                        "namespace": "Stackd/NativeAlarmDelivery"
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ]
+              },
+              "previousState": {
+                "reason": "disabled_transition_alarm",
+                "reasonData": "{\"probe\":\"disabled_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:43:17.764+0000",
+                "value": "ALARM"
+              },
+              "state": {
+                "reason": "enabled_transition_ok",
+                "reasonData": "{\"probe\":\"enabled_transition_ok\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:45:02.890+0000",
+                "value": "OK"
+              }
+            },
+            "region": "us-east-1",
+            "source": "aws.cloudwatch",
+            "time": "2026-09-14T05:45:02.890+0000"
+          }
+        },
+        {
+          "capture_index": 75,
+          "label": "logs_enabled_alarm",
+          "log_event_id": "39904167129180336644171168997762959067922370823571832833",
+          "log_timestamp": 1789364739785,
+          "document": {
+            "accountId": "123456789012",
+            "alarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-alarm-delivery-4b416420a7",
+            "alarmData": {
+              "alarmName": "stackd-native-alarm-delivery-4b416420a7",
+              "configuration": {
+                "description": "native delivery initial configuration",
+                "metrics": [
+                  {
+                    "id": "1ed04f38-1403-e306-7356-c7c0d96ca137",
+                    "metricStat": {
+                      "metric": {
+                        "dimensions": {
+                          "Probe": "stackd-native-alarm-delivery-4b416420a7"
+                        },
+                        "name": "UnpublishedValue",
+                        "namespace": "Stackd/NativeAlarmDelivery"
+                      },
+                      "period": 60,
+                      "stat": "Average"
+                    },
+                    "returnData": true
+                  }
+                ]
+              },
+              "previousState": {
+                "reason": "enabled_transition_ok",
+                "reasonData": "{\"probe\":\"enabled_transition_ok\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:45:02.890+0000",
+                "value": "OK"
+              },
+              "state": {
+                "reason": "enabled_transition_alarm",
+                "reasonData": "{\"probe\":\"enabled_transition_alarm\",\"nested\":{\"number\":7,\"enabled\":true}}",
+                "timestamp": "2026-09-14T05:45:39.688+0000",
+                "value": "ALARM"
+              }
+            },
+            "region": "us-east-1",
+            "source": "aws.cloudwatch",
+            "time": "2026-09-14T05:45:39.688+0000"
+          }
+        }
+      ],
+      "history": [
+        {
+          "capture_index": 87,
+          "label": "history_retained_after_delete",
+          "document": {
+            "actionState": "Failed",
+            "stateUpdateTimestamp": 1789364562142,
+            "notificationResource": "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7",
+            "publishedMessage": null,
+            "error": "CloudWatch Alarms is not authorized to perform: lambda:InvokeFunction on the resource because no resource-based policy allows the lambda:InvokeFunction action",
+            "muteWindowEndTimestamp": null
+          }
+        },
+        {
+          "capture_index": 87,
+          "label": "history_retained_after_delete",
+          "document": {
+            "actionState": "Succeeded",
+            "stateUpdateTimestamp": 1789364702890,
+            "notificationResource": "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7",
+            "publishedMessage": null,
+            "error": null,
+            "muteWindowEndTimestamp": null
+          }
+        },
+        {
+          "capture_index": 87,
+          "label": "history_retained_after_delete",
+          "document": {
+            "actionState": "Succeeded",
+            "stateUpdateTimestamp": 1789364739688,
+            "notificationResource": "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-alarm-delivery-4b416420a7",
+            "publishedMessage": null,
+            "error": null,
+            "muteWindowEndTimestamp": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "suppression_releases",
+      "alarm_name": "stackd-native-suppact-63a3ffd745-composite",
+      "alarm_type": "CompositeAlarm",
+      "log_prefix": "SUPPRESSED_ACTION_PAYLOAD=",
+      "setup": [
+        {
+          "capture_index": 1,
+          "label": "create-owned-execution-role",
+          "service": "iam",
+          "operation": "create-role",
+          "input": {
+            "RoleName": "stackd-native-suppact-63a3ffd745",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"lambda.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          }
+        },
+        {
+          "capture_index": 2,
+          "label": "create-owned-log-group",
+          "service": "logs",
+          "operation": "create-log-group",
+          "input": {
+            "logGroupName": "/aws/lambda/stackd-native-suppact-63a3ffd745"
+          }
+        },
+        {
+          "capture_index": 3,
+          "label": "grant-owned-log-writes",
+          "service": "iam",
+          "operation": "put-role-policy",
+          "input": {
+            "RoleName": "stackd-native-suppact-63a3ffd745",
+            "PolicyName": "stackd-native-suppact-63a3ffd745",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": \"arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/stackd-native-suppact-63a3ffd745:*\"}]}"
+          }
+        },
+        {
+          "capture_index": 4,
+          "label": "create-owned-event-queue",
+          "service": "sqs",
+          "operation": "create-queue",
+          "input": {
+            "QueueName": "stackd-native-suppact-63a3ffd745"
+          }
+        },
+        {
+          "capture_index": 6,
+          "label": "create-composite-event-rule",
+          "service": "events",
+          "operation": "put-rule",
+          "input": {
+            "Name": "stackd-native-suppact-63a3ffd745",
+            "EventPattern": "{\"source\": [\"aws.cloudwatch\"], \"detail-type\": [\"CloudWatch Alarm State Change\"], \"resources\": [\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite\"], \"detail\": {\"alarmName\": [\"stackd-native-suppact-63a3ffd745-composite\"]}}",
+            "State": "ENABLED"
+          }
+        },
+        {
+          "capture_index": 7,
+          "label": "grant-rule-queue-delivery",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-native-suppact-63a3ffd745",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-native-suppact-63a3ffd745\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/stackd-native-suppact-63a3ffd745\"}}}]}"
+            }
+          }
+        },
+        {
+          "capture_index": 8,
+          "label": "attach-owned-queue-target",
+          "service": "events",
+          "operation": "put-targets",
+          "input": {
+            "Rule": "stackd-native-suppact-63a3ffd745",
+            "Targets": [
+              {
+                "Id": "capture",
+                "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-native-suppact-63a3ffd745"
+              }
+            ]
+          }
+        },
+        {
+          "capture_index": 10,
+          "label": "create-owned-lambda-attempt-1",
+          "service": "lambda",
+          "operation": "create-function",
+          "input": {
+            "FunctionName": "stackd-native-suppact-63a3ffd745",
+            "Runtime": "python3.12",
+            "Role": "arn:aws:iam::123456789012:role/stackd-native-suppact-63a3ffd745",
+            "Handler": "handler.handler",
+            "Code": {
+              "ZipFile": "UEsDBBQAAAAIABs9Ll2Fw8tQlAAAAKoAAAAKAAAAaGFuZGxlci5weTWNwQqCQBRF937F460ckj5AcCHpIoiUtEUrEedFWs4Mb55SRP+eCd3luXBOPzrLAoO3JtB0hVtr9IM4pJmMRNBZI/QUFQewzHFvJMTqXJanvKryrEl39b44NmV6ORRpliBsVtVWT6Pzf4kn13Irln0SYoQRYIxqwUu4udPLJzVPpNSaYJKJDbyRqaN+Jo0x/O5P8AVQSwECFAMUAAAACAAbPS5dhcPLUJQAAACqAAAACgAAAAAAAAAAAAAAgAEAAAAAaGFuZGxlci5weVBLBQYAAAAAAQABADgAAAC8AAAAAAA="
+            },
+            "Timeout": 10,
+            "MemorySize": 128
+          }
+        },
+        {
+          "capture_index": 13,
+          "label": "grant-composite-lambda-invocation",
+          "service": "lambda",
+          "operation": "add-permission",
+          "input": {
+            "FunctionName": "stackd-native-suppact-63a3ffd745",
+            "StatementId": "owned-composite",
+            "Action": "lambda:InvokeFunction",
+            "Principal": "lambda.alarms.cloudwatch.amazonaws.com",
+            "SourceAccount": "123456789012",
+            "SourceArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "call": {
+            "capture_index": 14,
+            "label": "create-no-data-child",
+            "service": "cloudwatch",
+            "operation": "put-metric-alarm",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-child",
+              "Namespace": "StackdNativeSuppressedActionProbe",
+              "MetricName": "stackd-native-suppact-63a3ffd745-unpublished-child",
+              "Statistic": "Sum",
+              "Period": 60,
+              "EvaluationPeriods": 1,
+              "Threshold": 1,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "ActionsEnabled": false
+            }
+          },
+          "advance_ms": 0,
+          "events": [],
+          "payloads": [],
+          "history": []
+        },
+        {
+          "call": {
+            "capture_index": 15,
+            "label": "manual-child-OK",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-child",
+              "StateValue": "OK",
+              "StateReason": "Owned suppressed actions probe manual child OK"
+            }
+          },
+          "advance_ms": 0,
+          "events": [],
+          "payloads": [],
+          "history": []
+        },
+        {
+          "call": {
+            "capture_index": 16,
+            "label": "create-no-data-suppressor",
+            "service": "cloudwatch",
+            "operation": "put-metric-alarm",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-suppressor",
+              "Namespace": "StackdNativeSuppressedActionProbe",
+              "MetricName": "stackd-native-suppact-63a3ffd745-unpublished-suppressor",
+              "Statistic": "Sum",
+              "Period": 60,
+              "EvaluationPeriods": 1,
+              "Threshold": 1,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "ignore",
+              "ActionsEnabled": false
+            }
+          },
+          "advance_ms": 0,
+          "events": [],
+          "payloads": [],
+          "history": []
+        },
+        {
+          "call": {
+            "capture_index": 17,
+            "label": "manual-suppressor-OK",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-suppressor",
+              "StateValue": "OK",
+              "StateReason": "Owned suppressed actions probe manual suppressor OK"
+            }
+          },
+          "advance_ms": 0,
+          "events": [],
+          "payloads": [],
+          "history": []
+        },
+        {
+          "call": {
+            "capture_index": 18,
+            "label": "create-owned-composite",
+            "service": "cloudwatch",
+            "operation": "put-composite-alarm",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "AlarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+              "ActionsEnabled": true,
+              "AlarmActions": [
+                "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-suppact-63a3ffd745"
+              ],
+              "ActionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+              "ActionsSuppressorWaitPeriod": 5,
+              "ActionsSuppressorExtensionPeriod": 5
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            0
+          ],
+          "payloads": [],
+          "history": []
+        },
+        {
+          "label": "suppression-deadline-checkpoint-5",
+          "advance_ms": 4000,
+          "events": [],
+          "payloads": [],
+          "history": []
+        },
+        {
+          "label": "suppression-deadline-checkpoint-6",
+          "advance_ms": 1000,
+          "events": [
+            8
+          ],
+          "payloads": [],
+          "history": []
+        },
+        {
+          "call": {
+            "capture_index": 23,
+            "label": "manual-child-ALARM",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-child",
+              "StateValue": "ALARM",
+              "StateReason": "Owned suppressed actions probe manual child ALARM"
+            }
+          },
+          "advance_ms": 1000,
+          "events": [
+            5
+          ],
+          "payloads": [],
+          "history": [
+            0
+          ]
+        },
+        {
+          "label": "suppression-deadline-checkpoint-8",
+          "advance_ms": 4000,
+          "events": [],
+          "payloads": [],
+          "history": [
+            0
+          ]
+        },
+        {
+          "label": "suppression-deadline-checkpoint-9",
+          "advance_ms": 1000,
+          "events": [
+            1
+          ],
+          "payloads": [
+            0
+          ],
+          "history": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 31,
+            "label": "manual-child-OK",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-child",
+              "StateValue": "OK",
+              "StateReason": "Owned suppressed actions probe manual child OK"
+            }
+          },
+          "advance_ms": 1000,
+          "events": [
+            2
+          ],
+          "payloads": [
+            0
+          ],
+          "history": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 33,
+            "label": "manual-suppressor-ALARM",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-suppressor",
+              "StateValue": "ALARM",
+              "StateReason": "Owned suppressed actions probe manual suppressor ALARM"
+            }
+          },
+          "advance_ms": 1000,
+          "events": [
+            3
+          ],
+          "payloads": [
+            0
+          ],
+          "history": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 34,
+            "label": "manual-child-ALARM",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-child",
+              "StateValue": "ALARM",
+              "StateReason": "Owned suppressed actions probe manual child ALARM"
+            }
+          },
+          "advance_ms": 1000,
+          "events": [
+            4
+          ],
+          "payloads": [
+            0
+          ],
+          "history": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "label": "suppression-deadline-checkpoint-13",
+          "advance_ms": 6000,
+          "events": [],
+          "payloads": [
+            0
+          ],
+          "history": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "call": {
+            "capture_index": 40,
+            "label": "manual-suppressor-OK",
+            "service": "cloudwatch",
+            "operation": "set-alarm-state",
+            "input": {
+              "AlarmName": "stackd-native-suppact-63a3ffd745-suppressor",
+              "StateValue": "OK",
+              "StateReason": "Owned suppressed actions probe manual suppressor OK"
+            }
+          },
+          "advance_ms": 0,
+          "events": [
+            6
+          ],
+          "payloads": [
+            0
+          ],
+          "history": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "label": "suppression-deadline-checkpoint-15",
+          "advance_ms": 4000,
+          "events": [],
+          "payloads": [
+            0
+          ],
+          "history": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "label": "suppression-deadline-checkpoint-16",
+          "advance_ms": 1000,
+          "events": [
+            7
+          ],
+          "payloads": [
+            0,
+            1
+          ],
+          "history": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "events": [
+        {
+          "capture_index": 21,
+          "label": "initial-events",
+          "document": {
+            "version": "0",
+            "id": "9678e81b-336b-d73b-14ac-79f55c014310",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T06:41:43Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "state": {
+                "actionsSuppressedBy": "WaitPeriod",
+                "actionsSuppressedReason": "Actions suppressed by WaitPeriod",
+                "value": "OK",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite was created and its alarm rule evaluates to OK",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T06:41:40.710+0000\"}}]}",
+                "timestamp": "2026-09-14T06:41:43.225+0000"
+              },
+              "previousState": {
+                "value": "INSUFFICIENT_DATA",
+                "reason": "Unchecked: Initial alarm creation",
+                "timestamp": "2026-09-14T06:41:43.225+0000"
+              },
+              "configuration": {
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorWaitPeriod": 5,
+                "actionsSuppressorExtensionPeriod": 5
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 28,
+          "label": "wait-release-events-0",
+          "document": {
+            "version": "0",
+            "id": "d362603f-fd21-e03b-9367-d174cdf9625f",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T06:42:07Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "state": {
+                "value": "ALARM",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:02 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:02.864+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:07.864+0000"
+              },
+              "previousState": {
+                "actionsSuppressedBy": "WaitPeriod",
+                "actionsSuppressedReason": "Actions suppressed by WaitPeriod",
+                "value": "ALARM",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:02 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:02.864+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:02.864+0000"
+              },
+              "configuration": {
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorWaitPeriod": 5,
+                "actionsSuppressorExtensionPeriod": 5
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 37,
+          "label": "suppressor-held-events",
+          "document": {
+            "version": "0",
+            "id": "d80a87cf-924f-ce47-53f8-908de64625fa",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T06:42:30Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "state": {
+                "actionsSuppressedBy": "WaitPeriod",
+                "actionsSuppressedReason": "Actions suppressed by WaitPeriod",
+                "value": "OK",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to OK at Monday 14 September, 2026 06:42:30 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T06:42:30.399+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:30.399+0000"
+              },
+              "previousState": {
+                "value": "ALARM",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:02 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:02.864+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:07.864+0000"
+              },
+              "configuration": {
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorWaitPeriod": 5,
+                "actionsSuppressorExtensionPeriod": 5
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 37,
+          "label": "suppressor-held-events",
+          "document": {
+            "version": "0",
+            "id": "d2d93344-c3fb-693f-95ae-c3ef8f55fdee",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T06:42:31Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "state": {
+                "actionsSuppressedBy": "Alarm",
+                "actionsSuppressedReason": "Actions suppressed by arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-suppressor that transitioned to ALARM at Monday 14 September, 2026 06:42:31 UTC",
+                "value": "OK",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to OK at Monday 14 September, 2026 06:42:30 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T06:42:30.399+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:31.856+0000"
+              },
+              "previousState": {
+                "actionsSuppressedBy": "WaitPeriod",
+                "actionsSuppressedReason": "Actions suppressed by WaitPeriod",
+                "value": "OK",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to OK at Monday 14 September, 2026 06:42:30 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T06:42:30.399+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:30.399+0000"
+              },
+              "configuration": {
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorWaitPeriod": 5,
+                "actionsSuppressorExtensionPeriod": 5
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 37,
+          "label": "suppressor-held-events",
+          "document": {
+            "version": "0",
+            "id": "cc8131c2-d270-b81b-5dd5-931b1ca8fafc",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T06:42:35Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "state": {
+                "actionsSuppressedBy": "Alarm",
+                "actionsSuppressedReason": "Actions suppressed by arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-suppressor that transitioned to ALARM at Monday 14 September, 2026 06:42:31 UTC",
+                "value": "ALARM",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:35 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:35.644+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:35.644+0000"
+              },
+              "previousState": {
+                "actionsSuppressedBy": "Alarm",
+                "actionsSuppressedReason": "Actions suppressed by arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-suppressor that transitioned to ALARM at Monday 14 September, 2026 06:42:31 UTC",
+                "value": "OK",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to OK at Monday 14 September, 2026 06:42:30 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T06:42:30.399+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:31.856+0000"
+              },
+              "configuration": {
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorWaitPeriod": 5,
+                "actionsSuppressorExtensionPeriod": 5
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 46,
+          "label": "extension-release-events-0",
+          "document": {
+            "version": "0",
+            "id": "30273676-ff56-20d7-dcec-96a09f05bd00",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T06:42:02Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "state": {
+                "actionsSuppressedBy": "WaitPeriod",
+                "actionsSuppressedReason": "Actions suppressed by WaitPeriod",
+                "value": "ALARM",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:02 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:02.864+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:02.864+0000"
+              },
+              "previousState": {
+                "value": "OK",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite was created and its alarm rule evaluates to OK",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T06:41:40.710+0000\"}}]}",
+                "timestamp": "2026-09-14T06:41:48.225+0000"
+              },
+              "configuration": {
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorWaitPeriod": 5,
+                "actionsSuppressorExtensionPeriod": 5
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 49,
+          "label": "extension-release-events-1",
+          "document": {
+            "version": "0",
+            "id": "0a4f479a-6771-bba7-f826-bb1d72b7be04",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T06:42:49Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "state": {
+                "actionsSuppressedBy": "ExtensionPeriod",
+                "actionsSuppressedReason": "Actions suppressed by ExtensionPeriod",
+                "value": "ALARM",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:35 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:35.644+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:49.316+0000"
+              },
+              "previousState": {
+                "actionsSuppressedBy": "Alarm",
+                "actionsSuppressedReason": "Actions suppressed by arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-suppressor that transitioned to ALARM at Monday 14 September, 2026 06:42:31 UTC",
+                "value": "ALARM",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:35 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:35.644+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:35.644+0000"
+              },
+              "configuration": {
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorWaitPeriod": 5,
+                "actionsSuppressorExtensionPeriod": 5
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 49,
+          "label": "extension-release-events-1",
+          "document": {
+            "version": "0",
+            "id": "cb846cb5-d81c-5a43-1787-439569fb5cd2",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T06:42:54Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "state": {
+                "value": "ALARM",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:35 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:35.644+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:54.316+0000"
+              },
+              "previousState": {
+                "actionsSuppressedBy": "ExtensionPeriod",
+                "actionsSuppressedReason": "Actions suppressed by ExtensionPeriod",
+                "value": "ALARM",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:35 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:35.644+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:49.316+0000"
+              },
+              "configuration": {
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorWaitPeriod": 5,
+                "actionsSuppressorExtensionPeriod": 5
+              }
+            }
+          }
+        },
+        {
+          "capture_index": 53,
+          "label": "final-event-drain-0",
+          "document": {
+            "version": "0",
+            "id": "af02657f-be31-8244-2f3a-09051bcc132b",
+            "detail-type": "CloudWatch Alarm State Change",
+            "source": "aws.cloudwatch",
+            "account": "123456789012",
+            "time": "2026-09-14T06:41:48Z",
+            "region": "us-east-1",
+            "resources": [
+              "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite"
+            ],
+            "detail": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "state": {
+                "value": "OK",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite was created and its alarm rule evaluates to OK",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T06:41:40.710+0000\"}}]}",
+                "timestamp": "2026-09-14T06:41:48.225+0000"
+              },
+              "previousState": {
+                "actionsSuppressedBy": "WaitPeriod",
+                "actionsSuppressedReason": "Actions suppressed by WaitPeriod",
+                "value": "OK",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite was created and its alarm rule evaluates to OK",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"OK\",\"timestamp\":\"2026-09-14T06:41:40.710+0000\"}}]}",
+                "timestamp": "2026-09-14T06:41:43.225+0000"
+              },
+              "configuration": {
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")",
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorWaitPeriod": 5,
+                "actionsSuppressorExtensionPeriod": 5
+              }
+            }
+          }
+        }
+      ],
+      "payloads": [
+        {
+          "capture_index": 30,
+          "label": "wait-release-handler-0",
+          "log_event_id": "39904242673356110080230616252377306954366882880190742530",
+          "log_timestamp": 1789368127303,
+          "document": {
+            "accountId": "123456789012",
+            "alarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite",
+            "alarmData": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "configuration": {
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorExtensionPeriod": 5,
+                "actionsSuppressorWaitPeriod": 5,
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")"
+              },
+              "previousState": {
+                "actionsSuppressedBy": "WaitPeriod",
+                "actionsSuppressedReason": "Actions suppressed by WaitPeriod",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:02 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:02.864+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:02.864+0000",
+                "value": "ALARM"
+              },
+              "state": {
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:02 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:02.864+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:07.864+0000",
+                "value": "ALARM"
+              }
+            },
+            "region": "us-east-1",
+            "source": "aws.cloudwatch",
+            "time": "2026-09-14T06:42:07.864+0000"
+          }
+        },
+        {
+          "capture_index": 51,
+          "label": "extension-release-handler-1",
+          "log_event_id": "39904243716763376429081411864547375500796274117659918337",
+          "log_timestamp": 1789368174091,
+          "document": {
+            "accountId": "123456789012",
+            "alarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-composite",
+            "alarmData": {
+              "alarmName": "stackd-native-suppact-63a3ffd745-composite",
+              "configuration": {
+                "actionsSuppressor": "stackd-native-suppact-63a3ffd745-suppressor",
+                "actionsSuppressorExtensionPeriod": 5,
+                "actionsSuppressorWaitPeriod": 5,
+                "alarmRule": "ALARM(\"stackd-native-suppact-63a3ffd745-child\")"
+              },
+              "previousState": {
+                "actionsSuppressedBy": "ExtensionPeriod",
+                "actionsSuppressedReason": "Actions suppressed by ExtensionPeriod",
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:35 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:35.644+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:49.316+0000",
+                "value": "ALARM"
+              },
+              "state": {
+                "reason": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child transitioned to ALARM at Monday 14 September, 2026 06:42:35 UTC",
+                "reasonData": "{\"triggeringAlarms\":[{\"arn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:stackd-native-suppact-63a3ffd745-child\",\"state\":{\"value\":\"ALARM\",\"timestamp\":\"2026-09-14T06:42:35.644+0000\"}}]}",
+                "timestamp": "2026-09-14T06:42:54.316+0000",
+                "value": "ALARM"
+              }
+            },
+            "region": "us-east-1",
+            "source": "aws.cloudwatch",
+            "time": "2026-09-14T06:42:54.316+0000"
+          }
+        }
+      ],
+      "history": [
+        {
+          "capture_index": 52,
+          "label": "composite-history-explicit-type",
+          "document": {
+            "actionState": "Suppressed",
+            "stateUpdateTimestamp": 1789368122864,
+            "notificationResource": "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-suppact-63a3ffd745",
+            "publishedMessage": null,
+            "error": null,
+            "muteWindowEndTimestamp": null
+          }
+        },
+        {
+          "capture_index": 52,
+          "label": "composite-history-explicit-type",
+          "document": {
+            "actionState": "Succeeded",
+            "stateUpdateTimestamp": 1789368127864,
+            "notificationResource": "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-suppact-63a3ffd745",
+            "publishedMessage": null,
+            "error": null,
+            "muteWindowEndTimestamp": null
+          }
+        },
+        {
+          "capture_index": 52,
+          "label": "composite-history-explicit-type",
+          "document": {
+            "actionState": "Suppressed",
+            "stateUpdateTimestamp": 1789368155644,
+            "notificationResource": "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-suppact-63a3ffd745",
+            "publishedMessage": null,
+            "error": null,
+            "muteWindowEndTimestamp": null
+          }
+        },
+        {
+          "capture_index": 52,
+          "label": "composite-history-explicit-type",
+          "document": {
+            "actionState": "Suppressed",
+            "stateUpdateTimestamp": 1789368169316,
+            "notificationResource": "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-suppact-63a3ffd745",
+            "publishedMessage": null,
+            "error": null,
+            "muteWindowEndTimestamp": null
+          }
+        },
+        {
+          "capture_index": 52,
+          "label": "composite-history-explicit-type",
+          "document": {
+            "actionState": "Succeeded",
+            "stateUpdateTimestamp": 1789368174316,
+            "notificationResource": "arn:aws:lambda:us-east-1:123456789012:function:stackd-native-suppact-63a3ffd745",
+            "publishedMessage": null,
+            "error": null,
+            "muteWindowEndTimestamp": null
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,4516 @@
+{
+  "Schema": "native-s3-checksum-object-v1",
+  "Normalization": "Native signed HTTPS observations, no retries. Response bodies and SHA256 are retained in compressed source. XXHASH digest candidates use system libxxhash seed zero, canonical big-endian bytes; accepted checksums and returned headers establish AWS byte order. SDK replay covers expressible modeled requests; raw preserves absent algorithm and explicit empty/malformed wire boundaries. ETags are issued bindings, not plaintext MD5 assumptions. SSE-C uses trusted TLS; SSE-KMS uses existing AWS-managed S3 key. Volatile request IDs, dates, opaque encryption ETags and KMS key ARN are excluded from projections. Cleanup is evidence-only. SDK BadDigest calls replay native supplied mismatches without recalculation; native-observed ETag equality binds later reads to the issued write/copy identity. Attribute/copy projections also assert other checksum families absent.",
+  "Payloads": {
+    "binary": [
+      {
+        "Base64": "Y2hlY2tzdW0A/4ABDQoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",
+        "Repeat": 1
+      }
+    ],
+    "empty": [
+      {
+        "Base64": "",
+        "Repeat": 1
+      }
+    ],
+    "replacement": [
+      {
+        "Base64": "cmVqZWN0ZWQgcmVwbGFjZW1lbnQA/w==",
+        "Repeat": 1
+      }
+    ]
+  },
+  "Scenarios": [
+    {
+      "Name": "ordinary-checksum-storage-copy-and-encryption",
+      "TLS": true,
+      "Calls": [
+        {
+          "SDK": {
+            "Sequence": 1,
+            "Label": "create-owned-bucket",
+            "Operation": "CreateBucket",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[0]",
+            "Output": {}
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 0,
+            "Label": "allow-customer-encryption",
+            "Operation": "PutBucketEncryption",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "ServerSideEncryptionConfiguration": {
+                "Rules": [
+                  {
+                    "ApplyServerSideEncryptionByDefault": {
+                      "SSEAlgorithm": "AES256"
+                    },
+                    "BlockedEncryptionTypes": {
+                      "EncryptionType": [
+                        "NONE"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:encryption_prerequisite"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 2,
+            "Label": "put-explicit-XXHASH64",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumAlgorithm": "XXHASH64"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[1]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_2": "ETag"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 3,
+            "Label": "get-enabled-XXHASH64",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[2]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 4,
+            "Label": "head-enabled-XXHASH64",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[3]",
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 5,
+            "Label": "attributes-XXHASH64",
+            "Operation": "GetObjectAttributes",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ObjectAttributes": [
+                "Checksum",
+                "ObjectSize",
+                "ObjectParts"
+              ]
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[4]",
+            "Output": {
+              "Checksum": {
+                "ChecksumXXHASH64": "ghHyDMBTcoE=",
+                "ChecksumType": "FULL_OBJECT"
+              },
+              "ObjectSize": 46
+            },
+            "Absent": [
+              "Checksum.ChecksumXXHASH3",
+              "Checksum.ChecksumXXHASH128",
+              "Checksum.ChecksumMD5",
+              "Checksum.ChecksumSHA512",
+              "Checksum.ChecksumCRC32",
+              "Checksum.ChecksumCRC32C",
+              "Checksum.ChecksumCRC64NVME",
+              "Checksum.ChecksumSHA1",
+              "Checksum.ChecksumSHA256",
+              "ObjectParts"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 6,
+            "Label": "get-mode-omitted-XXHASH64",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[5]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 7,
+            "Label": "head-mode-omitted-XXHASH64",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[6]",
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 8,
+            "Label": "get-range-XXHASH64",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumMode": "ENABLED",
+              "Range": "bytes=3-10"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[7]",
+            "Digest": {
+              "Length": 8,
+              "SHA256": "2b45cdcd41352c2efc0fc53e8ecd1bdbfe8d2c279f789a7229f152b7fd8b80b7"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 3-10/46",
+              "ContentLength": 8,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 9,
+            "Label": "head-range-XXHASH64",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumMode": "ENABLED",
+              "Range": "bytes=3-10"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[8]",
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 3-10/46",
+              "ContentLength": 8,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 10,
+            "Label": "get-part-one-XXHASH64",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumMode": "ENABLED",
+              "PartNumber": 1
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[9]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 0-45/46",
+              "ContentLength": 46,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 11,
+            "Label": "head-part-one-XXHASH64",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumMode": "ENABLED",
+              "PartNumber": 1
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[10]",
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 0-45/46",
+              "ContentLength": 46,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 12,
+            "Label": "put-empty-XXHASH64",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64-empty",
+              "ChecksumXXHASH64": "70bbN1HY6Zk=",
+              "ChecksumAlgorithm": "XXHASH64"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[11]",
+            "Payload": "empty",
+            "Bind": {
+              "issued_12": "ETag"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "70bbN1HY6Zk=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 13,
+            "Label": "get-empty-XXHASH64",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64-empty",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[12]",
+            "Digest": {
+              "Length": 0,
+              "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "70bbN1HY6Zk=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 0,
+              "ETag": "${issued_12}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[13]",
+          "Raw": {
+            "Sequence": 14,
+            "Label": "put-value-without-algorithm-XXHASH64",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-1a79312f787a43ad/xxhash64-inferred",
+            "Headers": {
+              "x-amz-checksum-xxhash64": "ghHyDMBTcoE="
+            },
+            "Status": 200,
+            "Payload": [
+              {
+                "Base64": "Y2hlY2tzdW0A/4ABDQoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",
+                "Repeat": 1
+              }
+            ],
+            "ResponseHeaders": {
+              "x-amz-checksum-xxhash64": "ghHyDMBTcoE=",
+              "x-amz-checksum-type": "FULL_OBJECT"
+            },
+            "AbsentHeaders": [
+              "x-amz-checksum-xxhash3",
+              "x-amz-checksum-xxhash128",
+              "x-amz-checksum-md5",
+              "x-amz-checksum-sha512",
+              "x-amz-checksum-crc32",
+              "x-amz-checksum-sha256",
+              "x-amz-checksum-crc32c",
+              "x-amz-checksum-crc64nvme",
+              "x-amz-checksum-sha1"
+            ],
+            "Bind": {
+              "issued_14": "Header.ETag"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 15,
+            "Label": "get-inferred-XXHASH64",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64-inferred",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[14]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_14}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 16,
+            "Label": "put-explicit-XXHASH3",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumAlgorithm": "XXHASH3"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[15]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_16": "ETag"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 17,
+            "Label": "get-enabled-XXHASH3",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[16]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 18,
+            "Label": "head-enabled-XXHASH3",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[17]",
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 19,
+            "Label": "attributes-XXHASH3",
+            "Operation": "GetObjectAttributes",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ObjectAttributes": [
+                "Checksum",
+                "ObjectSize",
+                "ObjectParts"
+              ]
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[18]",
+            "Output": {
+              "Checksum": {
+                "ChecksumXXHASH3": "tqh8ksNCSno=",
+                "ChecksumType": "FULL_OBJECT"
+              },
+              "ObjectSize": 46
+            },
+            "Absent": [
+              "Checksum.ChecksumXXHASH64",
+              "Checksum.ChecksumXXHASH128",
+              "Checksum.ChecksumMD5",
+              "Checksum.ChecksumSHA512",
+              "Checksum.ChecksumCRC32",
+              "Checksum.ChecksumCRC32C",
+              "Checksum.ChecksumCRC64NVME",
+              "Checksum.ChecksumSHA1",
+              "Checksum.ChecksumSHA256",
+              "ObjectParts"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 20,
+            "Label": "get-mode-omitted-XXHASH3",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[19]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 21,
+            "Label": "head-mode-omitted-XXHASH3",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[20]",
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 22,
+            "Label": "get-range-XXHASH3",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumMode": "ENABLED",
+              "Range": "bytes=3-10"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[21]",
+            "Digest": {
+              "Length": 8,
+              "SHA256": "2b45cdcd41352c2efc0fc53e8ecd1bdbfe8d2c279f789a7229f152b7fd8b80b7"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 3-10/46",
+              "ContentLength": 8,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 23,
+            "Label": "head-range-XXHASH3",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumMode": "ENABLED",
+              "Range": "bytes=3-10"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[22]",
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 3-10/46",
+              "ContentLength": 8,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 24,
+            "Label": "get-part-one-XXHASH3",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumMode": "ENABLED",
+              "PartNumber": 1
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[23]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 0-45/46",
+              "ContentLength": 46,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 25,
+            "Label": "head-part-one-XXHASH3",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumMode": "ENABLED",
+              "PartNumber": 1
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[24]",
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 0-45/46",
+              "ContentLength": 46,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 26,
+            "Label": "put-empty-XXHASH3",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3-empty",
+              "ChecksumXXHASH3": "LQaABTjTlMI=",
+              "ChecksumAlgorithm": "XXHASH3"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[25]",
+            "Payload": "empty",
+            "Bind": {
+              "issued_26": "ETag"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "LQaABTjTlMI=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 27,
+            "Label": "get-empty-XXHASH3",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3-empty",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[26]",
+            "Digest": {
+              "Length": 0,
+              "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "LQaABTjTlMI=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 0,
+              "ETag": "${issued_26}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[27]",
+          "Raw": {
+            "Sequence": 28,
+            "Label": "put-value-without-algorithm-XXHASH3",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-1a79312f787a43ad/xxhash3-inferred",
+            "Headers": {
+              "x-amz-checksum-xxhash3": "tqh8ksNCSno="
+            },
+            "Status": 200,
+            "Payload": [
+              {
+                "Base64": "Y2hlY2tzdW0A/4ABDQoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",
+                "Repeat": 1
+              }
+            ],
+            "ResponseHeaders": {
+              "x-amz-checksum-xxhash3": "tqh8ksNCSno=",
+              "x-amz-checksum-type": "FULL_OBJECT"
+            },
+            "AbsentHeaders": [
+              "x-amz-checksum-xxhash64",
+              "x-amz-checksum-xxhash128",
+              "x-amz-checksum-md5",
+              "x-amz-checksum-sha512",
+              "x-amz-checksum-crc32",
+              "x-amz-checksum-sha256",
+              "x-amz-checksum-crc32c",
+              "x-amz-checksum-crc64nvme",
+              "x-amz-checksum-sha1"
+            ],
+            "Bind": {
+              "issued_28": "Header.ETag"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 29,
+            "Label": "get-inferred-XXHASH3",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3-inferred",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[28]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_28}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 30,
+            "Label": "put-explicit-XXHASH128",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumAlgorithm": "XXHASH128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[29]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_30": "ETag"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 31,
+            "Label": "get-enabled-XXHASH128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[30]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_30}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 32,
+            "Label": "head-enabled-XXHASH128",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[31]",
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_30}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 33,
+            "Label": "attributes-XXHASH128",
+            "Operation": "GetObjectAttributes",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ObjectAttributes": [
+                "Checksum",
+                "ObjectSize",
+                "ObjectParts"
+              ]
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[32]",
+            "Output": {
+              "Checksum": {
+                "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+                "ChecksumType": "FULL_OBJECT"
+              },
+              "ObjectSize": 46
+            },
+            "Absent": [
+              "Checksum.ChecksumXXHASH64",
+              "Checksum.ChecksumXXHASH3",
+              "Checksum.ChecksumMD5",
+              "Checksum.ChecksumSHA512",
+              "Checksum.ChecksumCRC32",
+              "Checksum.ChecksumCRC32C",
+              "Checksum.ChecksumCRC64NVME",
+              "Checksum.ChecksumSHA1",
+              "Checksum.ChecksumSHA256",
+              "ObjectParts"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 34,
+            "Label": "get-mode-omitted-XXHASH128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[33]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_30}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 35,
+            "Label": "head-mode-omitted-XXHASH128",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[34]",
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_30}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 36,
+            "Label": "get-range-XXHASH128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ChecksumMode": "ENABLED",
+              "Range": "bytes=3-10"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[35]",
+            "Digest": {
+              "Length": 8,
+              "SHA256": "2b45cdcd41352c2efc0fc53e8ecd1bdbfe8d2c279f789a7229f152b7fd8b80b7"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 3-10/46",
+              "ContentLength": 8,
+              "ETag": "${issued_30}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 37,
+            "Label": "head-range-XXHASH128",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ChecksumMode": "ENABLED",
+              "Range": "bytes=3-10"
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[36]",
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 3-10/46",
+              "ContentLength": 8,
+              "ETag": "${issued_30}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 38,
+            "Label": "get-part-one-XXHASH128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ChecksumMode": "ENABLED",
+              "PartNumber": 1
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[37]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 0-45/46",
+              "ContentLength": 46,
+              "ETag": "${issued_30}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 39,
+            "Label": "head-part-one-XXHASH128",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ChecksumMode": "ENABLED",
+              "PartNumber": 1
+            },
+            "Code": "Success",
+            "Status": 206,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[38]",
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentRange": "bytes 0-45/46",
+              "ContentLength": 46,
+              "ETag": "${issued_30}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 40,
+            "Label": "put-empty-XXHASH128",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128-empty",
+              "ChecksumXXHASH128": "maoG0wFHmNhgAcMkRo1Jfw==",
+              "ChecksumAlgorithm": "XXHASH128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[39]",
+            "Payload": "empty",
+            "Bind": {
+              "issued_40": "ETag"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "maoG0wFHmNhgAcMkRo1Jfw==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 41,
+            "Label": "get-empty-XXHASH128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128-empty",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[40]",
+            "Digest": {
+              "Length": 0,
+              "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "maoG0wFHmNhgAcMkRo1Jfw==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 0,
+              "ETag": "${issued_40}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[41]",
+          "Raw": {
+            "Sequence": 42,
+            "Label": "put-value-without-algorithm-XXHASH128",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-1a79312f787a43ad/xxhash128-inferred",
+            "Headers": {
+              "x-amz-checksum-xxhash128": "cD7Hn7de9krAIQco/jZd/A=="
+            },
+            "Status": 200,
+            "Payload": [
+              {
+                "Base64": "Y2hlY2tzdW0A/4ABDQoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",
+                "Repeat": 1
+              }
+            ],
+            "ResponseHeaders": {
+              "x-amz-checksum-xxhash128": "cD7Hn7de9krAIQco/jZd/A==",
+              "x-amz-checksum-type": "FULL_OBJECT"
+            },
+            "AbsentHeaders": [
+              "x-amz-checksum-xxhash64",
+              "x-amz-checksum-xxhash3",
+              "x-amz-checksum-md5",
+              "x-amz-checksum-sha512",
+              "x-amz-checksum-crc32",
+              "x-amz-checksum-sha256",
+              "x-amz-checksum-crc32c",
+              "x-amz-checksum-crc64nvme",
+              "x-amz-checksum-sha1"
+            ],
+            "Bind": {
+              "issued_42": "Header.ETag"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 43,
+            "Label": "get-inferred-XXHASH128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128-inferred",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[42]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_42}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 44,
+            "Label": "put-explicit-MD5",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5",
+              "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg==",
+              "ChecksumAlgorithm": "MD5"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[43]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_44": "ETag"
+            },
+            "Output": {
+              "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 45,
+            "Label": "get-enabled-MD5",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[44]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_44}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 46,
+            "Label": "head-enabled-MD5",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[45]",
+            "Output": {
+              "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_44}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 47,
+            "Label": "attributes-MD5",
+            "Operation": "GetObjectAttributes",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5",
+              "ObjectAttributes": [
+                "Checksum",
+                "ObjectSize",
+                "ObjectParts"
+              ]
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[46]",
+            "Output": {
+              "Checksum": {
+                "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg==",
+                "ChecksumType": "FULL_OBJECT"
+              },
+              "ObjectSize": 46
+            },
+            "Absent": [
+              "Checksum.ChecksumXXHASH64",
+              "Checksum.ChecksumXXHASH3",
+              "Checksum.ChecksumXXHASH128",
+              "Checksum.ChecksumSHA512",
+              "Checksum.ChecksumCRC32",
+              "Checksum.ChecksumCRC32C",
+              "Checksum.ChecksumCRC64NVME",
+              "Checksum.ChecksumSHA1",
+              "Checksum.ChecksumSHA256",
+              "ObjectParts"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[47]",
+          "Raw": {
+            "Sequence": 48,
+            "Label": "put-value-without-algorithm-MD5",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-1a79312f787a43ad/md5-inferred",
+            "Headers": {
+              "x-amz-checksum-md5": "35u1yGZPnBRwm/9lSm3eGg=="
+            },
+            "Status": 200,
+            "Payload": [
+              {
+                "Base64": "Y2hlY2tzdW0A/4ABDQoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",
+                "Repeat": 1
+              }
+            ],
+            "ResponseHeaders": {
+              "x-amz-checksum-md5": "35u1yGZPnBRwm/9lSm3eGg==",
+              "x-amz-checksum-type": "FULL_OBJECT"
+            },
+            "AbsentHeaders": [
+              "x-amz-checksum-xxhash64",
+              "x-amz-checksum-xxhash3",
+              "x-amz-checksum-xxhash128",
+              "x-amz-checksum-sha512",
+              "x-amz-checksum-crc32",
+              "x-amz-checksum-sha256",
+              "x-amz-checksum-crc32c",
+              "x-amz-checksum-crc64nvme",
+              "x-amz-checksum-sha1"
+            ],
+            "Bind": {
+              "issued_48": "Header.ETag"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 49,
+            "Label": "get-inferred-MD5",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5-inferred",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[48]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_48}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 50,
+            "Label": "put-explicit-SHA512",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512",
+              "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+              "ChecksumAlgorithm": "SHA512"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[49]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_50": "ETag"
+            },
+            "Output": {
+              "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 51,
+            "Label": "get-enabled-SHA512",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[50]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_50}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 52,
+            "Label": "head-enabled-SHA512",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[51]",
+            "Output": {
+              "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_50}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 53,
+            "Label": "attributes-SHA512",
+            "Operation": "GetObjectAttributes",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512",
+              "ObjectAttributes": [
+                "Checksum",
+                "ObjectSize",
+                "ObjectParts"
+              ]
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[52]",
+            "Output": {
+              "Checksum": {
+                "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+                "ChecksumType": "FULL_OBJECT"
+              },
+              "ObjectSize": 46
+            },
+            "Absent": [
+              "Checksum.ChecksumXXHASH64",
+              "Checksum.ChecksumXXHASH3",
+              "Checksum.ChecksumXXHASH128",
+              "Checksum.ChecksumMD5",
+              "Checksum.ChecksumCRC32",
+              "Checksum.ChecksumCRC32C",
+              "Checksum.ChecksumCRC64NVME",
+              "Checksum.ChecksumSHA1",
+              "Checksum.ChecksumSHA256",
+              "ObjectParts"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[53]",
+          "Raw": {
+            "Sequence": 54,
+            "Label": "put-value-without-algorithm-SHA512",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-1a79312f787a43ad/sha512-inferred",
+            "Headers": {
+              "x-amz-checksum-sha512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ=="
+            },
+            "Status": 200,
+            "Payload": [
+              {
+                "Base64": "Y2hlY2tzdW0A/4ABDQoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",
+                "Repeat": 1
+              }
+            ],
+            "ResponseHeaders": {
+              "x-amz-checksum-sha512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+              "x-amz-checksum-type": "FULL_OBJECT"
+            },
+            "AbsentHeaders": [
+              "x-amz-checksum-xxhash64",
+              "x-amz-checksum-xxhash3",
+              "x-amz-checksum-xxhash128",
+              "x-amz-checksum-md5",
+              "x-amz-checksum-crc32",
+              "x-amz-checksum-sha256",
+              "x-amz-checksum-crc32c",
+              "x-amz-checksum-crc64nvme",
+              "x-amz-checksum-sha1"
+            ],
+            "Bind": {
+              "issued_54": "Header.ETag"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 55,
+            "Label": "get-inferred-SHA512",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512-inferred",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[54]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_54}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 56,
+            "Label": "put-explicit-CRC32",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "crc32",
+              "ChecksumCRC32": "4tImtA==",
+              "ChecksumAlgorithm": "CRC32"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[55]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_56": "ETag"
+            },
+            "Output": {
+              "ChecksumCRC32": "4tImtA==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 57,
+            "Label": "get-enabled-CRC32",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "crc32",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[56]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumCRC32": "4tImtA==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_56}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 58,
+            "Label": "head-enabled-CRC32",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "crc32",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[57]",
+            "Output": {
+              "ChecksumCRC32": "4tImtA==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_56}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 59,
+            "Label": "attributes-CRC32",
+            "Operation": "GetObjectAttributes",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "crc32",
+              "ObjectAttributes": [
+                "Checksum",
+                "ObjectSize",
+                "ObjectParts"
+              ]
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[58]",
+            "Output": {
+              "Checksum": {
+                "ChecksumCRC32": "4tImtA==",
+                "ChecksumType": "FULL_OBJECT"
+              },
+              "ObjectSize": 46
+            },
+            "Absent": [
+              "Checksum.ChecksumXXHASH64",
+              "Checksum.ChecksumXXHASH3",
+              "Checksum.ChecksumXXHASH128",
+              "Checksum.ChecksumMD5",
+              "Checksum.ChecksumSHA512",
+              "Checksum.ChecksumCRC32C",
+              "Checksum.ChecksumCRC64NVME",
+              "Checksum.ChecksumSHA1",
+              "Checksum.ChecksumSHA256",
+              "ObjectParts"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[59]",
+          "Raw": {
+            "Sequence": 60,
+            "Label": "put-value-without-algorithm-CRC32",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-1a79312f787a43ad/crc32-inferred",
+            "Headers": {
+              "x-amz-checksum-crc32": "4tImtA=="
+            },
+            "Status": 200,
+            "Payload": [
+              {
+                "Base64": "Y2hlY2tzdW0A/4ABDQoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",
+                "Repeat": 1
+              }
+            ],
+            "ResponseHeaders": {
+              "x-amz-checksum-crc32": "4tImtA==",
+              "x-amz-checksum-type": "FULL_OBJECT"
+            },
+            "AbsentHeaders": [
+              "x-amz-checksum-xxhash64",
+              "x-amz-checksum-xxhash3",
+              "x-amz-checksum-xxhash128",
+              "x-amz-checksum-md5",
+              "x-amz-checksum-sha512",
+              "x-amz-checksum-sha256",
+              "x-amz-checksum-crc32c",
+              "x-amz-checksum-crc64nvme",
+              "x-amz-checksum-sha1"
+            ],
+            "Bind": {
+              "issued_60": "Header.ETag"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 61,
+            "Label": "get-inferred-CRC32",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "crc32-inferred",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[60]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumCRC32": "4tImtA==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_60}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 62,
+            "Label": "put-explicit-SHA256",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha256",
+              "ChecksumSHA256": "oyn3HMirDUT69uVmHjsTVuGVVBChxF/VtT1qUGV2T6s=",
+              "ChecksumAlgorithm": "SHA256"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[61]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_62": "ETag"
+            },
+            "Output": {
+              "ChecksumSHA256": "oyn3HMirDUT69uVmHjsTVuGVVBChxF/VtT1qUGV2T6s=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 63,
+            "Label": "get-enabled-SHA256",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha256",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[62]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumSHA256": "oyn3HMirDUT69uVmHjsTVuGVVBChxF/VtT1qUGV2T6s=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_62}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 64,
+            "Label": "head-enabled-SHA256",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha256",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[63]",
+            "Output": {
+              "ChecksumSHA256": "oyn3HMirDUT69uVmHjsTVuGVVBChxF/VtT1qUGV2T6s=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_62}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 65,
+            "Label": "attributes-SHA256",
+            "Operation": "GetObjectAttributes",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha256",
+              "ObjectAttributes": [
+                "Checksum",
+                "ObjectSize",
+                "ObjectParts"
+              ]
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[64]",
+            "Output": {
+              "Checksum": {
+                "ChecksumSHA256": "oyn3HMirDUT69uVmHjsTVuGVVBChxF/VtT1qUGV2T6s=",
+                "ChecksumType": "FULL_OBJECT"
+              },
+              "ObjectSize": 46
+            },
+            "Absent": [
+              "Checksum.ChecksumXXHASH64",
+              "Checksum.ChecksumXXHASH3",
+              "Checksum.ChecksumXXHASH128",
+              "Checksum.ChecksumMD5",
+              "Checksum.ChecksumSHA512",
+              "Checksum.ChecksumCRC32",
+              "Checksum.ChecksumCRC32C",
+              "Checksum.ChecksumCRC64NVME",
+              "Checksum.ChecksumSHA1",
+              "ObjectParts"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[65]",
+          "Raw": {
+            "Sequence": 66,
+            "Label": "put-value-without-algorithm-SHA256",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-1a79312f787a43ad/sha256-inferred",
+            "Headers": {
+              "x-amz-checksum-sha256": "oyn3HMirDUT69uVmHjsTVuGVVBChxF/VtT1qUGV2T6s="
+            },
+            "Status": 200,
+            "Payload": [
+              {
+                "Base64": "Y2hlY2tzdW0A/4ABDQoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",
+                "Repeat": 1
+              }
+            ],
+            "ResponseHeaders": {
+              "x-amz-checksum-sha256": "oyn3HMirDUT69uVmHjsTVuGVVBChxF/VtT1qUGV2T6s=",
+              "x-amz-checksum-type": "FULL_OBJECT"
+            },
+            "AbsentHeaders": [
+              "x-amz-checksum-xxhash64",
+              "x-amz-checksum-xxhash3",
+              "x-amz-checksum-xxhash128",
+              "x-amz-checksum-md5",
+              "x-amz-checksum-sha512",
+              "x-amz-checksum-crc32",
+              "x-amz-checksum-crc32c",
+              "x-amz-checksum-crc64nvme",
+              "x-amz-checksum-sha1"
+            ],
+            "Bind": {
+              "issued_66": "Header.ETag"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 67,
+            "Label": "get-inferred-SHA256",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha256-inferred",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[66]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumSHA256": "oyn3HMirDUT69uVmHjsTVuGVVBChxF/VtT1qUGV2T6s=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_66}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[67]",
+          "Raw": {
+            "Sequence": 68,
+            "Label": "put-default-no-checksum",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-1a79312f787a43ad/default",
+            "Headers": {},
+            "Status": 200,
+            "Payload": [
+              {
+                "Base64": "Y2hlY2tzdW0A/4ABDQoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",
+                "Repeat": 1
+              }
+            ],
+            "ResponseHeaders": {
+              "x-amz-checksum-crc64nvme": "6zjOjkStjTo=",
+              "x-amz-checksum-type": "FULL_OBJECT"
+            },
+            "AbsentHeaders": [
+              "x-amz-checksum-xxhash64",
+              "x-amz-checksum-xxhash3",
+              "x-amz-checksum-xxhash128",
+              "x-amz-checksum-md5",
+              "x-amz-checksum-sha512",
+              "x-amz-checksum-crc32",
+              "x-amz-checksum-sha256",
+              "x-amz-checksum-crc32c",
+              "x-amz-checksum-sha1"
+            ],
+            "Bind": {
+              "issued_68": "Header.ETag"
+            }
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 69,
+            "Label": "get-default",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "default",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[68]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumCRC64NVME": "6zjOjkStjTo=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_68}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 70,
+            "Label": "reject-mismatch-XXHASH64",
+            "Operation": "PutObject",
+            "Code": "BadDigest",
+            "Status": 400,
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumAlgorithm": "XXHASH64",
+              "ChecksumXXHASH64": "ghHyDMBTcoE="
+            },
+            "Payload": "replacement",
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[69]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 71,
+            "Label": "unchanged-after-mismatch-XXHASH64",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[70]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 72,
+            "Label": "copy-preserve-XXHASH64",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64-copy",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/xxhash64"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[71]",
+            "Bind": {
+              "issued_72": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumXXHASH64": "ghHyDMBTcoE=",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH3",
+              "CopyObjectResult.ChecksumXXHASH128",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 73,
+            "Label": "get-preserved-copy-XXHASH64",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64-copy",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[72]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_72}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 74,
+            "Label": "copy-replace-XXHASH64-XXHASH128",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64-replace",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/xxhash64",
+              "ChecksumAlgorithm": "XXHASH128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[73]",
+            "Bind": {
+              "issued_74": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH3",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 75,
+            "Label": "get-replaced-copy-XXHASH64",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64-replace",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[74]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_74}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 76,
+            "Label": "reject-mismatch-XXHASH3",
+            "Operation": "PutObject",
+            "Code": "BadDigest",
+            "Status": 400,
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumAlgorithm": "XXHASH3",
+              "ChecksumXXHASH3": "tqh8ksNCSno="
+            },
+            "Payload": "replacement",
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[75]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 77,
+            "Label": "unchanged-after-mismatch-XXHASH3",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[76]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 78,
+            "Label": "copy-preserve-XXHASH3",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3-copy",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/xxhash3"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[77]",
+            "Bind": {
+              "issued_78": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumXXHASH3": "tqh8ksNCSno=",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH128",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 79,
+            "Label": "get-preserved-copy-XXHASH3",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3-copy",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[78]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_78}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 80,
+            "Label": "copy-replace-XXHASH3-XXHASH128",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3-replace",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/xxhash3",
+              "ChecksumAlgorithm": "XXHASH128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[79]",
+            "Bind": {
+              "issued_80": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH3",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 81,
+            "Label": "get-replaced-copy-XXHASH3",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3-replace",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[80]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_80}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 82,
+            "Label": "reject-mismatch-XXHASH128",
+            "Operation": "PutObject",
+            "Code": "BadDigest",
+            "Status": 400,
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ChecksumAlgorithm": "XXHASH128",
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A=="
+            },
+            "Payload": "replacement",
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[81]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 83,
+            "Label": "unchanged-after-mismatch-XXHASH128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[82]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_30}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 84,
+            "Label": "copy-preserve-XXHASH128",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128-copy",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/xxhash128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[83]",
+            "Bind": {
+              "issued_84": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH3",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 85,
+            "Label": "get-preserved-copy-XXHASH128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128-copy",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[84]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_84}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 86,
+            "Label": "copy-replace-XXHASH128-SHA512",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128-replace",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/xxhash128",
+              "ChecksumAlgorithm": "SHA512"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[85]",
+            "Bind": {
+              "issued_86": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH3",
+              "CopyObjectResult.ChecksumXXHASH128",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 87,
+            "Label": "get-replaced-copy-XXHASH128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash128-replace",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[86]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_86}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 88,
+            "Label": "reject-mismatch-MD5",
+            "Operation": "PutObject",
+            "Code": "BadDigest",
+            "Status": 400,
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5",
+              "ChecksumAlgorithm": "MD5",
+              "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg=="
+            },
+            "Payload": "replacement",
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[87]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 89,
+            "Label": "unchanged-after-mismatch-MD5",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[88]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_44}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 90,
+            "Label": "copy-preserve-MD5",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5-copy",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/md5"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[89]",
+            "Bind": {
+              "issued_90": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg==",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH3",
+              "CopyObjectResult.ChecksumXXHASH128",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 91,
+            "Label": "get-preserved-copy-MD5",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5-copy",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[90]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumMD5": "35u1yGZPnBRwm/9lSm3eGg==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_90}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 92,
+            "Label": "copy-replace-MD5-XXHASH128",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5-replace",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/md5",
+              "ChecksumAlgorithm": "XXHASH128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[91]",
+            "Bind": {
+              "issued_92": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH3",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 93,
+            "Label": "get-replaced-copy-MD5",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "md5-replace",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[92]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_92}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 94,
+            "Label": "reject-mismatch-SHA512",
+            "Operation": "PutObject",
+            "Code": "BadDigest",
+            "Status": 400,
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512",
+              "ChecksumAlgorithm": "SHA512",
+              "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ=="
+            },
+            "Payload": "replacement",
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[93]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 95,
+            "Label": "unchanged-after-mismatch-SHA512",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[94]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_50}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 96,
+            "Label": "copy-preserve-SHA512",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512-copy",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/sha512"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[95]",
+            "Bind": {
+              "issued_96": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH3",
+              "CopyObjectResult.ChecksumXXHASH128",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 97,
+            "Label": "get-preserved-copy-SHA512",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512-copy",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[96]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumSHA512": "dpMqAQwPc9ddBw4eyqP9sidT3XyFwQTQDZOz8hZJogHpTNl1/QzglPjWI0tbW4Yik1SN36nRMUNmsNSbY3KxNQ==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_96}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 98,
+            "Label": "copy-replace-SHA512-XXHASH128",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512-replace",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/sha512",
+              "ChecksumAlgorithm": "XXHASH128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[97]",
+            "Bind": {
+              "issued_98": "CopyObjectResult.ETag"
+            },
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH3",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 99,
+            "Label": "get-replaced-copy-SHA512",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "sha512-replace",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[98]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_98}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 100,
+            "Label": "multiple-matching-fields",
+            "Operation": "PutObject",
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumAlgorithm": "XXHASH64",
+              "ChecksumSHA256": "oyn3HMirDUT69uVmHjsTVuGVVBChxF/VtT1qUGV2T6s="
+            },
+            "Payload": "binary",
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[99]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 101,
+            "Label": "after-multiple-matching-fields",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[100]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 102,
+            "Label": "multiple-mismatching-other-field",
+            "Operation": "PutObject",
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumAlgorithm": "XXHASH64",
+              "ChecksumSHA256": "ZBHioXoHFMD/qXxp9zOyG07bv1vzI7ZrwZUL/1xYSsY="
+            },
+            "Payload": "binary",
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[101]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 103,
+            "Label": "after-multiple-mismatching-other-field",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash64",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[102]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH64": "ghHyDMBTcoE=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_2}"
+            },
+            "Absent": [
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 104,
+            "Label": "algorithm-header-mismatch",
+            "Operation": "PutObject",
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumAlgorithm": "SHA512"
+            },
+            "Payload": "binary",
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[103]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 105,
+            "Label": "after-algorithm-header-mismatch",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "xxhash3",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[104]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_16}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 106,
+            "Label": "put-ssec-xxhash128",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "ssec-xxhash128",
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumAlgorithm": "XXHASH128",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+              "SSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg=="
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[105]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_106": "ETag"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg=="
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 107,
+            "Label": "get-ssec-xxhash128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "ssec-xxhash128",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+              "SSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg==",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[106]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg==",
+              "ContentLength": 46,
+              "ETag": "${issued_106}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 108,
+            "Label": "head-ssec-xxhash128",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "ssec-xxhash128",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+              "SSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg==",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[107]",
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg==",
+              "ContentLength": 46,
+              "ETag": "${issued_106}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 109,
+            "Label": "attrs-ssec-xxhash128",
+            "Operation": "GetObjectAttributes",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "ssec-xxhash128",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+              "SSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg==",
+              "ObjectAttributes": [
+                "Checksum",
+                "ObjectSize",
+                "ObjectParts"
+              ]
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[108]",
+            "Output": {
+              "Checksum": {
+                "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+                "ChecksumType": "FULL_OBJECT"
+              },
+              "ObjectSize": 46
+            },
+            "Absent": [
+              "Checksum.ChecksumXXHASH64",
+              "Checksum.ChecksumXXHASH3",
+              "Checksum.ChecksumMD5",
+              "Checksum.ChecksumSHA512",
+              "Checksum.ChecksumCRC32",
+              "Checksum.ChecksumCRC32C",
+              "Checksum.ChecksumCRC64NVME",
+              "Checksum.ChecksumSHA1",
+              "Checksum.ChecksumSHA256",
+              "ObjectParts"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 110,
+            "Label": "get-ssec-no-key",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "ssec-xxhash128",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[109]"
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 111,
+            "Label": "get-ssec-no-checksum-mode",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "ssec-xxhash128",
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+              "SSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg=="
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[110]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "SSECustomerAlgorithm": "AES256",
+              "SSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg==",
+              "ContentLength": 46,
+              "ETag": "${issued_106}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1",
+              "ChecksumType"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 112,
+            "Label": "copy-ssec-xxhash128",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "ssec-xxhash128-copy",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/ssec-xxhash128",
+              "ChecksumAlgorithm": "XXHASH3",
+              "CopySourceSSECustomerAlgorithm": "AES256",
+              "CopySourceSSECustomerKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+              "CopySourceSSECustomerKeyMD5": "tP/LI3N87DFaSk0aoqYgzg=="
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[111]",
+            "Output": {
+              "ServerSideEncryption": "AES256",
+              "CopyObjectResult": {
+                "ChecksumXXHASH3": "tqh8ksNCSno=",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Bind": {
+              "issued_112": "CopyObjectResult.ETag"
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH128",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 113,
+            "Label": "get-copy-ssec-xxhash128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "ssec-xxhash128-copy",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[112]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_112}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 114,
+            "Label": "put-kms-xxhash128",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "kms-xxhash128",
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumAlgorithm": "XXHASH128",
+              "ServerSideEncryption": "aws:kms"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[113]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_114": "ETag"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "aws:kms"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 115,
+            "Label": "get-kms-xxhash128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "kms-xxhash128",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[114]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "aws:kms",
+              "ContentLength": 46,
+              "ETag": "${issued_114}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 116,
+            "Label": "head-kms-xxhash128",
+            "Operation": "HeadObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "kms-xxhash128",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[115]",
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "aws:kms",
+              "ContentLength": 46,
+              "ETag": "${issued_114}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 117,
+            "Label": "attrs-kms-xxhash128",
+            "Operation": "GetObjectAttributes",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "kms-xxhash128",
+              "ObjectAttributes": [
+                "Checksum",
+                "ObjectSize",
+                "ObjectParts"
+              ]
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[116]",
+            "Output": {
+              "Checksum": {
+                "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+                "ChecksumType": "FULL_OBJECT"
+              },
+              "ObjectSize": 46
+            },
+            "Absent": [
+              "Checksum.ChecksumXXHASH64",
+              "Checksum.ChecksumXXHASH3",
+              "Checksum.ChecksumMD5",
+              "Checksum.ChecksumSHA512",
+              "Checksum.ChecksumCRC32",
+              "Checksum.ChecksumCRC32C",
+              "Checksum.ChecksumCRC64NVME",
+              "Checksum.ChecksumSHA1",
+              "Checksum.ChecksumSHA256",
+              "ObjectParts"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 118,
+            "Label": "copy-kms-xxhash128",
+            "Operation": "CopyObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "kms-xxhash128-copy",
+              "CopySource": "stackd-checksum-object-1a79312f787a43ad/kms-xxhash128",
+              "ChecksumAlgorithm": "XXHASH3",
+              "ServerSideEncryption": "aws:kms"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[117]",
+            "Output": {
+              "ServerSideEncryption": "aws:kms",
+              "CopyObjectResult": {
+                "ChecksumXXHASH3": "tqh8ksNCSno=",
+                "ChecksumType": "FULL_OBJECT"
+              }
+            },
+            "Bind": {
+              "issued_118": "CopyObjectResult.ETag"
+            },
+            "Absent": [
+              "CopyObjectResult.ChecksumXXHASH64",
+              "CopyObjectResult.ChecksumXXHASH128",
+              "CopyObjectResult.ChecksumMD5",
+              "CopyObjectResult.ChecksumSHA512",
+              "CopyObjectResult.ChecksumCRC32",
+              "CopyObjectResult.ChecksumCRC32C",
+              "CopyObjectResult.ChecksumCRC64NVME",
+              "CopyObjectResult.ChecksumSHA1",
+              "CopyObjectResult.ChecksumSHA256"
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 119,
+            "Label": "get-copy-kms-xxhash128",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-1a79312f787a43ad",
+              "Key": "kms-xxhash128-copy",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[118]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH3": "tqh8ksNCSno=",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "aws:kms",
+              "ContentLength": 46,
+              "ETag": "${issued_118}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH128",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "Name": "present-empty-and-malformed-checksum-headers",
+      "TLS": false,
+      "Calls": [
+        {
+          "SDK": {
+            "Sequence": 120,
+            "Label": "create-supplement-bucket",
+            "Operation": "CreateBucket",
+            "Input": {
+              "Bucket": "stackd-checksum-object-e85528b34ce147ad"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[119]",
+            "Output": {}
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 121,
+            "Label": "supplement-existing-object",
+            "Operation": "PutObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-e85528b34ce147ad",
+              "Key": "boundary",
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumAlgorithm": "XXHASH128"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[120]",
+            "Payload": "binary",
+            "Bind": {
+              "issued_121": "ETag"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[121]",
+          "Raw": {
+            "Sequence": 122,
+            "Label": "present-empty-with-algorithm",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-e85528b34ce147ad/boundary",
+            "Headers": {
+              "x-amz-checksum-xxhash128": "",
+              "x-amz-sdk-checksum-algorithm": "XXHASH128"
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Payload": [
+              {
+                "Base64": "cmVqZWN0ZWQgcmVwbGFjZW1lbnQA/w==",
+                "Repeat": 1
+              }
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 123,
+            "Label": "bytes-after-present-empty-with-algorithm",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-e85528b34ce147ad",
+              "Key": "boundary",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[122]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_121}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[123]",
+          "Raw": {
+            "Sequence": 124,
+            "Label": "present-empty-without-algorithm",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-e85528b34ce147ad/boundary",
+            "Headers": {
+              "x-amz-checksum-xxhash128": ""
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Payload": [
+              {
+                "Base64": "cmVqZWN0ZWQgcmVwbGFjZW1lbnQA/w==",
+                "Repeat": 1
+              }
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 125,
+            "Label": "bytes-after-present-empty-without-algorithm",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-e85528b34ce147ad",
+              "Key": "boundary",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[124]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_121}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[125]",
+          "Raw": {
+            "Sequence": 126,
+            "Label": "malformed-base64-with-algorithm",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-e85528b34ce147ad/boundary",
+            "Headers": {
+              "x-amz-checksum-xxhash128": "%%%not-base64%%%",
+              "x-amz-sdk-checksum-algorithm": "XXHASH128"
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Payload": [
+              {
+                "Base64": "cmVqZWN0ZWQgcmVwbGFjZW1lbnQA/w==",
+                "Repeat": 1
+              }
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 127,
+            "Label": "bytes-after-malformed-base64-with-algorithm",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-e85528b34ce147ad",
+              "Key": "boundary",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[126]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_121}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        },
+        {
+          "Source": "checksum_algorithms_object_evidence.json.gz:observations[127]",
+          "Raw": {
+            "Sequence": 128,
+            "Label": "malformed-base64-without-algorithm",
+            "Operation": "PutObject",
+            "Method": "PUT",
+            "Target": "/stackd-checksum-object-e85528b34ce147ad/boundary",
+            "Headers": {
+              "x-amz-checksum-xxhash128": "%%%not-base64%%%"
+            },
+            "Code": "InvalidRequest",
+            "Status": 400,
+            "Payload": [
+              {
+                "Base64": "cmVqZWN0ZWQgcmVwbGFjZW1lbnQA/w==",
+                "Repeat": 1
+              }
+            ]
+          }
+        },
+        {
+          "SDK": {
+            "Sequence": 129,
+            "Label": "bytes-after-malformed-base64-without-algorithm",
+            "Operation": "GetObject",
+            "Input": {
+              "Bucket": "stackd-checksum-object-e85528b34ce147ad",
+              "Key": "boundary",
+              "ChecksumMode": "ENABLED"
+            },
+            "Code": "Success",
+            "Status": 200,
+            "Source": "checksum_algorithms_object_evidence.json.gz:observations[128]",
+            "Digest": {
+              "Length": 46,
+              "SHA256": "a329f71cc8ab0d44faf6e5661e3b1356e1955410a1c45fd5b53d6a5065764fab"
+            },
+            "Output": {
+              "ChecksumXXHASH128": "cD7Hn7de9krAIQco/jZd/A==",
+              "ChecksumType": "FULL_OBJECT",
+              "ServerSideEncryption": "AES256",
+              "ContentLength": 46,
+              "ETag": "${issued_121}"
+            },
+            "Absent": [
+              "ChecksumXXHASH64",
+              "ChecksumXXHASH3",
+              "ChecksumMD5",
+              "ChecksumSHA512",
+              "ChecksumCRC32",
+              "ChecksumSHA256",
+              "ChecksumCRC32C",
+              "ChecksumCRC64NVME",
+              "ChecksumSHA1"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "command": [
+    "/tmp/stackd-cfn-cloudcontrol",
+    "-listen",
+    "127.0.0.1:44709",
+    "-public-endpoint",
+    "http://127.0.0.1:44709",
+    "-database",
+    "/tmp/stackd-cfn-kms-proof-20260928b/state.sqlite",
+    "-clock-start",
+    "2031-01-01T00:00:00Z"
+  ],
+  "observations": {
+    "cryptography": {
+      "key": "250ee38d-5498-4d44-a8e2-2ead3be3057c",
+      "plaintext": "actual-cfn-cryptographic-bytes",
+      "ciphertext_size": 209
+    },
+    "predeleted_alias": "stack deletion still succeeds after owner alias removal"
+  },
+  "cleanup": {
+    "complete": true,
+    "key_error": "NotFoundException",
+    "alias_absent": true,
+    "stack_status": "DELETE_COMPLETE"
+  },
+  "template": {
+    "Resources": {
+      "Key": {
+        "Type": "AWS::KMS::Key",
+        "Properties": {
+          "KeyPolicy": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": "arn:aws:iam::000000000000:root"
+                },
+                "Action": "kms:*",
+                "Resource": "*"
+              }
+            ]
+          },
+          "Description": "updated-real-key",
+          "PendingWindowInDays": 7,
+          "EnableKeyRotation": true
+        }
+      },
+      "Alias": {
+        "Type": "AWS::KMS::Alias",
+        "Properties": {
+          "AliasName": "alias/stackd-next-cfn-owned-smoke",
+          "TargetKeyId": {
+            "Ref": "Key"
+          }
+        }
+      }
+    },
+    "Outputs": {
+      "Key": {
+        "Value": {
+          "Ref": "Key"
+        }
+      },
+      "Arn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "Key",
+            "Arn"
+          ]
+        }
+      }
+    }
+  },
+  "exit": 0
+}

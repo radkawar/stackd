@@ -1,0 +1,929 @@
+{
+  "Source": "access_point_region_evidence.json.gz",
+  "Normalization": [
+    "Native account 000000000000 maps to 123456789012; native owner IAM user Delegated is represented by local caller/root. This captures endpoint/signature admission, not broader IAM permissions.",
+    "Bucket and AP names are deterministic fixture names; alias is bound from the actual CreateAccessPoint response. All source sequences index Observations one-based.",
+    "Raw requests preserve Host independently of signing Region and bypass SDK region redirects. Presigned replay expiry is 120 seconds versus captured 60 seconds; both remain unexpired.",
+    "Successful list bodies project the backing bucket Name; unrelated default fields and successful regional response headers are not projected. Error XML Region/Endpoint/Bucket and regional response headers retain measured distinctions.",
+    "Reopen verifies local retained-backend admission and does not represent an additional native AWS observation.",
+    "The copy-source scenario references CopyRegionCapture. It uses fresh west/east buckets and a west AP in the same guarded native account. The failed CLI streaming-body setup attempt is separately preserved as CopyRegionFailedSetup with verified cleanup and is not replayed as an AWS error.",
+    "Native copy-source headers are normalized to decoded ARN/alias inputs supported by the existing raw replay; the native HTTP codes, Region details and consumer bytes are retained.",
+    "DestinationRegionCapture independently measures direct east bucket source to west AP destination: both ARN/alias CopyObject and UploadPartCopy succeed, unlike cross-region AP sources. Direct-bucket cross-region controls also succeed."
+  ],
+  "Scenarios": [
+    {
+      "Name": "regional-ap-signature-scope-and-alias-endpoint-admission",
+      "Setup": [
+        {
+          "Label": "create-west-bucket",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-west-2",
+          "Operation": "CreateBucket",
+          "Status": 200,
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-bucket",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-west-ap",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 3,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Region": "us-west-2",
+          "Operation": "CreateAccessPoint",
+          "Status": 200,
+          "Code": "Success",
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "region-ap",
+            "Bucket": "region-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "alias": "Alias",
+            "apArn": "AccessPointArn"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "ap-host-us-west-2-header",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 4,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/?list-type=2&max-keys=1",
+          "RequestHost": "region-ap-123456789012.s3-accesspoint.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Presign": false,
+          "Status": 200,
+          "Code": "",
+          "BodyContains": [
+            "<Name>region-bucket</Name>"
+          ]
+        },
+        {
+          "Label": "ap-host-us-east-1-header",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 5,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/?list-type=2&max-keys=1",
+          "RequestHost": "region-ap-123456789012.s3-accesspoint.us-west-2.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 400,
+          "Code": "AuthorizationHeaderMalformed",
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          },
+          "ErrorDetails": {
+            "Region": "us-west-2"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "ap-host-us-west-2-query",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 6,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/?list-type=2&max-keys=1",
+          "RequestHost": "region-ap-123456789012.s3-accesspoint.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Presign": true,
+          "Status": 200,
+          "Code": "",
+          "BodyContains": [
+            "<Name>region-bucket</Name>"
+          ]
+        },
+        {
+          "Label": "ap-host-us-east-1-query",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 7,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/?list-type=2&max-keys=1",
+          "RequestHost": "region-ap-123456789012.s3-accesspoint.us-west-2.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": true,
+          "Status": 400,
+          "Code": "AuthorizationQueryParametersError",
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          },
+          "ErrorDetails": {
+            "Region": "us-west-2"
+          }
+        },
+        {
+          "Label": "alias-west-host-us-west-2-header",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 8,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/?list-type=2&max-keys=1",
+          "RequestHost": "${alias}.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Presign": false,
+          "Status": 200,
+          "Code": "",
+          "BodyContains": [
+            "<Name>region-bucket</Name>"
+          ]
+        },
+        {
+          "Label": "alias-west-host-us-east-1-header",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 9,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/?list-type=2&max-keys=1",
+          "RequestHost": "${alias}.s3.us-west-2.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 400,
+          "Code": "AuthorizationHeaderMalformed",
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          },
+          "ErrorDetails": {
+            "Region": "us-west-2"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "alias-west-host-us-west-2-query",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 10,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/?list-type=2&max-keys=1",
+          "RequestHost": "${alias}.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Presign": true,
+          "Status": 200,
+          "Code": "",
+          "BodyContains": [
+            "<Name>region-bucket</Name>"
+          ]
+        },
+        {
+          "Label": "alias-west-host-us-east-1-query",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 11,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/?list-type=2&max-keys=1",
+          "RequestHost": "${alias}.s3.us-west-2.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": true,
+          "Status": 400,
+          "Code": "AuthorizationQueryParametersError",
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          },
+          "ErrorDetails": {
+            "Region": "us-west-2"
+          }
+        },
+        {
+          "Label": "alias-path-us-west-2-header",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 12,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/${alias}?list-type=2&max-keys=1",
+          "RequestHost": "s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Presign": false,
+          "Status": 200,
+          "Code": "",
+          "BodyContains": [
+            "<Name>region-bucket</Name>"
+          ]
+        },
+        {
+          "Label": "alias-path-us-east-1-header",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 13,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/${alias}?list-type=2&max-keys=1",
+          "RequestHost": "s3.us-east-1.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 301,
+          "Code": "PermanentRedirect",
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          },
+          "ErrorDetails": {
+            "Endpoint": "${alias}.s3-us-west-2.amazonaws.com",
+            "Bucket": "${alias}"
+          },
+          "AbsentErrorDetails": [
+            "Region"
+          ],
+          "Reopen": true
+        },
+        {
+          "Label": "alias-east-host-east-header",
+          "Source": "access_point_region_evidence.json.gz#Observations",
+          "Sequence": 14,
+          "Actor": "caller",
+          "Operation": "ListObjectsV2",
+          "Method": "GET",
+          "Target": "/?list-type=2&max-keys=1",
+          "RequestHost": "${alias}.s3.us-east-1.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 301,
+          "Code": "PermanentRedirect",
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          },
+          "ErrorDetails": {
+            "Endpoint": "${alias}.s3-us-west-2.amazonaws.com",
+            "Bucket": "${alias}"
+          },
+          "AbsentErrorDetails": [
+            "Region"
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "native-copy-source-region-admission-and-consumer-bytes",
+      "Setup": [
+        {
+          "Label": "create-us-west-2-bucket",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-west-2",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-bucket",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-us-east-1-bucket",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 3,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-copy-east"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-west-ap",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 4,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Region": "us-west-2",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "region-ap",
+            "Bucket": "region-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "alias": "Alias",
+            "apArn": "AccessPointArn"
+          }
+        },
+        {
+          "Label": "seed-copy-source",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-west-2",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-bucket",
+            "Key": "source"
+          },
+          "Output": {},
+          "Body": "cmVnaW9uIGNvcHkgc291cmNl"
+        },
+        {
+          "Label": "initiate-us-west-2-upload",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 6,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-west-2",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-bucket",
+            "Key": "parts"
+          },
+          "Output": {},
+          "Bind": {
+            "westUpload": "UploadId"
+          }
+        },
+        {
+          "Label": "initiate-us-east-1-upload",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-copy-east",
+            "Key": "parts"
+          },
+          "Output": {},
+          "Bind": {
+            "eastUpload": "UploadId"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "copy-source-only-wrong-header",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 8,
+          "Actor": "caller",
+          "Operation": "CopyObject",
+          "Method": "PUT",
+          "Target": "/copied",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 400,
+          "Code": "AuthorizationHeaderMalformed",
+          "Headers": {
+            "x-amz-copy-source": "${apArn}/object/source"
+          },
+          "ErrorDetails": {
+            "Region": "us-west-2"
+          },
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          }
+        },
+        {
+          "Label": "copy-source-only-wrong-query",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 9,
+          "Actor": "caller",
+          "Operation": "CopyObject",
+          "Method": "PUT",
+          "Target": "/copied",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": true,
+          "Status": 400,
+          "Code": "AuthorizationQueryParametersError",
+          "Headers": {
+            "x-amz-copy-source": "${alias}/source"
+          },
+          "ErrorDetails": {
+            "Region": "us-west-2"
+          },
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          }
+        },
+        {
+          "Label": "part-source-only-wrong-header",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 10,
+          "Actor": "caller",
+          "Operation": "UploadPartCopy",
+          "Method": "PUT",
+          "Target": "/parts?partNumber=1&uploadId=${westUpload}",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 400,
+          "Code": "AuthorizationHeaderMalformed",
+          "Headers": {
+            "x-amz-copy-source": "${apArn}/object/source"
+          },
+          "ErrorDetails": {
+            "Region": "us-west-2"
+          },
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          }
+        },
+        {
+          "Label": "part-source-only-wrong-query",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 11,
+          "Actor": "caller",
+          "Operation": "UploadPartCopy",
+          "Method": "PUT",
+          "Target": "/parts?partNumber=1&uploadId=${westUpload}",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": true,
+          "Status": 400,
+          "Code": "AuthorizationQueryParametersError",
+          "Headers": {
+            "x-amz-copy-source": "${alias}/source"
+          },
+          "ErrorDetails": {
+            "Region": "us-west-2"
+          },
+          "ResponseHeaders": {
+            "x-amz-bucket-region": "us-west-2"
+          }
+        },
+        {
+          "Label": "copy-cross-region-arn",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 12,
+          "Actor": "caller",
+          "Operation": "CopyObject",
+          "Method": "PUT",
+          "Target": "/copied",
+          "RequestHost": "region-copy-east.s3.us-east-1.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 403,
+          "Code": "AccessDenied",
+          "Headers": {
+            "x-amz-copy-source": "${apArn}/object/source"
+          },
+          "AbsentErrorDetails": [
+            "Region",
+            "Endpoint"
+          ]
+        },
+        {
+          "Label": "copy-cross-region-alias",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 13,
+          "Actor": "caller",
+          "Operation": "CopyObject",
+          "Method": "PUT",
+          "Target": "/copied",
+          "RequestHost": "region-copy-east.s3.us-east-1.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 403,
+          "Code": "AccessDenied",
+          "Headers": {
+            "x-amz-copy-source": "${alias}/source"
+          },
+          "AbsentErrorDetails": [
+            "Region",
+            "Endpoint"
+          ]
+        },
+        {
+          "Label": "part-cross-region-arn",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 14,
+          "Actor": "caller",
+          "Operation": "UploadPartCopy",
+          "Method": "PUT",
+          "Target": "/parts?partNumber=1&uploadId=${eastUpload}",
+          "RequestHost": "region-copy-east.s3.us-east-1.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 403,
+          "Code": "AccessDenied",
+          "Headers": {
+            "x-amz-copy-source": "${apArn}/object/source"
+          },
+          "AbsentErrorDetails": [
+            "Region",
+            "Endpoint"
+          ]
+        },
+        {
+          "Label": "part-cross-region-alias",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 15,
+          "Actor": "caller",
+          "Operation": "UploadPartCopy",
+          "Method": "PUT",
+          "Target": "/parts?partNumber=1&uploadId=${eastUpload}",
+          "RequestHost": "region-copy-east.s3.us-east-1.amazonaws.com",
+          "Region": "us-east-1",
+          "Presign": false,
+          "Status": 403,
+          "Code": "AccessDenied",
+          "Headers": {
+            "x-amz-copy-source": "${alias}/source"
+          },
+          "AbsentErrorDetails": [
+            "Region",
+            "Endpoint"
+          ]
+        },
+        {
+          "Label": "copy-matching-region",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 16,
+          "Actor": "caller",
+          "Operation": "CopyObject",
+          "Method": "PUT",
+          "Target": "/copied",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Presign": false,
+          "Status": 200,
+          "Code": "",
+          "Headers": {
+            "x-amz-copy-source": "${apArn}/object/source"
+          }
+        },
+        {
+          "Label": "read-whole-copy",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 17,
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/copied",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Presign": false,
+          "Status": 200,
+          "Code": "",
+          "ResponseBody": "region copy source",
+          "Reopen": true
+        },
+        {
+          "Label": "part-matching-region",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 18,
+          "Actor": "caller",
+          "Operation": "UploadPartCopy",
+          "Method": "PUT",
+          "Target": "/parts?partNumber=1&uploadId=${westUpload}",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Presign": false,
+          "Status": 200,
+          "Code": "",
+          "Headers": {
+            "x-amz-copy-source": "${alias}/source"
+          },
+          "Bind": {
+            "partETag": "ETag"
+          },
+          "After": [
+            {
+              "Label": "complete-west-upload",
+              "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+              "Sequence": 19,
+              "Service": "s3",
+              "Actor": "caller",
+              "Region": "us-west-2",
+              "Operation": "CompleteMultipartUpload",
+              "Code": "Success",
+              "Input": {
+                "Bucket": "region-bucket",
+                "Key": "parts",
+                "UploadId": "${westUpload}",
+                "MultipartUpload": {
+                  "Parts": [
+                    {
+                      "PartNumber": 1,
+                      "ETag": "${partETag}"
+                    }
+                  ]
+                }
+              },
+              "Output": {}
+            }
+          ]
+        },
+        {
+          "Label": "read-part-copy",
+          "Source": "access_point_region_evidence.json.gz#CopyRegionCapture.Observations",
+          "Sequence": 20,
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/parts",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Presign": false,
+          "Status": 200,
+          "Code": "",
+          "ResponseBody": "region copy source",
+          "Reopen": true
+        }
+      ]
+    },
+    {
+      "Name": "native-direct-source-cross-region-ap-and-bucket-destinations",
+      "Setup": [
+        {
+          "Label": "create-us-west-2-bucket",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 2,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-west-2",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-bucket",
+            "CreateBucketConfiguration": {
+              "LocationConstraint": "us-west-2"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-us-east-1-bucket",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 3,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-copy-east"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-west-ap",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 4,
+          "Service": "s3control",
+          "Actor": "caller",
+          "Region": "us-west-2",
+          "Operation": "CreateAccessPoint",
+          "Code": "Success",
+          "Input": {
+            "AccountId": "123456789012",
+            "Name": "region-ap",
+            "Bucket": "region-bucket"
+          },
+          "Output": {},
+          "Bind": {
+            "alias": "Alias",
+            "apArn": "AccessPointArn"
+          }
+        },
+        {
+          "Label": "seed-copy-source",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 5,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-copy-east",
+            "Key": "source"
+          },
+          "Output": {},
+          "Body": "cmVnaW9uIGNvcHkgc291cmNl"
+        },
+        {
+          "Label": "initiate-us-west-2-upload",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 6,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-west-2",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-bucket",
+            "Key": "parts"
+          },
+          "Output": {},
+          "Bind": {
+            "westUpload": "UploadId"
+          }
+        },
+        {
+          "Label": "initiate-us-east-1-upload",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 7,
+          "Service": "s3",
+          "Actor": "caller",
+          "Region": "us-east-1",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "region-copy-east",
+            "Key": "parts"
+          },
+          "Output": {},
+          "Bind": {
+            "eastUpload": "UploadId"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "copy-destination-ap-cross-region-arn",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 8,
+          "Actor": "caller",
+          "Operation": "CopyObject",
+          "Method": "PUT",
+          "Target": "/copied",
+          "RequestHost": "region-ap-123456789012.s3-accesspoint.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Status": 200,
+          "Code": "",
+          "Headers": {
+            "x-amz-copy-source": "region-copy-east/source"
+          },
+          "ETag": "\"7e0332b75841aff21499e3d128b3bb93\""
+        },
+        {
+          "Label": "copy-destination-ap-cross-region-alias",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 9,
+          "Actor": "caller",
+          "Operation": "CopyObject",
+          "Method": "PUT",
+          "Target": "/copied",
+          "RequestHost": "${alias}.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Status": 200,
+          "Code": "",
+          "Headers": {
+            "x-amz-copy-source": "region-copy-east/source"
+          },
+          "ETag": "\"7e0332b75841aff21499e3d128b3bb93\""
+        },
+        {
+          "Label": "part-destination-ap-cross-region-arn",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 10,
+          "Actor": "caller",
+          "Operation": "UploadPartCopy",
+          "Method": "PUT",
+          "Target": "/parts?partNumber=1&uploadId=${westUpload}",
+          "RequestHost": "region-ap-123456789012.s3-accesspoint.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Status": 200,
+          "Code": "",
+          "Headers": {
+            "x-amz-copy-source": "region-copy-east/source"
+          },
+          "ETag": "\"7e0332b75841aff21499e3d128b3bb93\""
+        },
+        {
+          "Label": "part-destination-ap-cross-region-alias",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 11,
+          "Actor": "caller",
+          "Operation": "UploadPartCopy",
+          "Method": "PUT",
+          "Target": "/parts?partNumber=1&uploadId=${westUpload}",
+          "RequestHost": "${alias}.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Status": 200,
+          "Code": "",
+          "Headers": {
+            "x-amz-copy-source": "region-copy-east/source"
+          },
+          "ETag": "\"7e0332b75841aff21499e3d128b3bb93\""
+        },
+        {
+          "Label": "copy-direct-cross-region",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 12,
+          "Actor": "caller",
+          "Operation": "CopyObject",
+          "Method": "PUT",
+          "Target": "/copied",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Status": 200,
+          "Code": "",
+          "Headers": {
+            "x-amz-copy-source": "region-copy-east/source"
+          },
+          "ETag": "\"7e0332b75841aff21499e3d128b3bb93\""
+        },
+        {
+          "Label": "read-whole-copy",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 13,
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/copied",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Status": 200,
+          "Code": "",
+          "ResponseBody": "region copy source",
+          "Reopen": true
+        },
+        {
+          "Label": "part-direct-cross-region",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 14,
+          "Actor": "caller",
+          "Operation": "UploadPartCopy",
+          "Method": "PUT",
+          "Target": "/parts?partNumber=1&uploadId=${westUpload}",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Status": 200,
+          "Code": "",
+          "Headers": {
+            "x-amz-copy-source": "region-copy-east/source"
+          },
+          "ETag": "\"7e0332b75841aff21499e3d128b3bb93\"",
+          "Bind": {
+            "partETag": "ETag"
+          },
+          "After": [
+            {
+              "Label": "complete-west-upload",
+              "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+              "Sequence": 15,
+              "Service": "s3",
+              "Actor": "caller",
+              "Region": "us-west-2",
+              "Operation": "CompleteMultipartUpload",
+              "Code": "Success",
+              "Input": {
+                "Bucket": "region-bucket",
+                "Key": "parts",
+                "UploadId": "${westUpload}",
+                "MultipartUpload": {
+                  "Parts": [
+                    {
+                      "PartNumber": 1,
+                      "ETag": "${partETag}"
+                    }
+                  ]
+                }
+              },
+              "Output": {}
+            }
+          ]
+        },
+        {
+          "Label": "read-part-copy",
+          "Source": "access_point_region_evidence.json.gz#DestinationRegionCapture.Observations",
+          "Sequence": 16,
+          "Actor": "caller",
+          "Operation": "GetObject",
+          "Method": "GET",
+          "Target": "/parts",
+          "RequestHost": "region-bucket.s3.us-west-2.amazonaws.com",
+          "Region": "us-west-2",
+          "Status": 200,
+          "Code": "",
+          "ResponseBody": "region copy source",
+          "Reopen": true
+        }
+      ]
+    }
+  ]
+}

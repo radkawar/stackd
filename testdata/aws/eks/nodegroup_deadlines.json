@@ -1,0 +1,62 @@
+{
+  "source": "https://docs.aws.amazon.com/eks/latest/userguide/managed-node-update-behavior.html",
+  "scope": "Deterministic phase-clock cases, not a native AWS capture. Allocated workers retain their bootstrap start; drains own a separate 15-minute deadline.",
+  "now": "2035-01-01T01:00:00Z",
+  "cases": [
+    {
+      "name": "second batch has its own bootstrap window",
+      "nodegroup": {"Operation":"VersionUpdate","Created":"2035-01-01T00:20:00Z","Version":"1.33","ManagedTemplateID":"lt","ManagedTemplateVersion":"2","Workers":[{"InstanceID":"i-second","TemplateID":"lt","TemplateVersion":"2","LifecycleState":"InService","BootstrapStarted":"2035-01-01T00:53:00Z"}]},
+      "code": ""
+    },
+    {
+      "name": "healthy surplus capacity does not time out during scale down",
+      "nodegroup": {"Operation":"VersionUpdate","DesiredSize":1,"Version":"1.33","ManagedTemplateID":"lt","ManagedTemplateVersion":"2","Workers":[{"InstanceID":"i-ready","TemplateID":"lt","TemplateVersion":"2","LifecycleState":"InService","Ready":true,"KubeletVersion":"v1.33.4+k3s1","BootstrapStarted":"2035-01-01T00:20:00Z"},{"InstanceID":"i-surplus","TemplateID":"lt","TemplateVersion":"2","LifecycleState":"Terminating:Wait","BootstrapStarted":"2035-01-01T00:20:00Z"}]},
+      "code": ""
+    },
+    {
+      "name": "allocated worker expires at fifteen minutes",
+      "nodegroup": {"Operation":"create","Version":"1.33","Workers":[{"InstanceID":"i-late","LifecycleState":"InService","BootstrapStarted":"2035-01-01T00:45:00Z"}]},
+      "code": "NodeCreationFailure"
+    },
+    {
+      "name": "unallocated requested capacity expires",
+      "nodegroup": {"Operation":"create","Deadline":"2035-01-01T01:00:00Z"},
+      "code": "NodeCreationFailure"
+    },
+    {
+      "name": "joined peer does not rearm a slow worker",
+      "nodegroup": {"Operation":"create","Version":"1.33","Workers":[{"InstanceID":"i-slow","LifecycleState":"InService","BootstrapStarted":"2035-01-01T00:44:00Z"},{"InstanceID":"i-fast","LifecycleState":"InService","Ready":true,"KubeletVersion":"v1.33.4+k3s1","BootstrapStarted":"2035-01-01T00:58:00Z"}]},
+      "code": "NodeCreationFailure"
+    },
+    {
+      "name": "Ready with the wrong binary is not a completed bootstrap",
+      "nodegroup": {"Operation":"create","Version":"1.33","Workers":[{"InstanceID":"i-wrong","LifecycleState":"InService","Ready":true,"KubeletVersion":"v1.32.8+k3s1","BootstrapStarted":"2035-01-01T00:44:00Z"}]},
+      "code": "NodeCreationFailure"
+    },
+    {
+      "name": "old template does not consume new node bootstrap time",
+      "nodegroup": {"Operation":"VersionUpdate","Version":"1.33","ManagedTemplateID":"lt","ManagedTemplateVersion":"2","Workers":[{"InstanceID":"i-old","TemplateID":"lt","TemplateVersion":"1","LifecycleState":"InService","BootstrapStarted":"2035-01-01T00:00:00Z"}]},
+      "code": ""
+    },
+    {
+      "name": "drain receives its own full fifteen minutes",
+      "nodegroup": {"Operation":"VersionUpdate","Created":"2035-01-01T00:00:00Z","Workers":[{"InstanceID":"i-draining","DrainStarted":"2035-01-01T00:45:01Z"}]},
+      "code": ""
+    },
+    {
+      "name": "blocked drain expires independently of bootstrap",
+      "nodegroup": {"Operation":"VersionUpdate","Workers":[{"InstanceID":"i-draining","DrainStarted":"2035-01-01T00:45:00Z"}]},
+      "code": "PodEvictionFailure"
+    },
+    {
+      "name": "completed eviction does not expire while termination proceeds",
+      "nodegroup": {"Operation":"VersionUpdate","Workers":[{"InstanceID":"i-drained","DrainStarted":"2035-01-01T00:30:00Z","DrainCompleted":"2035-01-01T00:59:30Z"}]},
+      "code": ""
+    },
+    {
+      "name": "completed operation has no stale bootstrap timeout",
+      "nodegroup": {"Version":"1.33","Workers":[{"InstanceID":"i-existing","LifecycleState":"InService","BootstrapStarted":"2035-01-01T00:00:00Z"}]},
+      "code": ""
+    }
+  ]
+}

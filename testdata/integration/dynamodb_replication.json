@@ -1,0 +1,807 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Selected public lifecycle contracts from testdata/aws/dynamodb/global_tables_lifecycle.json; deterministic local TTL deletion and reopen extensions. Not an AWS parity claim.",
+  "steps": [
+    {
+      "name": "create-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "scope",
+            "Value": "source-only"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "put-initial",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "Item": {
+          "pk": {
+            "S": "initial"
+          },
+          "mark": {
+            "S": "before-replica"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "reject-local-region",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-1"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "create-peer",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "membership-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "membership-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "bootstrap-copies-existing-row",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "Key": {
+          "pk": {
+            "S": "initial"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "initial"
+          },
+          "mark": {
+            "S": "before-replica"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "duplicate-peer-rejected",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "global-stream-disable-rejected",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "StreamSpecification": {
+          "StreamEnabled": false
+        }
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "initial-tags-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-replication-lifecycle"
+      },
+      "want": {
+        "Tags": [
+          {
+            "Key": "scope",
+            "Value": "source-only"
+          }
+        ]
+      }
+    },
+    {
+      "name": "initial-tags-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-lifecycle"
+      },
+      "want": {
+        "Tags": []
+      }
+    },
+    {
+      "name": "tag-peer-independently",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "TagResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-lifecycle",
+        "Tags": [
+          {
+            "Key": "scope",
+            "Value": "replica-only"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "regional-tags-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-replication-lifecycle"
+      },
+      "want": {
+        "Tags": [
+          {
+            "Key": "scope",
+            "Value": "source-only"
+          }
+        ]
+      }
+    },
+    {
+      "name": "regional-tags-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-lifecycle"
+      },
+      "want": {
+        "Tags": [
+          {
+            "Key": "scope",
+            "Value": "replica-only"
+          }
+        ]
+      }
+    },
+    {
+      "name": "enable-source-pitr",
+      "advance": "1m",
+      "region": "us-east-1",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true,
+          "RecoveryPeriodInDays": 1
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "regional-pitr-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "ENABLED"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "regional-pitr-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeContinuousBackups",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus": "DISABLED"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "source-maxima",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "OnDemandThroughput": {
+          "MaxReadRequestUnits": 20,
+          "MaxWriteRequestUnits": 20
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "source-maxima-settled-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 20,
+          "MaxWriteRequestUnits": 20
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "source-maxima-settled-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 20,
+          "MaxWriteRequestUnits": 20
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "replica-read-override",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "ReplicaUpdates": [
+          {
+            "Update": {
+              "RegionName": "us-east-2",
+              "OnDemandThroughputOverride": {
+                "MaxReadRequestUnits": 10
+              }
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "override-settled-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 20,
+          "MaxWriteRequestUnits": 20
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "override-settled-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 10,
+          "MaxWriteRequestUnits": 20
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "source-reset-clears-read-override",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "OnDemandThroughput": {
+          "MaxReadRequestUnits": 30,
+          "MaxWriteRequestUnits": 25
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "reset-settled-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 30,
+          "MaxWriteRequestUnits": 25
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "reset-settled-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 30,
+          "MaxWriteRequestUnits": 25
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "membership-survives-reopen",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true,
+      "reopen": true
+    },
+    {
+      "name": "membership-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "bootstrap-row-survives-reopen",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "Key": {
+          "pk": {
+            "S": "initial"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "initial"
+          },
+          "mark": {
+            "S": "before-replica"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "source-recent-bootstrap-delete-rejected",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "enable-global-ttl",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTimeToLive",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "TimeToLiveSpecification": {
+          "Enabled": true,
+          "AttributeName": "expires"
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "ttl-synchronized-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTimeToLive",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "TimeToLiveDescription": {
+          "AttributeName": "expires",
+          "TimeToLiveStatus": "ENABLED"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ttl-synchronized-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTimeToLive",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "TimeToLiveDescription": {
+          "AttributeName": "expires",
+          "TimeToLiveStatus": "ENABLED"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "put-expires",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "Item": {
+          "pk": {
+            "S": "expires"
+          },
+          "expires": {
+            "N": "1789693200"
+          },
+          "mark": {
+            "S": "ttl"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "ttl-row-replicates-before-expiry",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "Key": {
+          "pk": {
+            "S": "expires"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "expires"
+          },
+          "expires": {
+            "N": "1789693200"
+          },
+          "mark": {
+            "S": "ttl"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ttl-expiry-source",
+      "advance": "2h",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "Key": {
+          "pk": {
+            "S": "expires"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ttl-expiry-peer",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "Key": {
+          "pk": {
+            "S": "expires"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ttl-preserves-nonexpiring-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "Key": {
+          "pk": {
+            "S": "initial"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "initial"
+          },
+          "mark": {
+            "S": "before-replica"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ttl-preserves-nonexpiring-peer",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "Key": {
+          "pk": {
+            "S": "initial"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "initial"
+          },
+          "mark": {
+            "S": "before-replica"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "disable-source-pitr-before-cleanup",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateContinuousBackups",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": false
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "remove-peer",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "peer-absent",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "source-demoted-streams-remain",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null,
+        "Table.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "delete-owned-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {}
+    },
+    {
+      "name": "source-absent",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-lifecycle"
+      },
+      "want": {},
+      "waitTableAbsent": true,
+      "code": "ResourceNotFoundException"
+    }
+  ]
+}

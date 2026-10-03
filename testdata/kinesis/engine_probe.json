@@ -1,0 +1,449 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-09-19T01:11:59.209510+00:00",
+  "experiment": "Real isolated local engine containers; not AWS conformance or repository tests",
+  "actor": "KinesisEngine; synthetic account credentials only",
+  "region": "us-east-1; isolation check us-west-2",
+  "accounts": [
+    "111111111111",
+    "222222222222"
+  ],
+  "real_aws_requests": 0,
+  "decision": {
+    "status": "blocked",
+    "supported_engine": null,
+    "reason": "No unmodified tested candidate meets acknowledged-write crash durability plus current Kinesis record-size/API boundaries. kinesis-mock loses acknowledged records after immediate process kill. Kinesalite retains process-crash writes but hard-rejects data above1MiB, lacks consumers/event streams and cannot relinquish wall-clock retention. Do not conceal these gaps with a receipt/redo ledger."
+  },
+  "transport": {
+    "baseline": "scripts/aws/aws_cli.py run/result for signed create-stream on explicit localhost endpoint",
+    "remaining_calls": "Python stdlib HTTP AWS JSON1.1 with synthetic Authorization scope; backend routing does not validate cryptographic signature; no production credentials loaded",
+    "event_stream": "Actual first SubscribeToShard frame read; prelude and full message CRC32 verified",
+    "compaction": "Data replaced by decoded length/SHA256; opaque iterator values replaced by length/SHA256; sequence numbers and timestamps retained. Empty response JSON decode errors on initial mock CreateStream/SplitShard are capture-parser observations, HTTP200 empty body is the actual result. Parser corrected before later calls."
+  },
+  "engines": {
+    "kinesis_mock": {
+      "version": "0.6.2",
+      "source_commit": "6b18563254e10fb543329e5dc0a2f0ecc90c92bf",
+      "image": "ghcr.io/etspaceman/kinesis-mock@sha256:d2b5d757a13b249915e7a287a346d4d8ee5a876fecd0f51da5d181170639dbc8",
+      "platform": "linux/amd64",
+      "runtime": "Node25.2.1; Scala.js main.js (the JVM artifact was source-inspected but not executed)",
+      "configuration": {
+        "SHOULD_PERSIST_DATA": "true",
+        "PERSIST_PATH": "/data",
+        "PERSIST_INTERVAL": "5s",
+        "CREATE_STREAM_DURATION": "10ms",
+        "SPLIT_SHARD_DURATION": "10ms",
+        "MERGE_SHARDS_DURATION": "10ms"
+      },
+      "persistence": {
+        "acknowledged_crash_sequence": "49678472115890069368798232607956700891312639424052854786",
+        "present_after_immediate_sigkill": false,
+        "post_crash_sequences": [ "49678472115890069368798232607954283039673404461986873346", "49678472115890069368798232607955491965493023832805474306"
+        ],
+        "last_graceful_acknowledged_sequence": "49678472115890069368798232607955491965493023832805474306",
+        "present_after_final_reopen": true,
+        "kill": { "phase": "crash-write", "kill_delay_seconds": 0.2409512996673584, "kill_returncode": 0, "kill_output": "stackd-kinesis-engine-hSGnLpwl-mock"
+        }
+      },
+      "boundaries": [
+        "README advertises0.4.8; latest release endpoint returned0.6.2 published2026-05-29.",
+        "Create/Put/Get, PutRecords, split/merge and closed parent reads succeed. Closed shards return child shards and null next iterator at exhaustion.",
+        "Different signing region and12-digit account route to distinct streams. This is namespace selection, not authentication proof.",
+        "Consumer registration becomesACTIVE and SubscribeToShard returns real application/vnd.amazon.eventstream frame containing stored records with valid CRCs.",
+        "Default data limit1048576 bytes; UpdateMaxRecordSize10240KiB permits2MiB and10MiB writes. A10MiB record with3-byte partition key then yields GetRecords HTTP500, engine log: java.util.NoSuchElementException: last on empty queue.",
+        "Periodic full JSON snapshots from in-memory Ref; disk write not part of acknowledged PutRecord. Graceful stop retained write, immediate SIGKILL lost write.",
+        "Utils.now uses IO.realTime. Arrival-time request extension ignored. Iterator expired after304.834wall seconds including restarts. No environment/config/public API clock injection.",
+        "Retention API24..8760h; GetRecords never filters record age in tagged source. ListShards filters closed shard age against wall time. No disable-retention knob; day-scale expiry was not awaited.",
+        "Control-operation limits are fixed concurrent semaphores, released on operation completion, not per-second token refill. No PutRecord/PutRecords/GetRecords per-shard wall-clock rate enforcement found in tagged source; no disabling knob required for an absent limiter."
+      ],
+      "observations": [
+        { "phase": "basic", "operation": "create-stream", "input": { "StreamName": "probe", "ShardCount": 1 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779884.4324086, "result": { "code": "Success", "output": {} }
+        },
+        { "phase": "basic", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779885.795869, "result": { "http_status": 200, "output": { "StreamDescription": { "EncryptionType": "NONE", "EnhancedMonitoring": [ { "ShardLevelMetrics": [] } ], "HasMoreShards": false, "KeyId": null, "RetentionPeriodHours": 24, "Shards": [ { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "0" }, "ParentShardId": null, "SequenceNumberRange": { "EndingSequenceNumber": null, "StartingSequenceNumber": "49678472110181078597974393083719930236055808119050076162" }, "ShardId": "shardId-000000000000" } ], "StreamARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe", "StreamCreationTimestamp": 1789779884.739, "StreamModeDetails": { "StreamMode": "PROVISIONED" }, "StreamName": "probe", "StreamStatus": "ACTIVE" } } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 5, "sha256": "a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779885.8166108, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472110181078597974393083721139161875422816944259074", "ShardId": "shardId-000000000000" } }
+        },
+        { "phase": "basic", "operation": "GetShardIterator", "input": { "StreamName": "probe", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779885.8248374, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "ca2bb2d5ac215f2a8a9a4001335c9dc41ed94f6614f3c4e6934d6448f0870ae3", "length": 204 } } }
+        },
+        { "phase": "basic", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "ca2bb2d5ac215f2a8a9a4001335c9dc41ed94f6614f3c4e6934d6448f0870ae3", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779885.832035, "result": { "http_status": 200, "output": { "ChildShards": null, "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "6eff9e28de6194b56c78ee1276957ef2ce63326b7e251dd62065e696319875b2", "length": 204 }, "Records": [ { "ApproximateArrivalTimestamp": 1789779885.821, "Data": { "decoded_bytes": 5, "sha256": "a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472110181078597974393083721139161875422816944259074" } ] } }
+        },
+        { "phase": "basic", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-west-2", "account": "111111111111", "unix_time": 1789779885.8394969, "result": { "http_status": 400, "output": { "__type": "ResourceNotFoundException", "message": "Stream arn arn:aws:kinesis:us-west-2:111111111111:stream/probe not found" } }
+        },
+        { "phase": "basic", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-east-1", "account": "222222222222", "unix_time": 1789779885.8464978, "result": { "http_status": 400, "output": { "__type": "ResourceNotFoundException", "message": "Stream arn arn:aws:kinesis:us-east-1:222222222222:stream/probe not found" } }
+        },
+        { "phase": "basic", "operation": "RegisterStreamConsumer", "input": { "StreamARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe", "ConsumerName": "probe-consumer" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779885.8525493, "result": { "http_status": 200, "output": { "Consumer": { "ConsumerARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe/consumer/probe-consumer:1789779885", "ConsumerCreationTimestamp": 1789779885.856, "ConsumerName": "probe-consumer", "ConsumerStatus": "CREATING" } } }
+        },
+        { "phase": "basic", "operation": "ListStreamConsumers", "input": { "StreamARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779886.859171, "result": { "http_status": 200, "output": { "Consumers": [ { "ConsumerARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe/consumer/probe-consumer:1789779885", "ConsumerCreationTimestamp": 1789779885.856, "ConsumerName": "probe-consumer", "ConsumerStatus": "ACTIVE" } ], "NextToken": "probe-consumer" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 1048575, "sha256": "f7ddf2723b5663ba2a2e2c642355c78ce5cfca89b5c21c5dde226334e31fb340" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779887.9178345, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472110181078597974393083722348087695037652277395458", "ShardId": "shardId-000000000000" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 1048576, "sha256": "8f990ba0b577b51cf009ea049368c16bbda1b21e1b93be07a824758bb253c39b" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779889.1698709, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472110181078597974393083723557013514652350171578370", "ShardId": "shardId-000000000000" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 1048577, "sha256": "154b8ed3c2383ce429058768595935faf7851b5c38db2b1732594be1d88bc05a" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779890.3587682, "result": { "http_status": 400, "output": { "__type": "InvalidArgumentException", "message": "Record data size 1048577 exceeds the stream's max record size of 1048576 bytes" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 2097152, "sha256": "6932fd31e5daf4739b9fa78ff777b2831b0995cc1d0b0093cac80601902013bc" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779891.521797, "result": { "http_status": 400, "output": { "__type": "InvalidArgumentException", "message": "Record data size 2097152 exceeds the stream's max record size of 1048576 bytes" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 10485760, "sha256": "462a12a876c0364e4f1f3d12ed33dcae125f1198010ff78d8f4c3f4de0412d49" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779892.987176, "result": { "http_status": 400, "output": { "__type": "InvalidArgumentException", "message": "Record data size 10485760 exceeds the stream's max record size of 1048576 bytes" } }
+        },
+        { "phase": "basic", "operation": "UpdateMaxRecordSize", "input": { "StreamARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe", "MaxRecordSizeInKiB": 10240 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779897.0319378, "result": { "http_status": 200, "output": { "StreamName": null, "StreamARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe", "MaxRecordSizeInKiB": 10240 } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 2097152, "sha256": "6932fd31e5daf4739b9fa78ff777b2831b0995cc1d0b0093cac80601902013bc" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779898.0968294, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472110181078597974393083724765939334267597821575170", "ShardId": "shardId-000000000000" } }
+        },
+        { "phase": "basic", "operation": "SplitShard", "input": { "StreamName": "probe", "ShardToSplit": "shardId-000000000000", "NewStartingHashKey": "170141183460469231731687303715884105728" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779898.5091977, "result": { "http_status": 200, "output": { "decode_error": "Expecting value: line 1 column 1 (char 0)" } }
+        },
+        { "phase": "basic", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779899.5162818, "result": { "http_status": 200, "output": { "StreamDescription": { "EncryptionType": "NONE", "EnhancedMonitoring": [ { "ShardLevelMetrics": [] } ], "HasMoreShards": false, "KeyId": null, "RetentionPeriodHours": 24, "Shards": [ { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "0" }, "ParentShardId": null, "SequenceNumberRange": { "EndingSequenceNumber": "9223372036854775807", "StartingSequenceNumber": "49678472110181078597974393083719930236055808119050076162" }, "ShardId": "shardId-000000000000" }, { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "170141183460469231731687303715884105727", "StartingHashKey": "0" }, "ParentShardId": "shardId-000000000000", "SequenceNumberRange": { "EndingSequenceNumber": null, "StartingSequenceNumber": "49678472115198746267643783290565466847401690419968344082" }, "ShardId": "shardId-000000000001" }, { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "170141183460469231731687303715884105728" }, "ParentShardId": "shardId-000000000000", "SequenceNumberRange": { "EndingSequenceNumber": null, "StartingSequenceNumber": "49678472115221047012842313913707002565674338781474324514" }, "ShardId": "shardId-000000000002" } ], "StreamARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe", "StreamCreationTimestamp": 1789779884.739, "StreamModeDetails": { "StreamMode": "PROVISIONED" }, "StreamName": "probe", "StreamStatus": "ACTIVE" } } }
+        },
+        { "phase": "basic", "operation": "GetShardIterator", "input": { "StreamName": "probe", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779899.522073, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "5874f99b359c2fcf5814b9e74158cdec931344cde07940d8126464a3b708069c", "length": 204 } } }
+        },
+        { "phase": "basic", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "5874f99b359c2fcf5814b9e74158cdec931344cde07940d8126464a3b708069c", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779899.5482237, "result": { "http_status": 200, "output": { "ChildShards": [ { "HashKeyRange": { "EndingHashKey": "170141183460469231731687303715884105727", "StartingHashKey": "0" }, "ParentShards": [ "shardId-000000000000" ], "ShardId": "shardId-000000000001" }, { "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "170141183460469231731687303715884105728" }, "ParentShards": [ "shardId-000000000000" ], "ShardId": "shardId-000000000002" } ], "MillisBehindLatest": 0, "NextShardIterator": null, "Records": [ { "ApproximateArrivalTimestamp": 1789779885.821, "Data": { "decoded_bytes": 5, "sha256": "a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472110181078597974393083721139161875422816944259074" }, { "ApproximateArrivalTimestamp": 1789779888.076, "Data": { "decoded_bytes": 1048575, "sha256": "f7ddf2723b5663ba2a2e2c642355c78ce5cfca89b5c21c5dde226334e31fb340" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472110181078597974393083722348087695037652277395458" }, { "ApproximateArrivalTimestamp": 1789779889.277, "Data": { "decoded_bytes": 1048576, "sha256": "8f990ba0b577b51cf009ea049368c16bbda1b21e1b93be07a824758bb253c39b" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472110181078597974393083723557013514652350171578370" }, { "ApproximateArrivalTimestamp": 1789779898.435, "Data": { "decoded_bytes": 2097152, "sha256": "6932fd31e5daf4739b9fa78ff777b2831b0995cc1d0b0093cac80601902013bc" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472110181078597974393083724765939334267597821575170" } ] } }
+        },
+        { "phase": "basic", "operation": "CreateStream", "input": { "StreamName": "durability", "ShardCount": 1 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779899.9897351, "result": { "http_status": 200, "output": { "decode_error": "Expecting value: line 1 column 1 (char 0)" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779901.1144795, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472115890069368798232607954283039673404461986873346", "ShardId": "shardId-000000000000" } }
+        },
+        { "phase": "event", "operation": "SubscribeToShard", "input": { "ConsumerARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe/consumer/probe-consumer:1789779885", "ShardId": "shardId-000000000000", "StartingPosition": { "Type": "TRIM_HORIZON" } }, "result": { "status": 400, "content_type": "application/x-amz-json-1.1", "body": "{\"__type\":\"IncompleteSignatureException\",\"message\":\"Authorization header requires existence of either a \\\\'X-Amz-Date\\\\' or a \\\\'Date\\\\' header.\"}" }
+        },
+        { "phase": "merge", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779959.339428, "result": { "http_status": 200, "output": { "StreamDescription": { "EncryptionType": "NONE", "EnhancedMonitoring": [ { "ShardLevelMetrics": [] } ], "HasMoreShards": false, "KeyId": null, "RetentionPeriodHours": 24, "Shards": [ { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "0" }, "ParentShardId": null, "SequenceNumberRange": { "EndingSequenceNumber": "9223372036854775807", "StartingSequenceNumber": "49678472110181078597974393083719930236055808119050076162" }, "ShardId": "shardId-000000000000" }, { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "170141183460469231731687303715884105727", "StartingHashKey": "0" }, "ParentShardId": "shardId-000000000000", "SequenceNumberRange": { "EndingSequenceNumber": null, "StartingSequenceNumber": "49678472115198746267643783290565466847401690419968344082" }, "ShardId": "shardId-000000000001" }, { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "170141183460469231731687303715884105728" }, "ParentShardId": "shardId-000000000000", "SequenceNumberRange": { "EndingSequenceNumber": null, "StartingSequenceNumber": "49678472115221047012842313913707002565674338781474324514" }, "ShardId": "shardId-000000000002" } ], "StreamARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe", "StreamCreationTimestamp": 1789779884.739, "StreamModeDetails": { "StreamMode": "PROVISIONED" }, "StreamName": "probe", "StreamStatus": "ACTIVE" } } }
+        },
+        { "phase": "merge", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 11, "sha256": "0a4efc61e485f9bf724ee7b3e366ff4245cb548bd7df0f2436f73f9a3e1da8e9" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779959.3595724, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472115198746267643783290566675773221309241031131154", "ShardId": "shardId-000000000001" } }
+        },
+        { "phase": "merge", "operation": "MergeShards", "input": { "StreamName": "probe", "ShardToMerge": "shardId-000000000001", "AdjacentShardToMerge": "shardId-000000000002" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779959.3660307, "result": { "http_status": 200, "output": {} }
+        },
+        { "phase": "merge", "operation": "GetShardIterator", "input": { "StreamName": "probe", "ShardId": "shardId-000000000001", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779960.372413, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "f2b40a4a88dba69d7b78499635907b02e8a03be3b93babde4e8b7a9ca7cb8c78", "length": 204 } } }
+        },
+        { "phase": "merge", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "f2b40a4a88dba69d7b78499635907b02e8a03be3b93babde4e8b7a9ca7cb8c78", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779960.523603, "result": { "http_status": 200, "output": { "ChildShards": [ { "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "0" }, "ParentShards": [ "shardId-000000000001", "shardId-000000000002" ], "ShardId": "shardId-000000000003" } ], "MillisBehindLatest": 0, "NextShardIterator": null, "Records": [ { "ApproximateArrivalTimestamp": 1789779959.363, "Data": { "decoded_bytes": 11, "sha256": "0a4efc61e485f9bf724ee7b3e366ff4245cb548bd7df0f2436f73f9a3e1da8e9" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115198746267643783290566675773221309241031131154" } ] } }
+        },
+        { "phase": "merge", "operation": "GetShardIterator", "input": { "StreamName": "probe", "ShardId": "shardId-000000000002", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779960.5302606, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "8e5a9a9e8914edf535ffbffda55c9471ce91a2c4a066bdd4850a7107f336e0b4", "length": 204 } } }
+        },
+        { "phase": "merge", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "8e5a9a9e8914edf535ffbffda55c9471ce91a2c4a066bdd4850a7107f336e0b4", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779960.535198, "result": { "http_status": 200, "output": { "ChildShards": [ { "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "0" }, "ParentShards": [ "shardId-000000000001", "shardId-000000000002" ], "ShardId": "shardId-000000000003" } ], "MillisBehindLatest": 0, "NextShardIterator": null, "Records": [] } }
+        },
+        { "phase": "merge", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779960.539886, "result": { "http_status": 200, "output": { "StreamDescription": { "EncryptionType": "NONE", "EnhancedMonitoring": [ { "ShardLevelMetrics": [] } ], "HasMoreShards": false, "KeyId": null, "RetentionPeriodHours": 24, "Shards": [ { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "0" }, "ParentShardId": null, "SequenceNumberRange": { "EndingSequenceNumber": "9223372036854775807", "StartingSequenceNumber": "49678472110181078597974393083719930236055808119050076162" }, "ShardId": "shardId-000000000000" }, { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "170141183460469231731687303715884105727", "StartingHashKey": "0" }, "ParentShardId": "shardId-000000000000", "SequenceNumberRange": { "EndingSequenceNumber": "9223372036854775807", "StartingSequenceNumber": "49678472115198746267643783290565466847401690419968344082" }, "ShardId": "shardId-000000000001" }, { "AdjacentParentShardId": null, "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "170141183460469231731687303715884105728" }, "ParentShardId": "shardId-000000000000", "SequenceNumberRange": { "EndingSequenceNumber": "9223372036854775807", "StartingSequenceNumber": "49678472115221047012842313913707002565674338781474324514" }, "ShardId": "shardId-000000000002" }, { "AdjacentParentShardId": "shardId-000000000002", "HashKeyRange": { "EndingHashKey": "340282366920938463463374607431768211455", "StartingHashKey": "0" }, "ParentShardId": "shardId-000000000001", "SequenceNumberRange": { "EndingSequenceNumber": null, "StartingSequenceNumber": "49678472115198746267643783290565466847401690419968344082" }, "ShardId": "shardId-000000000003" } ], "StreamARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe", "StreamCreationTimestamp": 1789779884.739, "StreamModeDetails": { "StreamMode": "PROVISIONED" }, "StreamName": "probe", "StreamStatus": "ACTIVE" } } }
+        },
+        { "phase": "merge", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 10485760, "sha256": "462a12a876c0364e4f1f3d12ed33dcae125f1198010ff78d8f4c3f4de0412d49" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779960.5598023, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472137008875071806732722988608243871407068757884978", "ShardId": "shardId-000000000003" } }
+        },
+        { "phase": "merge", "operation": "GetShardIterator", "input": { "StreamName": "probe", "ShardId": "shardId-000000000003", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779964.3566427, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "77da29d5bb00e3a2cdae840e9702cf253761b8137b2a3f3bd5cdbe396e952f98", "length": 204 } } }
+        },
+        { "phase": "merge", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "77da29d5bb00e3a2cdae840e9702cf253761b8137b2a3f3bd5cdbe396e952f98", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779964.3623629, "result": { "http_status": 500, "output": {} }
+        },
+        { "phase": "event", "operation": "SubscribeToShard", "input": { "ConsumerARN": "arn:aws:kinesis:us-east-1:111111111111:stream/probe/consumer/probe-consumer:1789779885", "ShardId": "shardId-000000000000", "StartingPosition": { "Type": "TRIM_HORIZON" } }, "result": { "status": 200, "content_type": "application/vnd.amazon.eventstream", "total_frame_bytes": 5593378, "prelude_crc_valid": true, "message_crc_valid": true, "headers_hex": "0d3a6d6573736167652d747970650700056576656e740b3a6576656e742d74797065070015537562736372696265546f53686172644576656e740d3a636f6e74656e742d747970650700106170706c69636174696f6e2f6a736f6e", "body": { "Records": [ { "ApproximateArrivalTimestamp": 1789779885.821, "Data": { "decoded_bytes": 5, "sha256": "a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472110181078597974393083721139161875422816944259074" }, { "ApproximateArrivalTimestamp": 1789779888.076, "Data": { "decoded_bytes": 1048575, "sha256": "f7ddf2723b5663ba2a2e2c642355c78ce5cfca89b5c21c5dde226334e31fb340" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472110181078597974393083722348087695037652277395458" }, { "ApproximateArrivalTimestamp": 1789779889.277, "Data": { "decoded_bytes": 1048576, "sha256": "8f990ba0b577b51cf009ea049368c16bbda1b21e1b93be07a824758bb253c39b" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472110181078597974393083723557013514652350171578370" }, { "ApproximateArrivalTimestamp": 1789779898.435, "Data": { "decoded_bytes": 2097152, "sha256": "6932fd31e5daf4739b9fa78ff777b2831b0995cc1d0b0093cac80601902013bc" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472110181078597974393083724765939334267597821575170" } ], "ContinuationSequenceNumber": "49678472110181078597974393083724765939334267597821575170", "MillisBehindLatest": 0, "ChildShards": null } }
+        },
+        { "phase": "graceful-write", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779970.6301394, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472115890069368798232607955491965493023832805474306", "ShardId": "shardId-000000000000" } }
+        },
+        { "phase": "reopen", "operation": "GetShardIterator", "input": { "StreamName": "durability", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779983.9253132, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "0b92bebd9072d3f1c624d3896d9fe955e9a24867b0ead6009a68d2b4b1a6c330", "length": 204 } } }
+        },
+        { "phase": "reopen", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "0b92bebd9072d3f1c624d3896d9fe955e9a24867b0ead6009a68d2b4b1a6c330", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779984.4480793, "result": { "http_status": 200, "output": { "ChildShards": null, "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "7972bcf984c7de5c24de8c72d488cd4b853abeab1a9a4da0a8e4a87640a5010f", "length": 204 }, "Records": [ { "ApproximateArrivalTimestamp": 1789779901.118, "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607954283039673404461986873346" }, { "ApproximateArrivalTimestamp": 1789779970.645, "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607955491965493023832805474306" } ] } }
+        },
+        { "phase": "crash-write", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 28, "sha256": "444da724f629d1f563a036788a9ed67ed690ffa1e758680bfa2c7d9040d27ceb" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779984.586222, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472115890069368798232607956700891312639424052854786", "ShardId": "shardId-000000000000" } }
+        },
+        { "phase": "crash-write", "kill_delay_seconds": 0.2409512996673584, "kill_returncode": 0, "kill_output": "stackd-kinesis-engine-hSGnLpwl-mock"
+        },
+        { "phase": "reopen", "operation": "GetShardIterator", "input": { "StreamName": "durability", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779996.8604832, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "f99f1c00008606c2605d203b846da4eb3ac3f5642629c6906616f55366847831", "length": 204 } } }
+        },
+        { "phase": "reopen", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "f99f1c00008606c2605d203b846da4eb3ac3f5642629c6906616f55366847831", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789779996.9005702, "result": { "http_status": 200, "output": { "ChildShards": null, "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "40aee9adfc6a2e8ee93fb70a9d0fae48e53964f695808e28d4b527c2e66b1100", "length": 204 }, "Records": [ { "ApproximateArrivalTimestamp": 1789779901.118, "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607954283039673404461986873346" }, { "ApproximateArrivalTimestamp": 1789779970.645, "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607955491965493023832805474306" } ] } }
+        },
+        { "phase": "timing", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "ca2bb2d5ac215f2a8a9a4001335c9dc41ed94f6614f3c4e6934d6448f0870ae3", "length": 204 } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.6591678, "result": { "http_status": 400, "output": { "__type": "ExpiredIteratorException", "message": "The shard iterator has expired. Shard iterators are only valid for 300 seconds" } }
+        },
+        { "phase": "timing", "operation": "IncreaseStreamRetentionPeriod", "input": { "StreamName": "durability", "RetentionPeriodHours": 168 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780191.334978, "result": { "http_status": 200, "output": {} }
+        },
+        { "phase": "timing", "operation": "IncreaseStreamRetentionPeriod", "input": { "StreamName": "durability", "RetentionPeriodHours": 8760 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780191.3428776, "result": { "http_status": 200, "output": {} }
+        },
+        { "phase": "timing", "operation": "IncreaseStreamRetentionPeriod", "input": { "StreamName": "durability", "RetentionPeriodHours": 8761 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780191.3491917, "result": { "http_status": 400, "output": { "__type": "InvalidArgumentException", "message": "Retention period hours 8761 must be between 24 and 8760" } }
+        },
+        { "phase": "timing", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "9ca6788ac3f8e174e0718a6a6ace0f9fef13c69a5a9f6f144b56d02f78e47422" }, "ApproximateArrivalTimestamp": 946684800 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780191.3553498, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "SequenceNumber": "49678472115890069368798232607956700891312653648984539138", "ShardId": "shardId-000000000000" } }
+        },
+        { "phase": "timing", "operation": "GetShardIterator", "input": { "StreamName": "durability", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780191.3625505, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "740449ae1bd46004a2a79832706e9139a688d378f1dfcb73ea6a245bd69b1934", "length": 204 } } }
+        },
+        { "phase": "timing", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "740449ae1bd46004a2a79832706e9139a688d378f1dfcb73ea6a245bd69b1934", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780191.3689091, "result": { "http_status": 200, "output": { "ChildShards": null, "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "1895c22029333dff8ed534f6c5407496fb7577365507d4b1110539804698fd10", "length": 204 }, "Records": [ { "ApproximateArrivalTimestamp": 1789779901.118, "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607954283039673404461986873346" }, { "ApproximateArrivalTimestamp": 1789779970.645, "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607955491965493023832805474306" }, { "ApproximateArrivalTimestamp": 1789780191.359, "Data": { "decoded_bytes": 12, "sha256": "9ca6788ac3f8e174e0718a6a6ace0f9fef13c69a5a9f6f144b56d02f78e47422" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607956700891312653648984539138" } ] } }
+        },
+        { "phase": "timing", "operation": "PutRecords", "input": { "StreamName": "durability", "Records": [ { "PartitionKey": "a", "Data": { "decoded_bytes": 7, "sha256": "a40c684861eaedf0ba93b24850e7153280225e297566a3c62b7b3db0b8cfcea0" } }, { "PartitionKey": "b", "Data": { "decoded_bytes": 7, "sha256": "89a0bfc3407b8257c04c4310c168ad0efe640ee31f71c08efdc6fbab62cfbcd1" } } ] }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780191.3757145, "result": { "http_status": 200, "output": { "EncryptionType": "NONE", "FailedRecordCount": 0, "Records": [ { "ErrorCode": null, "ErrorMessage": null, "SequenceNumber": "49678472115890069368798232607957909817132268278159245314", "ShardId": "shardId-000000000000" }, { "ErrorCode": null, "ErrorMessage": null, "SequenceNumber": "49678472115890069368798232607959118742951882907333951490", "ShardId": "shardId-000000000000" } ] } }
+        },
+        { "phase": "timing", "operation": "GetShardIterator", "input": { "StreamName": "durability", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780191.3842442, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "044492cbb47aa3d1c023e3c6ee15a48ab299423e2f420fbfaa238b87c268f83b", "length": 204 } } }
+        },
+        { "phase": "timing", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "044492cbb47aa3d1c023e3c6ee15a48ab299423e2f420fbfaa238b87c268f83b", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780191.390214, "result": { "http_status": 200, "output": { "ChildShards": null, "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "48ad57395de7c96bf105e18fff55accce463d8776e45717c7569ed7b7ae767f0", "length": 204 }, "Records": [ { "ApproximateArrivalTimestamp": 1789779901.118, "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607954283039673404461986873346" }, { "ApproximateArrivalTimestamp": 1789779970.645, "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607955491965493023832805474306" }, { "ApproximateArrivalTimestamp": 1789780191.359, "Data": { "decoded_bytes": 12, "sha256": "9ca6788ac3f8e174e0718a6a6ace0f9fef13c69a5a9f6f144b56d02f78e47422" }, "EncryptionType": "NONE", "PartitionKey": "key", "SequenceNumber": "49678472115890069368798232607956700891312653648984539138" }, { "ApproximateArrivalTimestamp": 1789780191.38, "Data": { "decoded_bytes": 7, "sha256": "a40c684861eaedf0ba93b24850e7153280225e297566a3c62b7b3db0b8cfcea0" }, "EncryptionType": "NONE", "PartitionKey": "a", "SequenceNumber": "49678472115890069368798232607957909817132268278159245314" }, { "ApproximateArrivalTimestamp": 1789780191.38, "Data": { "decoded_bytes": 7, "sha256": "89a0bfc3407b8257c04c4310c168ad0efe640ee31f71c08efdc6fbab62cfbcd1" }, "EncryptionType": "NONE", "PartitionKey": "b", "SequenceNumber": "49678472115890069368798232607959118742951882907333951490" } ] } }
+        }
+      ]
+    },
+    "kinesalite": {
+      "version": "3.3.3",
+      "source_git_head": "c76689da192ab96c87c5db8f95c1e3fba1985433",
+      "npm_integrity": "sha512-HG1fzLWw9c27a2KtRP3likxPBH/AyBOO3fJbkfcl0VIjgXuQrHpZ9g4A0mZ21FtThHdmOXhs9od6q1drA5401g==",
+      "runtime_image": "node@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5",
+      "platform": "linux/amd64",
+      "resolved_dependencies": {
+        "leveldown": "5.6.0",
+        "levelup": "4.4.0",
+        "subleveldown": "4.1.4"
+      },
+      "lockfile_sha256": "22ecd049cabacda7c07fbe313a7f169a18b0d2935f50dbe7bbd609711dc1f764",
+      "configuration": {
+        "path": "/data",
+        "createStreamMs": 10,
+        "updateStreamMs": 10
+      },
+      "persistence": {
+        "acknowledged_crash_sequence": "49678472169768669768448218117905787312211474370944565250",
+        "present_after_immediate_sigkill": true,
+        "post_crash_sequences": [ "49678472169768669768448218117903369460572241745340792834", "49678472169768669768448218117904578386391857542746603522", "49678472169768669768448218117905787312211474370944565250"
+        ],
+        "last_graceful_acknowledged_sequence": "49678472169768669768448218117911831941309553495412572162",
+        "present_after_final_reopen": true,
+        "kill": { "phase": "crash-write", "kill_delay_seconds": 0.19804048538208008, "kill_returncode": 0, "kill_output": "stackd-kinesis-engine-hSGnLpwl-lite"
+        }
+      },
+      "boundaries": [
+        "Create/Put/Get, PutRecords, split/merge and closed-shard reads work against actual LevelDB.",
+        "Immediate process SIGKILL retains acknowledged write. leveldown writes default sync:false; host failure/fsync durability NOT established. Meta and data puts are separate, not one atomic batch.",
+        "CLI ignores SIGTERM as PID1, docker stop needed forcedSIGKILL after15s; SIGINT exits1. A lifecycle-only launcher using documented programmatic server and public server.close closed LevelDB cleanly with exit0 and successful same-volume reopen.",
+        "Account/region headers ignored; scope is per-process AWS_ACCOUNT_ID/AWS_REGION environment.",
+        "Hard1MiB data validator,7MiB request-body ceiling; UpdateMaxRecordSize/consumer APIs/SubscribeToShard return UnknownOperationException.",
+        "Date.now owns arrival timestamps, iterator expiry300s and record retention. No service-clock injection in exported options. Supplied arrival timestamp ignored.",
+        "GetRecords filters and asynchronously deletes expired rows. HTTP retention max168h;8760 rejected by validator. No disable knob. Day-scale expiry not awaited.",
+        "No per-second request/shard rate enforcement found in source; shardLimit is a count cap, not rate."
+      ],
+      "observations": [
+        { "phase": "basic", "operation": "create-stream", "input": { "StreamName": "probe", "ShardCount": 1 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780042.8969803, "result": { "code": "Success", "output": {} }
+        },
+        { "phase": "basic", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780044.2360795, "result": { "http_status": 200, "output": { "StreamDescription": { "RetentionPeriodHours": 24, "EnhancedMonitoring": [ { "ShardLevelMetrics": [] } ], "EncryptionType": "NONE", "HasMoreShards": false, "Shards": [ { "HashKeyRange": { "StartingHashKey": "0", "EndingHashKey": "340282366920938463463374607431768211455" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472166200550536683318415257654536948503011030728706" }, "ShardId": "shardId-000000000000" } ], "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/probe", "StreamName": "probe", "StreamStatus": "ACTIVE", "StreamCreationTimestamp": 1789780041 } } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 5, "sha256": "a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780044.2492137, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472166200550536683318415257654536948503217189158914" } }
+        },
+        { "phase": "basic", "operation": "GetShardIterator", "input": { "StreamName": "probe", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780044.2520883, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "3f6c4b5d397234ac5b76c3249c7316726db75be64bd39c6de136eedc5d852a41", "length": 204 } } }
+        },
+        { "phase": "basic", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "3f6c4b5d397234ac5b76c3249c7316726db75be64bd39c6de136eedc5d852a41", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780044.2541168, "result": { "http_status": 200, "output": { "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "f2a79d67940f78de26e0167eba4a45de74d443c4a17bc38a296b0c47de95b76c", "length": 204 }, "Records": [ { "PartitionKey": "key", "Data": { "decoded_bytes": 5, "sha256": "a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e" }, "ApproximateArrivalTimestamp": 1789780044.251, "SequenceNumber": "49678472166200550536683318415257654536948503217189158914" } ] } }
+        },
+        { "phase": "basic", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-west-2", "account": "111111111111", "unix_time": 1789780044.2568226, "result": { "http_status": 200, "output": { "StreamDescription": { "RetentionPeriodHours": 24, "EnhancedMonitoring": [ { "ShardLevelMetrics": [] } ], "EncryptionType": "NONE", "HasMoreShards": false, "Shards": [ { "HashKeyRange": { "StartingHashKey": "0", "EndingHashKey": "340282366920938463463374607431768211455" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472166200550536683318415257654536948503011030728706" }, "ShardId": "shardId-000000000000" } ], "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/probe", "StreamName": "probe", "StreamStatus": "ACTIVE", "StreamCreationTimestamp": 1789780041 } } }
+        },
+        { "phase": "basic", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-east-1", "account": "222222222222", "unix_time": 1789780044.2581463, "result": { "http_status": 200, "output": { "StreamDescription": { "RetentionPeriodHours": 24, "EnhancedMonitoring": [ { "ShardLevelMetrics": [] } ], "EncryptionType": "NONE", "HasMoreShards": false, "Shards": [ { "HashKeyRange": { "StartingHashKey": "0", "EndingHashKey": "340282366920938463463374607431768211455" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472166200550536683318415257654536948503011030728706" }, "ShardId": "shardId-000000000000" } ], "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/probe", "StreamName": "probe", "StreamStatus": "ACTIVE", "StreamCreationTimestamp": 1789780041 } } }
+        },
+        { "phase": "basic", "operation": "RegisterStreamConsumer", "input": { "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/probe", "ConsumerName": "probe-consumer" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780044.2589703, "result": { "http_status": 400, "output": { "__type": "UnknownOperationException" } }
+        },
+        { "phase": "basic", "operation": "ListStreamConsumers", "input": { "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/probe" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780045.2597854, "result": { "http_status": 400, "output": { "__type": "UnknownOperationException" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 1048575, "sha256": "f7ddf2723b5663ba2a2e2c642355c78ce5cfca89b5c21c5dde226334e31fb340" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780046.3144648, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472166200550536683318415258863462768117983802818562" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 1048576, "sha256": "8f990ba0b577b51cf009ea049368c16bbda1b21e1b93be07a824758bb253c39b" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780047.3953354, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472166200550536683318415260072388587732681697001474" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 1048577, "sha256": "154b8ed3c2383ce429058768595935faf7851b5c38db2b1732594be1d88bc05a" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780048.4695206, "result": { "http_status": 400, "output": { "__type": "ValidationException", "message": "1 validation error detected: Value 'java.nio.HeapByteBuffer[pos=0 lim=1048577 cap=1048577]' at 'data' failed to satisfy constraint: Member must have length less than or equal to 1048576" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 2097152, "sha256": "6932fd31e5daf4739b9fa78ff777b2831b0995cc1d0b0093cac80601902013bc" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780049.5394382, "result": { "http_status": 400, "output": { "__type": "ValidationException", "message": "1 validation error detected: Value 'java.nio.HeapByteBuffer[pos=0 lim=2097152 cap=2097152]' at 'data' failed to satisfy constraint: Member must have length less than or equal to 1048576" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 10485760, "sha256": "462a12a876c0364e4f1f3d12ed33dcae125f1198010ff78d8f4c3f4de0412d49" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780050.6320345, "result": { "http_status": 413, "output": {} }
+        },
+        { "phase": "basic", "operation": "UpdateMaxRecordSize", "input": { "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/probe", "MaxRecordSizeInKiB": 10240 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780050.7874868, "result": { "http_status": 400, "output": { "__type": "UnknownOperationException" } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 2097152, "sha256": "6932fd31e5daf4739b9fa78ff777b2831b0995cc1d0b0093cac80601902013bc" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780051.8479254, "result": { "http_status": 400, "output": { "__type": "ValidationException", "message": "1 validation error detected: Value 'java.nio.HeapByteBuffer[pos=0 lim=2097152 cap=2097152]' at 'data' failed to satisfy constraint: Member must have length less than or equal to 1048576" } }
+        },
+        { "phase": "basic", "operation": "SplitShard", "input": { "StreamName": "probe", "ShardToSplit": "shardId-000000000000", "NewStartingHashKey": "170141183460469231731687303715884105728" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780051.8757787, "result": { "http_status": 200, "output": {} }
+        },
+        { "phase": "basic", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780052.879826, "result": { "http_status": 200, "output": { "StreamDescription": { "RetentionPeriodHours": 24, "EnhancedMonitoring": [ { "ShardLevelMetrics": [] } ], "EncryptionType": "NONE", "HasMoreShards": false, "Shards": [ { "HashKeyRange": { "StartingHashKey": "0", "EndingHashKey": "340282366920938463463374607431768211455" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472166200550536683318415257654536948503011030728706", "EndingSequenceNumber": "49678472166211700909282583726827213470265213249803780098" }, "ShardId": "shardId-000000000000" }, { "ParentShardId": "shardId-000000000000", "HashKeyRange": { "StartingHashKey": "0", "EndingHashKey": "170141183460469231731687303715884105727" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472170147782436823238711309476671207263753503506450" }, "ShardId": "shardId-000000000001" }, { "ParentShardId": "shardId-000000000000", "HashKeyRange": { "StartingHashKey": "170141183460469231731687303715884105728", "EndingHashKey": "340282366920938463463374607431768211455" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472170170083182021769334451012389479912115009486882" }, "ShardId": "shardId-000000000002" } ], "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/probe", "StreamName": "probe", "StreamStatus": "ACTIVE", "StreamCreationTimestamp": 1789780041 } } }
+        },
+        { "phase": "basic", "operation": "GetShardIterator", "input": { "StreamName": "probe", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780052.881814, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "52c5189d4c827c03d63c37d76be85c03ad6378fa96bcc875751208cff4f41ef2", "length": 204 } } }
+        },
+        { "phase": "basic", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "52c5189d4c827c03d63c37d76be85c03ad6378fa96bcc875751208cff4f41ef2", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780052.8838017, "result": { "http_status": 200, "output": { "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "ef068f6a3bda88813cedc1c2ade3217fc5181fa21947c18ff77aa45cdcdfb660", "length": 204 }, "Records": [ { "PartitionKey": "key", "Data": { "decoded_bytes": 5, "sha256": "a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e" }, "ApproximateArrivalTimestamp": 1789780044.251, "SequenceNumber": "49678472166200550536683318415257654536948503217189158914" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 1048575, "sha256": "f7ddf2723b5663ba2a2e2c642355c78ce5cfca89b5c21c5dde226334e31fb340" }, "ApproximateArrivalTimestamp": 1789780046.332, "SequenceNumber": "49678472166200550536683318415258863462768117983802818562" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 1048576, "sha256": "8f990ba0b577b51cf009ea049368c16bbda1b21e1b93be07a824758bb253c39b" }, "ApproximateArrivalTimestamp": 1789780047.406, "SequenceNumber": "49678472166200550536683318415260072388587732681697001474" } ] } }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "probe", "PartitionKey": "key", "Data": { "decoded_bytes": 11, "sha256": "0a4efc61e485f9bf724ee7b3e366ff4245cb548bd7df0f2436f73f9a3e1da8e9" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780052.9183784, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000001", "SequenceNumber": "49678472170147782436823238711313103448666107641027624978" } }
+        },
+        { "phase": "basic", "operation": "MergeShards", "input": { "StreamName": "probe", "ShardToMerge": "shardId-000000000001", "AdjacentShardToMerge": "shardId-000000000002" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780052.9199815, "result": { "http_status": 200, "output": {} }
+        },
+        { "phase": "basic", "operation": "GetShardIterator", "input": { "StreamName": "probe", "ShardId": "shardId-000000000001", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780053.9213629, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "8b808eed6f9904903fa4fb8d08fac3a4ff6390ed38e3843774c95e5e1e16232c", "length": 204 } } }
+        },
+        { "phase": "basic", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "8b808eed6f9904903fa4fb8d08fac3a4ff6390ed38e3843774c95e5e1e16232c", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780053.923191, "result": { "http_status": 200, "output": { "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "3b66edb3dc6e3161fb665c3d6e3aa228c78b40a9c1fc7f0e8aa240e9000f9198", "length": 204 }, "Records": [ { "PartitionKey": "key", "Data": { "decoded_bytes": 11, "sha256": "0a4efc61e485f9bf724ee7b3e366ff4245cb548bd7df0f2436f73f9a3e1da8e9" }, "ApproximateArrivalTimestamp": 1789780052.919, "SequenceNumber": "49678472170147782436823238711313103448666107641027624978" } ] } }
+        },
+        { "phase": "basic", "operation": "GetShardIterator", "input": { "StreamName": "probe", "ShardId": "shardId-000000000002", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780053.9249833, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "6811ca96003bc733984c29fbc1f58dea7477d667f4d35b5d6822f07d18b5a75c", "length": 204 } } }
+        },
+        { "phase": "basic", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "6811ca96003bc733984c29fbc1f58dea7477d667f4d35b5d6822f07d18b5a75c", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780053.926243, "result": { "http_status": 200, "output": { "MillisBehindLatest": 1926, "Records": [] } }
+        },
+        { "phase": "basic", "operation": "DescribeStream", "input": { "StreamName": "probe" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780053.9279466, "result": { "http_status": 200, "output": { "StreamDescription": { "RetentionPeriodHours": 24, "EnhancedMonitoring": [ { "ShardLevelMetrics": [] } ], "EncryptionType": "NONE", "HasMoreShards": false, "Shards": [ { "HashKeyRange": { "StartingHashKey": "0", "EndingHashKey": "340282366920938463463374607431768211455" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472166200550536683318415257654536948503011030728706", "EndingSequenceNumber": "49678472166211700909282583726827213470265213249803780098" }, "ShardId": "shardId-000000000000" }, { "ParentShardId": "shardId-000000000000", "HashKeyRange": { "StartingHashKey": "0", "EndingHashKey": "170141183460469231731687303715884105727" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472170147782436823238711309476671207263753503506450", "EndingSequenceNumber": "49678472170158932809422504022879035604523973305081790482" }, "ShardId": "shardId-000000000001" }, { "ParentShardId": "shardId-000000000000", "HashKeyRange": { "StartingHashKey": "170141183460469231731687303715884105728", "EndingHashKey": "340282366920938463463374607431768211455" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472170170083182021769334451012389479912115009486882", "EndingSequenceNumber": "49678472170181233554621034646020571322796621666587770914" }, "ShardId": "shardId-000000000002" }, { "ParentShardId": "shardId-000000000001", "AdjacentParentShardId": "shardId-000000000002", "HashKeyRange": { "StartingHashKey": "0", "EndingHashKey": "340282366920938463463374607431768211455" }, "SequenceNumberRange": { "StartingSequenceNumber": "49678472170549195850396789927857119600114934329330630706" }, "ShardId": "shardId-000000000003" } ], "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/probe", "StreamName": "probe", "StreamStatus": "ACTIVE", "StreamCreationTimestamp": 1789780041 } } }
+        },
+        { "phase": "basic", "operation": "CreateStream", "input": { "StreamName": "durability", "ShardCount": 1 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780053.928983, "result": { "http_status": 200, "output": {} }
+        },
+        { "phase": "basic", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780054.931251, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472169768669768448218117903369460572241745340792834" } }
+        },
+        { "phase": "event", "operation": "SubscribeToShard", "input": { "ConsumerARN": "arn:aws:kinesis:us-east-1:000000000000:stream/probe/consumer/probe-consumer:1", "ShardId": "shardId-000000000000", "StartingPosition": { "Type": "TRIM_HORIZON" } }, "result": { "status": 400, "content_type": "application/x-amz-json-1.1", "body": "{\"__type\":\"UnknownOperationException\"}" }
+        },
+        { "phase": "graceful-write", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780071.5178013, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472169768669768448218117904578386391857542746603522" } }
+        },
+        { "phase": "reopen", "operation": "GetShardIterator", "input": { "StreamName": "durability", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780103.7409682, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "534dd4ba75918546500240e1aa4f1135f7e051483838f588dfcb9da01c488c27", "length": 204 } } }
+        },
+        { "phase": "reopen", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "534dd4ba75918546500240e1aa4f1135f7e051483838f588dfcb9da01c488c27", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780103.757641, "result": { "http_status": 200, "output": { "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "0803e1219a7e91de597773979a053386d14e4fd8494717d3135efde54162baf4", "length": 204 }, "Records": [ { "PartitionKey": "key", "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" }, "ApproximateArrivalTimestamp": 1789780054.932, "SequenceNumber": "49678472169768669768448218117903369460572241745340792834" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "ApproximateArrivalTimestamp": 1789780071.529, "SequenceNumber": "49678472169768669768448218117904578386391857542746603522" } ] } }
+        },
+        { "phase": "crash-write", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 28, "sha256": "8a2da618f45808e34e98a0c9b8863dbe2116c94d899bffb9da3f74be8032da34" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780103.8930278, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472169768669768448218117905787312211474370944565250" } }
+        },
+        { "phase": "crash-write", "kill_delay_seconds": 0.19804048538208008, "kill_returncode": 0, "kill_output": "stackd-kinesis-engine-hSGnLpwl-lite"
+        },
+        { "phase": "reopen", "operation": "GetShardIterator", "input": { "StreamName": "durability", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780120.966677, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "c1159f6cbaf9c3529e4f56a83159ba8df1ec11aa94af328efa521351429e3560", "length": 204 } } }
+        },
+        { "phase": "reopen", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "c1159f6cbaf9c3529e4f56a83159ba8df1ec11aa94af328efa521351429e3560", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780120.9851108, "result": { "http_status": 200, "output": { "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "f3560d24063e41e60a4beb1d431024554e5e521f9d0d34c2f890cfd4b28eab35", "length": 204 }, "Records": [ { "PartitionKey": "key", "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" }, "ApproximateArrivalTimestamp": 1789780054.932, "SequenceNumber": "49678472169768669768448218117903369460572241745340792834" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "ApproximateArrivalTimestamp": 1789780071.529, "SequenceNumber": "49678472169768669768448218117904578386391857542746603522" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 28, "sha256": "8a2da618f45808e34e98a0c9b8863dbe2116c94d899bffb9da3f74be8032da34" }, "ApproximateArrivalTimestamp": 1789780103.905, "SequenceNumber": "49678472169768669768448218117905787312211474370944565250" } ] } }
+        },
+        { "phase": "graceful-write", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780121.1130147, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472169768669768448218117906996238031090237069852674" } }
+        },
+        { "phase": "timing", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "3f6c4b5d397234ac5b76c3249c7316726db75be64bd39c6de136eedc5d852a41", "length": 204 } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.697113, "result": { "http_status": 200, "output": { "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "024a97f1b50c33f1551b97e38642f60c3c3d4445df9a9097c227bfa905fd4477", "length": 204 }, "Records": [ { "PartitionKey": "key", "Data": { "decoded_bytes": 5, "sha256": "a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e" }, "ApproximateArrivalTimestamp": 1789780044.251, "SequenceNumber": "49678472166200550536683318415257654536948503217189158914" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 1048575, "sha256": "f7ddf2723b5663ba2a2e2c642355c78ce5cfca89b5c21c5dde226334e31fb340" }, "ApproximateArrivalTimestamp": 1789780046.332, "SequenceNumber": "49678472166200550536683318415258863462768117983802818562" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 1048576, "sha256": "8f990ba0b577b51cf009ea049368c16bbda1b21e1b93be07a824758bb253c39b" }, "ApproximateArrivalTimestamp": 1789780047.406, "SequenceNumber": "49678472166200550536683318415260072388587732681697001474" } ] } }
+        },
+        { "phase": "timing", "operation": "IncreaseStreamRetentionPeriod", "input": { "StreamName": "durability", "RetentionPeriodHours": 168 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.7443793, "result": { "http_status": 200, "output": {} }
+        },
+        { "phase": "timing", "operation": "IncreaseStreamRetentionPeriod", "input": { "StreamName": "durability", "RetentionPeriodHours": 8760 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.746434, "result": { "http_status": 400, "output": { "__type": "ValidationException", "message": "1 validation error detected: Value '8760' at 'retentionPeriodHours' failed to satisfy constraint: Member must have value less than or equal to 168" } }
+        },
+        { "phase": "timing", "operation": "IncreaseStreamRetentionPeriod", "input": { "StreamName": "durability", "RetentionPeriodHours": 8761 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.747652, "result": { "http_status": 400, "output": { "__type": "ValidationException", "message": "1 validation error detected: Value '8761' at 'retentionPeriodHours' failed to satisfy constraint: Member must have value less than or equal to 168" } }
+        },
+        { "phase": "timing", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "9ca6788ac3f8e174e0718a6a6ace0f9fef13c69a5a9f6f144b56d02f78e47422" }, "ApproximateArrivalTimestamp": 946684800 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.7487895, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472169768669768448218117908205163850709607888453634" } }
+        },
+        { "phase": "timing", "operation": "GetShardIterator", "input": { "StreamName": "durability", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.7506547, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "0b0be6c29213ab7e5d8b8cf47502b79c4e2ad294f6f20d0c4876bea2a9a54f06", "length": 204 } } }
+        },
+        { "phase": "timing", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "0b0be6c29213ab7e5d8b8cf47502b79c4e2ad294f6f20d0c4876bea2a9a54f06", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.75214, "result": { "http_status": 200, "output": { "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "5d38a729ea0066671534e2b0c61209adb9c84f48f08513172147d6ed1f0ea2e1", "length": 204 }, "Records": [ { "PartitionKey": "key", "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" }, "ApproximateArrivalTimestamp": 1789780054.932, "SequenceNumber": "49678472169768669768448218117903369460572241745340792834" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "ApproximateArrivalTimestamp": 1789780071.529, "SequenceNumber": "49678472169768669768448218117904578386391857542746603522" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 28, "sha256": "8a2da618f45808e34e98a0c9b8863dbe2116c94d899bffb9da3f74be8032da34" }, "ApproximateArrivalTimestamp": 1789780103.905, "SequenceNumber": "49678472169768669768448218117905787312211474370944565250" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "ApproximateArrivalTimestamp": 1789780121.125, "SequenceNumber": "49678472169768669768448218117906996238031090237069852674" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "9ca6788ac3f8e174e0718a6a6ace0f9fef13c69a5a9f6f144b56d02f78e47422" }, "ApproximateArrivalTimestamp": 1789780190.749, "SequenceNumber": "49678472169768669768448218117908205163850709607888453634" } ] } }
+        },
+        { "phase": "timing", "operation": "PutRecords", "input": { "StreamName": "durability", "Records": [ { "PartitionKey": "a", "Data": { "decoded_bytes": 7, "sha256": "a40c684861eaedf0ba93b24850e7153280225e297566a3c62b7b3db0b8cfcea0" } }, { "PartitionKey": "b", "Data": { "decoded_bytes": 7, "sha256": "89a0bfc3407b8257c04c4310c168ad0efe640ee31f71c08efdc6fbab62cfbcd1" } } ] }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.7540534, "result": { "http_status": 200, "output": { "FailedRecordCount": 0, "Records": [ { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472169768669768448218117909414089670324237063159810" }, { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472169768669768448218117910623015489938866237865986" } ] } }
+        },
+        { "phase": "timing", "operation": "GetShardIterator", "input": { "StreamName": "durability", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.755744, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "9511d501d9a725c7f690a09de253d371bdc6145005ce53d3c8d9cb0dd083f710", "length": 204 } } }
+        },
+        { "phase": "timing", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "9511d501d9a725c7f690a09de253d371bdc6145005ce53d3c8d9cb0dd083f710", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.757052, "result": { "http_status": 200, "output": { "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "6c9d7f9a1e1e4bcb7a120c84d5cdc546f3b398bafcad4563d82cf9700a353a63", "length": 204 }, "Records": [ { "PartitionKey": "key", "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" }, "ApproximateArrivalTimestamp": 1789780054.932, "SequenceNumber": "49678472169768669768448218117903369460572241745340792834" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "ApproximateArrivalTimestamp": 1789780071.529, "SequenceNumber": "49678472169768669768448218117904578386391857542746603522" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 28, "sha256": "8a2da618f45808e34e98a0c9b8863dbe2116c94d899bffb9da3f74be8032da34" }, "ApproximateArrivalTimestamp": 1789780103.905, "SequenceNumber": "49678472169768669768448218117905787312211474370944565250" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "ApproximateArrivalTimestamp": 1789780121.125, "SequenceNumber": "49678472169768669768448218117906996238031090237069852674" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "9ca6788ac3f8e174e0718a6a6ace0f9fef13c69a5a9f6f144b56d02f78e47422" }, "ApproximateArrivalTimestamp": 1789780190.749, "SequenceNumber": "49678472169768669768448218117908205163850709607888453634" }, { "PartitionKey": "a", "Data": { "decoded_bytes": 7, "sha256": "a40c684861eaedf0ba93b24850e7153280225e297566a3c62b7b3db0b8cfcea0" }, "ApproximateArrivalTimestamp": 1789780190.754, "SequenceNumber": "49678472169768669768448218117909414089670324237063159810" }, { "PartitionKey": "b", "Data": { "decoded_bytes": 7, "sha256": "89a0bfc3407b8257c04c4310c168ad0efe640ee31f71c08efdc6fbab62cfbcd1" }, "ApproximateArrivalTimestamp": 1789780190.754, "SequenceNumber": "49678472169768669768448218117910623015489938866237865986" } ] } }
+        },
+        { "phase": "graceful-write", "operation": "PutRecord", "input": { "StreamName": "durability", "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" } }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780190.8910854, "result": { "http_status": 200, "output": { "ShardId": "shardId-000000000000", "SequenceNumber": "49678472169768669768448218117911831941309553495412572162" } }
+        },
+        { "phase": "reopen", "operation": "GetShardIterator", "input": { "StreamName": "durability", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON" }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780206.7516813, "result": { "http_status": 200, "output": { "ShardIterator": { "sha256": "81be803cb2faa7985ef09e2c15108065db77a32762eb40771adebc9a05ecbb50", "length": 204 } } }
+        },
+        { "phase": "reopen", "operation": "GetRecords", "input": { "ShardIterator": { "sha256": "81be803cb2faa7985ef09e2c15108065db77a32762eb40771adebc9a05ecbb50", "length": 204 }, "Limit": 100 }, "region": "us-east-1", "account": "111111111111", "unix_time": 1789780206.7702086, "result": { "http_status": 200, "output": { "MillisBehindLatest": 0, "NextShardIterator": { "sha256": "c8cbc9d970f9613f5a42784f7588a85f7b55f22eb1cda4dfacf40347e772a757", "length": 204 }, "Records": [ { "PartitionKey": "key", "Data": { "decoded_bytes": 8, "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24" }, "ApproximateArrivalTimestamp": 1789780054.932, "SequenceNumber": "49678472169768669768448218117903369460572241745340792834" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "ApproximateArrivalTimestamp": 1789780071.529, "SequenceNumber": "49678472169768669768448218117904578386391857542746603522" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 28, "sha256": "8a2da618f45808e34e98a0c9b8863dbe2116c94d899bffb9da3f74be8032da34" }, "ApproximateArrivalTimestamp": 1789780103.905, "SequenceNumber": "49678472169768669768448218117905787312211474370944565250" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "ApproximateArrivalTimestamp": 1789780121.125, "SequenceNumber": "49678472169768669768448218117906996238031090237069852674" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "9ca6788ac3f8e174e0718a6a6ace0f9fef13c69a5a9f6f144b56d02f78e47422" }, "ApproximateArrivalTimestamp": 1789780190.749, "SequenceNumber": "49678472169768669768448218117908205163850709607888453634" }, { "PartitionKey": "a", "Data": { "decoded_bytes": 7, "sha256": "a40c684861eaedf0ba93b24850e7153280225e297566a3c62b7b3db0b8cfcea0" }, "ApproximateArrivalTimestamp": 1789780190.754, "SequenceNumber": "49678472169768669768448218117909414089670324237063159810" }, { "PartitionKey": "b", "Data": { "decoded_bytes": 7, "sha256": "89a0bfc3407b8257c04c4310c168ad0efe640ee31f71c08efdc6fbab62cfbcd1" }, "ApproximateArrivalTimestamp": 1789780190.754, "SequenceNumber": "49678472169768669768448218117910623015489938866237865986" }, { "PartitionKey": "key", "Data": { "decoded_bytes": 12, "sha256": "01b281d068662aa89b3a411e92cf59286a73907c1c7b1e9e80c6a67abdc61736" }, "ApproximateArrivalTimestamp": 1789780190.902, "SequenceNumber": "49678472169768669768448218117911831941309553495412572162" } ] } }
+        }
+      ]
+    }
+  },
+  "primary_sources": [
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/releases/tag/v0.6.2",
+      "purpose": "Actual current version and multi-account release"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/cache/Cache.scala#L1979-L2014",
+      "purpose": "Periodic snapshot write, not ack durability"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/KinesisMockService.scala#L115-L128",
+      "purpose": "Periodic loop and shutdown flush"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/Utils.scala#L34-L35",
+      "purpose": "Wall clock"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/models/ShardIterator.scala#L31-L75",
+      "purpose": "300-second expiry"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/api/GetRecordsRequest.scala#L95-L130",
+      "purpose": "No age filter and empty queue defect"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/api/GetRecordsRequest.scala#L213-L232",
+      "purpose": "10MiB return-size cap"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/cache/CacheConfig.scala#L30-L112",
+      "purpose": "Actual exported configuration"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/cache/CacheSemaphores.scala#L51-L78",
+      "purpose": "Fixed concurrent admission"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/syntax/semaphore.scala#L24-L33",
+      "purpose": "Immediate permit release"
+    },
+    {
+      "url": "https://github.com/etspaceman/kinesis-mock/blob/6b18563254e10fb543329e5dc0a2f0ecc90c92bf/kinesis-mock/src/main/scala/kinesis/mock/api/ListShardsRequest.scala#L146-L150",
+      "purpose": "Wall-clock closed shard retention"
+    },
+    {
+      "url": "https://github.com/mhart/kinesalite/blob/c76689da192ab96c87c5db8f95c1e3fba1985433/index.js#L12-L20",
+      "purpose": "7MiB body limit and operation whitelist"
+    },
+    {
+      "url": "https://github.com/mhart/kinesalite/blob/c76689da192ab96c87c5db8f95c1e3fba1985433/index.js#L26-L53",
+      "purpose": "Public close and real store shutdown"
+    },
+    {
+      "url": "https://github.com/mhart/kinesalite/blob/c76689da192ab96c87c5db8f95c1e3fba1985433/db/index.js#L29-L49",
+      "purpose": "LevelDB and process namespace"
+    },
+    {
+      "url": "https://github.com/mhart/kinesalite/blob/c76689da192ab96c87c5db8f95c1e3fba1985433/actions/putRecord.js#L56-L85",
+      "purpose": "Date.now and separate metadata/data writes"
+    },
+    {
+      "url": "https://github.com/mhart/kinesalite/blob/c76689da192ab96c87c5db8f95c1e3fba1985433/actions/getRecords.js#L7-L118",
+      "purpose": "Iterator expiry and retention deletion"
+    },
+    {
+      "url": "https://github.com/mhart/kinesalite/blob/c76689da192ab96c87c5db8f95c1e3fba1985433/validations/increaseStreamRetentionPeriod.js",
+      "purpose": "168-hour max"
+    },
+    {
+      "url": "https://github.com/mhart/kinesalite/blob/c76689da192ab96c87c5db8f95c1e3fba1985433/validations/putRecord.js",
+      "purpose": "Hard1MiB validator"
+    },
+    {
+      "url": "https://github.com/Level/leveldown/tree/v5.6.0#leveldownputkey-value-options-callback",
+      "purpose": "sync defaults false; no host-power-loss guarantee"
+    }
+  ],
+  "limitations": [
+    "JVM kinesis-mock executable not executed; it shares same persistence/API Scala source.",
+    "No host-power-cut experiment, native AWS calls, full24h expiry wait, or throughput benchmark.",
+    "Single immediate crash trial per candidate; results establish observed loss/survival, not a quantified reliability rate.",
+    "No patched engine, alternate backend implementation, replay log or service-time shim invented."
+  ],
+  "commands": [
+    "docker pull ghcr.io/etspaceman/kinesis-mock:0.6.2",
+    "docker image inspect ghcr.io/etspaceman/kinesis-mock:0.6.2",
+    "git clone --depth 1 --branch v0.6.2 https://github.com/etspaceman/kinesis-mock.git /tmp/stackd-kinesis-engine-hSGnLpwl/kinesis-mock",
+    "docker volume create --label stackd.probe=KinesisEngine-hSGnLpwl stackd-kinesis-engine-hSGnLpwl-mock",
+    "docker run --name stackd-kinesis-engine-hSGnLpwl-mock --label stackd.probe=KinesisEngine-hSGnLpwl -p 127.0.0.1:18768:4568 -v stackd-kinesis-engine-hSGnLpwl-mock:/data -e SHOULD_PERSIST_DATA=true -e PERSIST_PATH=/data -e PERSIST_INTERVAL=5s -e CREATE_STREAM_DURATION=10ms -e SPLIT_SHARD_DURATION=10ms -e MERGE_SHARDS_DURATION=10ms ghcr.io/etspaceman/kinesis-mock@sha256:d2b5d757a13b249915e7a287a346d4d8ee5a876fecd0f51da5d181170639dbc8",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py mock 18768 basic",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py mock 18768 merge",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py mock 18768 event",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py mock 18768 graceful-write",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py mock 18768 reopen",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py mock 18768 crash-write",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py mock 18768 reopen",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py mock 18768 timing",
+    "docker stop --time 15 stackd-kinesis-engine-hSGnLpwl-mock",
+    "docker start --attach stackd-kinesis-engine-hSGnLpwl-mock",
+    "docker kill --signal KILL stackd-kinesis-engine-hSGnLpwl-mock",
+    "npm install --prefix /tmp/stackd-kinesis-engine-hSGnLpwl/alternate --ignore-scripts=false --no-audit --no-fund kinesalite@3.3.3",
+    "docker pull node:22-bookworm-slim",
+    "docker volume create --label stackd.probe=KinesisEngine-hSGnLpwl stackd-kinesis-engine-hSGnLpwl-lite",
+    "docker run --name stackd-kinesis-engine-hSGnLpwl-lite --label stackd.probe=KinesisEngine-hSGnLpwl -p 127.0.0.1:18769:4567 -v stackd-kinesis-engine-hSGnLpwl-lite:/data -v /tmp/stackd-kinesis-engine-hSGnLpwl/alternate:/app:ro node@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 node /app/node_modules/kinesalite/cli.js --port 4567 --path /data --createStreamMs 10 --updateStreamMs 10",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py lite 18769 basic",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py lite 18769 event",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py lite 18769 graceful-write",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py lite 18769 reopen",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py lite 18769 crash-write",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py lite 18769 reopen",
+    "python /tmp/stackd-kinesis-engine-hSGnLpwl/probe.py lite 18769 timing",
+    "docker stop --timeout 15 stackd-kinesis-engine-hSGnLpwl-lite",
+    "docker start --attach stackd-kinesis-engine-hSGnLpwl-lite",
+    "docker kill --signal KILL stackd-kinesis-engine-hSGnLpwl-lite",
+    "docker kill --signal INT stackd-kinesis-engine-hSGnLpwl-lite",
+    "docker run --name stackd-kinesis-engine-hSGnLpwl-lite --label stackd.probe=KinesisEngine-hSGnLpwl -p 127.0.0.1:18769:4567 -v stackd-kinesis-engine-hSGnLpwl-lite:/data -v /tmp/stackd-kinesis-engine-hSGnLpwl/alternate:/app:ro node@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 node /app/launcher.js"
+  ],
+  "cleanup": {
+    "owned_containers": [
+      "stackd-kinesis-engine-hSGnLpwl-mock",
+      "stackd-kinesis-engine-hSGnLpwl-lite"
+    ],
+    "owned_volumes": [
+      "stackd-kinesis-engine-hSGnLpwl-mock",
+      "stackd-kinesis-engine-hSGnLpwl-lite"
+    ],
+    "stop_observed": true,
+    "container_remove_observed": true,
+    "volume_remove_observed": true,
+    "container_filter_command": "docker ps --all --filter label=stackd.probe=KinesisEngine-hSGnLpwl --format {{.Names}}",
+    "container_filter_output": "",
+    "volume_filter_command": "docker volume ls --filter label=stackd.probe=KinesisEngine-hSGnLpwl --format {{.Name}}",
+    "volume_filter_output": "",
+    "scratch_removed": true,
+    "shared_pulled_images": "Not deleted: digest-pinned upstream images may be shared; no custom images created.",
+    "scratch_check": "glob /tmp/stackd-kinesis-engine-hSGnLpwl -> Path not found",
+    "verified_at": "2026-09-19T01:13:14.036Z"
+  },
+  "command_note": "Command inventory, not chronological shell replay. All service run/start --attach commands were launched through hub supervision and passed readiness via localhost port. Reopen/crash phases repeated at the observed timestamps. Crash kill_delay_seconds measures docker kill command duration; HTTP200 was followed by local evidence serialization then that kill, without intentional sleep."
+}

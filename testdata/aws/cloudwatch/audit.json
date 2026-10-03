@@ -1,0 +1,3677 @@
+{
+  "source": "Native AWS CLI via scripts/aws/aws_cli.py; delivered CloudTrail S3 JSON",
+  "retrieved_at": "2026-09-14T02:03:09.238277+00:00",
+  "region": "us-east-1",
+  "analysis": {
+    "cli_revision": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+    "cli_invocations": {
+      "service_targeted": 96,
+      "local_version": 1,
+      "local_get_object_help": 1,
+      "total": 98
+    },
+    "run_calls_oldest_first": [
+      14,
+      44,
+      38
+    ],
+    "combined_logging_seconds": 627.657871,
+    "resource_identity_count": {
+      "trail": 1,
+      "bucket": 1,
+      "metric_series": 2
+    },
+    "recovery_note": "Three creation lifecycles reused the exact owned bucket/trail names. First stopped before logging because CloudTrail reordered selectors. Second cleaned after streaming S3 CLI rejected --cli-input-json. Third retrieved real events; all three cleanup checks verified. Prior raw runs retained recursively.",
+    "observed_rules": [
+      "All six captured cases have eventVersion 1.11, eventSource monitoring.amazonaws.com, eventCategory Data, managementEvent false, eventType AwsApiCall.",
+      "All six have resources exactly [{type: AWS::CloudWatch::Metric}]; no metric ARN, accountId, namespace or metricName appears inside resources.",
+      "responseElements is present and null for all successes and failures. readOnly is false for PutMetricData, true for all three read operations and the rejected statistics query.",
+      "PutMetricData retains namespace and ordered metricData metricName/dimensions identity only. Supplied timestamp, value, values, counts, unit and storageResolution are omitted, including on failure. A datum with no submitted dimensions omits dimensions.",
+      "GetMetricStatistics retains namespace, metricName, dimensions, startTime, endTime, period, statistics and unit in lowerCamelCase, including on failure.",
+      "GetMetricData retains nested metricDataQueries, metricStat/metric identity, period/stat/unit, returnData true and false, expression/label, scanBy, maxDatapoints and labelOptions.timezone.",
+      "GetMetricStatistics and GetMetricData request startTime/endTime are ISO-8601 UTC seconds with Z; submitted .123 fractions are absent. eventTime also uses whole-second UTC Z, not the locale-formatted timestamp in the documentation example.",
+      "ListMetrics retains namespace, metricName, dimensions and recentlyActive; includeLinkedAccounts:false is added despite omission in input.",
+      "Both rejected requests return CLI InvalidParameterValue HTTP 400 but CloudTrail errorCode InvalidParameterValueException. errorMessage retains the service message verbatim. Successful records omit both error fields."
+    ],
+    "unresolved": [
+      "No named operation/failure projection remains unresolved.",
+      "Only the after-propagation six-request batch was retained; initial-batch non-observation does not prove absence or guaranteed delivery timing.",
+      "No entity metrics, omitted-statistics query, pagination token, access-denied, cross-account or other validation-error projection was exercised."
+    ],
+    "residual_metric_series": 2
+  },
+  "primary_references": [
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/logging_cw_api_calls.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_AdvancedFieldSelector.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html"
+  ],
+  "documentation_revision": {
+    "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/logging_cw_api_calls.html",
+    "retrieved_date": "2026-09-14",
+    "last_modified": "Sat, 12 Sep 2026 02:53:17 GMT",
+    "rule": "All four named APIs are DATA events, AWS::CloudWatch::Metric; not Event history."
+  },
+  "bounds": {
+    "delivery_seconds": 600,
+    "poll_seconds": 20,
+    "previous_logging_seconds": 384.560599,
+    "max_cli_calls": 200,
+    "cleanup_reserved_calls": 30,
+    "cli_timeout_seconds": 50,
+    "automatic_retries": false
+  },
+  "owned_identity": {
+    "bucket": "stackd-cwaudit-owned-bucket",
+    "trail": "stackd-cwaudit-owned-trail",
+    "namespace": "Stackd/NativeAudit/owned",
+    "metric_names": [
+      "Scalar",
+      "Distribution"
+    ],
+    "trail_arn": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail"
+  },
+  "redaction": "Credential ID values, caller principal/ARN/name and client IP redacted; keys retained. Owned names/account, event/request IDs, times, projections and response fields unchanged. No debug logs retained. Integration normalization: caller account becomes 000000000000; owned trail/bucket/namespace/Probe suffix becomes owned. Event/request IDs, numeric data, timestamp precision and field presence remain unchanged.",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started": "2026-09-14T02:03:09.239460+00:00",
+      "request_finished": "2026-09-14T02:03:10.219931+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Account": "000000000000"
+        }
+      }
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket"
+      },
+      "request_started": "2026-09-14T02:03:10.221141+00:00",
+      "request_finished": "2026-09-14T02:03:11.195924+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-cwaudit-owned-bucket",
+          "BucketArn": "arn:aws:s3:::stackd-cwaudit-owned-bucket"
+        }
+      }
+    },
+    {
+      "label": "bucket-policy",
+      "service": "s3api",
+      "operation": "put-bucket-policy",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"CloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-cwaudit-owned-bucket\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail\"}}}, {\"Sid\": \"CloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-cwaudit-owned-bucket/owned/AWSLogs/000000000000/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "request_started": "2026-09-14T02:03:11.197139+00:00",
+      "request_finished": "2026-09-14T02:03:12.122733+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-trail",
+      "service": "cloudtrail",
+      "operation": "create-trail",
+      "input": {
+        "Name": "stackd-cwaudit-owned-trail",
+        "S3BucketName": "stackd-cwaudit-owned-bucket",
+        "S3KeyPrefix": "owned",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "EnableLogFileValidation": false,
+        "IsOrganizationTrail": false
+      },
+      "request_started": "2026-09-14T02:03:12.124028+00:00",
+      "request_finished": "2026-09-14T02:03:13.013652+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-cwaudit-owned-trail",
+          "S3BucketName": "stackd-cwaudit-owned-bucket",
+          "S3KeyPrefix": "owned",
+          "IncludeGlobalServiceEvents": false,
+          "IsMultiRegionTrail": false,
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail",
+          "LogFileValidationEnabled": false,
+          "IsOrganizationTrail": false
+        }
+      }
+    },
+    {
+      "label": "select-only-metric-data",
+      "service": "cloudtrail",
+      "operation": "put-event-selectors",
+      "input": {
+        "TrailName": "stackd-cwaudit-owned-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "OnlyCloudWatchMetricData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::CloudWatch::Metric"
+                ]
+              },
+              {
+                "Field": "eventSource",
+                "Equals": [
+                  "monitoring.amazonaws.com"
+                ]
+              },
+              {
+                "Field": "eventName",
+                "Equals": [
+                  "PutMetricData",
+                  "GetMetricStatistics",
+                  "ListMetrics",
+                  "GetMetricData"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "request_started": "2026-09-14T02:03:13.014908+00:00",
+      "request_finished": "2026-09-14T02:03:13.908684+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail",
+          "AdvancedEventSelectors": [
+            {
+              "Name": "OnlyCloudWatchMetricData",
+              "FieldSelectors": [
+                {
+                  "Field": "eventCategory",
+                  "Equals": [
+                    "Data"
+                  ]
+                },
+                {
+                  "Field": "resources.type",
+                  "Equals": [
+                    "AWS::CloudWatch::Metric"
+                  ]
+                },
+                {
+                  "Field": "eventSource",
+                  "Equals": [
+                    "monitoring.amazonaws.com"
+                  ]
+                },
+                {
+                  "Field": "eventName",
+                  "Equals": [
+                    "PutMetricData",
+                    "GetMetricStatistics",
+                    "ListMetrics",
+                    "GetMetricData"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "record-selectors",
+      "service": "cloudtrail",
+      "operation": "get-event-selectors",
+      "input": {
+        "TrailName": "stackd-cwaudit-owned-trail"
+      },
+      "request_started": "2026-09-14T02:03:13.910525+00:00",
+      "request_finished": "2026-09-14T02:03:14.681659+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail",
+          "AdvancedEventSelectors": [
+            {
+              "Name": "OnlyCloudWatchMetricData",
+              "FieldSelectors": [
+                {
+                  "Field": "eventCategory",
+                  "Equals": [
+                    "Data"
+                  ]
+                },
+                {
+                  "Field": "eventSource",
+                  "Equals": [
+                    "monitoring.amazonaws.com"
+                  ]
+                },
+                {
+                  "Field": "eventName",
+                  "Equals": [
+                    "PutMetricData",
+                    "GetMetricStatistics",
+                    "ListMetrics",
+                    "GetMetricData"
+                  ]
+                },
+                {
+                  "Field": "resources.type",
+                  "Equals": [
+                    "AWS::CloudWatch::Metric"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "start-logging",
+      "service": "cloudtrail",
+      "operation": "start-logging",
+      "input": {
+        "Name": "stackd-cwaudit-owned-trail"
+      },
+      "request_started": "2026-09-14T02:03:14.682951+00:00",
+      "request_finished": "2026-09-14T02:03:15.427450+00:00",
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "publish-initial",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricData": [
+          {
+            "MetricName": "Scalar",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "owned"
+              },
+              {
+                "Name": "Kind",
+                "Value": "audit"
+              }
+            ],
+            "Timestamp": "2026-09-14T02:04:15.123000+00:00",
+            "Value": 7.5,
+            "Unit": "Count",
+            "StorageResolution": 1
+          },
+          {
+            "MetricName": "Distribution",
+            "Timestamp": "2026-09-14T02:04:15.123000+00:00",
+            "Values": [
+              2,
+              4
+            ],
+            "Counts": [
+              1,
+              3
+            ],
+            "Unit": "Milliseconds",
+            "StorageResolution": 60
+          }
+        ]
+      },
+      "request_started": "2026-09-14T02:04:15.428871+00:00",
+      "request_finished": "2026-09-14T02:04:16.488785+00:00",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_ids": [
+        "b3b4e15a-ab5d-423f-885a-ed63e1e06537"
+      ]
+    },
+    {
+      "label": "statistics-initial",
+      "service": "cloudwatch",
+      "operation": "get-metric-statistics",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricName": "Scalar",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "owned"
+          },
+          {
+            "Name": "Kind",
+            "Value": "audit"
+          }
+        ],
+        "StartTime": "2026-09-14T01:59:15.123000+00:00",
+        "EndTime": "2026-09-14T02:09:15.123000+00:00",
+        "Period": 60,
+        "Statistics": [
+          "SampleCount",
+          "Average",
+          "Sum",
+          "Minimum",
+          "Maximum"
+        ],
+        "Unit": "Count"
+      },
+      "request_started": "2026-09-14T02:04:16.491310+00:00",
+      "request_finished": "2026-09-14T02:04:17.459491+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Label": "Scalar",
+          "Datapoints": []
+        },
+        "http_status": 200
+      },
+      "request_ids": [
+        "852b2481-0997-44ad-b421-c0adde617c56"
+      ]
+    },
+    {
+      "label": "list-initial",
+      "service": "cloudwatch",
+      "operation": "list-metrics",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricName": "Scalar",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "owned"
+          },
+          {
+            "Name": "Kind",
+            "Value": "audit"
+          }
+        ],
+        "RecentlyActive": "PT3H"
+      },
+      "request_started": "2026-09-14T02:04:17.461808+00:00",
+      "request_finished": "2026-09-14T02:04:18.427671+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Metrics": [
+            {
+              "Namespace": "Stackd/NativeAudit/owned",
+              "MetricName": "Scalar",
+              "Dimensions": [
+                {
+                  "Name": "Kind",
+                  "Value": "audit"
+                },
+                {
+                  "Name": "Probe",
+                  "Value": "owned"
+                }
+              ]
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_ids": [
+        "a04df306-b115-4acf-a128-dec8fc5204d7"
+      ]
+    },
+    {
+      "label": "data-initial",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "MetricDataQueries": [
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeAudit/owned",
+                "MetricName": "Scalar",
+                "Dimensions": [
+                  {
+                    "Name": "Probe",
+                    "Value": "owned"
+                  },
+                  {
+                    "Name": "Kind",
+                    "Value": "audit"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum",
+              "Unit": "Count"
+            },
+            "ReturnData": false
+          },
+          {
+            "Id": "e1",
+            "Expression": "m1 * 2",
+            "Label": "Owned expression",
+            "ReturnData": true
+          }
+        ],
+        "StartTime": "2026-09-14T01:59:15.123000+00:00",
+        "EndTime": "2026-09-14T02:09:15.123000+00:00",
+        "ScanBy": "TimestampAscending",
+        "MaxDatapoints": 10,
+        "LabelOptions": {
+          "Timezone": "+0000"
+        }
+      },
+      "request_started": "2026-09-14T02:04:18.430228+00:00",
+      "request_finished": "2026-09-14T02:04:19.376385+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "e1",
+              "Label": "Owned expression",
+              "Timestamps": [
+                "2026-09-14T03:04:00+01:00"
+              ],
+              "Values": [
+                15.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200
+      },
+      "request_ids": [
+        "6d662e08-0d42-42e5-8ac2-e4e1514bb64f"
+      ]
+    },
+    {
+      "label": "rejected-publication-initial",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricData": [
+          {
+            "MetricName": "Scalar",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "owned"
+              },
+              {
+                "Name": "Kind",
+                "Value": "audit"
+              }
+            ],
+            "Timestamp": "2026-09-14T02:04:15.123000+00:00",
+            "Value": 1e+200,
+            "Unit": "Count",
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started": "2026-09-14T02:04:19.378991+00:00",
+      "request_finished": "2026-09-14T02:04:20.337251+00:00",
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "The value 1.0E200 for parameter MetricData.member.1.Value is invalid.",
+        "http_status": 400
+      },
+      "request_ids": [
+        "8947e760-491f-49a9-bc42-2429c30f85d7",
+        "8947e760-491f-49a9-bc42-2429c30f85d7"
+      ]
+    },
+    {
+      "label": "rejected-query-initial",
+      "service": "cloudwatch",
+      "operation": "get-metric-statistics",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricName": "Scalar",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "owned"
+          },
+          {
+            "Name": "Kind",
+            "Value": "audit"
+          }
+        ],
+        "StartTime": "2026-09-14T02:09:15.123000+00:00",
+        "EndTime": "2026-09-14T01:59:15.123000+00:00",
+        "Period": 60,
+        "Statistics": [
+          "SampleCount",
+          "Average",
+          "Sum",
+          "Minimum",
+          "Maximum"
+        ],
+        "Unit": "Count"
+      },
+      "request_started": "2026-09-14T02:04:20.339673+00:00",
+      "request_finished": "2026-09-14T02:04:21.277976+00:00",
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "The parameter StartTime must be less than the parameter EndTime.",
+        "http_status": 400
+      },
+      "request_ids": [
+        "b68d667f-aed0-4bb6-9e5b-c93e5d81f791",
+        "b68d667f-aed0-4bb6-9e5b-c93e5d81f791"
+      ]
+    },
+    {
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "request_started": "2026-09-14T02:04:21.281863+00:00",
+      "request_finished": "2026-09-14T02:04:22.358582+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsTruncated": false,
+          "Name": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000,
+          "EncodingType": "url",
+          "KeyCount": 0
+        }
+      }
+    },
+    {
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "request_started": "2026-09-14T02:04:42.363319+00:00",
+      "request_finished": "2026-09-14T02:04:43.388550+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsTruncated": false,
+          "Name": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000,
+          "EncodingType": "url",
+          "KeyCount": 0
+        }
+      }
+    },
+    {
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "request_started": "2026-09-14T02:05:03.400185+00:00",
+      "request_finished": "2026-09-14T02:05:04.481719+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsTruncated": false,
+          "Name": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000,
+          "EncodingType": "url",
+          "KeyCount": 0
+        }
+      }
+    },
+    {
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "request_started": "2026-09-14T02:05:24.486497+00:00",
+      "request_finished": "2026-09-14T02:05:25.564920+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsTruncated": false,
+          "Name": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000,
+          "EncodingType": "url",
+          "KeyCount": 0
+        }
+      }
+    },
+    {
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "request_started": "2026-09-14T02:05:45.569606+00:00",
+      "request_finished": "2026-09-14T02:05:46.654348+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsTruncated": false,
+          "Name": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000,
+          "EncodingType": "url",
+          "KeyCount": 0
+        }
+      }
+    },
+    {
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "request_started": "2026-09-14T02:06:06.659303+00:00",
+      "request_finished": "2026-09-14T02:06:07.530969+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsTruncated": false,
+          "Name": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000,
+          "EncodingType": "url",
+          "KeyCount": 0
+        }
+      }
+    },
+    {
+      "label": "publish-after-propagation",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricData": [
+          {
+            "MetricName": "Scalar",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "owned"
+              },
+              {
+                "Name": "Kind",
+                "Value": "audit"
+              }
+            ],
+            "Timestamp": "2026-09-14T02:04:15.123000+00:00",
+            "Value": 7.5,
+            "Unit": "Count",
+            "StorageResolution": 1
+          },
+          {
+            "MetricName": "Distribution",
+            "Timestamp": "2026-09-14T02:04:15.123000+00:00",
+            "Values": [
+              2,
+              4
+            ],
+            "Counts": [
+              1,
+              3
+            ],
+            "Unit": "Milliseconds",
+            "StorageResolution": 60
+          }
+        ]
+      },
+      "request_started": "2026-09-14T02:06:27.542535+00:00",
+      "request_finished": "2026-09-14T02:06:28.397819+00:00",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_ids": [
+        "ebb58e3a-aaf5-4152-9a98-2993ec3ba83f"
+      ]
+    },
+    {
+      "label": "statistics-after-propagation",
+      "service": "cloudwatch",
+      "operation": "get-metric-statistics",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricName": "Scalar",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "owned"
+          },
+          {
+            "Name": "Kind",
+            "Value": "audit"
+          }
+        ],
+        "StartTime": "2026-09-14T01:59:15.123000+00:00",
+        "EndTime": "2026-09-14T02:09:15.123000+00:00",
+        "Period": 60,
+        "Statistics": [
+          "SampleCount",
+          "Average",
+          "Sum",
+          "Minimum",
+          "Maximum"
+        ],
+        "Unit": "Count"
+      },
+      "request_started": "2026-09-14T02:06:28.400598+00:00",
+      "request_finished": "2026-09-14T02:06:29.440529+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Label": "Scalar",
+          "Datapoints": [
+            {
+              "Timestamp": "2026-09-14T03:04:00+01:00",
+              "SampleCount": 1.0,
+              "Average": 7.5,
+              "Sum": 7.5,
+              "Minimum": 7.5,
+              "Maximum": 7.5,
+              "Unit": "Count"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_ids": [
+        "204f40ed-d36e-4419-b838-8c4747860a86"
+      ]
+    },
+    {
+      "label": "list-after-propagation",
+      "service": "cloudwatch",
+      "operation": "list-metrics",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricName": "Scalar",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "owned"
+          },
+          {
+            "Name": "Kind",
+            "Value": "audit"
+          }
+        ],
+        "RecentlyActive": "PT3H"
+      },
+      "request_started": "2026-09-14T02:06:29.443182+00:00",
+      "request_finished": "2026-09-14T02:06:30.451828+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Metrics": [
+            {
+              "Namespace": "Stackd/NativeAudit/owned",
+              "MetricName": "Scalar",
+              "Dimensions": [
+                {
+                  "Name": "Kind",
+                  "Value": "audit"
+                },
+                {
+                  "Name": "Probe",
+                  "Value": "owned"
+                }
+              ]
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_ids": [
+        "16809da3-a640-4414-9adb-b3e252c46137"
+      ]
+    },
+    {
+      "label": "data-after-propagation",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "MetricDataQueries": [
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeAudit/owned",
+                "MetricName": "Scalar",
+                "Dimensions": [
+                  {
+                    "Name": "Probe",
+                    "Value": "owned"
+                  },
+                  {
+                    "Name": "Kind",
+                    "Value": "audit"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum",
+              "Unit": "Count"
+            },
+            "ReturnData": false
+          },
+          {
+            "Id": "e1",
+            "Expression": "m1 * 2",
+            "Label": "Owned expression",
+            "ReturnData": true
+          }
+        ],
+        "StartTime": "2026-09-14T01:59:15.123000+00:00",
+        "EndTime": "2026-09-14T02:09:15.123000+00:00",
+        "ScanBy": "TimestampAscending",
+        "MaxDatapoints": 10,
+        "LabelOptions": {
+          "Timezone": "+0000"
+        }
+      },
+      "request_started": "2026-09-14T02:06:30.454496+00:00",
+      "request_finished": "2026-09-14T02:06:31.447258+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "e1",
+              "Label": "Owned expression",
+              "Timestamps": [
+                "2026-09-14T03:04:00+01:00"
+              ],
+              "Values": [
+                30.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200
+      },
+      "request_ids": [
+        "601653ab-6ee3-41dc-8d40-a1719d5b29f8"
+      ]
+    },
+    {
+      "label": "rejected-publication-after-propagation",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricData": [
+          {
+            "MetricName": "Scalar",
+            "Dimensions": [
+              {
+                "Name": "Probe",
+                "Value": "owned"
+              },
+              {
+                "Name": "Kind",
+                "Value": "audit"
+              }
+            ],
+            "Timestamp": "2026-09-14T02:04:15.123000+00:00",
+            "Value": 1e+200,
+            "Unit": "Count",
+            "StorageResolution": 1
+          }
+        ]
+      },
+      "request_started": "2026-09-14T02:06:31.450068+00:00",
+      "request_finished": "2026-09-14T02:06:32.391208+00:00",
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "The value 1.0E200 for parameter MetricData.member.1.Value is invalid.",
+        "http_status": 400
+      },
+      "request_ids": [
+        "eb669966-6345-4ea1-adfd-ac51598a9108",
+        "eb669966-6345-4ea1-adfd-ac51598a9108"
+      ]
+    },
+    {
+      "label": "rejected-query-after-propagation",
+      "service": "cloudwatch",
+      "operation": "get-metric-statistics",
+      "input": {
+        "Namespace": "Stackd/NativeAudit/owned",
+        "MetricName": "Scalar",
+        "Dimensions": [
+          {
+            "Name": "Probe",
+            "Value": "owned"
+          },
+          {
+            "Name": "Kind",
+            "Value": "audit"
+          }
+        ],
+        "StartTime": "2026-09-14T02:09:15.123000+00:00",
+        "EndTime": "2026-09-14T01:59:15.123000+00:00",
+        "Period": 60,
+        "Statistics": [
+          "SampleCount",
+          "Average",
+          "Sum",
+          "Minimum",
+          "Maximum"
+        ],
+        "Unit": "Count"
+      },
+      "request_started": "2026-09-14T02:06:32.394241+00:00",
+      "request_finished": "2026-09-14T02:06:33.369652+00:00",
+      "result": {
+        "code": "InvalidParameterValue",
+        "message": "The parameter StartTime must be less than the parameter EndTime.",
+        "http_status": 400
+      },
+      "request_ids": [
+        "3a918f7b-55cd-46af-b74e-a2cc3a9cce5e",
+        "3a918f7b-55cd-46af-b74e-a2cc3a9cce5e"
+      ]
+    },
+    {
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "request_started": "2026-09-14T02:06:33.372642+00:00",
+      "request_finished": "2026-09-14T02:06:34.476507+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsTruncated": false,
+          "Name": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000,
+          "EncodingType": "url",
+          "KeyCount": 0
+        }
+      }
+    },
+    {
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "request_started": "2026-09-14T02:06:54.481928+00:00",
+      "request_finished": "2026-09-14T02:06:55.491151+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsTruncated": false,
+          "Name": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000,
+          "EncodingType": "url",
+          "KeyCount": 0
+        }
+      }
+    },
+    {
+      "label": "poll-delivery",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+        "MaxKeys": 1000
+      },
+      "request_started": "2026-09-14T02:07:15.496777+00:00",
+      "request_finished": "2026-09-14T02:07:16.473412+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsTruncated": false,
+          "Contents": [
+            {
+              "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz",
+              "LastModified": "2026-09-14T02:06:58+00:00",
+              "ETag": "\"49f8729a336c24fd667d853236889c97\"",
+              "ChecksumAlgorithm": [
+                "CRC64NVME"
+              ],
+              "ChecksumType": "FULL_OBJECT",
+              "Size": 3042,
+              "StorageClass": "STANDARD"
+            }
+          ],
+          "Name": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000,
+          "EncodingType": "url",
+          "KeyCount": 1
+        }
+      }
+    },
+    {
+      "label": "read-delivery",
+      "service": "s3api",
+      "operation": "get-object",
+      "input": {
+        "Bucket": "stackd-cwaudit-owned-bucket",
+        "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz"
+      },
+      "request_started": "2026-09-14T02:07:16.476261+00:00",
+      "request_finished": "2026-09-14T02:07:17.501801+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "AcceptRanges": "bytes",
+          "LastModified": "2026-09-14T02:06:58+00:00",
+          "ContentLength": 3042,
+          "ETag": "\"49f8729a336c24fd667d853236889c97\"",
+          "ChecksumCRC64NVME": "ELaZZsCj9dI=",
+          "ChecksumType": "FULL_OBJECT",
+          "ContentEncoding": "gzip",
+          "ContentType": "application/json",
+          "ServerSideEncryption": "AES256",
+          "Metadata": {}
+        }
+      }
+    },
+    {
+      "label": "final-trail-status",
+      "service": "cloudtrail",
+      "operation": "get-trail-status",
+      "input": {
+        "Name": "stackd-cwaudit-owned-trail"
+      },
+      "request_started": "2026-09-14T02:07:17.513913+00:00",
+      "request_finished": "2026-09-14T02:07:18.521490+00:00",
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsLogging": true,
+          "LatestDeliveryTime": "2026-09-14T03:06:57.194000+01:00",
+          "StartLoggingTime": "2026-09-14T03:03:15.305000+01:00",
+          "LatestDeliveryAttemptTime": "2026-09-14T02:06:57Z",
+          "LatestNotificationAttemptTime": "",
+          "LatestNotificationAttemptSucceeded": "",
+          "LatestDeliveryAttemptSucceeded": "2026-09-14T02:06:57Z",
+          "TimeLoggingStarted": "2026-09-14T02:03:15Z",
+          "TimeLoggingStopped": ""
+        }
+      }
+    }
+  ],
+  "delivered_records": [
+    {
+      "s3_key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz",
+      "matched_request_label": "list-after-propagation",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "REDACTED",
+          "arn": "REDACTED_CALLER",
+          "accountId": "000000000000",
+          "accessKeyId": "REDACTED",
+          "userName": "REDACTED"
+        },
+        "eventTime": "2026-09-14T02:06:30Z",
+        "eventSource": "monitoring.amazonaws.com",
+        "eventName": "ListMetrics",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "192.0.2.1",
+        "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard app/stackd-cwaudit-owned md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#cloudwatch.list-metrics",
+        "requestParameters": {
+          "namespace": "Stackd/NativeAudit/owned",
+          "metricName": "Scalar",
+          "dimensions": [
+            {
+              "name": "Probe",
+              "value": "owned"
+            },
+            {
+              "name": "Kind",
+              "value": "audit"
+            }
+          ],
+          "recentlyActive": "PT3H",
+          "includeLinkedAccounts": false
+        },
+        "responseElements": null,
+        "requestID": "16809da3-a640-4414-9adb-b3e252c46137",
+        "eventID": "d88333f7-6180-4ddf-80df-faff7a6ce309",
+        "readOnly": true,
+        "resources": [
+          {
+            "type": "AWS::CloudWatch::Metric"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "monitoring.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "s3_key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz",
+      "matched_request_label": "data-after-propagation",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "REDACTED",
+          "arn": "REDACTED_CALLER",
+          "accountId": "000000000000",
+          "accessKeyId": "REDACTED",
+          "userName": "REDACTED"
+        },
+        "eventTime": "2026-09-14T02:06:31Z",
+        "eventSource": "monitoring.amazonaws.com",
+        "eventName": "GetMetricData",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "192.0.2.1",
+        "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard app/stackd-cwaudit-owned md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#cloudwatch.get-metric-data",
+        "requestParameters": {
+          "metricDataQueries": [
+            {
+              "id": "m1",
+              "metricStat": {
+                "metric": {
+                  "namespace": "Stackd/NativeAudit/owned",
+                  "metricName": "Scalar",
+                  "dimensions": [
+                    {
+                      "name": "Probe",
+                      "value": "owned"
+                    },
+                    {
+                      "name": "Kind",
+                      "value": "audit"
+                    }
+                  ]
+                },
+                "period": 60,
+                "stat": "Sum",
+                "unit": "Count"
+              },
+              "returnData": false
+            },
+            {
+              "id": "e1",
+              "expression": "m1 * 2",
+              "label": "Owned expression",
+              "returnData": true
+            }
+          ],
+          "startTime": "2026-09-14T01:59:15Z",
+          "endTime": "2026-09-14T02:09:15Z",
+          "scanBy": "TimestampAscending",
+          "maxDatapoints": 10,
+          "labelOptions": {
+            "timezone": "+0000"
+          }
+        },
+        "responseElements": null,
+        "requestID": "601653ab-6ee3-41dc-8d40-a1719d5b29f8",
+        "eventID": "fd4c77c9-624d-46fb-ba9b-35209668c16d",
+        "readOnly": true,
+        "resources": [
+          {
+            "type": "AWS::CloudWatch::Metric"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "monitoring.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "s3_key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz",
+      "matched_request_label": "publish-after-propagation",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "REDACTED",
+          "arn": "REDACTED_CALLER",
+          "accountId": "000000000000",
+          "accessKeyId": "REDACTED",
+          "userName": "REDACTED"
+        },
+        "eventTime": "2026-09-14T02:06:28Z",
+        "eventSource": "monitoring.amazonaws.com",
+        "eventName": "PutMetricData",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "192.0.2.1",
+        "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard app/stackd-cwaudit-owned md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#cloudwatch.put-metric-data",
+        "requestParameters": {
+          "namespace": "Stackd/NativeAudit/owned",
+          "metricData": [
+            {
+              "metricName": "Scalar",
+              "dimensions": [
+                {
+                  "name": "Probe",
+                  "value": "owned"
+                },
+                {
+                  "name": "Kind",
+                  "value": "audit"
+                }
+              ]
+            },
+            {
+              "metricName": "Distribution"
+            }
+          ]
+        },
+        "responseElements": null,
+        "requestID": "ebb58e3a-aaf5-4152-9a98-2993ec3ba83f",
+        "eventID": "b19d1ec4-c222-49b5-843d-de92fb3fb2ae",
+        "readOnly": false,
+        "resources": [
+          {
+            "type": "AWS::CloudWatch::Metric"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "monitoring.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "s3_key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz",
+      "matched_request_label": "statistics-after-propagation",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "REDACTED",
+          "arn": "REDACTED_CALLER",
+          "accountId": "000000000000",
+          "accessKeyId": "REDACTED",
+          "userName": "REDACTED"
+        },
+        "eventTime": "2026-09-14T02:06:29Z",
+        "eventSource": "monitoring.amazonaws.com",
+        "eventName": "GetMetricStatistics",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "192.0.2.1",
+        "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard app/stackd-cwaudit-owned md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#cloudwatch.get-metric-statistics",
+        "requestParameters": {
+          "namespace": "Stackd/NativeAudit/owned",
+          "metricName": "Scalar",
+          "dimensions": [
+            {
+              "name": "Probe",
+              "value": "owned"
+            },
+            {
+              "name": "Kind",
+              "value": "audit"
+            }
+          ],
+          "startTime": "2026-09-14T01:59:15Z",
+          "endTime": "2026-09-14T02:09:15Z",
+          "period": 60,
+          "statistics": [
+            "SampleCount",
+            "Average",
+            "Sum",
+            "Minimum",
+            "Maximum"
+          ],
+          "unit": "Count"
+        },
+        "responseElements": null,
+        "requestID": "204f40ed-d36e-4419-b838-8c4747860a86",
+        "eventID": "d9b8ea2f-5533-4d57-9918-bd792dc2b8a8",
+        "readOnly": true,
+        "resources": [
+          {
+            "type": "AWS::CloudWatch::Metric"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "monitoring.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "s3_key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz",
+      "matched_request_label": "rejected-query-after-propagation",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "REDACTED",
+          "arn": "REDACTED_CALLER",
+          "accountId": "000000000000",
+          "accessKeyId": "REDACTED",
+          "userName": "REDACTED"
+        },
+        "eventTime": "2026-09-14T02:06:33Z",
+        "eventSource": "monitoring.amazonaws.com",
+        "eventName": "GetMetricStatistics",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "192.0.2.1",
+        "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard app/stackd-cwaudit-owned md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#cloudwatch.get-metric-statistics",
+        "errorCode": "InvalidParameterValueException",
+        "errorMessage": "The parameter StartTime must be less than the parameter EndTime.",
+        "requestParameters": {
+          "namespace": "Stackd/NativeAudit/owned",
+          "metricName": "Scalar",
+          "dimensions": [
+            {
+              "name": "Probe",
+              "value": "owned"
+            },
+            {
+              "name": "Kind",
+              "value": "audit"
+            }
+          ],
+          "startTime": "2026-09-14T02:09:15Z",
+          "endTime": "2026-09-14T01:59:15Z",
+          "period": 60,
+          "statistics": [
+            "SampleCount",
+            "Average",
+            "Sum",
+            "Minimum",
+            "Maximum"
+          ],
+          "unit": "Count"
+        },
+        "responseElements": null,
+        "requestID": "3a918f7b-55cd-46af-b74e-a2cc3a9cce5e",
+        "eventID": "9afa630f-c902-4c11-9e91-0073b20d3060",
+        "readOnly": true,
+        "resources": [
+          {
+            "type": "AWS::CloudWatch::Metric"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "monitoring.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "s3_key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz",
+      "matched_request_label": "rejected-publication-after-propagation",
+      "event": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "REDACTED",
+          "arn": "REDACTED_CALLER",
+          "accountId": "000000000000",
+          "accessKeyId": "REDACTED",
+          "userName": "REDACTED"
+        },
+        "eventTime": "2026-09-14T02:06:32Z",
+        "eventSource": "monitoring.amazonaws.com",
+        "eventName": "PutMetricData",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "192.0.2.1",
+        "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard app/stackd-cwaudit-owned md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#cloudwatch.put-metric-data",
+        "errorCode": "InvalidParameterValueException",
+        "errorMessage": "The value 1.0E200 for parameter MetricData.member.1.Value is invalid.",
+        "requestParameters": {
+          "namespace": "Stackd/NativeAudit/owned",
+          "metricData": [
+            {
+              "metricName": "Scalar",
+              "dimensions": [
+                {
+                  "name": "Probe",
+                  "value": "owned"
+                },
+                {
+                  "name": "Kind",
+                  "value": "audit"
+                }
+              ]
+            }
+          ]
+        },
+        "responseElements": null,
+        "requestID": "eb669966-6345-4ea1-adfd-ac51598a9108",
+        "eventID": "554a2091-8613-4ddc-b448-c853b49e6643",
+        "readOnly": false,
+        "resources": [
+          {
+            "type": "AWS::CloudWatch::Metric"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "000000000000",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "monitoring.us-east-1.amazonaws.com"
+        }
+      }
+    }
+  ],
+  "delivery_objects": [
+    {
+      "key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz",
+      "record_count": 12,
+      "owned_record_count": 6
+    }
+  ],
+  "residual_metrics": {
+    "maximum_series": 2,
+    "publication_succeeded": true,
+    "reason": "CloudWatch has no metric/sample deletion API."
+  },
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "stop-trail",
+        "service": "cloudtrail",
+        "operation": "stop-logging",
+        "input": {
+          "Name": "stackd-cwaudit-owned-trail"
+        },
+        "request_started": "2026-09-14T02:07:18.524722+00:00",
+        "request_finished": "2026-09-14T02:07:19.545428+00:00",
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "delete-trail",
+        "service": "cloudtrail",
+        "operation": "delete-trail",
+        "input": {
+          "Name": "stackd-cwaudit-owned-trail"
+        },
+        "request_started": "2026-09-14T02:07:19.549233+00:00",
+        "request_finished": "2026-09-14T02:07:20.367739+00:00",
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-trail-absent",
+        "service": "cloudtrail",
+        "operation": "get-trail",
+        "input": {
+          "Name": "stackd-cwaudit-owned-trail"
+        },
+        "request_started": "2026-09-14T02:07:20.371017+00:00",
+        "request_finished": "2026-09-14T02:07:21.304889+00:00",
+        "result": {
+          "code": "TrailNotFoundException",
+          "message": "Unknown trail: stackd-cwaudit-owned-trail for the user: 000000000000"
+        }
+      },
+      {
+        "label": "revoke-bucket-delivery-policy",
+        "service": "s3api",
+        "operation": "delete-bucket-policy",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket"
+        },
+        "request_started": "2026-09-14T02:07:21.308178+00:00",
+        "request_finished": "2026-09-14T02:07:22.399272+00:00",
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "list-owned-cleanup-objects-0",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T02:07:22.402599+00:00",
+        "request_finished": "2026-09-14T02:07:23.306571+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "owned/AWSLogs/000000000000/CloudTrail/",
+                "LastModified": "2026-09-14T02:03:13+00:00",
+                "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 0,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz",
+                "LastModified": "2026-09-14T02:06:58+00:00",
+                "ETag": "\"49f8729a336c24fd667d853236889c97\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 3042,
+                "StorageClass": "STANDARD"
+              }
+            ],
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 2
+          }
+        }
+      },
+      {
+        "label": "delete-owned-objects-0",
+        "service": "s3api",
+        "operation": "delete-objects",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Delete": {
+            "Objects": [
+              {
+                "Key": "owned/AWSLogs/000000000000/CloudTrail/"
+              },
+              {
+                "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0210Z_wCRveh4ZtVtSR1Vo.json.gz"
+              }
+            ],
+            "Quiet": true
+          }
+        },
+        "request_started": "2026-09-14T02:07:23.310160+00:00",
+        "request_finished": "2026-09-14T02:07:24.183162+00:00",
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "delete-bucket-0",
+        "service": "s3api",
+        "operation": "delete-bucket",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket"
+        },
+        "request_started": "2026-09-14T02:07:24.186905+00:00",
+        "request_finished": "2026-09-14T02:07:25.366141+00:00",
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-bucket-absent",
+        "service": "s3api",
+        "operation": "head-bucket",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket"
+        },
+        "request_started": "2026-09-14T02:07:25.369501+00:00",
+        "request_finished": "2026-09-14T02:07:26.378702+00:00",
+        "result": {
+          "code": "404",
+          "message": "Not Found"
+        }
+      }
+    ],
+    "remaining_owned": []
+  },
+  "previous_run": {
+    "source": "Native AWS CLI via scripts/aws/aws_cli.py; delivered CloudTrail S3 JSON",
+    "retrieved_at": "2026-09-14T01:55:13.752504+00:00",
+    "region": "us-east-1",
+    "primary_references": [
+      "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/logging_cw_api_calls.html",
+      "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_AdvancedFieldSelector.html",
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html"
+    ],
+    "documentation_revision": {
+      "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/logging_cw_api_calls.html",
+      "retrieved_date": "2026-09-14",
+      "last_modified": "Sat, 12 Sep 2026 02:53:17 GMT",
+      "rule": "All four named APIs are DATA events, AWS::CloudWatch::Metric; not Event history."
+    },
+    "bounds": {
+      "delivery_seconds": 1080,
+      "poll_seconds": 20,
+      "max_cli_calls": 200,
+      "cleanup_reserved_calls": 30,
+      "cli_timeout_seconds": 50,
+      "automatic_retries": false
+    },
+    "owned_identity": {
+      "bucket": "stackd-cwaudit-owned-bucket",
+      "trail": "stackd-cwaudit-owned-trail",
+      "namespace": "Stackd/NativeAudit/owned",
+      "metric_names": [
+        "Scalar",
+        "Distribution"
+      ],
+      "trail_arn": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail"
+    },
+    "redaction": "Credential ID values, caller principal/ARN/name and client IP redacted; keys retained. Owned names/account, event/request IDs, times, projections and response fields unchanged. No debug logs retained.",
+    "observations": [
+      {
+        "label": "identity",
+        "service": "sts",
+        "operation": "get-caller-identity",
+        "input": {},
+        "request_started": "2026-09-14T01:55:13.753244+00:00",
+        "request_finished": "2026-09-14T01:55:14.812833+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "Account": "000000000000"
+          }
+        }
+      },
+      {
+        "label": "create-bucket",
+        "service": "s3api",
+        "operation": "create-bucket",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket"
+        },
+        "request_started": "2026-09-14T01:55:14.813941+00:00",
+        "request_finished": "2026-09-14T01:55:16.144769+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "Location": "/stackd-cwaudit-owned-bucket",
+            "BucketArn": "arn:aws:s3:::stackd-cwaudit-owned-bucket"
+          }
+        }
+      },
+      {
+        "label": "bucket-policy",
+        "service": "s3api",
+        "operation": "put-bucket-policy",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"CloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-cwaudit-owned-bucket\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail\"}}}, {\"Sid\": \"CloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-cwaudit-owned-bucket/owned/AWSLogs/000000000000/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+        },
+        "request_started": "2026-09-14T01:55:16.145623+00:00",
+        "request_finished": "2026-09-14T01:55:17.242406+00:00",
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "create-trail",
+        "service": "cloudtrail",
+        "operation": "create-trail",
+        "input": {
+          "Name": "stackd-cwaudit-owned-trail",
+          "S3BucketName": "stackd-cwaudit-owned-bucket",
+          "S3KeyPrefix": "owned",
+          "IncludeGlobalServiceEvents": false,
+          "IsMultiRegionTrail": false,
+          "EnableLogFileValidation": false,
+          "IsOrganizationTrail": false
+        },
+        "request_started": "2026-09-14T01:55:17.243429+00:00",
+        "request_finished": "2026-09-14T01:55:18.451590+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "Name": "stackd-cwaudit-owned-trail",
+            "S3BucketName": "stackd-cwaudit-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail",
+            "LogFileValidationEnabled": false,
+            "IsOrganizationTrail": false
+          }
+        }
+      },
+      {
+        "label": "select-only-metric-data",
+        "service": "cloudtrail",
+        "operation": "put-event-selectors",
+        "input": {
+          "TrailName": "stackd-cwaudit-owned-trail",
+          "AdvancedEventSelectors": [
+            {
+              "Name": "OnlyCloudWatchMetricData",
+              "FieldSelectors": [
+                {
+                  "Field": "eventCategory",
+                  "Equals": [
+                    "Data"
+                  ]
+                },
+                {
+                  "Field": "resources.type",
+                  "Equals": [
+                    "AWS::CloudWatch::Metric"
+                  ]
+                },
+                {
+                  "Field": "eventSource",
+                  "Equals": [
+                    "monitoring.amazonaws.com"
+                  ]
+                },
+                {
+                  "Field": "eventName",
+                  "Equals": [
+                    "PutMetricData",
+                    "GetMetricStatistics",
+                    "ListMetrics",
+                    "GetMetricData"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "request_started": "2026-09-14T01:55:18.452406+00:00",
+        "request_finished": "2026-09-14T01:55:19.571420+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail",
+            "AdvancedEventSelectors": [
+              {
+                "Name": "OnlyCloudWatchMetricData",
+                "FieldSelectors": [
+                  {
+                    "Field": "eventCategory",
+                    "Equals": [
+                      "Data"
+                    ]
+                  },
+                  {
+                    "Field": "resources.type",
+                    "Equals": [
+                      "AWS::CloudWatch::Metric"
+                    ]
+                  },
+                  {
+                    "Field": "eventSource",
+                    "Equals": [
+                      "monitoring.amazonaws.com"
+                    ]
+                  },
+                  {
+                    "Field": "eventName",
+                    "Equals": [
+                      "PutMetricData",
+                      "GetMetricStatistics",
+                      "ListMetrics",
+                      "GetMetricData"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "label": "verify-selectors",
+        "service": "cloudtrail",
+        "operation": "get-event-selectors",
+        "input": {
+          "TrailName": "stackd-cwaudit-owned-trail"
+        },
+        "request_started": "2026-09-14T01:55:19.572361+00:00",
+        "request_finished": "2026-09-14T01:55:20.619887+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail",
+            "AdvancedEventSelectors": [
+              {
+                "Name": "OnlyCloudWatchMetricData",
+                "FieldSelectors": [
+                  {
+                    "Field": "eventCategory",
+                    "Equals": [
+                      "Data"
+                    ]
+                  },
+                  {
+                    "Field": "eventSource",
+                    "Equals": [
+                      "monitoring.amazonaws.com"
+                    ]
+                  },
+                  {
+                    "Field": "eventName",
+                    "Equals": [
+                      "PutMetricData",
+                      "GetMetricStatistics",
+                      "ListMetrics",
+                      "GetMetricData"
+                    ]
+                  },
+                  {
+                    "Field": "resources.type",
+                    "Equals": [
+                      "AWS::CloudWatch::Metric"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "label": "start-logging",
+        "service": "cloudtrail",
+        "operation": "start-logging",
+        "input": {
+          "Name": "stackd-cwaudit-owned-trail"
+        },
+        "request_started": "2026-09-14T01:55:20.620970+00:00",
+        "request_finished": "2026-09-14T01:55:21.668796+00:00",
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "publish-initial",
+        "service": "cloudwatch",
+        "operation": "put-metric-data",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricData": [
+            {
+              "MetricName": "Scalar",
+              "Dimensions": [
+                {
+                  "Name": "Probe",
+                  "Value": "owned"
+                },
+                {
+                  "Name": "Kind",
+                  "Value": "audit"
+                }
+              ],
+              "Timestamp": "2026-09-14T01:56:21.123000+00:00",
+              "Value": 7.5,
+              "Unit": "Count",
+              "StorageResolution": 1
+            },
+            {
+              "MetricName": "Distribution",
+              "Timestamp": "2026-09-14T01:56:21.123000+00:00",
+              "Values": [
+                2,
+                4
+              ],
+              "Counts": [
+                1,
+                3
+              ],
+              "Unit": "Milliseconds",
+              "StorageResolution": 60
+            }
+          ]
+        },
+        "request_started": "2026-09-14T01:56:21.670141+00:00",
+        "request_finished": "2026-09-14T01:56:22.540443+00:00",
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        },
+        "request_ids": [
+          "4f828685-d3ff-4263-8abc-b0154d931605"
+        ]
+      },
+      {
+        "label": "statistics-initial",
+        "service": "cloudwatch",
+        "operation": "get-metric-statistics",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricName": "Scalar",
+          "Dimensions": [
+            {
+              "Name": "Probe",
+              "Value": "owned"
+            },
+            {
+              "Name": "Kind",
+              "Value": "audit"
+            }
+          ],
+          "StartTime": "2026-09-14T01:51:21.123000+00:00",
+          "EndTime": "2026-09-14T02:01:21.123000+00:00",
+          "Period": 60,
+          "Statistics": [
+            "SampleCount",
+            "Average",
+            "Sum",
+            "Minimum",
+            "Maximum"
+          ],
+          "Unit": "Count"
+        },
+        "request_started": "2026-09-14T01:56:22.541492+00:00",
+        "request_finished": "2026-09-14T01:56:23.428255+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "Label": "Scalar",
+            "Datapoints": [
+              {
+                "Timestamp": "2026-09-14T02:56:00+01:00",
+                "SampleCount": 1.0,
+                "Average": 7.5,
+                "Sum": 7.5,
+                "Minimum": 7.5,
+                "Maximum": 7.5,
+                "Unit": "Count"
+              }
+            ]
+          },
+          "http_status": 200
+        },
+        "request_ids": [
+          "03f84041-16c5-43e3-99f0-5755da82c7b6"
+        ]
+      },
+      {
+        "label": "list-initial",
+        "service": "cloudwatch",
+        "operation": "list-metrics",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricName": "Scalar",
+          "Dimensions": [
+            {
+              "Name": "Probe",
+              "Value": "owned"
+            },
+            {
+              "Name": "Kind",
+              "Value": "audit"
+            }
+          ],
+          "RecentlyActive": "PT3H"
+        },
+        "request_started": "2026-09-14T01:56:23.429266+00:00",
+        "request_finished": "2026-09-14T01:56:24.245937+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "Metrics": []
+          },
+          "http_status": 200
+        },
+        "request_ids": [
+          "0737ed02-ca9d-4ae0-bc68-9d6d3a054928"
+        ]
+      },
+      {
+        "label": "data-initial",
+        "service": "cloudwatch",
+        "operation": "get-metric-data",
+        "input": {
+          "MetricDataQueries": [
+            {
+              "Id": "m1",
+              "MetricStat": {
+                "Metric": {
+                  "Namespace": "Stackd/NativeAudit/owned",
+                  "MetricName": "Scalar",
+                  "Dimensions": [
+                    {
+                      "Name": "Probe",
+                      "Value": "owned"
+                    },
+                    {
+                      "Name": "Kind",
+                      "Value": "audit"
+                    }
+                  ]
+                },
+                "Period": 60,
+                "Stat": "Sum",
+                "Unit": "Count"
+              },
+              "ReturnData": false
+            },
+            {
+              "Id": "e1",
+              "Expression": "m1 * 2",
+              "Label": "Owned expression",
+              "ReturnData": true
+            }
+          ],
+          "StartTime": "2026-09-14T01:51:21.123000+00:00",
+          "EndTime": "2026-09-14T02:01:21.123000+00:00",
+          "ScanBy": "TimestampAscending",
+          "MaxDatapoints": 10,
+          "LabelOptions": {
+            "Timezone": "+0000"
+          }
+        },
+        "request_started": "2026-09-14T01:56:24.246993+00:00",
+        "request_finished": "2026-09-14T01:56:25.165123+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "MetricDataResults": [
+              {
+                "Id": "e1",
+                "Label": "Owned expression",
+                "Timestamps": [
+                  "2026-09-14T02:56:00+01:00"
+                ],
+                "Values": [
+                  15.0
+                ],
+                "StatusCode": "Complete"
+              }
+            ],
+            "Messages": []
+          },
+          "http_status": 200
+        },
+        "request_ids": [
+          "700c416e-d674-4d0c-92e7-cdde7ff29364"
+        ]
+      },
+      {
+        "label": "rejected-publication-initial",
+        "service": "cloudwatch",
+        "operation": "put-metric-data",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricData": [
+            {
+              "MetricName": "Scalar",
+              "Dimensions": [
+                {
+                  "Name": "Probe",
+                  "Value": "owned"
+                },
+                {
+                  "Name": "Kind",
+                  "Value": "audit"
+                }
+              ],
+              "Timestamp": "2026-09-14T01:56:21.123000+00:00",
+              "Value": 1e+200,
+              "Unit": "Count",
+              "StorageResolution": 1
+            }
+          ]
+        },
+        "request_started": "2026-09-14T01:56:25.166344+00:00",
+        "request_finished": "2026-09-14T01:56:26.126536+00:00",
+        "result": {
+          "code": "InvalidParameterValue",
+          "message": "The value 1.0E200 for parameter MetricData.member.1.Value is invalid.",
+          "http_status": 400
+        },
+        "request_ids": [
+          "a0ba0b72-2e23-4b39-a9c6-71dfc4c106c2",
+          "a0ba0b72-2e23-4b39-a9c6-71dfc4c106c2"
+        ]
+      },
+      {
+        "label": "rejected-query-initial",
+        "service": "cloudwatch",
+        "operation": "get-metric-statistics",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricName": "Scalar",
+          "Dimensions": [
+            {
+              "Name": "Probe",
+              "Value": "owned"
+            },
+            {
+              "Name": "Kind",
+              "Value": "audit"
+            }
+          ],
+          "StartTime": "2026-09-14T02:01:21.123000+00:00",
+          "EndTime": "2026-09-14T01:51:21.123000+00:00",
+          "Period": 60,
+          "Statistics": [
+            "SampleCount",
+            "Average",
+            "Sum",
+            "Minimum",
+            "Maximum"
+          ],
+          "Unit": "Count"
+        },
+        "request_started": "2026-09-14T01:56:26.127772+00:00",
+        "request_finished": "2026-09-14T01:56:27.094248+00:00",
+        "result": {
+          "code": "InvalidParameterValue",
+          "message": "The parameter StartTime must be less than the parameter EndTime.",
+          "http_status": 400
+        },
+        "request_ids": [
+          "cfe8cd83-3f8b-4341-afde-a5d44af39993",
+          "cfe8cd83-3f8b-4341-afde-a5d44af39993"
+        ]
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:56:27.095997+00:00",
+        "request_finished": "2026-09-14T01:56:28.194324+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:56:48.196876+00:00",
+        "request_finished": "2026-09-14T01:56:49.205975+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:57:09.208454+00:00",
+        "request_finished": "2026-09-14T01:57:10.110804+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:57:30.113312+00:00",
+        "request_finished": "2026-09-14T01:57:30.975005+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:57:50.977550+00:00",
+        "request_finished": "2026-09-14T01:57:51.893055+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:58:11.895588+00:00",
+        "request_finished": "2026-09-14T01:58:13.050980+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "publish-after-propagation",
+        "service": "cloudwatch",
+        "operation": "put-metric-data",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricData": [
+            {
+              "MetricName": "Scalar",
+              "Dimensions": [
+                {
+                  "Name": "Probe",
+                  "Value": "owned"
+                },
+                {
+                  "Name": "Kind",
+                  "Value": "audit"
+                }
+              ],
+              "Timestamp": "2026-09-14T01:56:21.123000+00:00",
+              "Value": 7.5,
+              "Unit": "Count",
+              "StorageResolution": 1
+            },
+            {
+              "MetricName": "Distribution",
+              "Timestamp": "2026-09-14T01:56:21.123000+00:00",
+              "Values": [
+                2,
+                4
+              ],
+              "Counts": [
+                1,
+                3
+              ],
+              "Unit": "Milliseconds",
+              "StorageResolution": 60
+            }
+          ]
+        },
+        "request_started": "2026-09-14T01:58:33.053806+00:00",
+        "request_finished": "2026-09-14T01:58:33.868288+00:00",
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        },
+        "request_ids": [
+          "98044bf3-e1fe-4367-be2f-79052e2e42ca"
+        ]
+      },
+      {
+        "label": "statistics-after-propagation",
+        "service": "cloudwatch",
+        "operation": "get-metric-statistics",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricName": "Scalar",
+          "Dimensions": [
+            {
+              "Name": "Probe",
+              "Value": "owned"
+            },
+            {
+              "Name": "Kind",
+              "Value": "audit"
+            }
+          ],
+          "StartTime": "2026-09-14T01:51:21.123000+00:00",
+          "EndTime": "2026-09-14T02:01:21.123000+00:00",
+          "Period": 60,
+          "Statistics": [
+            "SampleCount",
+            "Average",
+            "Sum",
+            "Minimum",
+            "Maximum"
+          ],
+          "Unit": "Count"
+        },
+        "request_started": "2026-09-14T01:58:33.869780+00:00",
+        "request_finished": "2026-09-14T01:58:34.661674+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "Label": "Scalar",
+            "Datapoints": [
+              {
+                "Timestamp": "2026-09-14T02:56:00+01:00",
+                "SampleCount": 1.0,
+                "Average": 7.5,
+                "Sum": 7.5,
+                "Minimum": 7.5,
+                "Maximum": 7.5,
+                "Unit": "Count"
+              }
+            ]
+          },
+          "http_status": 200
+        },
+        "request_ids": [
+          "a34e1172-9c07-4fa2-9ec7-ef42c50e01c5"
+        ]
+      },
+      {
+        "label": "list-after-propagation",
+        "service": "cloudwatch",
+        "operation": "list-metrics",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricName": "Scalar",
+          "Dimensions": [
+            {
+              "Name": "Probe",
+              "Value": "owned"
+            },
+            {
+              "Name": "Kind",
+              "Value": "audit"
+            }
+          ],
+          "RecentlyActive": "PT3H"
+        },
+        "request_started": "2026-09-14T01:58:34.662869+00:00",
+        "request_finished": "2026-09-14T01:58:35.401060+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "Metrics": [
+              {
+                "Namespace": "Stackd/NativeAudit/owned",
+                "MetricName": "Scalar",
+                "Dimensions": [
+                  {
+                    "Name": "Kind",
+                    "Value": "audit"
+                  },
+                  {
+                    "Name": "Probe",
+                    "Value": "owned"
+                  }
+                ]
+              }
+            ]
+          },
+          "http_status": 200
+        },
+        "request_ids": [
+          "40ec9b25-bf48-4f80-ab7c-881ecb51dc4b"
+        ]
+      },
+      {
+        "label": "data-after-propagation",
+        "service": "cloudwatch",
+        "operation": "get-metric-data",
+        "input": {
+          "MetricDataQueries": [
+            {
+              "Id": "m1",
+              "MetricStat": {
+                "Metric": {
+                  "Namespace": "Stackd/NativeAudit/owned",
+                  "MetricName": "Scalar",
+                  "Dimensions": [
+                    {
+                      "Name": "Probe",
+                      "Value": "owned"
+                    },
+                    {
+                      "Name": "Kind",
+                      "Value": "audit"
+                    }
+                  ]
+                },
+                "Period": 60,
+                "Stat": "Sum",
+                "Unit": "Count"
+              },
+              "ReturnData": false
+            },
+            {
+              "Id": "e1",
+              "Expression": "m1 * 2",
+              "Label": "Owned expression",
+              "ReturnData": true
+            }
+          ],
+          "StartTime": "2026-09-14T01:51:21.123000+00:00",
+          "EndTime": "2026-09-14T02:01:21.123000+00:00",
+          "ScanBy": "TimestampAscending",
+          "MaxDatapoints": 10,
+          "LabelOptions": {
+            "Timezone": "+0000"
+          }
+        },
+        "request_started": "2026-09-14T01:58:35.402919+00:00",
+        "request_finished": "2026-09-14T01:58:36.156353+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "MetricDataResults": [
+              {
+                "Id": "e1",
+                "Label": "Owned expression",
+                "Timestamps": [
+                  "2026-09-14T02:56:00+01:00"
+                ],
+                "Values": [
+                  30.0
+                ],
+                "StatusCode": "Complete"
+              }
+            ],
+            "Messages": []
+          },
+          "http_status": 200
+        },
+        "request_ids": [
+          "bbf70f14-295f-4d4b-b279-365458c6b6ae"
+        ]
+      },
+      {
+        "label": "rejected-publication-after-propagation",
+        "service": "cloudwatch",
+        "operation": "put-metric-data",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricData": [
+            {
+              "MetricName": "Scalar",
+              "Dimensions": [
+                {
+                  "Name": "Probe",
+                  "Value": "owned"
+                },
+                {
+                  "Name": "Kind",
+                  "Value": "audit"
+                }
+              ],
+              "Timestamp": "2026-09-14T01:56:21.123000+00:00",
+              "Value": 1e+200,
+              "Unit": "Count",
+              "StorageResolution": 1
+            }
+          ]
+        },
+        "request_started": "2026-09-14T01:58:36.157925+00:00",
+        "request_finished": "2026-09-14T01:58:36.902449+00:00",
+        "result": {
+          "code": "InvalidParameterValue",
+          "message": "The value 1.0E200 for parameter MetricData.member.1.Value is invalid.",
+          "http_status": 400
+        },
+        "request_ids": [
+          "38370670-6978-4120-bf3f-d2144b79e406",
+          "38370670-6978-4120-bf3f-d2144b79e406"
+        ]
+      },
+      {
+        "label": "rejected-query-after-propagation",
+        "service": "cloudwatch",
+        "operation": "get-metric-statistics",
+        "input": {
+          "Namespace": "Stackd/NativeAudit/owned",
+          "MetricName": "Scalar",
+          "Dimensions": [
+            {
+              "Name": "Probe",
+              "Value": "owned"
+            },
+            {
+              "Name": "Kind",
+              "Value": "audit"
+            }
+          ],
+          "StartTime": "2026-09-14T02:01:21.123000+00:00",
+          "EndTime": "2026-09-14T01:51:21.123000+00:00",
+          "Period": 60,
+          "Statistics": [
+            "SampleCount",
+            "Average",
+            "Sum",
+            "Minimum",
+            "Maximum"
+          ],
+          "Unit": "Count"
+        },
+        "request_started": "2026-09-14T01:58:36.904077+00:00",
+        "request_finished": "2026-09-14T01:58:37.675913+00:00",
+        "result": {
+          "code": "InvalidParameterValue",
+          "message": "The parameter StartTime must be less than the parameter EndTime.",
+          "http_status": 400
+        },
+        "request_ids": [
+          "af2da7a2-e044-47c6-a44a-451e248d76b8",
+          "af2da7a2-e044-47c6-a44a-451e248d76b8"
+        ]
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:58:37.677529+00:00",
+        "request_finished": "2026-09-14T01:58:38.533002+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:58:58.536039+00:00",
+        "request_finished": "2026-09-14T01:58:59.458689+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:59:19.461831+00:00",
+        "request_finished": "2026-09-14T01:59:20.312438+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T01:59:40.315662+00:00",
+        "request_finished": "2026-09-14T01:59:41.133990+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T02:00:01.137274+00:00",
+        "request_finished": "2026-09-14T02:00:01.960790+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T02:00:21.963790+00:00",
+        "request_finished": "2026-09-14T02:00:22.792979+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T02:00:42.796834+00:00",
+        "request_finished": "2026-09-14T02:00:43.611787+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T02:01:03.614189+00:00",
+        "request_finished": "2026-09-14T02:01:04.434313+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T02:01:24.437901+00:00",
+        "request_finished": "2026-09-14T02:01:25.166967+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 0
+          }
+        }
+      },
+      {
+        "label": "poll-delivery",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+          "MaxKeys": 1000
+        },
+        "request_started": "2026-09-14T02:01:45.169133+00:00",
+        "request_finished": "2026-09-14T02:01:45.927011+00:00",
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0205Z_CCoiFJ5DaXVs3LmB.json.gz",
+                "LastModified": "2026-09-14T02:01:38+00:00",
+                "ETag": "\"3c5dbfb0549c085879bc42285da2db73\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 3569,
+                "StorageClass": "STANDARD"
+              }
+            ],
+            "Name": "stackd-cwaudit-owned-bucket",
+            "Prefix": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 1
+          }
+        }
+      },
+      {
+        "label": "read-delivery",
+        "service": "s3api",
+        "operation": "get-object",
+        "input": {
+          "Bucket": "stackd-cwaudit-owned-bucket",
+          "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0205Z_CCoiFJ5DaXVs3LmB.json.gz"
+        },
+        "request_started": "2026-09-14T02:01:45.928122+00:00",
+        "request_finished": "2026-09-14T02:01:46.228186+00:00",
+        "result": {
+          "code": "CLIError",
+          "message": "AWS CLI failed; raw diagnostics discarded"
+        }
+      }
+    ],
+    "delivered_records": [],
+    "delivery_objects": [],
+    "residual_metrics": {
+      "maximum_series": 2,
+      "publication_succeeded": true,
+      "reason": "CloudWatch has no metric/sample deletion API."
+    },
+    "cleanup": {
+      "verified": true,
+      "observations": [
+        {
+          "label": "stop-trail",
+          "service": "cloudtrail",
+          "operation": "stop-logging",
+          "input": {
+            "Name": "stackd-cwaudit-owned-trail"
+          },
+          "request_started": "2026-09-14T02:01:46.229395+00:00",
+          "request_finished": "2026-09-14T02:01:46.974496+00:00",
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "delete-trail",
+          "service": "cloudtrail",
+          "operation": "delete-trail",
+          "input": {
+            "Name": "stackd-cwaudit-owned-trail"
+          },
+          "request_started": "2026-09-14T02:01:46.975676+00:00",
+          "request_finished": "2026-09-14T02:01:47.697656+00:00",
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "verify-trail-absent",
+          "service": "cloudtrail",
+          "operation": "get-trail",
+          "input": {
+            "Name": "stackd-cwaudit-owned-trail"
+          },
+          "request_started": "2026-09-14T02:01:47.698768+00:00",
+          "request_finished": "2026-09-14T02:01:48.381509+00:00",
+          "result": {
+            "code": "TrailNotFoundException",
+            "message": "Unknown trail: stackd-cwaudit-owned-trail for the user: 000000000000"
+          }
+        },
+        {
+          "label": "revoke-bucket-delivery-policy",
+          "service": "s3api",
+          "operation": "delete-bucket-policy",
+          "input": {
+            "Bucket": "stackd-cwaudit-owned-bucket"
+          },
+          "request_started": "2026-09-14T02:01:48.382651+00:00",
+          "request_finished": "2026-09-14T02:01:49.149682+00:00",
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "list-owned-cleanup-objects-0",
+          "service": "s3api",
+          "operation": "list-objects-v2",
+          "input": {
+            "Bucket": "stackd-cwaudit-owned-bucket",
+            "MaxKeys": 1000
+          },
+          "request_started": "2026-09-14T02:01:49.150843+00:00",
+          "request_finished": "2026-09-14T02:01:49.842060+00:00",
+          "result": {
+            "code": "Success",
+            "output": {
+              "IsTruncated": false,
+              "Contents": [
+                {
+                  "Key": "owned/AWSLogs/000000000000/CloudTrail/",
+                  "LastModified": "2026-09-14T01:55:19+00:00",
+                  "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                  "ChecksumAlgorithm": [
+                    "CRC64NVME"
+                  ],
+                  "ChecksumType": "FULL_OBJECT",
+                  "Size": 0,
+                  "StorageClass": "STANDARD"
+                },
+                {
+                  "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0205Z_CCoiFJ5DaXVs3LmB.json.gz",
+                  "LastModified": "2026-09-14T02:01:38+00:00",
+                  "ETag": "\"3c5dbfb0549c085879bc42285da2db73\"",
+                  "ChecksumAlgorithm": [
+                    "CRC64NVME"
+                  ],
+                  "ChecksumType": "FULL_OBJECT",
+                  "Size": 3569,
+                  "StorageClass": "STANDARD"
+                }
+              ],
+              "Name": "stackd-cwaudit-owned-bucket",
+              "Prefix": "",
+              "MaxKeys": 1000,
+              "EncodingType": "url",
+              "KeyCount": 2
+            }
+          }
+        },
+        {
+          "label": "delete-owned-objects-0",
+          "service": "s3api",
+          "operation": "delete-objects",
+          "input": {
+            "Bucket": "stackd-cwaudit-owned-bucket",
+            "Delete": {
+              "Objects": [
+                {
+                  "Key": "owned/AWSLogs/000000000000/CloudTrail/"
+                },
+                {
+                  "Key": "owned/AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/14/000000000000_CloudTrail_us-east-1_20260914T0205Z_CCoiFJ5DaXVs3LmB.json.gz"
+                }
+              ],
+              "Quiet": true
+            }
+          },
+          "request_started": "2026-09-14T02:01:49.843209+00:00",
+          "request_finished": "2026-09-14T02:01:50.558909+00:00",
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "delete-bucket-0",
+          "service": "s3api",
+          "operation": "delete-bucket",
+          "input": {
+            "Bucket": "stackd-cwaudit-owned-bucket"
+          },
+          "request_started": "2026-09-14T02:01:50.560084+00:00",
+          "request_finished": "2026-09-14T02:01:51.447097+00:00",
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "verify-bucket-absent",
+          "service": "s3api",
+          "operation": "head-bucket",
+          "input": {
+            "Bucket": "stackd-cwaudit-owned-bucket"
+          },
+          "request_started": "2026-09-14T02:01:51.448312+00:00",
+          "request_finished": "2026-09-14T02:01:52.131932+00:00",
+          "result": {
+            "code": "404",
+            "message": "Not Found"
+          }
+        }
+      ],
+      "remaining_owned": []
+    },
+    "previous_setup": {
+      "source": "Native AWS CLI via scripts/aws/aws_cli.py; delivered CloudTrail S3 JSON",
+      "retrieved_at": "2026-09-14T01:53:56.549381+00:00",
+      "region": "us-east-1",
+      "primary_references": [
+        "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/logging_cw_api_calls.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_AdvancedFieldSelector.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html"
+      ],
+      "documentation_revision": {
+        "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/logging_cw_api_calls.html",
+        "retrieved_date": "2026-09-14",
+        "last_modified": "Sat, 12 Sep 2026 02:53:17 GMT",
+        "rule": "All four named APIs are DATA events, AWS::CloudWatch::Metric; not Event history."
+      },
+      "bounds": {
+        "delivery_seconds": 1080,
+        "poll_seconds": 20,
+        "max_cli_calls": 200,
+        "cleanup_reserved_calls": 30,
+        "cli_timeout_seconds": 50,
+        "automatic_retries": false
+      },
+      "owned_identity": {
+        "bucket": "stackd-cwaudit-owned-bucket",
+        "trail": "stackd-cwaudit-owned-trail",
+        "namespace": "Stackd/NativeAudit/owned",
+        "metric_names": [
+          "Scalar",
+          "Distribution"
+        ],
+        "trail_arn": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail"
+      },
+      "redaction": "Credential ID values, caller principal/ARN/name and client IP redacted; keys retained. Owned names/account, event/request IDs, times, projections and response fields unchanged. No debug logs retained.",
+      "observations": [
+        {
+          "label": "identity",
+          "service": "sts",
+          "operation": "get-caller-identity",
+          "input": {},
+          "request_started": "2026-09-14T01:53:56.549576+00:00",
+          "request_finished": "2026-09-14T01:53:57.432313+00:00",
+          "result": {
+            "code": "Success",
+            "output": {
+              "Account": "000000000000"
+            }
+          }
+        },
+        {
+          "label": "create-bucket",
+          "service": "s3api",
+          "operation": "create-bucket",
+          "input": {
+            "Bucket": "stackd-cwaudit-owned-bucket"
+          },
+          "request_started": "2026-09-14T01:53:57.432695+00:00",
+          "request_finished": "2026-09-14T01:53:58.484885+00:00",
+          "result": {
+            "code": "Success",
+            "output": {
+              "Location": "/stackd-cwaudit-owned-bucket",
+              "BucketArn": "arn:aws:s3:::stackd-cwaudit-owned-bucket"
+            }
+          }
+        },
+        {
+          "label": "bucket-policy",
+          "service": "s3api",
+          "operation": "put-bucket-policy",
+          "input": {
+            "Bucket": "stackd-cwaudit-owned-bucket",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"CloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-cwaudit-owned-bucket\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail\"}}}, {\"Sid\": \"CloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-cwaudit-owned-bucket/owned/AWSLogs/000000000000/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+          },
+          "request_started": "2026-09-14T01:53:58.485330+00:00",
+          "request_finished": "2026-09-14T01:53:59.547895+00:00",
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "create-trail",
+          "service": "cloudtrail",
+          "operation": "create-trail",
+          "input": {
+            "Name": "stackd-cwaudit-owned-trail",
+            "S3BucketName": "stackd-cwaudit-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "EnableLogFileValidation": false,
+            "IsOrganizationTrail": false
+          },
+          "request_started": "2026-09-14T01:53:59.548411+00:00",
+          "request_finished": "2026-09-14T01:54:00.569707+00:00",
+          "result": {
+            "code": "Success",
+            "output": {
+              "Name": "stackd-cwaudit-owned-trail",
+              "S3BucketName": "stackd-cwaudit-owned-bucket",
+              "S3KeyPrefix": "owned",
+              "IncludeGlobalServiceEvents": false,
+              "IsMultiRegionTrail": false,
+              "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail",
+              "LogFileValidationEnabled": false,
+              "IsOrganizationTrail": false
+            }
+          }
+        },
+        {
+          "label": "select-only-metric-data",
+          "service": "cloudtrail",
+          "operation": "put-event-selectors",
+          "input": {
+            "TrailName": "stackd-cwaudit-owned-trail",
+            "AdvancedEventSelectors": [
+              {
+                "Name": "OnlyCloudWatchMetricData",
+                "FieldSelectors": [
+                  {
+                    "Field": "eventCategory",
+                    "Equals": [
+                      "Data"
+                    ]
+                  },
+                  {
+                    "Field": "resources.type",
+                    "Equals": [
+                      "AWS::CloudWatch::Metric"
+                    ]
+                  },
+                  {
+                    "Field": "eventSource",
+                    "Equals": [
+                      "monitoring.amazonaws.com"
+                    ]
+                  },
+                  {
+                    "Field": "eventName",
+                    "Equals": [
+                      "PutMetricData",
+                      "GetMetricStatistics",
+                      "ListMetrics",
+                      "GetMetricData"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "request_started": "2026-09-14T01:54:00.570110+00:00",
+          "request_finished": "2026-09-14T01:54:01.471393+00:00",
+          "result": {
+            "code": "Success",
+            "output": {
+              "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail",
+              "AdvancedEventSelectors": [
+                {
+                  "Name": "OnlyCloudWatchMetricData",
+                  "FieldSelectors": [
+                    {
+                      "Field": "eventCategory",
+                      "Equals": [
+                        "Data"
+                      ]
+                    },
+                    {
+                      "Field": "resources.type",
+                      "Equals": [
+                        "AWS::CloudWatch::Metric"
+                      ]
+                    },
+                    {
+                      "Field": "eventSource",
+                      "Equals": [
+                        "monitoring.amazonaws.com"
+                      ]
+                    },
+                    {
+                      "Field": "eventName",
+                      "Equals": [
+                        "PutMetricData",
+                        "GetMetricStatistics",
+                        "ListMetrics",
+                        "GetMetricData"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "label": "verify-selectors",
+          "service": "cloudtrail",
+          "operation": "get-event-selectors",
+          "input": {
+            "TrailName": "stackd-cwaudit-owned-trail"
+          },
+          "request_started": "2026-09-14T01:54:01.471960+00:00",
+          "request_finished": "2026-09-14T01:54:02.413980+00:00",
+          "result": {
+            "code": "Success",
+            "output": {
+              "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-cwaudit-owned-trail",
+              "AdvancedEventSelectors": [
+                {
+                  "Name": "OnlyCloudWatchMetricData",
+                  "FieldSelectors": [
+                    {
+                      "Field": "eventCategory",
+                      "Equals": [
+                        "Data"
+                      ]
+                    },
+                    {
+                      "Field": "eventSource",
+                      "Equals": [
+                        "monitoring.amazonaws.com"
+                      ]
+                    },
+                    {
+                      "Field": "eventName",
+                      "Equals": [
+                        "PutMetricData",
+                        "GetMetricStatistics",
+                        "ListMetrics",
+                        "GetMetricData"
+                      ]
+                    },
+                    {
+                      "Field": "resources.type",
+                      "Equals": [
+                        "AWS::CloudWatch::Metric"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "delivered_records": [],
+      "delivery_objects": [],
+      "residual_metrics": {
+        "maximum_series": 2,
+        "publication_succeeded": false,
+        "reason": "CloudWatch has no metric/sample deletion API."
+      },
+      "cleanup": {
+        "verified": true,
+        "observations": [
+          {
+            "label": "stop-trail",
+            "service": "cloudtrail",
+            "operation": "stop-logging",
+            "input": {
+              "Name": "stackd-cwaudit-owned-trail"
+            },
+            "request_started": "2026-09-14T01:54:02.414781+00:00",
+            "request_finished": "2026-09-14T01:54:03.288552+00:00",
+            "result": {
+              "code": "Success",
+              "output": {}
+            }
+          },
+          {
+            "label": "delete-trail",
+            "service": "cloudtrail",
+            "operation": "delete-trail",
+            "input": {
+              "Name": "stackd-cwaudit-owned-trail"
+            },
+            "request_started": "2026-09-14T01:54:03.289266+00:00",
+            "request_finished": "2026-09-14T01:54:04.236957+00:00",
+            "result": {
+              "code": "Success",
+              "output": {}
+            }
+          },
+          {
+            "label": "verify-trail-absent",
+            "service": "cloudtrail",
+            "operation": "get-trail",
+            "input": {
+              "Name": "stackd-cwaudit-owned-trail"
+            },
+            "request_started": "2026-09-14T01:54:04.237669+00:00",
+            "request_finished": "2026-09-14T01:54:05.208872+00:00",
+            "result": {
+              "code": "TrailNotFoundException",
+              "message": "Unknown trail: stackd-cwaudit-owned-trail for the user: 000000000000"
+            }
+          },
+          {
+            "label": "revoke-bucket-delivery-policy",
+            "service": "s3api",
+            "operation": "delete-bucket-policy",
+            "input": {
+              "Bucket": "stackd-cwaudit-owned-bucket"
+            },
+            "request_started": "2026-09-14T01:54:05.209571+00:00",
+            "request_finished": "2026-09-14T01:54:06.343773+00:00",
+            "result": {
+              "code": "Success",
+              "output": {}
+            }
+          },
+          {
+            "label": "list-owned-cleanup-objects-0",
+            "service": "s3api",
+            "operation": "list-objects-v2",
+            "input": {
+              "Bucket": "stackd-cwaudit-owned-bucket",
+              "MaxKeys": 1000
+            },
+            "request_started": "2026-09-14T01:54:06.344464+00:00",
+            "request_finished": "2026-09-14T01:54:07.486160+00:00",
+            "result": {
+              "code": "Success",
+              "output": {
+                "IsTruncated": false,
+                "Contents": [
+                  {
+                    "Key": "owned/AWSLogs/000000000000/CloudTrail/",
+                    "LastModified": "2026-09-14T01:54:01+00:00",
+                    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                    "ChecksumAlgorithm": [
+                      "CRC64NVME"
+                    ],
+                    "ChecksumType": "FULL_OBJECT",
+                    "Size": 0,
+                    "StorageClass": "STANDARD"
+                  }
+                ],
+                "Name": "stackd-cwaudit-owned-bucket",
+                "Prefix": "",
+                "MaxKeys": 1000,
+                "EncodingType": "url",
+                "KeyCount": 1
+              }
+            }
+          },
+          {
+            "label": "delete-owned-objects-0",
+            "service": "s3api",
+            "operation": "delete-objects",
+            "input": {
+              "Bucket": "stackd-cwaudit-owned-bucket",
+              "Delete": {
+                "Objects": [
+                  {
+                    "Key": "owned/AWSLogs/000000000000/CloudTrail/"
+                  }
+                ],
+                "Quiet": true
+              }
+            },
+            "request_started": "2026-09-14T01:54:07.486949+00:00",
+            "request_finished": "2026-09-14T01:54:08.519757+00:00",
+            "result": {
+              "code": "Success",
+              "output": {}
+            }
+          },
+          {
+            "label": "delete-bucket-0",
+            "service": "s3api",
+            "operation": "delete-bucket",
+            "input": {
+              "Bucket": "stackd-cwaudit-owned-bucket"
+            },
+            "request_started": "2026-09-14T01:54:08.520561+00:00",
+            "request_finished": "2026-09-14T01:54:09.624228+00:00",
+            "result": {
+              "code": "Success",
+              "output": {}
+            }
+          },
+          {
+            "label": "verify-bucket-absent",
+            "service": "s3api",
+            "operation": "head-bucket",
+            "input": {
+              "Bucket": "stackd-cwaudit-owned-bucket"
+            },
+            "request_started": "2026-09-14T01:54:09.624943+00:00",
+            "request_finished": "2026-09-14T01:54:10.503359+00:00",
+            "result": {
+              "code": "404",
+              "message": "Not Found"
+            }
+          }
+        ],
+        "remaining_owned": []
+      },
+      "request_counts": {
+        "by_operation": {
+          "sts:get-caller-identity": 1,
+          "s3api:create-bucket": 1,
+          "s3api:put-bucket-policy": 1,
+          "cloudtrail:create-trail": 1,
+          "cloudtrail:put-event-selectors": 1,
+          "cloudtrail:get-event-selectors": 1,
+          "cloudtrail:stop-logging": 1,
+          "cloudtrail:delete-trail": 1,
+          "cloudtrail:get-trail": 1,
+          "s3api:delete-bucket-policy": 1,
+          "s3api:list-objects-v2": 1,
+          "s3api:delete-objects": 1,
+          "s3api:delete-bucket": 1,
+          "s3api:head-bucket": 1
+        },
+        "total": 14
+      },
+      "verified_account": "000000000000",
+      "failure": {
+        "type": "RuntimeError",
+        "message": "Unexpected event selectors; logging not started"
+      },
+      "finished_at": "2026-09-14T01:54:10.504302+00:00"
+    },
+    "request_counts": {
+      "by_operation": {
+        "sts:get-caller-identity": 2,
+        "s3api:create-bucket": 2,
+        "s3api:put-bucket-policy": 2,
+        "cloudtrail:create-trail": 2,
+        "cloudtrail:put-event-selectors": 2,
+        "cloudtrail:get-event-selectors": 2,
+        "cloudtrail:stop-logging": 2,
+        "cloudtrail:delete-trail": 2,
+        "cloudtrail:get-trail": 2,
+        "s3api:delete-bucket-policy": 2,
+        "s3api:list-objects-v2": 18,
+        "s3api:delete-objects": 2,
+        "s3api:delete-bucket": 2,
+        "s3api:head-bucket": 2,
+        "cloudtrail:start-logging": 1,
+        "cloudwatch:put-metric-data": 4,
+        "cloudwatch:get-metric-statistics": 4,
+        "cloudwatch:list-metrics": 2,
+        "cloudwatch:get-metric-data": 2,
+        "s3api:get-object": 1
+      },
+      "total": 58
+    },
+    "verified_account": "000000000000",
+    "delivery": {
+      "elapsed_seconds": 363.498,
+      "all_named_projections_observed": false,
+      "observed_cases": [],
+      "unresolved_cases": [
+        [
+          "GetMetricData",
+          false
+        ],
+        [
+          "GetMetricStatistics",
+          false
+        ],
+        [
+          "GetMetricStatistics",
+          true
+        ],
+        [
+          "ListMetrics",
+          false
+        ],
+        [
+          "PutMetricData",
+          false
+        ],
+        [
+          "PutMetricData",
+          true
+        ]
+      ]
+    },
+    "failure": {
+      "type": "RuntimeError",
+      "message": "Required native call failed: CLIError"
+    },
+    "finished_at": "2026-09-14T02:01:52.133720+00:00"
+  },
+  "request_counts": {
+    "by_operation": {
+      "sts:get-caller-identity": 3,
+      "s3api:create-bucket": 3,
+      "s3api:put-bucket-policy": 3,
+      "cloudtrail:create-trail": 3,
+      "cloudtrail:put-event-selectors": 3,
+      "cloudtrail:get-event-selectors": 3,
+      "cloudtrail:stop-logging": 3,
+      "cloudtrail:delete-trail": 3,
+      "cloudtrail:get-trail": 3,
+      "s3api:delete-bucket-policy": 3,
+      "s3api:list-objects-v2": 28,
+      "s3api:delete-objects": 3,
+      "s3api:delete-bucket": 3,
+      "s3api:head-bucket": 3,
+      "cloudtrail:start-logging": 2,
+      "cloudwatch:put-metric-data": 8,
+      "cloudwatch:get-metric-statistics": 8,
+      "cloudwatch:list-metrics": 4,
+      "cloudwatch:get-metric-data": 4,
+      "s3api:get-object": 2,
+      "cloudtrail:get-trail-status": 1
+    },
+    "total": 96
+  },
+  "verified_account": "000000000000",
+  "delivery": {
+    "elapsed_seconds": 242.077,
+    "all_named_projections_observed": true,
+    "observed_cases": [
+      [
+        "GetMetricData",
+        false
+      ],
+      [
+        "GetMetricStatistics",
+        false
+      ],
+      [
+        "GetMetricStatistics",
+        true
+      ],
+      [
+        "ListMetrics",
+        false
+      ],
+      [
+        "PutMetricData",
+        false
+      ],
+      [
+        "PutMetricData",
+        true
+      ]
+    ],
+    "unresolved_cases": []
+  },
+  "completed": true,
+  "uncertainty": [
+    "One account/region/run; bounded non-observation is not an absence guarantee.",
+    "Only owned request-correlated or namespace/user-agent-correlated records retained; other records discarded."
+  ],
+  "finished_at": "2026-09-14T02:07:26.382178+00:00"
+}

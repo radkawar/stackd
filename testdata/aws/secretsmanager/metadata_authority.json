@@ -1,0 +1,685 @@
+{
+  "account": "000000000000",
+  "region": "us-west-2",
+  "name": "stackd-secret-metadata-d445e2568a",
+  "source": "import json, os, sys, time, uuid\nfrom pathlib import Path\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import observe\nroot=Path('/home/r/dev/minor/stackd')\npath=root/'testdata/aws/secretsmanager/metadata_authority.json'\nenv={k:v for k,v in dict(os.environ,AWS_REGION='us-west-2',AWS_DEFAULT_REGION='us-west-2',AWS_PAGER='',AWS_MAX_ATTEMPTS='1').items() if not k.startswith('AWS_ENDPOINT_URL')}\nname='stackd-secret-metadata-'+uuid.uuid4().hex[:10]\nresult={'account':'000000000000','region':'us-west-2','name':name,'source':Path(__file__).read_text(),'observations':[],'cleanup':{}}\nprimary=replica=managed=None\nconnection=False\n\ndef call(label,service,operation,payload,region='us-west-2'):\n started=int(time.time()*1000)\n value=observe(service,operation,payload,dict(env,AWS_REGION=region,AWS_DEFAULT_REGION=region),paginate=False)\n result['observations'].append({'label':label,'service':service,'operation':operation,'region':region,'input':payload,'request_started_ms':started,'request_finished_ms':int(time.time()*1000),'result':value})\n path.write_text(json.dumps(result,indent=2)+'\\n')\n print(label,value['code'],flush=True)\n return value\n\ndef good(value):\n if value['code']!='Success': raise RuntimeError(value)\n return value['output']\n\ndef absent(service,operation,payload,region,label):\n for attempt in range(60):\n  row=call(label+'-'+str(attempt),service,operation,payload,region)\n  if row['code']=='ResourceNotFoundException':result['cleanup'][label]='independently absent';return\n  time.sleep(2)\n raise RuntimeError('Resource still present: '+label)\n\ntry:\n identity=good(call('identity','sts','get-caller-identity',{}))\n if identity['Account']!='000000000000': raise RuntimeError('Wrong account')\n connection=True\n good(call('create-connection','events','create-connection',{'Name':name,'AuthorizationType':'BASIC','AuthParameters':{'BasicAuthParameters':{'Username':'owned-user','Password':'owned-inert-value'}}}))\n managed=good(call('describe-connection','events','describe-connection',{'Name':name}))['SecretArn']\n primary=good(call('create-primary','secretsmanager','create-secret',{'Name':name,'SecretString':'owned-inert-value'}))['ARN']\n good(call('replicate','secretsmanager','replicate-secret-to-regions',{'SecretId':primary,'AddReplicaRegions':[{'Region':'us-east-2'}]}))\n replica=primary.replace(':us-west-2:',':us-east-2:')\n for attempt in range(45):\n  row=good(call('wait-replica-'+str(attempt),'secretsmanager','describe-secret',{'SecretId':primary}))\n  if row['ReplicationStatus'][0]['Status']=='InSync':break\n  time.sleep(2)\n else:raise RuntimeError('Replica did not synchronize')\n policy=json.dumps({'Version':'2012-10-17','Statement':[{'Effect':'Allow','Principal':{'AWS':'arn:aws:iam::000000000000:root'},'Action':'secretsmanager:GetSecretValue','Resource':'*'}]})\n for label,secret,region in [('managed',managed,'us-west-2'),('replica',replica,'us-east-2')]:\n  call(label+'-tag','secretsmanager','tag-resource',{'SecretId':secret,'Tags':[{'Key':'owned','Value':'metadata'}]},region)\n  call(label+'-untag','secretsmanager','untag-resource',{'SecretId':secret,'TagKeys':['owned']},region)\n  call(label+'-put-policy','secretsmanager','put-resource-policy',{'SecretId':secret,'ResourcePolicy':policy,'BlockPublicPolicy':True},region)\n  call(label+'-get-policy','secretsmanager','get-resource-policy',{'SecretId':secret},region)\n  call(label+'-delete-policy','secretsmanager','delete-resource-policy',{'SecretId':secret},region)\n  call(label+'-description','secretsmanager','update-secret',{'SecretId':secret,'Description':'owned metadata probe'},region)\n call('managed-direct-delete','secretsmanager','delete-secret',{'SecretId':managed,'ForceDeleteWithoutRecovery':True})\nfinally:\n if connection:\n  call('cleanup-connection','events','delete-connection',{'Name':name})\n  absent('events','describe-connection',{'Name':name},'us-west-2','connection')\n if managed:absent('secretsmanager','describe-secret',{'SecretId':managed},'us-west-2','managed-secret')\n if primary:\n  call('cleanup-remove-replica','secretsmanager','remove-regions-from-replication',{'SecretId':primary,'RemoveReplicaRegions':['us-east-2']})\n  if replica:absent('secretsmanager','describe-secret',{'SecretId':replica},'us-east-2','replica')\n  call('cleanup-primary','secretsmanager','delete-secret',{'SecretId':primary,'ForceDeleteWithoutRecovery':True})\n  absent('secretsmanager','describe-secret',{'SecretId':primary},'us-west-2','primary')\n path.write_text(json.dumps(result,indent=2)+'\\n')\n",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "region": "us-west-2",
+      "input": {},
+      "request_started_ms": 1790233920289,
+      "request_finished_ms": 1790233921207,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      }
+    },
+    {
+      "label": "create-connection",
+      "service": "events",
+      "operation": "create-connection",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-secret-metadata-d445e2568a",
+        "AuthorizationType": "BASIC",
+        "AuthParameters": {
+          "BasicAuthParameters": {
+            "Username": "owned-user",
+            "Password": "owned-inert-value"
+          }
+        }
+      },
+      "request_started_ms": 1790233921207,
+      "request_finished_ms": 1790233922349,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ConnectionArn": "arn:aws:events:us-west-2:000000000000:connection/stackd-secret-metadata-d445e2568a/aa33e43b-c782-4d7f-9932-f2b9ee9d554b",
+          "ConnectionState": "AUTHORIZED",
+          "CreationTime": "2026-09-24T08:12:02+01:00",
+          "LastModifiedTime": "2026-09-24T08:12:02+01:00"
+        }
+      }
+    },
+    {
+      "label": "describe-connection",
+      "service": "events",
+      "operation": "describe-connection",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-secret-metadata-d445e2568a"
+      },
+      "request_started_ms": 1790233922349,
+      "request_finished_ms": 1790233923249,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ConnectionArn": "arn:aws:events:us-west-2:000000000000:connection/stackd-secret-metadata-d445e2568a/aa33e43b-c782-4d7f-9932-f2b9ee9d554b",
+          "Name": "stackd-secret-metadata-d445e2568a",
+          "ConnectionState": "AUTHORIZED",
+          "AuthorizationType": "BASIC",
+          "SecretArn": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym",
+          "AuthParameters": {
+            "BasicAuthParameters": {
+              "Username": "owned-user"
+            }
+          },
+          "CreationTime": "2026-09-24T08:12:02+01:00",
+          "LastModifiedTime": "2026-09-24T08:12:02+01:00",
+          "LastAuthorizedTime": "2026-09-24T08:12:02+01:00"
+        }
+      }
+    },
+    {
+      "label": "create-primary",
+      "service": "secretsmanager",
+      "operation": "create-secret",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-secret-metadata-d445e2568a",
+        "SecretString": "owned-inert-value"
+      },
+      "request_started_ms": 1790233923250,
+      "request_finished_ms": 1790233924207,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+          "Name": "stackd-secret-metadata-d445e2568a",
+          "VersionId": "a446a52f-7254-4652-b079-5cb9ad95a7f3"
+        }
+      }
+    },
+    {
+      "label": "replicate",
+      "service": "secretsmanager",
+      "operation": "replicate-secret-to-regions",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+        "AddReplicaRegions": [
+          {
+            "Region": "us-east-2"
+          }
+        ]
+      },
+      "request_started_ms": 1790233924208,
+      "request_finished_ms": 1790233925119,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+          "ReplicationStatus": [
+            {
+              "Region": "us-east-2",
+              "KmsKeyId": "alias/aws/secretsmanager",
+              "Status": "InProgress"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "wait-replica-0",
+      "service": "secretsmanager",
+      "operation": "describe-secret",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP"
+      },
+      "request_started_ms": 1790233925119,
+      "request_finished_ms": 1790233925977,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+          "Name": "stackd-secret-metadata-d445e2568a",
+          "LastChangedDate": "2026-09-24T08:12:04.956000+01:00",
+          "VersionIdsToStages": {
+            "a446a52f-7254-4652-b079-5cb9ad95a7f3": [
+              "AWSCURRENT"
+            ]
+          },
+          "CreatedDate": "2026-09-24T08:12:04.019000+01:00",
+          "PrimaryRegion": "us-west-2",
+          "ReplicationStatus": [
+            {
+              "Region": "us-east-2",
+              "KmsKeyId": "alias/aws/secretsmanager",
+              "Status": "InProgress"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "wait-replica-1",
+      "service": "secretsmanager",
+      "operation": "describe-secret",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP"
+      },
+      "request_started_ms": 1790233927978,
+      "request_finished_ms": 1790233928847,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+          "Name": "stackd-secret-metadata-d445e2568a",
+          "LastChangedDate": "2026-09-24T08:12:04.956000+01:00",
+          "VersionIdsToStages": {
+            "a446a52f-7254-4652-b079-5cb9ad95a7f3": [
+              "AWSCURRENT"
+            ]
+          },
+          "CreatedDate": "2026-09-24T08:12:04.019000+01:00",
+          "PrimaryRegion": "us-west-2",
+          "ReplicationStatus": [
+            {
+              "Region": "us-east-2",
+              "KmsKeyId": "alias/aws/secretsmanager",
+              "Status": "InSync",
+              "StatusMessage": "Replication succeeded"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "managed-tag",
+      "service": "secretsmanager",
+      "operation": "tag-resource",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym",
+        "Tags": [
+          {
+            "Key": "owned",
+            "Value": "metadata"
+          }
+        ]
+      },
+      "request_started_ms": 1790233928847,
+      "request_finished_ms": 1790233929702,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "Operation is not allowed on secret owned by events",
+          "Code": "InvalidRequestException"
+        }
+      }
+    },
+    {
+      "label": "managed-untag",
+      "service": "secretsmanager",
+      "operation": "untag-resource",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym",
+        "TagKeys": [
+          "owned"
+        ]
+      },
+      "request_started_ms": 1790233929703,
+      "request_finished_ms": 1790233930561,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "Operation is not allowed on secret owned by events",
+          "Code": "InvalidRequestException"
+        }
+      }
+    },
+    {
+      "label": "managed-put-policy",
+      "service": "secretsmanager",
+      "operation": "put-resource-policy",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym",
+        "ResourcePolicy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"secretsmanager:GetSecretValue\", \"Resource\": \"*\"}]}",
+        "BlockPublicPolicy": true
+      },
+      "request_started_ms": 1790233930562,
+      "request_finished_ms": 1790233931424,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "Operation is not allowed on secret owned by events",
+          "Code": "InvalidRequestException"
+        }
+      }
+    },
+    {
+      "label": "managed-get-policy",
+      "service": "secretsmanager",
+      "operation": "get-resource-policy",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym"
+      },
+      "request_started_ms": 1790233931424,
+      "request_finished_ms": 1790233932294,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym",
+          "Name": "events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921"
+        }
+      }
+    },
+    {
+      "label": "managed-delete-policy",
+      "service": "secretsmanager",
+      "operation": "delete-resource-policy",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym"
+      },
+      "request_started_ms": 1790233932295,
+      "request_finished_ms": 1790233933182,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "Operation is not allowed on secret owned by events",
+          "Code": "InvalidRequestException"
+        }
+      }
+    },
+    {
+      "label": "managed-description",
+      "service": "secretsmanager",
+      "operation": "update-secret",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym",
+        "Description": "owned metadata probe"
+      },
+      "request_started_ms": 1790233933182,
+      "request_finished_ms": 1790233934052,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "Operation is not allowed on secret owned by events",
+          "Code": "InvalidRequestException"
+        }
+      }
+    },
+    {
+      "label": "replica-tag",
+      "service": "secretsmanager",
+      "operation": "tag-resource",
+      "region": "us-east-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+        "Tags": [
+          {
+            "Key": "owned",
+            "Value": "metadata"
+          }
+        ]
+      },
+      "request_started_ms": 1790233934053,
+      "request_finished_ms": 1790233934813,
+      "result": {
+        "code": "InvalidParameterException",
+        "error": {
+          "Message": "Operation not permitted on a replica secret. Call must be made in primary secret's region.",
+          "Code": "InvalidParameterException"
+        }
+      }
+    },
+    {
+      "label": "replica-untag",
+      "service": "secretsmanager",
+      "operation": "untag-resource",
+      "region": "us-east-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+        "TagKeys": [
+          "owned"
+        ]
+      },
+      "request_started_ms": 1790233934813,
+      "request_finished_ms": 1790233935510,
+      "result": {
+        "code": "InvalidParameterException",
+        "error": {
+          "Message": "Operation not permitted on a replica secret. Call must be made in primary secret's region.",
+          "Code": "InvalidParameterException"
+        }
+      }
+    },
+    {
+      "label": "replica-put-policy",
+      "service": "secretsmanager",
+      "operation": "put-resource-policy",
+      "region": "us-east-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+        "ResourcePolicy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"secretsmanager:GetSecretValue\", \"Resource\": \"*\"}]}",
+        "BlockPublicPolicy": true
+      },
+      "request_started_ms": 1790233935510,
+      "request_finished_ms": 1790233936227,
+      "result": {
+        "code": "InvalidParameterException",
+        "error": {
+          "Message": "Operation not permitted on a replica secret. Call must be made in primary secret's region.",
+          "Code": "InvalidParameterException"
+        }
+      }
+    },
+    {
+      "label": "replica-get-policy",
+      "service": "secretsmanager",
+      "operation": "get-resource-policy",
+      "region": "us-east-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP"
+      },
+      "request_started_ms": 1790233936228,
+      "request_finished_ms": 1790233936910,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+          "Name": "stackd-secret-metadata-d445e2568a"
+        }
+      }
+    },
+    {
+      "label": "replica-delete-policy",
+      "service": "secretsmanager",
+      "operation": "delete-resource-policy",
+      "region": "us-east-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP"
+      },
+      "request_started_ms": 1790233936911,
+      "request_finished_ms": 1790233937611,
+      "result": {
+        "code": "InvalidParameterException",
+        "error": {
+          "Message": "Operation not permitted on a replica secret. Call must be made in primary secret's region.",
+          "Code": "InvalidParameterException"
+        }
+      }
+    },
+    {
+      "label": "replica-description",
+      "service": "secretsmanager",
+      "operation": "update-secret",
+      "region": "us-east-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+        "Description": "owned metadata probe"
+      },
+      "request_started_ms": 1790233937611,
+      "request_finished_ms": 1790233938318,
+      "result": {
+        "code": "InvalidParameterException",
+        "error": {
+          "Message": "Operation not permitted on a replica secret. Call must be made in primary secret's region.",
+          "Code": "InvalidParameterException"
+        }
+      }
+    },
+    {
+      "label": "managed-direct-delete",
+      "service": "secretsmanager",
+      "operation": "delete-secret",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym",
+        "ForceDeleteWithoutRecovery": true
+      },
+      "request_started_ms": 1790233938318,
+      "request_finished_ms": 1790233939162,
+      "result": {
+        "code": "InvalidRequestException",
+        "error": {
+          "Message": "Operation is not allowed on secret owned by events",
+          "Code": "InvalidRequestException"
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "connection": "independently absent",
+    "managed-secret": "independently absent",
+    "replica": "independently absent",
+    "primary": "independently absent"
+  },
+  "cleanup_observations": [
+    {
+      "label": "cleanup-connection",
+      "service": "events",
+      "operation": "delete-connection",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-secret-metadata-d445e2568a"
+      },
+      "request_started_ms": 1790233939162,
+      "request_finished_ms": 1790233940112,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ConnectionArn": "arn:aws:events:us-west-2:000000000000:connection/stackd-secret-metadata-d445e2568a/aa33e43b-c782-4d7f-9932-f2b9ee9d554b",
+          "ConnectionState": "DELETING",
+          "CreationTime": "2026-09-24T08:12:02+01:00",
+          "LastModifiedTime": "2026-09-24T08:12:02+01:00",
+          "LastAuthorizedTime": "2026-09-24T08:12:02+01:00"
+        }
+      }
+    },
+    {
+      "label": "connection-0",
+      "service": "events",
+      "operation": "describe-connection",
+      "region": "us-west-2",
+      "input": {
+        "Name": "stackd-secret-metadata-d445e2568a"
+      },
+      "request_started_ms": 1790233940112,
+      "request_finished_ms": 1790233940999,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Failed to describe the connection(s). Connection 'stackd-secret-metadata-d445e2568a' does not exist.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "managed-secret-0",
+      "service": "secretsmanager",
+      "operation": "describe-secret",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym"
+      },
+      "request_started_ms": 1790233941000,
+      "request_finished_ms": 1790233941884,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym",
+          "Name": "events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921",
+          "LastChangedDate": "2026-09-24T08:12:20.485000+01:00",
+          "DeletedDate": "2026-09-24T08:12:20.478000+01:00",
+          "Tags": [
+            {
+              "Key": "aws:secretsmanager:owningService",
+              "Value": "events"
+            }
+          ],
+          "VersionIdsToStages": {
+            "38A092EE-2169-4E52-9B85-CB57F6B98F6E": [
+              "AWSCURRENT"
+            ]
+          },
+          "OwningService": "events",
+          "CreatedDate": "2026-09-24T08:12:02.109000+01:00"
+        }
+      }
+    },
+    {
+      "label": "managed-secret-1",
+      "service": "secretsmanager",
+      "operation": "describe-secret",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:events!connection/stackd-secret-metadata-d445e2568a/38f4bef9-1361-43e9-b63a-a4f725ce6921-Tidhym"
+      },
+      "request_started_ms": 1790233943884,
+      "request_finished_ms": 1790233944747,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Secrets Manager can't find the specified secret.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "cleanup-remove-replica",
+      "service": "secretsmanager",
+      "operation": "remove-regions-from-replication",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+        "RemoveReplicaRegions": [
+          "us-east-2"
+        ]
+      },
+      "request_started_ms": 1790233944747,
+      "request_finished_ms": 1790233945636,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+          "ReplicationStatus": []
+        }
+      }
+    },
+    {
+      "label": "replica-0",
+      "service": "secretsmanager",
+      "operation": "describe-secret",
+      "region": "us-east-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP"
+      },
+      "request_started_ms": 1790233945636,
+      "request_finished_ms": 1790233946336,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+          "Name": "stackd-secret-metadata-d445e2568a",
+          "KmsKeyId": "alias/aws/secretsmanager",
+          "LastChangedDate": "2026-09-24T08:12:04.956000+01:00",
+          "DeletedDate": "2026-09-24T08:12:25.639000+01:00",
+          "VersionIdsToStages": {
+            "a446a52f-7254-4652-b079-5cb9ad95a7f3": [
+              "AWSCURRENT"
+            ]
+          },
+          "CreatedDate": "2026-09-24T08:12:05.325000+01:00",
+          "PrimaryRegion": "us-west-2"
+        }
+      }
+    },
+    {
+      "label": "replica-1",
+      "service": "secretsmanager",
+      "operation": "describe-secret",
+      "region": "us-east-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-east-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP"
+      },
+      "request_started_ms": 1790233948337,
+      "request_finished_ms": 1790233949058,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Secrets Manager can't find the specified secret.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "cleanup-primary",
+      "service": "secretsmanager",
+      "operation": "delete-secret",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+        "ForceDeleteWithoutRecovery": true
+      },
+      "request_started_ms": 1790233949058,
+      "request_finished_ms": 1790233950018,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+          "Name": "stackd-secret-metadata-d445e2568a",
+          "DeletionDate": "2026-09-24T08:12:29.841000+01:00"
+        }
+      }
+    },
+    {
+      "label": "primary-0",
+      "service": "secretsmanager",
+      "operation": "describe-secret",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP"
+      },
+      "request_started_ms": 1790233950018,
+      "request_finished_ms": 1790233950894,
+      "result": {
+        "code": "Success",
+        "output": {
+          "ARN": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP",
+          "Name": "stackd-secret-metadata-d445e2568a",
+          "LastChangedDate": "2026-09-24T08:12:29.859000+01:00",
+          "DeletedDate": "2026-09-24T08:12:29.853000+01:00",
+          "VersionIdsToStages": {
+            "a446a52f-7254-4652-b079-5cb9ad95a7f3": [
+              "AWSCURRENT"
+            ]
+          },
+          "CreatedDate": "2026-09-24T08:12:04.019000+01:00"
+        }
+      }
+    },
+    {
+      "label": "primary-1",
+      "service": "secretsmanager",
+      "operation": "describe-secret",
+      "region": "us-west-2",
+      "input": {
+        "SecretId": "arn:aws:secretsmanager:us-west-2:000000000000:secret:stackd-secret-metadata-d445e2568a-RWSebP"
+      },
+      "request_started_ms": 1790233952894,
+      "request_finished_ms": 1790233953758,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "error": {
+          "Message": "Secrets Manager can't find the specified secret.",
+          "Code": "ResourceNotFoundException"
+        }
+      }
+    }
+  ]
+}

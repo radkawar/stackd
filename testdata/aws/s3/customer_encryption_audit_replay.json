@@ -1,0 +1,1327 @@
+{
+  "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1]",
+  "TLS": true,
+  "AuditBucket": "customer-audit-replay-logs",
+  "AuditPrefix": "AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Native capture delivered 41 records, including 12 request-ID-correlated data events. This replay selects 10 data records and 11 state-establishing API calls; two same-path successful SSE-C writes are omitted.",
+    "Native observation sequence numbers and correlated request/event IDs are retained. Bucket/account/IAM ARN are normalized; public synthetic customer key and payload remain the captured values.",
+    "Only selected request-correlated data records are asserted. Setup and state transitions have no delivery expectation. Bounded undelivered calls, including the HTTP failure, establish no absence or non-emission assertion.",
+    "Request/response maps are matched exactly: all selected data records omit customer key and key-MD5; customer algorithm remains present, successful customer Put reports SSE_C, and customer Get has null responseElements and no SSEApplied.",
+    "The ordinary write sends no encryption header and receives Default_SSE_S3; explicit AES256 receives SSE_S3. These are the captured successful contrasts, not a claim of unencrypted at-rest storage.",
+    "Malformed MD5 under explicit policy deny and missing customer key under bucket blocking retain InvalidArgument. Valid policy-denied writes retain objectSize; blocked writes and malformed customer headers omit it.",
+    "SDK-origin policy writes retain the existing ${bodyMD5} request normalization. HTTP byte counts and transport correlation use replay responses; service-generated timestamps, request IDs, extended IDs and network identity are not pinned to AWS constants."
+  ],
+  "Setup": [
+    {
+      "Label": "create customer-audit-replay",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[1]",
+      "Sequence": 2,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "customer-audit-replay"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create customer-audit-replay-logs",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[2]",
+      "Sequence": 3,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "customer-audit-replay-logs"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "audit delivery policy",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[3]",
+      "Sequence": 4,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "customer-audit-replay-logs",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::customer-audit-replay-logs\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/customer-audit-replay-trail\"}}}, {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::customer-audit-replay-logs/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/customer-audit-replay-trail\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "Output": {}
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create owned trail",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[4]",
+      "Sequence": 5,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "customer-audit-replay-trail",
+        "S3BucketName": "customer-audit-replay-logs",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "EnableLogFileValidation": false
+      },
+      "Output": {}
+    },
+    {
+      "Label": "owned trail selectors",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[5]",
+      "Sequence": 6,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "TrailName": "customer-audit-replay-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "OwnedSSECData",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::S3::Object"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:s3:::customer-audit-replay/"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "OwnedSSECManagement",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Management"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start owned trail",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[6]",
+      "Sequence": 7,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "customer-audit-replay-trail"
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "audit enable SSE-C",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[7]",
+      "Sequence": 8,
+      "Service": "s3",
+      "Operation": "PutBucketEncryption",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "audit enable SSE-C",
+        "Sequence": 8,
+        "Operation": "PutBucketEncryption",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/?encryption",
+        "Headers": {},
+        "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "audit valid write",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[9]",
+      "Sequence": 10,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "audit valid write",
+        "Sequence": 10,
+        "Operation": "PutObject",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/audit-object",
+        "Headers": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+          "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "Body": "synthetic customer encryption payload",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "audit valid read",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[10]",
+      "Sequence": 11,
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "audit valid read",
+        "Sequence": 11,
+        "Operation": "GetObject",
+        "Method": "GET",
+        "Target": "/customer-audit-replay/audit-object",
+        "Headers": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+          "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "Body": "",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-key"
+        ],
+        "ResponseBody": "synthetic customer encryption payload"
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:53:09Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "key": "audit-object"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 0,
+          "startTime": 1790016789587,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016789614,
+          "x-amz-id-2": "CUIeQI0q20KUdiD8EPneSG5iwAftprZFov3l+uCy1oxTKKLWF6eW3eZTVilgtBtO6BfW9JsUGiNPOLPJukBN0YhIX0mqx4Vn",
+          "turnAroundTime": 27,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 37
+        },
+        "requestID": "3T5CW16E00SJX9ZY",
+        "eventID": "c79fb349-770d-44eb-b9c1-e55d5c338718",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/audit-object"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "delete from NONE",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[21]",
+      "Sequence": 22,
+      "Service": "s3",
+      "Operation": "DeleteBucketEncryption",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "delete from NONE",
+        "Sequence": 22,
+        "Operation": "DeleteBucketEncryption",
+        "Method": "DELETE",
+        "Target": "/customer-audit-replay/?encryption",
+        "Headers": {},
+        "Body": "",
+        "Status": 204,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "audit blocked write",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[24]",
+      "Sequence": 25,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "audit blocked write",
+        "Sequence": 25,
+        "Operation": "PutObject",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/bad-blocked",
+        "Headers": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+          "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "Body": "synthetic customer encryption payload",
+        "Status": 403,
+        "Code": "AccessDenied",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:53:14Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: ${auditUserARN} is not authorized to perform: s3:PutObject on resource: \"arn:aws:s3:::customer-audit-replay/bad-blocked\" because this bucket has blocked upload requests that specify Server Side Encryption with Customer provided keys (SSE-C). Please specify a different server-side encryption type.",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "key": "bad-blocked"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790016794678,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016794691,
+          "x-amz-id-2": "kkzJUmqpZpqEJkpqLmMya2pOS6BeXiSJSxUJ/SdiaDpV5xYc9SWmnnxHLVvtnA2tTGpTyrZYRzAIXGbsbgbZjLI/TJ3Q/iPD",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 591
+        },
+        "requestID": "N17ESK9YDGCDXJXP",
+        "eventID": "ef0cd256-acce-4863-bf17-bf9169f87c2a",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/bad-blocked"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "blocked-only NONE",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[25]",
+      "Sequence": 26,
+      "Service": "s3",
+      "Operation": "PutBucketEncryption",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "blocked-only NONE",
+        "Sequence": 26,
+        "Operation": "PutBucketEncryption",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/?encryption",
+        "Headers": {},
+        "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><BlockedEncryptionTypes><EncryptionType>NONE</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "explicit deny object writes",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[28]",
+      "Sequence": 29,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "explicit deny object writes",
+        "Sequence": 29,
+        "Operation": "PutBucketPolicy",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/?policy",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::customer-audit-replay/*\"}]}",
+        "Status": 204,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "deny valid SSE-C",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[29]",
+      "Sequence": 30,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "deny valid SSE-C",
+        "Sequence": 30,
+        "Operation": "PutObject",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/admission",
+        "Headers": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+          "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "Body": "synthetic customer encryption payload",
+        "Status": 403,
+        "Code": "AccessDenied",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:53:31Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: ${auditUserARN} is not authorized to perform: s3:PutObject on resource: \"arn:aws:s3:::customer-audit-replay/admission\" with an explicit deny in a resource-based policy",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "key": "admission"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 0,
+          "startTime": 1790016811629,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016811655,
+          "x-amz-id-2": "kSwd7lavUKBC3Z/7jTSLNJ3olNJtXgH3IX6yFKPrHJXZgVmrMNLx4DeuZbhg3AyMzAoS/05UFCU=",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 441
+        },
+        "requestID": "YSSZSVKVYNRNVEFN",
+        "eventID": "440428ba-cf20-4fbf-b848-08ed2397c642",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/admission"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "deny malformed MD5",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[30]",
+      "Sequence": 31,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "deny malformed MD5",
+        "Sequence": 31,
+        "Operation": "PutObject",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/admission",
+        "Headers": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+          "x-amz-server-side-encryption-customer-key-MD5": "!!!"
+        },
+        "Body": "synthetic customer encryption payload",
+        "Status": 400,
+        "Code": "InvalidArgument",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:53:31Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "InvalidArgument",
+        "errorMessage": "The calculated MD5 hash of the key did not match the hash that was provided.",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "key": "admission"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790016811962,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016811985,
+          "x-amz-id-2": "bo+M6TZMnpbDZSyzWgoKKmK+aKDpOIXvV4IWbBs8MNIH+HZkiCHPbnY/qhLt0DhB2qnCliYlHno=",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 366
+        },
+        "requestID": "YSSTTFQ67GC5MFA5",
+        "eventID": "5b04dde8-a3e9-4b8d-9ab7-220307285690",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/admission"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "remove unconditional deny",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[32]",
+      "Sequence": 33,
+      "Service": "s3",
+      "Operation": "DeleteBucketPolicy",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "remove unconditional deny",
+        "Sequence": 33,
+        "Operation": "DeleteBucketPolicy",
+        "Method": "DELETE",
+        "Target": "/customer-audit-replay/?policy",
+        "Headers": {},
+        "Body": "",
+        "Status": 204,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "deny removal settled",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[33]",
+      "Sequence": 34,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "deny removal settled",
+        "Sequence": 34,
+        "Operation": "PutObject",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/admission",
+        "Headers": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+          "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "Body": "synthetic customer encryption payload",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:53:48Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "key": "admission"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 37,
+          "SSEApplied": "SSE_C",
+          "startTime": 1790016828189,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016828230,
+          "x-amz-id-2": "hb6fs4PupVJ1xKQPCxE1fm7donlG/WEPWwaOoORDj1wk2OOZAgROTAZZ12AiMyrXyhRWtm9igjIPEXk6dNYXG4EMiWxTDyEq",
+          "turnAroundTime": 17,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "1E6VJBC91QQ8GDZ5",
+        "eventID": "8b4ea73a-fae0-4260-abe5-c85450405729",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/admission"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "condition deny s3:x-amz-server-side-encryption-customer-algorithm",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[34]",
+      "Sequence": 35,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "condition deny s3:x-amz-server-side-encryption-customer-algorithm",
+        "Sequence": 35,
+        "Operation": "PutBucketPolicy",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/?policy",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::customer-audit-replay/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-server-side-encryption-customer-algorithm\": \"AES256\"}}}]}",
+        "Status": 204,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "condition ordinary s3:x-amz-server-side-encryption-customer-algorithm",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[36]",
+      "Sequence": 37,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "condition ordinary s3:x-amz-server-side-encryption-customer-algorithm",
+        "Sequence": 37,
+        "Operation": "PutObject",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/admission",
+        "Headers": {},
+        "Body": "synthetic customer encryption payload",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:54:04Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "key": "admission"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 37,
+          "SSEApplied": "Default_SSE_S3",
+          "startTime": 1790016844497,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016844536,
+          "x-amz-id-2": "rI2mAhY+Z4QAfKTct94k4YKHy1V60RZerE8TA6vyuTTNF4rq+RxsR/zMQkGr2bP4/S/82CFPNo2TG8dy3N10x7ynNz2gaUvB",
+          "turnAroundTime": 13,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "ZZQ4REHCTG56V7FA",
+        "eventID": "84732f86-f8f8-40f6-9b09-0e649a8be548",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/admission"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "condition explicit SSE-S3 s3:x-amz-server-side-encryption-customer-algorithm",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[37]",
+      "Sequence": 38,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "condition explicit SSE-S3 s3:x-amz-server-side-encryption-customer-algorithm",
+        "Sequence": 38,
+        "Operation": "PutObject",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/admission",
+        "Headers": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "Body": "synthetic customer encryption payload",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:54:04Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "x-amz-server-side-encryption": "AES256",
+          "key": "admission"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 37,
+          "SSEApplied": "SSE_S3",
+          "startTime": 1790016844939,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016844978,
+          "x-amz-id-2": "KQ62z2JiqfqxFJhQOYI6Bqz6ZthIAZypbi2Me+Kn0EmCTOt34vf1ju1Wi3xOQdp3xmX43vNLcyQ=",
+          "turnAroundTime": 12,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "ZZQB6685EBKTZEJX",
+        "eventID": "0fed6f4f-09e0-4191-ad0f-9916d62f3f20",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/admission"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "remove condition s3:x-amz-server-side-encryption-customer-algorithm",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[38]",
+      "Sequence": 39,
+      "Service": "s3",
+      "Operation": "DeleteBucketPolicy",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "remove condition s3:x-amz-server-side-encryption-customer-algorithm",
+        "Sequence": 39,
+        "Operation": "DeleteBucketPolicy",
+        "Method": "DELETE",
+        "Target": "/customer-audit-replay/?policy",
+        "Headers": {},
+        "Body": "",
+        "Status": 204,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "condition deny s3:x-amz-server-side-encryption",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[39]",
+      "Sequence": 40,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "condition deny s3:x-amz-server-side-encryption",
+        "Sequence": 40,
+        "Operation": "PutBucketPolicy",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/?policy",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::customer-audit-replay/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-server-side-encryption\": \"AES256\"}}}]}",
+        "Status": 204,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "condition explicit SSE-S3 s3:x-amz-server-side-encryption",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[42]",
+      "Sequence": 43,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "condition explicit SSE-S3 s3:x-amz-server-side-encryption",
+        "Sequence": 43,
+        "Operation": "PutObject",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/admission",
+        "Headers": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "Body": "synthetic customer encryption payload",
+        "Status": 403,
+        "Code": "AccessDenied",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:54:37Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: ${auditUserARN} is not authorized to perform: s3:PutObject on resource: \"arn:aws:s3:::customer-audit-replay/admission\" with an explicit deny in a resource-based policy",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "x-amz-server-side-encryption": "AES256",
+          "key": "admission"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 0,
+          "startTime": 1790016877053,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016877079,
+          "x-amz-id-2": "lBqtBJPqIskX5bNP2D1hgolQD92fxmi2tQFH9aFRgjHyisBSiBWd8bH1+JDMORkAadLVxhrLYI/nwWU4VE18ncMFUf7yyk4q",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 461
+        },
+        "requestID": "60QAN2HJK1ZZJDDT",
+        "eventID": "6cd7fcde-01f8-4ce7-a810-60e500c8089f",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/admission"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "remove condition s3:x-amz-server-side-encryption",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[43]",
+      "Sequence": 44,
+      "Service": "s3",
+      "Operation": "DeleteBucketPolicy",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "remove condition s3:x-amz-server-side-encryption",
+        "Sequence": 44,
+        "Operation": "DeleteBucketPolicy",
+        "Method": "DELETE",
+        "Target": "/customer-audit-replay/?policy",
+        "Headers": {},
+        "Body": "",
+        "Status": 204,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "block for precedence",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[46]",
+      "Sequence": 47,
+      "Service": "s3",
+      "Operation": "PutBucketEncryption",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "block for precedence",
+        "Sequence": 47,
+        "Operation": "PutBucketEncryption",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/?encryption",
+        "Headers": {},
+        "Body": "<ServerSideEncryptionConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>SSE-C</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      }
+    },
+    {
+      "Label": "blocked missing key",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[49]",
+      "Sequence": 50,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "blocked missing key",
+        "Sequence": 50,
+        "Operation": "PutObject",
+        "Method": "PUT",
+        "Target": "/customer-audit-replay/admission",
+        "Headers": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256"
+        },
+        "Body": "synthetic customer encryption payload",
+        "Status": 400,
+        "Code": "InvalidArgument",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-algorithm",
+          "x-amz-server-side-encryption-customer-key-md5",
+          "x-amz-server-side-encryption-customer-key"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:54:54Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "InvalidArgument",
+        "errorMessage": "Requests specifying Server Side Encryption with Customer provided keys must provide an appropriate secret key.",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "key": "admission"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1790016894613,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016894632,
+          "x-amz-id-2": "oX9eQNgowkNu3mGylFBF4k5SEn7juD1oUkJHIw9m3dcN4zegfnWRngk6yQoVjRPTPgMrn3RntIA=",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 400
+        },
+        "requestID": "7YP2JZEFMY541P75",
+        "eventID": "1ea4c373-6e05-4984-83f7-ab703c3c8f3d",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/admission"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "blocked existing read",
+      "Source": "customer_encryption_control_evidence.json.gz#SupplementalRuns[1].Observations[51]",
+      "Sequence": 52,
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "audit-user",
+      "Raw": {
+        "Label": "blocked existing read",
+        "Sequence": 52,
+        "Operation": "GetObject",
+        "Method": "GET",
+        "Target": "/customer-audit-replay/audit-object",
+        "Headers": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+          "x-amz-server-side-encryption-customer-key-MD5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "Body": "",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "x-amz-server-side-encryption-customer-key-md5": "tP/LI3N87DFaSk0aoqYgzg=="
+        },
+        "AbsentHeaders": [
+          "x-amz-server-side-encryption-customer-key"
+        ],
+        "ResponseBody": "synthetic customer encryption payload"
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL_IDENTIFIER]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T18:54:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "customer-audit-replay",
+          "Host": "customer-audit-replay.s3.us-east-1.amazonaws.com",
+          "x-amz-server-side-encryption-customer-algorithm": "AES256",
+          "key": "audit-object"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 37,
+          "bytesTransferredIn": 0,
+          "startTime": 1790016895265,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1790016895298,
+          "x-amz-id-2": "zJpzprF2rlG+dsqqD030YE57FPCMM0f001ju+Erxfjas2+aSJcRJairG3mw3WlG4OytjLiusfjY=",
+          "turnAroundTime": 32,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 37
+        },
+        "requestID": "ZY8D5XB9P03VKYQF",
+        "eventID": "0c9930c7-cbc8-459d-b669-3701d2eca9f4",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::customer-audit-replay"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::customer-audit-replay/audit-object"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "customer-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    }
+  ]
+}

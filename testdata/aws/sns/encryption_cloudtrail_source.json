@@ -1,0 +1,1216 @@
+{
+  "account": "000000000000",
+  "region": "us-east-1",
+  "prefix": "stackd-sns-ctsrc-35afb3963a8c",
+  "started_ms": 1790133904054,
+  "source_references": [
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-permissions-for-sns-notifications.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/configure-sns-notifications-for-cloudtrail.html",
+    "https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html"
+  ],
+  "source_revisions": {
+    "stackd": "6c8e6a39e279a7bd64483c78d788cf5fc2a2e9cf"
+  },
+  "observations": [
+    {
+      "label": "identity-before-mutation",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790133904054,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      },
+      "response_observed_ms": 1790133904728
+    },
+    {
+      "label": "create-sns-source-key",
+      "service": "kms",
+      "operation": "create-key",
+      "input": {
+        "Description": "stackd-sns-ctsrc-35afb3963a8c",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"CloudTrailSnsOnly\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey*\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\"}}}]}",
+        "Tags": [
+          {
+            "TagKey": "stackd-probe",
+            "TagValue": "stackd-sns-ctsrc-35afb3963a8c"
+          }
+        ]
+      },
+      "request_started_ms": 1790133904729,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "b3a337c8-32d8-4126-a6da-7ae31aba9813",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813",
+            "CreationDate": "2026-09-23T04:25:05.334000+01:00",
+            "Enabled": true,
+            "Description": "stackd-sns-ctsrc-35afb3963a8c",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "Enabled",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "ba5997eb08435ea6726fa5411e9177b0800a24780367e9ed740bf14a6bd946fe"
+          }
+        }
+      },
+      "response_observed_ms": 1790133905609
+    },
+    {
+      "label": "read-source-key-policy",
+      "service": "kms",
+      "operation": "get-key-policy",
+      "input": {
+        "KeyId": "b3a337c8-32d8-4126-a6da-7ae31aba9813",
+        "PolicyName": "default"
+      },
+      "request_started_ms": 1790133905618,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Policy": "{\n  \"Version\" : \"2012-10-17\",\n  \"Statement\" : [ {\n    \"Sid\" : \"OwnerAdministration\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"AWS\" : \"arn:aws:iam::000000000000:root\"\n    },\n    \"Action\" : \"kms:*\",\n    \"Resource\" : \"*\"\n  }, {\n    \"Sid\" : \"CloudTrailSnsOnly\",\n    \"Effect\" : \"Allow\",\n    \"Principal\" : {\n      \"Service\" : \"cloudtrail.amazonaws.com\"\n    },\n    \"Action\" : [ \"kms:GenerateDataKey*\", \"kms:Decrypt\" ],\n    \"Resource\" : \"*\",\n    \"Condition\" : {\n      \"StringEquals\" : {\n        \"kms:EncryptionContext:aws:sns:topicArn\" : \"arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\"\n      }\n    }\n  } ]\n}",
+          "PolicyName": "default"
+        }
+      },
+      "response_observed_ms": 1790133906307
+    },
+    {
+      "label": "create-queue",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-sns-ctsrc-35afb3963a8c",
+        "Attributes": {
+          "SqsManagedSseEnabled": "false"
+        }
+      },
+      "request_started_ms": 1790133906307,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-ctsrc-35afb3963a8c"
+        }
+      },
+      "response_observed_ms": 1790133907043
+    },
+    {
+      "label": "read-queue",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-ctsrc-35afb3963a8c",
+        "AttributeNames": [
+          "QueueArn",
+          "SqsManagedSseEnabled"
+        ]
+      },
+      "request_started_ms": 1790133907053,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+            "SqsManagedSseEnabled": "false"
+          }
+        }
+      },
+      "response_observed_ms": 1790133907714
+    },
+    {
+      "label": "queue-source-policy",
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-ctsrc-35afb3963a8c",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\"}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+        }
+      },
+      "request_started_ms": 1790133907723,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133908446
+    },
+    {
+      "label": "create-encrypted-topic",
+      "service": "sns",
+      "operation": "create-topic",
+      "input": {
+        "Name": "stackd-sns-ctsrc-35afb3963a8c",
+        "Attributes": {
+          "KmsMasterKeyId": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813"
+        }
+      },
+      "request_started_ms": 1790133908446,
+      "result": {
+        "code": "Success",
+        "output": {
+          "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c"
+        }
+      },
+      "response_observed_ms": 1790133909192
+    },
+    {
+      "label": "topic-source-policy",
+      "service": "sns",
+      "operation": "set-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+        "AttributeName": "Policy",
+        "AttributeValue": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"sns:Publish\", \"Resource\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c\"}, \"StringEquals\": {\"aws:SourceAccount\": \"000000000000\"}}}]}"
+      },
+      "request_started_ms": 1790133909201,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133909899
+    },
+    {
+      "label": "subscribe-raw-queue",
+      "service": "sns",
+      "operation": "subscribe",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+        "Protocol": "sqs",
+        "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+        "Attributes": {
+          "RawMessageDelivery": "true"
+        },
+        "ReturnSubscriptionArn": true
+      },
+      "request_started_ms": 1790133909899,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c:8eb484e9-d632-43c0-ba8a-d7fcb4693b5b"
+        }
+      },
+      "response_observed_ms": 1790133910772
+    },
+    {
+      "label": "read-encrypted-topic",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133910774,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"cloudtrail.amazonaws.com\"},\"Action\":\"sns:Publish\",\"Resource\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"000000000000\"},\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c\"}}}]}",
+            "Owner": "000000000000",
+            "SubscriptionsPending": "0",
+            "KmsMasterKeyId": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+            "EffectiveDeliveryPolicy": "{\"http\":{\"defaultHealthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"disableSubscriptionOverrides\":false,\"defaultRequestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"}}}",
+            "SubscriptionsConfirmed": "0",
+            "DisplayName": "",
+            "SubscriptionsDeleted": "0"
+          }
+        }
+      },
+      "response_observed_ms": 1790133911452
+    },
+    {
+      "label": "read-raw-subscription",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c:8eb484e9-d632-43c0-ba8a-d7fcb4693b5b"
+      },
+      "request_started_ms": 1790133911452,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Attributes": {
+            "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+            "Owner": "000000000000",
+            "RawMessageDelivery": "true",
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+            "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+            "Protocol": "sqs",
+            "PendingConfirmation": "false",
+            "ConfirmationWasAuthenticated": "true",
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c:8eb484e9-d632-43c0-ba8a-d7fcb4693b5b"
+          }
+        }
+      },
+      "response_observed_ms": 1790133912142
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133912143,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-sns-ctsrc-35afb3963a8c",
+          "BucketArn": "arn:aws:s3:::stackd-sns-ctsrc-35afb3963a8c"
+        }
+      },
+      "response_observed_ms": 1790133913111
+    },
+    {
+      "label": "bucket-source-policy",
+      "service": "s3api",
+      "operation": "put-bucket-policy",
+      "input": {
+        "Bucket": "stackd-sns-ctsrc-35afb3963a8c",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"Acl\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-sns-ctsrc-35afb3963a8c\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c\", \"aws:SourceAccount\": \"000000000000\"}}}, {\"Sid\": \"Write\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-sns-ctsrc-35afb3963a8c/AWSLogs/000000000000/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c\", \"aws:SourceAccount\": \"000000000000\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "request_started_ms": 1790133913121,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133913942
+    },
+    {
+      "label": "create-trail",
+      "service": "cloudtrail",
+      "operation": "create-trail",
+      "input": {
+        "Name": "stackd-sns-ctsrc-35afb3963a8c",
+        "S3BucketName": "stackd-sns-ctsrc-35afb3963a8c",
+        "SnsTopicName": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "EnableLogFileValidation": false,
+        "IsOrganizationTrail": false
+      },
+      "request_started_ms": 1790133913951,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-sns-ctsrc-35afb3963a8c",
+          "S3BucketName": "stackd-sns-ctsrc-35afb3963a8c",
+          "SnsTopicName": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+          "SnsTopicARN": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+          "IncludeGlobalServiceEvents": false,
+          "IsMultiRegionTrail": false,
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c",
+          "LogFileValidationEnabled": false,
+          "IsOrganizationTrail": false
+        }
+      },
+      "response_observed_ms": 1790133914908
+    },
+    {
+      "label": "trail-status-preflight",
+      "service": "cloudtrail",
+      "operation": "get-trail-status",
+      "input": {
+        "Name": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133914917,
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsLogging": false,
+          "LatestDeliveryAttemptTime": "",
+          "LatestNotificationAttemptTime": "",
+          "LatestNotificationAttemptSucceeded": "",
+          "LatestDeliveryAttemptSucceeded": "",
+          "TimeLoggingStarted": "",
+          "TimeLoggingStopped": ""
+        }
+      },
+      "response_observed_ms": 1790133915594
+    },
+    {
+      "label": "receive-validation-preflight",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-ctsrc-35afb3963a8c",
+        "WaitTimeSeconds": 10,
+        "MaxNumberOfMessages": 10,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1790133915595,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "14b1591d-7b13-4fef-ac45-e830ce40b439",
+              "ReceiptHandle": "AQEBCCkTVT0Vz8cBxn+ZJVSfLfb0ZGOtinlIdenCApDABCy9oNJ+jhEM7PYvt0uHAAR3r0cBxF8l6OtwFrjrrY6OTX3K+LnJeDmTY9AjrqhYjQeeBhdFNDmPbYAbJnMT/7qgxFj7ZCWPFsmwhowuDnzucchjuWwZB1NadB4QIEv7me3hI6RXtyj2JR6qMv+nDhkA3z/4jE1Z6+uIGYXYLipd5eT9L1vQdAebeUnwFAGXEFKUeZfLeelyKJqhxF/KJtp3cQK4ITSfDHvjivjKAN0uqwXE1XbPFO2XuogsXj1iRkhme/hHrRfNvJik4uaBBmsgmUcqUXoDwrxsmzAHww4a5EiJHgFrMzsmgKf76nzppCGJPsKD5wk6j8uBNbVURDOSRcy5jB6rFZkrrj8ye2H5VTzoJGoVAx8WuhXtLcUVKYg=",
+              "MD5OfBody": "f88dd7b1c24319d4c52f47bb0ad37d66",
+              "Body": "CloudTrail validation message.",
+              "Attributes": {
+                "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                "ApproximateFirstReceiveTimestamp": "1790133916181",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1790133914792"
+              }
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790133916313
+    },
+    {
+      "label": "delete-receipt",
+      "service": "sqs",
+      "operation": "delete-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-ctsrc-35afb3963a8c",
+        "ReceiptHandle": "AQEBCCkTVT0Vz8cBxn+ZJVSfLfb0ZGOtinlIdenCApDABCy9oNJ+jhEM7PYvt0uHAAR3r0cBxF8l6OtwFrjrrY6OTX3K+LnJeDmTY9AjrqhYjQeeBhdFNDmPbYAbJnMT/7qgxFj7ZCWPFsmwhowuDnzucchjuWwZB1NadB4QIEv7me3hI6RXtyj2JR6qMv+nDhkA3z/4jE1Z6+uIGYXYLipd5eT9L1vQdAebeUnwFAGXEFKUeZfLeelyKJqhxF/KJtp3cQK4ITSfDHvjivjKAN0uqwXE1XbPFO2XuogsXj1iRkhme/hHrRfNvJik4uaBBmsgmUcqUXoDwrxsmzAHww4a5EiJHgFrMzsmgKf76nzppCGJPsKD5wk6j8uBNbVURDOSRcy5jB6rFZkrrj8ye2H5VTzoJGoVAx8WuhXtLcUVKYg="
+      },
+      "request_started_ms": 1790133916313,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133916989
+    }
+  ],
+  "receipts": [
+    {
+      "observed_ms": 1790133916313,
+      "phase": "validation-preflight",
+      "queue_arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+      "topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+      "message": {
+        "MessageId": "14b1591d-7b13-4fef-ac45-e830ce40b439",
+        "ReceiptHandle": "AQEBCCkTVT0Vz8cBxn+ZJVSfLfb0ZGOtinlIdenCApDABCy9oNJ+jhEM7PYvt0uHAAR3r0cBxF8l6OtwFrjrrY6OTX3K+LnJeDmTY9AjrqhYjQeeBhdFNDmPbYAbJnMT/7qgxFj7ZCWPFsmwhowuDnzucchjuWwZB1NadB4QIEv7me3hI6RXtyj2JR6qMv+nDhkA3z/4jE1Z6+uIGYXYLipd5eT9L1vQdAebeUnwFAGXEFKUeZfLeelyKJqhxF/KJtp3cQK4ITSfDHvjivjKAN0uqwXE1XbPFO2XuogsXj1iRkhme/hHrRfNvJik4uaBBmsgmUcqUXoDwrxsmzAHww4a5EiJHgFrMzsmgKf76nzppCGJPsKD5wk6j8uBNbVURDOSRcy5jB6rFZkrrj8ye2H5VTzoJGoVAx8WuhXtLcUVKYg=",
+        "MD5OfBody": "f88dd7b1c24319d4c52f47bb0ad37d66",
+        "Body": "CloudTrail validation message.",
+        "Attributes": {
+          "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+          "ApproximateFirstReceiveTimestamp": "1790133916181",
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1790133914792"
+        }
+      },
+      "decoded_body": null,
+      "is_cloudtrail_validation": true,
+      "is_owned_log_notification": false,
+      "correlation": {
+        "exclusive_subscribed_topic": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+        "topic_policy_source_arn": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c",
+        "topic_policy_source_account": "000000000000",
+        "producer_observation": "create-trail",
+        "only_publisher_in_probe": "cloudtrail.amazonaws.com"
+      }
+    }
+  ],
+  "windows": [
+    {
+      "phase": "validation-preflight",
+      "started_ms": 1790133915595,
+      "ended_ms": 1790133916989,
+      "maximum_seconds": 120,
+      "matching_receipt": true
+    }
+  ],
+  "cloudtrail": {
+    "events": [
+      {
+        "first_observed_ms": 1790133961536,
+        "lookup_event": {
+          "EventId": "2157ca1e-9014-3c29-80e8-9e050e219356",
+          "EventName": "Decrypt",
+          "ReadOnly": "true",
+          "EventTime": "2026-09-23T04:25:14+01:00",
+          "EventSource": "kms.amazonaws.com",
+          "Resources": [],
+          "CloudTrailEvent": "{\"eventVersion\":\"1.11\",\"userIdentity\":{\"type\":\"AWSService\",\"invokedBy\":\"cloudtrail.amazonaws.com\"},\"eventTime\":\"2026-09-23T03:25:14Z\",\"eventSource\":\"kms.amazonaws.com\",\"eventName\":\"Decrypt\",\"awsRegion\":\"us-east-1\",\"sourceIPAddress\":\"cloudtrail.amazonaws.com\",\"userAgent\":\"cloudtrail.amazonaws.com\",\"requestParameters\":{\"encryptionAlgorithm\":\"SYMMETRIC_DEFAULT\",\"encryptionContext\":{\"aws:sns:sourceArn\":\"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c\",\"aws:sns:sourceAccount\":\"000000000000\",\"aws:sns:topicArn\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\"}},\"responseElements\":null,\"additionalEventData\":{\"keyMaterialId\":\"ba5997eb08435ea6726fa5411e9177b0800a24780367e9ed740bf14a6bd946fe\"},\"requestID\":\"e9584ef3-182f-4ea6-859b-839b35ae90bd\",\"eventID\":\"2157ca1e-9014-3c29-80e8-9e050e219356\",\"readOnly\":true,\"resources\":[{\"accountId\":\"000000000000\",\"type\":\"AWS::KMS::Key\",\"ARN\":\"arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813\"}],\"eventType\":\"AwsApiCall\",\"managementEvent\":true,\"recipientAccountId\":\"000000000000\",\"sharedEventID\":\"3d70727e-e376-4e2f-8795-5b40ab0690d1\",\"eventCategory\":\"Management\"}"
+        },
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "cloudtrail.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T03:25:14Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "Decrypt",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "cloudtrail.amazonaws.com",
+          "userAgent": "cloudtrail.amazonaws.com",
+          "requestParameters": {
+            "encryptionAlgorithm": "SYMMETRIC_DEFAULT",
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c"
+            }
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "ba5997eb08435ea6726fa5411e9177b0800a24780367e9ed740bf14a6bd946fe"
+          },
+          "requestID": "e9584ef3-182f-4ea6-859b-839b35ae90bd",
+          "eventID": "2157ca1e-9014-3c29-80e8-9e050e219356",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "3d70727e-e376-4e2f-8795-5b40ab0690d1",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790133961536,
+        "lookup_event": {
+          "EventId": "8b51462b-612d-35eb-b959-5bf0e08800b9",
+          "EventName": "GenerateDataKey",
+          "ReadOnly": "true",
+          "EventTime": "2026-09-23T04:25:14+01:00",
+          "EventSource": "kms.amazonaws.com",
+          "Resources": [
+            {
+              "ResourceName": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813"
+            }
+          ],
+          "CloudTrailEvent": "{\"eventVersion\":\"1.11\",\"userIdentity\":{\"type\":\"AWSService\",\"invokedBy\":\"cloudtrail.amazonaws.com\"},\"eventTime\":\"2026-09-23T03:25:14Z\",\"eventSource\":\"kms.amazonaws.com\",\"eventName\":\"GenerateDataKey\",\"awsRegion\":\"us-east-1\",\"sourceIPAddress\":\"cloudtrail.amazonaws.com\",\"userAgent\":\"cloudtrail.amazonaws.com\",\"requestParameters\":{\"keyId\":\"arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813\",\"encryptionContext\":{\"aws:sns:sourceArn\":\"arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c\",\"aws:sns:sourceAccount\":\"000000000000\",\"aws:sns:topicArn\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\"},\"keySpec\":\"AES_256\"},\"responseElements\":null,\"additionalEventData\":{\"keyMaterialId\":\"ba5997eb08435ea6726fa5411e9177b0800a24780367e9ed740bf14a6bd946fe\"},\"requestID\":\"6830e759-07a8-46e5-b4ee-191bc82fa3fa\",\"eventID\":\"8b51462b-612d-35eb-b959-5bf0e08800b9\",\"readOnly\":true,\"resources\":[{\"accountId\":\"000000000000\",\"type\":\"AWS::KMS::Key\",\"ARN\":\"arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813\"}],\"eventType\":\"AwsApiCall\",\"managementEvent\":true,\"recipientAccountId\":\"000000000000\",\"sharedEventID\":\"a27fb00e-a52a-4b68-8101-b94242a4310b\",\"eventCategory\":\"Management\"}"
+        },
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "cloudtrail.amazonaws.com"
+          },
+          "eventTime": "2026-09-23T03:25:14Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GenerateDataKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "cloudtrail.amazonaws.com",
+          "userAgent": "cloudtrail.amazonaws.com",
+          "requestParameters": {
+            "keyId": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813",
+            "encryptionContext": {
+              "aws:sns:sourceArn": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c",
+              "aws:sns:sourceAccount": "000000000000",
+              "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c"
+            },
+            "keySpec": "AES_256"
+          },
+          "responseElements": null,
+          "additionalEventData": {
+            "keyMaterialId": "ba5997eb08435ea6726fa5411e9177b0800a24780367e9ed740bf14a6bd946fe"
+          },
+          "requestID": "6830e759-07a8-46e5-b4ee-191bc82fa3fa",
+          "eventID": "8b51462b-612d-35eb-b959-5bf0e08800b9",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "sharedEventID": "a27fb00e-a52a-4b68-8101-b94242a4310b",
+          "eventCategory": "Management"
+        }
+      },
+      {
+        "first_observed_ms": 1790133961536,
+        "lookup_event": {
+          "EventId": "02c0606d-1948-4e69-a373-7556a90021b0",
+          "EventName": "GetKeyPolicy",
+          "ReadOnly": "true",
+          "AccessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "EventTime": "2026-09-23T04:25:06+01:00",
+          "EventSource": "kms.amazonaws.com",
+          "Username": "Delegated",
+          "Resources": [
+            {
+              "ResourceType": "AWS::KMS::Key",
+              "ResourceName": "b3a337c8-32d8-4126-a6da-7ae31aba9813"
+            }
+          ],
+          "CloudTrailEvent": "{\"eventVersion\":\"1.11\",\"userIdentity\":{\"type\":\"IAMUser\",\"principalId\":\"AIDAQAAAAAAAMEZHRHAHY\",\"arn\":\"arn:aws:iam::000000000000:user/Delegated\",\"accountId\":\"000000000000\",\"accessKeyId\":\"AKIAQAAAAAAALNIOKR5B\",\"userName\":\"Delegated\"},\"eventTime\":\"2026-09-23T03:25:06Z\",\"eventSource\":\"kms.amazonaws.com\",\"eventName\":\"GetKeyPolicy\",\"awsRegion\":\"us-east-1\",\"sourceIPAddress\":\"92.234.107.50\",\"userAgent\":\"aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.get-key-policy\",\"requestParameters\":{\"keyId\":\"b3a337c8-32d8-4126-a6da-7ae31aba9813\",\"policyName\":\"default\"},\"responseElements\":null,\"requestID\":\"0f3bd6e1-0dd9-4c0a-bda1-c690b8fd225d\",\"eventID\":\"02c0606d-1948-4e69-a373-7556a90021b0\",\"readOnly\":true,\"resources\":[{\"accountId\":\"000000000000\",\"type\":\"AWS::KMS::Key\",\"ARN\":\"arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813\"}],\"eventType\":\"AwsApiCall\",\"managementEvent\":true,\"recipientAccountId\":\"000000000000\",\"eventCategory\":\"Management\",\"tlsDetails\":{\"tlsVersion\":\"TLSv1.3\",\"cipherSuite\":\"TLS_AES_256_GCM_SHA384\",\"clientProvidedHostHeader\":\"kms.us-east-1.amazonaws.com\",\"keyExchange\":\"X25519MLKEM768\"}}"
+        },
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T03:25:06Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "GetKeyPolicy",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.get-key-policy",
+          "requestParameters": {
+            "keyId": "b3a337c8-32d8-4126-a6da-7ae31aba9813",
+            "policyName": "default"
+          },
+          "responseElements": null,
+          "requestID": "0f3bd6e1-0dd9-4c0a-bda1-c690b8fd225d",
+          "eventID": "02c0606d-1948-4e69-a373-7556a90021b0",
+          "readOnly": true,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      },
+      {
+        "first_observed_ms": 1790133961536,
+        "lookup_event": {
+          "EventId": "734aaa01-fbd5-4a51-b6c9-21af0aa103b3",
+          "EventName": "CreateKey",
+          "ReadOnly": "false",
+          "AccessKeyId": "AKIAQAAAAAAALNIOKR5B",
+          "EventTime": "2026-09-23T04:25:05+01:00",
+          "EventSource": "kms.amazonaws.com",
+          "Username": "Delegated",
+          "Resources": [
+            {
+              "ResourceType": "AWS::KMS::Key",
+              "ResourceName": "b3a337c8-32d8-4126-a6da-7ae31aba9813"
+            },
+            {
+              "ResourceType": "AWS::KMS::Key",
+              "ResourceName": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813"
+            }
+          ],
+          "CloudTrailEvent": "{\"eventVersion\":\"1.11\",\"userIdentity\":{\"type\":\"IAMUser\",\"principalId\":\"AIDAQAAAAAAAMEZHRHAHY\",\"arn\":\"arn:aws:iam::000000000000:user/Delegated\",\"accountId\":\"000000000000\",\"accessKeyId\":\"AKIAQAAAAAAALNIOKR5B\",\"userName\":\"Delegated\"},\"eventTime\":\"2026-09-23T03:25:05Z\",\"eventSource\":\"kms.amazonaws.com\",\"eventName\":\"CreateKey\",\"awsRegion\":\"us-east-1\",\"sourceIPAddress\":\"92.234.107.50\",\"userAgent\":\"aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.create-key\",\"requestParameters\":{\"keySpec\":\"SYMMETRIC_DEFAULT\",\"description\":\"stackd-sns-ctsrc-35afb3963a8c\",\"tags\":[{\"tagKey\":\"stackd-probe\",\"tagValue\":\"stackd-sns-ctsrc-35afb3963a8c\"}],\"keyUsage\":\"ENCRYPT_DECRYPT\",\"bypassPolicyLockoutSafetyCheck\":false,\"origin\":\"AWS_KMS\",\"customerMasterKeySpec\":\"SYMMETRIC_DEFAULT\",\"policy\":\"{\\\"Version\\\": \\\"2012-10-17\\\", \\\"Statement\\\": [{\\\"Sid\\\": \\\"OwnerAdministration\\\", \\\"Effect\\\": \\\"Allow\\\", \\\"Principal\\\": {\\\"AWS\\\": \\\"arn:aws:iam::000000000000:root\\\"}, \\\"Action\\\": \\\"kms:*\\\", \\\"Resource\\\": \\\"*\\\"}, {\\\"Sid\\\": \\\"CloudTrailSnsOnly\\\", \\\"Effect\\\": \\\"Allow\\\", \\\"Principal\\\": {\\\"Service\\\": \\\"cloudtrail.amazonaws.com\\\"}, \\\"Action\\\": [\\\"kms:GenerateDataKey*\\\", \\\"kms:Decrypt\\\"], \\\"Resource\\\": \\\"*\\\", \\\"Condition\\\": {\\\"StringEquals\\\": {\\\"kms:EncryptionContext:aws:sns:topicArn\\\": \\\"arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\\\"}}}]}\"},\"responseElements\":{\"keyMetadata\":{\"aWSAccountId\":\"000000000000\",\"keyId\":\"b3a337c8-32d8-4126-a6da-7ae31aba9813\",\"arn\":\"arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813\",\"creationDate\":\"2026-09-23T03:25:05Z\",\"enabled\":true,\"description\":\"stackd-sns-ctsrc-35afb3963a8c\",\"keyUsage\":\"ENCRYPT_DECRYPT\",\"keyState\":\"Enabled\",\"origin\":\"AWS_KMS\",\"keyManager\":\"CUSTOMER\",\"customerMasterKeySpec\":\"SYMMETRIC_DEFAULT\",\"keySpec\":\"SYMMETRIC_DEFAULT\",\"encryptionAlgorithms\":[\"SYMMETRIC_DEFAULT\"],\"multiRegion\":false,\"currentKeyMaterialId\":\"ba5997eb08435ea6726fa5411e9177b0800a24780367e9ed740bf14a6bd946fe\"}},\"requestID\":\"349d3f8e-5eec-4097-b9f7-cc874f0fc6be\",\"eventID\":\"734aaa01-fbd5-4a51-b6c9-21af0aa103b3\",\"readOnly\":false,\"resources\":[{\"accountId\":\"000000000000\",\"type\":\"AWS::KMS::Key\",\"ARN\":\"arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813\"}],\"eventType\":\"AwsApiCall\",\"managementEvent\":true,\"recipientAccountId\":\"000000000000\",\"eventCategory\":\"Management\",\"tlsDetails\":{\"tlsVersion\":\"TLSv1.3\",\"cipherSuite\":\"TLS_AES_256_GCM_SHA384\",\"clientProvidedHostHeader\":\"kms.us-east-1.amazonaws.com\",\"keyExchange\":\"X25519MLKEM768\"}}"
+        },
+        "event": {
+          "eventVersion": "1.11",
+          "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+            "arn": "arn:aws:iam::000000000000:user/Delegated",
+            "accountId": "000000000000",
+            "accessKeyId": "AKIAQAAAAAAALNIOKR5B",
+            "userName": "Delegated"
+          },
+          "eventTime": "2026-09-23T03:25:05Z",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "CreateKey",
+          "awsRegion": "us-east-1",
+          "sourceIPAddress": "92.234.107.50",
+          "userAgent": "aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.14.6 md/pyimpl#CPython m/AN,n,Z,E,b cfg/retry-mode#standard md/installer#exe sid/852e9451dc23 md/distrib#ubuntu.24 md/prompt#off md/command#kms.create-key",
+          "requestParameters": {
+            "keySpec": "SYMMETRIC_DEFAULT",
+            "description": "stackd-sns-ctsrc-35afb3963a8c",
+            "tags": [
+              {
+                "tagKey": "stackd-probe",
+                "tagValue": "stackd-sns-ctsrc-35afb3963a8c"
+              }
+            ],
+            "keyUsage": "ENCRYPT_DECRYPT",
+            "bypassPolicyLockoutSafetyCheck": false,
+            "origin": "AWS_KMS",
+            "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnerAdministration\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::000000000000:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"CloudTrailSnsOnly\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": [\"kms:GenerateDataKey*\", \"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:EncryptionContext:aws:sns:topicArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c\"}}}]}"
+          },
+          "responseElements": {
+            "keyMetadata": {
+              "aWSAccountId": "000000000000",
+              "keyId": "b3a337c8-32d8-4126-a6da-7ae31aba9813",
+              "arn": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813",
+              "creationDate": "2026-09-23T03:25:05Z",
+              "enabled": true,
+              "description": "stackd-sns-ctsrc-35afb3963a8c",
+              "keyUsage": "ENCRYPT_DECRYPT",
+              "keyState": "Enabled",
+              "origin": "AWS_KMS",
+              "keyManager": "CUSTOMER",
+              "customerMasterKeySpec": "SYMMETRIC_DEFAULT",
+              "keySpec": "SYMMETRIC_DEFAULT",
+              "encryptionAlgorithms": [
+                "SYMMETRIC_DEFAULT"
+              ],
+              "multiRegion": false,
+              "currentKeyMaterialId": "ba5997eb08435ea6726fa5411e9177b0800a24780367e9ed740bf14a6bd946fe"
+            }
+          },
+          "requestID": "349d3f8e-5eec-4097-b9f7-cc874f0fc6be",
+          "eventID": "734aaa01-fbd5-4a51-b6c9-21af0aa103b3",
+          "readOnly": false,
+          "resources": [
+            {
+              "accountId": "000000000000",
+              "type": "AWS::KMS::Key",
+              "ARN": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813"
+            }
+          ],
+          "eventType": "AwsApiCall",
+          "managementEvent": true,
+          "recipientAccountId": "000000000000",
+          "eventCategory": "Management",
+          "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_256_GCM_SHA384",
+            "clientProvidedHostHeader": "kms.us-east-1.amazonaws.com",
+            "keyExchange": "X25519MLKEM768"
+          }
+        }
+      }
+    ],
+    "lookups": [
+      {
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "EventSource",
+              "AttributeValue": "kms.amazonaws.com"
+            }
+          ],
+          "StartTime": "2026-09-23T03:24:59.054401+00:00",
+          "EndTime": "2026-09-23T03:25:21.998000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790133930109,
+        "response_observed_ms": 1790133930806,
+        "result_code": "Success",
+        "returned_event_count": 0,
+        "next_token": null,
+        "matched_event_ids": []
+      },
+      {
+        "input": {
+          "LookupAttributes": [
+            {
+              "AttributeKey": "EventSource",
+              "AttributeValue": "kms.amazonaws.com"
+            }
+          ],
+          "StartTime": "2026-09-23T03:24:59.054401+00:00",
+          "EndTime": "2026-09-23T03:25:21.998000+00:00",
+          "MaxResults": 50
+        },
+        "request_started_ms": 1790133960807,
+        "response_observed_ms": 1790133961536,
+        "result_code": "Success",
+        "returned_event_count": 5,
+        "next_token": null,
+        "matched_event_ids": [
+          "2157ca1e-9014-3c29-80e8-9e050e219356",
+          "8b51462b-612d-35eb-b959-5bf0e08800b9",
+          "02c0606d-1948-4e69-a373-7556a90021b0",
+          "734aaa01-fbd5-4a51-b6c9-21af0aa103b3"
+        ]
+      }
+    ],
+    "window": {
+      "start": "2026-09-23T03:24:59.054401+00:00",
+      "end": "2026-09-23T03:25:21.998000+00:00",
+      "poll_started_ms": 1790133930109,
+      "maximum_poll_seconds": 660,
+      "poll_finished_ms": 1790133961537
+    }
+  },
+  "cleanup": [
+    {
+      "label": "stop-owned-trail",
+      "service": "cloudtrail",
+      "operation": "stop-logging",
+      "input": {
+        "Name": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133917001,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133917712
+    },
+    {
+      "label": "delete-owned-trail",
+      "service": "cloudtrail",
+      "operation": "delete-trail",
+      "input": {
+        "Name": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133917713,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133918459
+    },
+    {
+      "label": "verify-trail-absent",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133918459,
+      "result": {
+        "code": "TrailNotFoundException",
+        "error": {
+          "Message": "Unknown trail: stackd-sns-ctsrc-35afb3963a8c for the user: 000000000000",
+          "Code": "TrailNotFoundException"
+        }
+      },
+      "response_observed_ms": 1790133919154
+    },
+    {
+      "label": "list-owned-bucket-versions",
+      "service": "s3api",
+      "operation": "list-object-versions",
+      "input": {
+        "Bucket": "stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133919154,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Versions": [
+            {
+              "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+              "ChecksumAlgorithm": [
+                "CRC64NVME"
+              ],
+              "ChecksumType": "FULL_OBJECT",
+              "Size": 0,
+              "StorageClass": "STANDARD",
+              "Key": "AWSLogs/000000000000/CloudTrail/",
+              "VersionId": "null",
+              "IsLatest": true,
+              "LastModified": "2026-09-23T03:25:15+00:00",
+              "Owner": {
+                "ID": "9a3ad4378495bf21a0ca2eb22fca89ccaec9b30e71225f50ff06fd8b3b6a8fbd"
+              }
+            }
+          ],
+          "RequestCharged": null,
+          "Prefix": ""
+        }
+      },
+      "response_observed_ms": 1790133919896
+    },
+    {
+      "label": "delete-owned-versions",
+      "service": "s3api",
+      "operation": "delete-objects",
+      "input": {
+        "Bucket": "stackd-sns-ctsrc-35afb3963a8c",
+        "Delete": {
+          "Objects": [
+            {
+              "Key": "AWSLogs/000000000000/CloudTrail/",
+              "VersionId": "null"
+            }
+          ],
+          "Quiet": false
+        }
+      },
+      "request_started_ms": 1790133919896,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Deleted": [
+            {
+              "Key": "AWSLogs/000000000000/CloudTrail/",
+              "VersionId": "null"
+            }
+          ]
+        }
+      },
+      "response_observed_ms": 1790133920615
+    },
+    {
+      "label": "list-owned-bucket-objects",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133920615,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RequestCharged": null,
+          "Prefix": ""
+        }
+      },
+      "response_observed_ms": 1790133921313
+    },
+    {
+      "label": "verify-owned-bucket-versions-empty",
+      "service": "s3api",
+      "operation": "list-object-versions",
+      "input": {
+        "Bucket": "stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133921314,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RequestCharged": null,
+          "Prefix": ""
+        }
+      },
+      "response_observed_ms": 1790133922026
+    },
+    {
+      "label": "verify-owned-bucket-objects-empty",
+      "service": "s3api",
+      "operation": "list-objects-v2",
+      "input": {
+        "Bucket": "stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133922027,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RequestCharged": null,
+          "Prefix": ""
+        }
+      },
+      "response_observed_ms": 1790133922751
+    },
+    {
+      "label": "delete-owned-bucket",
+      "service": "s3api",
+      "operation": "delete-bucket",
+      "input": {
+        "Bucket": "stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133922751,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133923699
+    },
+    {
+      "label": "verify-owned-bucket-absent",
+      "service": "s3api",
+      "operation": "head-bucket",
+      "input": {
+        "Bucket": "stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133923700,
+      "result": {
+        "code": "404",
+        "error": {
+          "Code": "404",
+          "Message": "Not Found"
+        }
+      },
+      "response_observed_ms": 1790133924385
+    },
+    {
+      "label": "unsubscribe-owned",
+      "service": "sns",
+      "operation": "unsubscribe",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c:8eb484e9-d632-43c0-ba8a-d7fcb4693b5b"
+      },
+      "request_started_ms": 1790133924385,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133925164
+    },
+    {
+      "label": "verify-subscription-absent",
+      "service": "sns",
+      "operation": "get-subscription-attributes",
+      "input": {
+        "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c:8eb484e9-d632-43c0-ba8a-d7fcb4693b5b"
+      },
+      "request_started_ms": 1790133925164,
+      "result": {
+        "code": "NotFound",
+        "error": {
+          "Code": "NotFound",
+          "Message": "Subscription does not exist"
+        }
+      },
+      "response_observed_ms": 1790133925838
+    },
+    {
+      "label": "delete-owned-topic",
+      "service": "sns",
+      "operation": "delete-topic",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133925839,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133926573
+    },
+    {
+      "label": "verify-topic-absent",
+      "service": "sns",
+      "operation": "get-topic-attributes",
+      "input": {
+        "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133926574,
+      "result": {
+        "code": "NotFound",
+        "error": {
+          "Code": "NotFound",
+          "Message": "Topic does not exist"
+        }
+      },
+      "response_observed_ms": 1790133927245
+    },
+    {
+      "label": "delete-owned-queue",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-ctsrc-35afb3963a8c"
+      },
+      "request_started_ms": 1790133927245,
+      "result": {
+        "code": "Success",
+        "output": {}
+      },
+      "response_observed_ms": 1790133928027
+    },
+    {
+      "label": "verify-queue-absent",
+      "service": "sqs",
+      "operation": "get-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-ctsrc-35afb3963a8c",
+        "AttributeNames": [
+          "QueueArn"
+        ]
+      },
+      "request_started_ms": 1790133928027,
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "error": {
+          "Message": "The specified queue does not exist.",
+          "Code": "AWS.SimpleQueueService.NonExistentQueue"
+        }
+      },
+      "response_observed_ms": 1790133928684
+    },
+    {
+      "label": "schedule-owned-key-deletion",
+      "service": "kms",
+      "operation": "schedule-key-deletion",
+      "input": {
+        "KeyId": "b3a337c8-32d8-4126-a6da-7ae31aba9813",
+        "PendingWindowInDays": 7
+      },
+      "request_started_ms": 1790133928684,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyId": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813",
+          "DeletionDate": "2026-09-30T04:25:29.307000+01:00",
+          "KeyState": "PendingDeletion",
+          "PendingWindowInDays": 7
+        }
+      },
+      "response_observed_ms": 1790133929425
+    },
+    {
+      "label": "verify-key-pending-deletion",
+      "service": "kms",
+      "operation": "describe-key",
+      "input": {
+        "KeyId": "b3a337c8-32d8-4126-a6da-7ae31aba9813"
+      },
+      "request_started_ms": 1790133929425,
+      "result": {
+        "code": "Success",
+        "output": {
+          "KeyMetadata": {
+            "AWSAccountId": "000000000000",
+            "KeyId": "b3a337c8-32d8-4126-a6da-7ae31aba9813",
+            "Arn": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813",
+            "CreationDate": "2026-09-23T04:25:05.334000+01:00",
+            "Enabled": false,
+            "Description": "stackd-sns-ctsrc-35afb3963a8c",
+            "KeyUsage": "ENCRYPT_DECRYPT",
+            "KeyState": "PendingDeletion",
+            "DeletionDate": "2026-09-30T04:25:29.307000+01:00",
+            "Origin": "AWS_KMS",
+            "KeyManager": "CUSTOMER",
+            "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+            "KeySpec": "SYMMETRIC_DEFAULT",
+            "EncryptionAlgorithms": [
+              "SYMMETRIC_DEFAULT"
+            ],
+            "MultiRegion": false,
+            "CurrentKeyMaterialId": "ba5997eb08435ea6726fa5411e9177b0800a24780367e9ed740bf14a6bd946fe"
+          }
+        }
+      },
+      "response_observed_ms": 1790133930100
+    }
+  ],
+  "owned_resources": {
+    "key": {
+      "AWSAccountId": "000000000000",
+      "KeyId": "b3a337c8-32d8-4126-a6da-7ae31aba9813",
+      "Arn": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813",
+      "CreationDate": "2026-09-23T04:25:05.334000+01:00",
+      "Enabled": true,
+      "Description": "stackd-sns-ctsrc-35afb3963a8c",
+      "KeyUsage": "ENCRYPT_DECRYPT",
+      "KeyState": "Enabled",
+      "Origin": "AWS_KMS",
+      "KeyManager": "CUSTOMER",
+      "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+      "KeySpec": "SYMMETRIC_DEFAULT",
+      "EncryptionAlgorithms": [
+        "SYMMETRIC_DEFAULT"
+      ],
+      "MultiRegion": false,
+      "CurrentKeyMaterialId": "ba5997eb08435ea6726fa5411e9177b0800a24780367e9ed740bf14a6bd946fe"
+    },
+    "queue_url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-ctsrc-35afb3963a8c",
+    "queue_arn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+    "topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c",
+    "subscription_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c:8eb484e9-d632-43c0-ba8a-d7fcb4693b5b",
+    "bucket": "stackd-sns-ctsrc-35afb3963a8c",
+    "trail_attempted": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c",
+    "trail_arn": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c"
+  },
+  "limitations": [
+    "This run captured only CreateTrail's real CloudTrail validation publication, received before logging started. Asynchronous log-file notification encryption context and audit identity were not exercised. No organization mutation, management/data-event logging, or Lake occurred.",
+    "SNS source CMK is used only by the owned SNS topic. Owned bucket uses SSE-S3, queue is unencrypted, and trail has no KmsKeyId.",
+    "The source service alone receives GenerateDataKey/Decrypt permission, scoped by topic encryption context; there is no sns.amazonaws.com KMS Allow. Topic and queue service grants require their exact source ARN and account."
+  ],
+  "identity": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated"
+  },
+  "received_cloudtrail_publication": true,
+  "delivery_finished_ms": 1790133916998,
+  "cleanup_finished_ms": 1790133930100,
+  "findings": {
+    "actual_cloudtrail_receipt": true,
+    "successful_topic_kms_events": [
+      {
+        "event_id": "2157ca1e-9014-3c29-80e8-9e050e219356",
+        "event_time": "2026-09-23T03:25:14Z",
+        "event_name": "Decrypt",
+        "encryption_context": {
+          "aws:sns:sourceArn": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c",
+          "aws:sns:sourceAccount": "000000000000",
+          "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c"
+        },
+        "user_identity": {
+          "type": "AWSService",
+          "invokedBy": "cloudtrail.amazonaws.com"
+        },
+        "source_ip_address": "cloudtrail.amazonaws.com",
+        "user_agent": "cloudtrail.amazonaws.com",
+        "key_resources": [
+          {
+            "accountId": "000000000000",
+            "type": "AWS::KMS::Key",
+            "ARN": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813"
+          }
+        ]
+      },
+      {
+        "event_id": "8b51462b-612d-35eb-b959-5bf0e08800b9",
+        "event_time": "2026-09-23T03:25:14Z",
+        "event_name": "GenerateDataKey",
+        "encryption_context": {
+          "aws:sns:sourceArn": "arn:aws:cloudtrail:us-east-1:000000000000:trail/stackd-sns-ctsrc-35afb3963a8c",
+          "aws:sns:sourceAccount": "000000000000",
+          "aws:sns:topicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-ctsrc-35afb3963a8c"
+        },
+        "user_identity": {
+          "type": "AWSService",
+          "invokedBy": "cloudtrail.amazonaws.com"
+        },
+        "source_ip_address": "cloudtrail.amazonaws.com",
+        "user_agent": "cloudtrail.amazonaws.com",
+        "key_resources": [
+          {
+            "accountId": "000000000000",
+            "type": "AWS::KMS::Key",
+            "ARN": "arn:aws:kms:us-east-1:000000000000:key/b3a337c8-32d8-4126-a6da-7ae31aba9813"
+          }
+        ]
+      }
+    ],
+    "kms_permission_principal": "cloudtrail.amazonaws.com",
+    "sns_service_kms_allow": false,
+    "trail_logging_started": false
+  },
+  "cleanup_summary": {
+    "trail": "StopLogging and DeleteTrail succeeded; independent GetTrail returned TrailNotFoundException.",
+    "bucket": "The zero-byte preflight marker's null version was deleted. Independent version and object listings were empty before bucket deletion; subsequent HeadBucket returned 404.",
+    "subscription": "Unsubscribe succeeded; independent GetSubscriptionAttributes returned NotFound.",
+    "topic": "DeleteTopic succeeded; independent GetTopicAttributes returned NotFound.",
+    "queue": "DeleteQueue succeeded; independent GetQueueAttributes returned AWS.SimpleQueueService.NonExistentQueue.",
+    "cmk_id": "b3a337c8-32d8-4126-a6da-7ae31aba9813",
+    "cmk_state": "PendingDeletion",
+    "cmk_pending_window_days": 7,
+    "cmk_deletion_date_native": "2026-09-30T04:25:29.307000+01:00",
+    "cmk_deletion_date_utc": "2026-09-30T03:25:29.307000+00:00",
+    "cmk_independent_verification": "DescribeKey confirmed the exact scheduled deletion deadline and PendingDeletion state."
+  },
+  "probe_source": {
+    "filename": "sns_cloudtrail_source_probe.py",
+    "sha256": "023d0fa4168ae5bd40ad3facb7b399b3c565c4f87b32810607312cd228102920",
+    "content": "#!/usr/bin/env python3\nimport datetime, hashlib, json, os, sys, time, uuid\nfrom pathlib import Path\nsys.path.insert(0, str(Path.cwd() / 'scripts/aws'))\nfrom aws_cli import observe\nACCOUNT='000000000000'; REGION='us-east-1'\nPREFIX='stackd-sns-ctsrc-'+uuid.uuid4().hex[:12]\nOUT=Path('testdata/aws/sns/encryption_cloudtrail_source.json')\nENV=dict(os.environ,AWS_DEFAULT_REGION=REGION,AWS_REGION=REGION,AWS_MAX_ATTEMPTS='2',AWS_PAGER='')\nfor k in list(ENV):\n    if k.startswith('AWS_ENDPOINT_URL'): del ENV[k]\nSTART=time.time()\nCAP={'account':ACCOUNT,'region':REGION,'prefix':PREFIX,'started_ms':int(START*1000),'source_references':['https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-permissions-for-sns-notifications.html','https://docs.aws.amazon.com/awscloudtrail/latest/userguide/configure-sns-notifications-for-cloudtrail.html','https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html'],'source_revisions':{'stackd':'6c8e6a39e279a7bd64483c78d788cf5fc2a2e9cf'},'observations':[],'receipts':[],'windows':[],'cloudtrail':{'events':[],'lookups':[]},'cleanup':[],'owned_resources':{},'limitations':['Single-region standard-topic CloudTrail producer; validation publication and, only if necessary, bounded management-event log notifications. No organization mutation, data-event logging, or Lake.','SNS source CMK is used only by the owned SNS topic. Owned bucket uses SSE-S3, queue is unencrypted, and trail has no KmsKeyId.','The source service alone receives GenerateDataKey/Decrypt permission, scoped by topic encryption context; there is no sns.amazonaws.com KMS Allow. Topic and queue service grants require their exact source ARN and account.']}\nR=CAP['owned_resources']; TRAIL='arn:aws:cloudtrail:'+REGION+':'+ACCOUNT+':trail/'+PREFIX; TOPIC='arn:aws:sns:'+REGION+':'+ACCOUNT+':'+PREFIX\n\ndef ms(): return int(time.time()*1000)\ndef save(): OUT.write_text(json.dumps(CAP,indent=2)+'\\n')\ndef call(label,service,operation,args=None,strict=True,cleanup=False):\n    item={'label':label,'service':service,'operation':operation,'input':args or {},'request_started_ms':ms()}\n    try: result=observe(service,operation,args,ENV)\n    except Exception as e:\n        item.update(transport_error=str(e),response_observed_ms=ms()); CAP['cleanup' if cleanup else 'observations'].append(item); save(); raise\n    item.update(result=result,response_observed_ms=ms()); CAP['cleanup' if cleanup else 'observations'].append(item); save()\n    if strict and result['code']!='Success': raise RuntimeError(label+': '+json.dumps(result))\n    return result.get('output',{}) if strict else result\n\ndef policy(statements): return json.dumps({'Version':'2012-10-17','Statement':statements})\ndef receive(label,seconds):\n    start=ms(); deadline=time.monotonic()+seconds; found=False\n    while time.monotonic()<deadline and not found:\n        out=call('receive-'+label,'sqs','receive-message',{'QueueUrl':R['queue_url'],'WaitTimeSeconds':10,'MaxNumberOfMessages':10,'MessageAttributeNames':['All'],'MessageSystemAttributeNames':['All']})\n        for m in out.get('Messages',[]):\n            body=m['Body']; parsed=None\n            try: parsed=json.loads(body)\n            except json.JSONDecodeError: pass\n            is_validation=body=='CloudTrail validation message.'\n            is_log=isinstance(parsed,dict) and parsed.get('s3Bucket')==PREFIX\n            CAP['receipts'].append({'observed_ms':ms(),'phase':label,'queue_arn':R['queue_arn'],'topic_arn':R['topic_arn'],'message':m,'decoded_body':parsed,'is_cloudtrail_validation':is_validation,'is_owned_log_notification':is_log,'correlation':{'exclusive_subscribed_topic':R['topic_arn'],'topic_policy_source_arn':TRAIL,'topic_policy_source_account':ACCOUNT,'producer_observation':'create-trail','only_publisher_in_probe':'cloudtrail.amazonaws.com'}})\n            call('delete-receipt','sqs','delete-message',{'QueueUrl':R['queue_url'],'ReceiptHandle':m['ReceiptHandle']})\n            found=found or is_validation or is_log\n    CAP['windows'].append({'phase':label,'started_ms':start,'ended_ms':ms(),'maximum_seconds':seconds,'matching_receipt':found}); save(); return found\n\ndef cleanup_one(label,service,op,args):\n    try: return call(label,service,op,args,strict=False,cleanup=True)\n    except Exception as e:\n        CAP.setdefault('cleanup_transport_failures',[]).append({'label':label,'error':str(e)}); save(); return {}\n\ntry:\n    CAP['identity']=call('identity-before-mutation','sts','get-caller-identity')\n    if CAP['identity']['Account']!=ACCOUNT: raise RuntimeError('Unexpected account; mutation forbidden')\n    R['key']=call('create-sns-source-key','kms','create-key',{'Description':PREFIX,'Policy':policy([{'Sid':'OwnerAdministration','Effect':'Allow','Principal':{'AWS':'arn:aws:iam::'+ACCOUNT+':root'},'Action':'kms:*','Resource':'*'},{'Sid':'CloudTrailSnsOnly','Effect':'Allow','Principal':{'Service':'cloudtrail.amazonaws.com'},'Action':['kms:GenerateDataKey*','kms:Decrypt'],'Resource':'*','Condition':{'StringEquals':{'kms:EncryptionContext:aws:sns:topicArn':TOPIC}}}]),'Tags':[{'TagKey':'stackd-probe','TagValue':PREFIX}]})['KeyMetadata']; save()\n    call('read-source-key-policy','kms','get-key-policy',{'KeyId':R['key']['KeyId'],'PolicyName':'default'})\n    R['queue_url']=call('create-queue','sqs','create-queue',{'QueueName':PREFIX,'Attributes':{'SqsManagedSseEnabled':'false'}})['QueueUrl']; save()\n    R['queue_arn']=call('read-queue','sqs','get-queue-attributes',{'QueueUrl':R['queue_url'],'AttributeNames':['QueueArn','SqsManagedSseEnabled']})['Attributes']['QueueArn']; save()\n    call('queue-source-policy','sqs','set-queue-attributes',{'QueueUrl':R['queue_url'],'Attributes':{'Policy':policy([{'Effect':'Allow','Principal':{'Service':'sns.amazonaws.com'},'Action':'sqs:SendMessage','Resource':R['queue_arn'],'Condition':{'ArnEquals':{'aws:SourceArn':TOPIC},'StringEquals':{'aws:SourceAccount':ACCOUNT}}}])}})\n    R['topic_arn']=call('create-encrypted-topic','sns','create-topic',{'Name':PREFIX,'Attributes':{'KmsMasterKeyId':R['key']['Arn']}})['TopicArn']; save()\n    call('topic-source-policy','sns','set-topic-attributes',{'TopicArn':TOPIC,'AttributeName':'Policy','AttributeValue':policy([{'Effect':'Allow','Principal':{'Service':'cloudtrail.amazonaws.com'},'Action':'sns:Publish','Resource':TOPIC,'Condition':{'ArnEquals':{'aws:SourceArn':TRAIL},'StringEquals':{'aws:SourceAccount':ACCOUNT}}}])})\n    R['subscription_arn']=call('subscribe-raw-queue','sns','subscribe',{'TopicArn':TOPIC,'Protocol':'sqs','Endpoint':R['queue_arn'],'Attributes':{'RawMessageDelivery':'true'},'ReturnSubscriptionArn':True})['SubscriptionArn']; save()\n    call('read-encrypted-topic','sns','get-topic-attributes',{'TopicArn':TOPIC})\n    call('read-raw-subscription','sns','get-subscription-attributes',{'SubscriptionArn':R['subscription_arn']})\n    call('create-bucket','s3api','create-bucket',{'Bucket':PREFIX}); R['bucket']=PREFIX; save()\n    call('bucket-source-policy','s3api','put-bucket-policy',{'Bucket':PREFIX,'Policy':policy([{'Sid':'Acl','Effect':'Allow','Principal':{'Service':'cloudtrail.amazonaws.com'},'Action':'s3:GetBucketAcl','Resource':'arn:aws:s3:::'+PREFIX,'Condition':{'StringEquals':{'aws:SourceArn':TRAIL,'aws:SourceAccount':ACCOUNT}}},{'Sid':'Write','Effect':'Allow','Principal':{'Service':'cloudtrail.amazonaws.com'},'Action':'s3:PutObject','Resource':'arn:aws:s3:::'+PREFIX+'/AWSLogs/'+ACCOUNT+'/*','Condition':{'StringEquals':{'aws:SourceArn':TRAIL,'aws:SourceAccount':ACCOUNT,'s3:x-amz-acl':'bucket-owner-full-control'}}}])})\n    R['trail_attempted']=TRAIL; save()\n    call('create-trail','cloudtrail','create-trail',{'Name':PREFIX,'S3BucketName':PREFIX,'SnsTopicName':TOPIC,'IncludeGlobalServiceEvents':False,'IsMultiRegionTrail':False,'EnableLogFileValidation':False,'IsOrganizationTrail':False}); R['trail_arn']=TRAIL; save()\n    call('trail-status-preflight','cloudtrail','get-trail-status',{'Name':TRAIL})\n    got=receive('validation-preflight',120)\n    if not got:\n        call('bounded-management-selectors','cloudtrail','put-event-selectors',{'TrailName':TRAIL,'EventSelectors':[{'ReadWriteType':'All','IncludeManagementEvents':True,'DataResources':[]}]})\n        call('start-bounded-logging','cloudtrail','start-logging',{'Name':TRAIL})\n        call('owned-management-trigger','sns','get-topic-attributes',{'TopicArn':TOPIC})\n        got=receive('bounded-management-log-notification',600)\n        call('trail-status-after-logging','cloudtrail','get-trail-status',{'Name':TRAIL})\n    CAP['received_cloudtrail_publication']=got\n    CAP['delivery_finished_ms']=ms(); save()\nexcept Exception as e:\n    CAP['failure']=str(e); save()\nfinally:\n    if R.get('trail_attempted'):\n        cleanup_one('stop-owned-trail','cloudtrail','stop-logging',{'Name':TRAIL})\n        cleanup_one('delete-owned-trail','cloudtrail','delete-trail',{'Name':TRAIL})\n        cleanup_one('verify-trail-absent','cloudtrail','get-trail',{'Name':TRAIL})\n    if R.get('bucket'):\n        listed=cleanup_one('list-owned-bucket-versions','s3api','list-object-versions',{'Bucket':PREFIX})\n        versions=listed.get('output',{})\n        objects=[{'Key':x['Key'],'VersionId':x['VersionId']} for x in versions.get('Versions',[])+versions.get('DeleteMarkers',[])]\n        if objects: cleanup_one('delete-owned-versions','s3api','delete-objects',{'Bucket':PREFIX,'Delete':{'Objects':objects,'Quiet':False}})\n        listed=cleanup_one('list-owned-bucket-objects','s3api','list-objects-v2',{'Bucket':PREFIX})\n        objects=[{'Key':x['Key']} for x in listed.get('output',{}).get('Contents',[])]\n        if objects: cleanup_one('delete-owned-objects','s3api','delete-objects',{'Bucket':PREFIX,'Delete':{'Objects':objects,'Quiet':False}})\n        cleanup_one('verify-owned-bucket-versions-empty','s3api','list-object-versions',{'Bucket':PREFIX})\n        cleanup_one('verify-owned-bucket-objects-empty','s3api','list-objects-v2',{'Bucket':PREFIX})\n        cleanup_one('delete-owned-bucket','s3api','delete-bucket',{'Bucket':PREFIX})\n        cleanup_one('verify-owned-bucket-absent','s3api','head-bucket',{'Bucket':PREFIX})\n    if R.get('subscription_arn'):\n        cleanup_one('unsubscribe-owned','sns','unsubscribe',{'SubscriptionArn':R['subscription_arn']})\n        cleanup_one('verify-subscription-absent','sns','get-subscription-attributes',{'SubscriptionArn':R['subscription_arn']})\n    if R.get('topic_arn'):\n        cleanup_one('delete-owned-topic','sns','delete-topic',{'TopicArn':TOPIC})\n        cleanup_one('verify-topic-absent','sns','get-topic-attributes',{'TopicArn':TOPIC})\n    if R.get('queue_url'):\n        cleanup_one('delete-owned-queue','sqs','delete-queue',{'QueueUrl':R['queue_url']})\n        cleanup_one('verify-queue-absent','sqs','get-queue-attributes',{'QueueUrl':R['queue_url'],'AttributeNames':['QueueArn']})\n    if R.get('key'):\n        cleanup_one('schedule-owned-key-deletion','kms','schedule-key-deletion',{'KeyId':R['key']['KeyId'],'PendingWindowInDays':7})\n        cleanup_one('verify-key-pending-deletion','kms','describe-key',{'KeyId':R['key']['KeyId']})\n    CAP['cleanup_finished_ms']=ms(); save()\n\nif R.get('key'):\n    end=CAP.get('delivery_finished_ms',CAP['cleanup_finished_ms'])/1000\n    args={'LookupAttributes':[{'AttributeKey':'EventSource','AttributeValue':'kms.amazonaws.com'}],'StartTime':datetime.datetime.fromtimestamp(START-5,datetime.timezone.utc).isoformat(),'EndTime':datetime.datetime.fromtimestamp(end+5,datetime.timezone.utc).isoformat(),'MaxResults':50}\n    deadline=time.monotonic()+660; seen=set(); CAP['cloudtrail']['window']={'start':args['StartTime'],'end':args['EndTime'],'poll_started_ms':ms(),'maximum_poll_seconds':660}\n    while True:\n        page_args=dict(args)\n        while True:\n            started=ms(); res=observe('cloudtrail','lookup-events',page_args,ENV); ended=ms()\n            lookup={'input':page_args,'request_started_ms':started,'response_observed_ms':ended,'result_code':res['code']}\n            if res['code']!='Success': lookup['error']=res; CAP['cloudtrail']['lookups'].append(lookup); break\n            out=res['output']; lookup.update(returned_event_count=len(out.get('Events',[])),next_token=out.get('NextToken'),matched_event_ids=[])\n            for item in out.get('Events',[]):\n                event=json.loads(item['CloudTrailEvent'])\n                if R['key']['KeyId'] not in json.dumps(event): continue\n                lookup['matched_event_ids'].append(event['eventID'])\n                if event['eventID'] in seen: continue\n                seen.add(event['eventID']); CAP['cloudtrail']['events'].append({'first_observed_ms':ended,'lookup_event':item,'event':event})\n            CAP['cloudtrail']['lookups'].append(lookup); save()\n            if not out.get('NextToken'): break\n            page_args=dict(args,NextToken=out['NextToken']); time.sleep(0.6)\n        crypt=[x['event'] for x in CAP['cloudtrail']['events'] if x['event'].get('eventName') in ['GenerateDataKey','Decrypt'] and not x['event'].get('errorCode') and (x['event'].get('requestParameters') or {}).get('encryptionContext',{}).get('aws:sns:topicArn')==TOPIC]\n        print(json.dumps({'owned_kms_events':len(seen),'successful_crypto':[e['eventName'] for e in crypt]}),flush=True)\n        if {'GenerateDataKey','Decrypt'}.issubset({e['eventName'] for e in crypt}) or time.monotonic()>=deadline: break\n        time.sleep(min(30,max(0,deadline-time.monotonic())))\n    CAP['cloudtrail']['window']['poll_finished_ms']=ms()\n    CAP['findings']={'actual_cloudtrail_receipt':bool(CAP['receipts']),'successful_topic_kms_events':[{'event_id':e['eventID'],'event_time':e['eventTime'],'event_name':e['eventName'],'encryption_context':e['requestParameters']['encryptionContext'],'user_identity':e['userIdentity'],'source_ip_address':e['sourceIPAddress'],'user_agent':e['userAgent'],'key_resources':e.get('resources',[])} for e in crypt],'kms_permission_principal':'cloudtrail.amazonaws.com','sns_service_kms_allow':False,'trail_logging_started':any(o['operation']=='start-logging' and o.get('result',{}).get('code')=='Success' for o in CAP['observations'])}\n    if not {'GenerateDataKey','Decrypt'}.issubset({e['eventName'] for e in crypt}): CAP['limitations'].append('Bounded management-history polling ended without both successful GenerateDataKey and Decrypt for the owned topic; absence beyond this window is not established.')\nCAP['probe_source']={'filename':Path(__file__).name,'sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'content':Path(__file__).read_text(),'aws_cli_helper_sha256':hashlib.sha256(Path('scripts/aws/aws_cli.py').read_bytes()).hexdigest()}\nCAP['finished_ms']=ms(); save()\nprint(json.dumps({'fixture':str(OUT),'failure':CAP.get('failure'),'receipts':len(CAP['receipts']),'findings':CAP.get('findings')}),flush=True)\n",
+    "aws_cli_helper_sha256": "5485753631883a7f99c7efabf3f5ceeb9175caffb2319a425a8d86d31640196d"
+  },
+  "finished_ms": 1790133961537
+}

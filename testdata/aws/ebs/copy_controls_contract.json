@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "source_script": "scripts/aws/ebs_copy_controls_probe.py",
+  "region": "us-east-1",
+  "owner_account": "000000000000",
+  "recipient_account": "917546008205",
+  "captured_through": "2026-09-25T15:36:27.177906+00:00",
+  "scope": "Finite native AWS observations on four owned empty 1-GiB sources. Eleven copy target IDs were accepted, seven completed, three terminal errors were observed, and one revoked-source target was deleted before terminal DescribeSnapshots. Not a general parity claim.",
+  "fixtures": {
+    "copy_controls.json": "Admission, duplicate/default copies, source sharing/revoke, lifecycle, native EventBridge and delivered two-account management CloudTrail. Initial owner IAM base policy masks session cases; use corrected IAM fixture.",
+    "copy_controls_iam.json": "Corrected region-bounded owner role; source/destination resource checks, resource-account/Owner/SourceRegion conditions, CreateTags authority, successful copy while DescribeSnapshots and EBS reads are explicitly denied.",
+    "copy_controls_source_authority.json": "Actual recipient CopySnapshot with exact source-resource explicit deny: UnauthorizedOperation, no target created.",
+    "copy_controls_public.json": "One public source and recipient copy, under pre-existing unblocked setting; copy completes and stays EBS-readable after public reset.",
+    "copy_controls_contexts.json": "Read-only split source/destination session-policy conditions against the public fixture source."
+  },
+  "contracts": {
+    "required": "Absent SourceSnapshotId returns MissingParameter: The request must contain the parameter SourceSnapshotId. With id provided, absent SourceRegion returned InternalError: An internal error has occurred. Both were observed with and without DryRun.",
+    "source_id": "Empty, bad, and snap-00000000000000000 each return InvalidParameterValue: The specified snapshotId is invalid, before IAM and DryRun.",
+    "source_region": "Empty and not-a-region return InvalidRegion: <value> is not a valid region name. Valid us-west-2 for an actual us-east-1 source accepts a new target then errors Source snapshot is not found.",
+    "destination_region": "Explicit us-west-2 or not-a-region at the us-east-1 endpoint passes DryRun. Actual mismatch returns InvalidParameterValue: DestinationRegion 'us-west-2' does not match the current region (us-east-1).",
+    "source_admission": "Pending source and unshared recipient source accept new target IDs. Pending source then errors Source snapshot is not complete; inaccessible/wrong-region source then errors Source snapshot is not found. Their DryRun calls return DryRunOperation.",
+    "duplicates_and_metadata": "Repeated minimal requests yield distinct IDs. Default Description is empty, not inherited. Source tags and create-volume permissions are not inherited; explicit requested tags appear in CopySnapshot Tags and pending/completed DescribeSnapshots.",
+    "pending": "Immediate pending copies have StateMessage Metadata not updated, VolumeId vol-ffffffff, VolumeSize 0, Encrypted false, Progress 0%, StorageTier standard, TransferType standard, and explicit tags/description already present.",
+    "completed": "Completed empty 1-GiB copies have VolumeSize 1, Progress 100%, CompletionTime and FullSnapshotSizeInBytes 0; StateMessage absent. Error copies retain VolumeSize 0, Progress 0% and their error StateMessage, without CompletionTime/full-size fields.",
+    "duration": "15-minute copy completed with TransferType time-based and CompletionDurationMinutes 15. 15/2880 pass DryRun. -1/0/1/14/16/2881 return InvalidParameterValue, requiring values between 15 and 2880 in 15 minute increments, before IAM/DryRun.",
+    "iam_resources": "Both destination arn:aws:ec2:us-east-1::snapshot/* and exact source arn:aws:ec2:us-east-1::snapshot/snap-ID require ec2:CopySnapshot. Source-only, destination-only NotResource source, and explicit source deny reject. Explicit source deny also rejects a real recipient copy before creating a target.",
+    "iam_contexts": "aws:ResourceAccount is requester on destination and owner on source: individually constraining every resource to either account rejects recipient copy, while split statements matching both succeed. Source-only ec2:Owner=source owner succeeds; wrong Owner rejects. A blanket Owner condition rejects at destination. ec2:SourceRegion match rejects on both tested destination and isolated source.",
+    "tag_authority": "Tags require ec2:CreateTags on destination. ec2:CreateAction=CopySnapshot succeeds; CreateSnapshot or absent tag permission rejects. Real tagged copy completed. Invalid tag resource type and duplicate key reject before DryRun.",
+    "unneeded_reads": "A real owner copy completed despite explicit ec2:DescribeSnapshots and ebs:ListSnapshotBlocks/GetSnapshotBlock/ListChangedBlocks denies.",
+    "revoke_and_public": "Recipient private-shared copy remains readable after source share revoke; owner source remains readable. Public recipient copy completed under existing unblocked state and remains EBS-readable after public reset; owner source also remains readable.",
+    "eventbridge": "Native EBS Snapshot Notification resources/snapshot_id/source actually use arn:aws:ec2::REGION:snapshot/ID. request-id is empty and incremental is a STRING. Successful standard and time-based copies include completionDurationStartTime; time-based has transferType time-based and metCompletionDuration STRING true. Tested source failures have transferType standard, incremental STRING false and no completionDurationStartTime; cause matches snapshot StateMessage.",
+    "cloudtrail": "CopySnapshot is a write Management event with destination awsRegion. All 164 delivered CopySnapshot records in this corpus omit resources. Successful responseElements contain requestId and snapshotId, plus tagSet.items when tagged; request tagSpecificationSet.items uses lower-case resourceType/key/value. Positive cross-account source-owner/caller pairs share requestID/sharedEventID; owner userIdentity is AWSAccount identifying requester, caller is AssumedRole. recipientAccountId follows delivery account. Source-owner projection hides tagged request tagSpecificationSet and response tagSet as HIDDEN_DUE_TO_SECURITY_REASONS; recipient sees tag items."
+  },
+  "boundaries": [
+    "Initial owner-session IAM results are masked by a base ec2:SourceRegion condition; only corrected copy_controls_iam.json establishes owner session authority.",
+    "Initial run hit transport ConnectionClosedError before observed public-source-add response and during trail cleanup. Snapshots, role and event targets were cleaned, then audit-only recovery harvested and removed both trails/buckets. Public behavior was independently completed on fresh owned source.",
+    "PresignedUrl malformed and empty cases only establish DryRun admission here; real encrypted/signature outcomes belong to copy_data fixtures.",
+    "Observed propagation and completion times are not service latency guarantees.",
+    "Missing eventual CloudTrail/EventBridge records do not establish absence; supplemental IAM copy records were not all delivered within the bounded harvest.",
+    "No account/default/org/standing-role changes; no customer KMS keys, volumes, instances, real data, or persistent credentials were created by this script."
+  ],
+  "verification": {
+    "native_copy_targets": 11,
+    "native_completed_copies": 7,
+    "native_terminal_errors": 3,
+    "cloudtrail_delivered_events": 777,
+    "cloudtrail_copy_snapshot_events": 164,
+    "eventbridge_delivered_events": 23,
+    "project_builds_tests_formatters_run": false
+  },
+  "final_account_settings": {
+    "owner": {
+      "get_ebs_encryption_by_default": {
+        "output": {
+          "EbsEncryptionByDefault": false
+        },
+        "http_status": 200,
+        "request_id": "c9ba53a0-c664-477e-bba2-73e59130bdca",
+        "observed_at": "2026-09-25T15:35:16.888529+00:00"
+      },
+      "get_snapshot_block_public_access_state": {
+        "output": {
+          "State": "unblocked",
+          "ManagedBy": "account"
+        },
+        "http_status": 200,
+        "request_id": "d63b3903-cd58-4df4-bd21-8ac35e49a1cf",
+        "observed_at": "2026-09-25T15:35:17.012036+00:00"
+      }
+    },
+    "member": {
+      "get_ebs_encryption_by_default": {
+        "output": {
+          "EbsEncryptionByDefault": false
+        },
+        "http_status": 200,
+        "request_id": "dd86deeb-c67a-4d78-b658-44cd5f757281",
+        "observed_at": "2026-09-25T15:35:17.530147+00:00"
+      },
+      "get_snapshot_block_public_access_state": {
+        "output": {
+          "State": "unblocked",
+          "ManagedBy": "account"
+        },
+        "http_status": 200,
+        "request_id": "95734bfe-ea62-449d-b2f0-14464417f26d",
+        "observed_at": "2026-09-25T15:35:17.649616+00:00"
+      }
+    }
+  },
+  "cleanup": [
+    {
+      "fixture": "copy_controls.json",
+      "snapshots": [
+        "snap-078f7c810a210c7fc",
+        "snap-0c95d32a232a35d67",
+        "snap-0b1ca19dbe86113ca",
+        "snap-017792c614b8b306b",
+        "snap-04d2a9b01fd88d205",
+        "snap-0a84458dc0aa5519a",
+        "snap-01066287294296eb5",
+        "snap-0a10375e89f8e47a9",
+        "snap-0eb5cef07786708a7"
+      ],
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-0eb5cef07786708a7",
+          "snap-0a10375e89f8e47a9",
+          "snap-01066287294296eb5",
+          "snap-0a84458dc0aa5519a",
+          "snap-04d2a9b01fd88d205",
+          "snap-017792c614b8b306b",
+          "snap-0b1ca19dbe86113ca",
+          "snap-0c95d32a232a35d67",
+          "snap-078f7c810a210c7fc"
+        ],
+        "remaining_snapshots": [],
+        "role_deleted": true,
+        "owner_events_deleted": true,
+        "member_events_deleted": true,
+        "owner_audit_deleted": true,
+        "member_audit_deleted": true,
+        "finished_at": "2026-09-25T15:33:20.489150+00:00"
+      }
+    },
+    {
+      "fixture": "copy_controls_iam.json",
+      "snapshots": [
+        "snap-00348cbf8323d6867",
+        "snap-0c38a6652ac5f79b5",
+        "snap-037d9ca92eb45b486"
+      ],
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-037d9ca92eb45b486",
+          "snap-0c38a6652ac5f79b5",
+          "snap-00348cbf8323d6867"
+        ],
+        "remaining_snapshots": [],
+        "role_deleted": true,
+        "finished_at": "2026-09-25T15:29:28.808141+00:00"
+      }
+    },
+    {
+      "fixture": "copy_controls_source_authority.json",
+      "snapshots": [
+        "snap-074c88cab5b3147e2",
+        "snap-0d7b2a675d5699ee5",
+        "snap-06b3689da7722d4ad",
+        "snap-0a0e8b1add05115fb",
+        "snap-0afc3af4ce406fbaa",
+        "snap-037990932fc74370b"
+      ],
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-037990932fc74370b",
+          "snap-0afc3af4ce406fbaa",
+          "snap-0a0e8b1add05115fb",
+          "snap-06b3689da7722d4ad",
+          "snap-0d7b2a675d5699ee5",
+          "snap-074c88cab5b3147e2"
+        ],
+        "keys_scheduled": [
+          "arn:aws:kms:us-east-1:000000000000:key/3791e700-f445-4102-b057-c97053ce294a",
+          "arn:aws:kms:us-east-1:917546008205:key/f1427bbe-67c5-41e9-abbd-b24ba019eb82",
+          "arn:aws:kms:us-east-1:000000000000:key/f00653f1-28e0-4149-b205-eb859ff0fcc8",
+          "arn:aws:kms:us-east-1:917546008205:key/e4888f55-8efa-41cd-adff-96ef498d9e86",
+          "arn:aws:kms:us-east-1:000000000000:key/29215413-2447-4546-918a-2e06e7147375",
+          "arn:aws:kms:us-east-1:917546008205:key/d4c25982-9d9e-4fd1-9b0d-c83c2a4d0161"
+        ],
+        "remaining_snapshots": [],
+        "observed_at": "2026-09-25T15:32:25.723202+00:00"
+      }
+    },
+    {
+      "fixture": "copy_controls_public.json",
+      "snapshots": [
+        "snap-0ae29d1d80ea9a7e5",
+        "snap-02b1d406ad9ae2d77"
+      ],
+      "cleanup": {
+        "deleted_snapshots": [
+          "snap-02b1d406ad9ae2d77",
+          "snap-0ae29d1d80ea9a7e5"
+        ],
+        "remaining_snapshots": [],
+        "finished_at": "2026-09-25T15:33:28.308840+00:00"
+      }
+    },
+    {
+      "fixture": "copy_controls_contexts.json",
+      "snapshots": [],
+      "cleanup": {
+        "deleted_snapshots": [],
+        "remaining_snapshots": [],
+        "finished_at": "2026-09-25T15:31:34.759404+00:00"
+      }
+    }
+  ],
+  "documentation": [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CopySnapshot.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-copy-snapshot.html",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/security_iam_id-based-policy-examples.html#iam-copy-snapshot",
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-cloud-watch-events.html#copy-snapshot-complete",
+    "https://servicereference.us-east-1.amazonaws.com/v1/ec2/ec2.json"
+  ]
+}

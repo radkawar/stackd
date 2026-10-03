@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "reviewed_date": "2026-09-27",
+  "source": "Fresh official AWS documentation; not native observations or local emulator results",
+  "fixture_conventions": {
+    "native_capture": "public_addresses.json",
+    "native_handoff": "public_addresses_handoff.json",
+    "case_identity": "Stable case label plus operation and input; sequence preserves actual execution order",
+    "dynamic_values": "Native resource IDs, request IDs, timestamps and public IPv4 addresses are preserved, not replaced with invented deterministic values",
+    "resource_binding": "aliases maps semantic names to exact owned identifiers; replay substitutes only its own allocated resources",
+    "responses": "SDK-decoded outputs/errors and actual EC2 rawResponseBody; credentials and signed request headers are never retained",
+    "cleanup": "Exact owned resource selectors and absence errors; terminated-instance provider history is explicitly not claimed erased",
+    "local_separation": "No local execution is represented in these native fixtures; documentation-only limits are not synthetic captured errors"
+  },
+  "contracts": [
+    {
+      "topic": "allocation",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateAddress.html",
+      "conclusions": [
+        "Allocation belongs to the account until release, independently of its association.",
+        "Domain is vpc; standard remains an enum value in the API model but documentation does not establish current actual admission.",
+        "Default pool is Amazon IPv4; BYOIP, IPAM, CoIP, recovery and Wavelength are separate controls.",
+        "Network border group constrains where an allocated address can be used."
+      ]
+    },
+    {
+      "topic": "association",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateAddress.html",
+      "conclusions": [
+        "Specify either InstanceId or NetworkInterfaceId, not both; InstanceId requires exactly one attached ENI.",
+        "PrivateIpAddress selects a primary or secondary private address; omission selects primary.",
+        "Reassociation is automatic by default; AllowReassociation=false prevents moving an EIP already associated with another resource.",
+        "Associating to a target with another EIP disassociates that old EIP without releasing its allocation.",
+        "Repeated association is documented as idempotent, but remapping charges may apply; no unbounded replay is performed.",
+        "Cross-network-border-group association is disallowed."
+      ]
+    },
+    {
+      "topic": "disassociation",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DisassociateAddress.html",
+      "conclusions": [
+        "Disassociates from an instance or ENI without releasing the allocation.",
+        "Documented as idempotent; native errors for arbitrary missing or stale association IDs must remain captured separately.",
+        "There is a documented publicDualStackDnsName/last-primary-public-address restriction; this IPv4 capture does not exercise it."
+      ]
+    },
+    {
+      "topic": "release",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReleaseAddress.html",
+      "conclusions": [
+        "A nondefault-VPC EIP must be disassociated first; otherwise InvalidIPAddress.InUse.",
+        "Default-VPC release can auto-disassociate, but no default VPC is mutated by this probe.",
+        "Incorrect NetworkBorderGroup is documented to return InvalidAddress.NotFound.",
+        "After release an address may be allocated to another account; AuthFailure is documented for a subsequent release in that situation."
+      ]
+    },
+    {
+      "topic": "describe",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html",
+      "conclusions": [
+        "AllocationIds and PublicIps select EIPs, not auto-assigned ephemeral IPv4 addresses.",
+        "Documented filters include allocation-id, association-id, instance-id, network-border-group, network-interface-id, network-interface-owner-id, private-ip-address, public-ip, tag:key and tag-key.",
+        "Filter names and values are case-sensitive."
+      ]
+    },
+    {
+      "topic": "private-address-move",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssignPrivateIpAddresses.html",
+      "conclusions": [
+        "Moving a secondary private address to another ENI also moves its associated EIP.",
+        "Remapping is asynchronous; metadata confirms completion.",
+        "AllowReassignment is this operation's separate private-address control, not AssociateAddress.AllowReassociation."
+      ]
+    },
+    {
+      "topic": "private-address-removal",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_UnassignPrivateIpAddresses.html",
+      "conclusions": [
+        "Only secondary private addresses or delegated IPv4 prefixes can be unassigned.",
+        "This API page does not specify the EIP-dependent rejection code; the native capture supplies that boundary."
+      ]
+    },
+    {
+      "topic": "interface-deletion",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteNetworkInterface.html",
+      "conclusions": [
+        "An ENI must be detached from its instance before deletion.",
+        "This API page does not specify whether an unattached ENI's EIP prevents deletion; the native capture supplies that boundary."
+      ]
+    },
+    {
+      "topic": "ephemeral-and-elastic-lifecycle",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-instance-addressing.html",
+      "conclusions": [
+        "Auto-assigned public IPv4 addresses are not account-owned EIP allocations.",
+        "Stopping, hibernating or terminating releases the ephemeral address; starting allocates a new one.",
+        "Associating an EIP releases the ephemeral address; disassociating the EIP ordinarily assigns a new ephemeral address.",
+        "An additional ENI or a secondary private address with an EIP suppresses that new ephemeral assignment.",
+        "Primary/secondary private addresses and EIPs stay with a secondary ENI when detached or attached."
+      ]
+    },
+    {
+      "topic": "quotas-and-pricing",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html",
+      "conclusions": [
+        "Default quota is five EIPs per account per Region; it is adjustable and not an assertion about this account's current configured quota.",
+        "Public IPv4 addresses are charged whether used or idle.",
+        "The capture never exhausts quota and does not synthesize an AddressLimitExceeded observation."
+      ]
+    },
+    {
+      "topic": "stopped-elastic-retention",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-stop-start-works.html",
+      "conclusions": [
+        "Stopped instances retain their ENIs, private IPv4 addresses and associated EIPs.",
+        "Only auto-assigned public IPv4 addresses are released by stop.",
+        "Each instance start has a minimum one-minute charge; capture uses one instance repeatedly, never a second instance."
+      ]
+    },
+    {
+      "topic": "public-egress-authority",
+      "url": "https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html",
+      "conclusions": [
+        "IPv4 internet access requires a public address and an attached IGW route for the destination.",
+        "A public address alone does not enable communication from a private subnet without an IGW route.",
+        "The IGW performs one-to-one NAT; the guest is aware of its private address rather than the translated public address.",
+        "This capture deliberately does not install an IGW route and makes no packet-reachability claim."
+      ]
+    },
+    {
+      "topic": "errors-and-dry-run",
+      "url": "https://docs.aws.amazon.com/ec2/latest/devguide/errors-overview.html",
+      "conclusions": [
+        "Gateway.NotAttached requires attaching an IGW before associating an EIP to a VPC ENI or instance.",
+        "DryRunOperation and UnauthorizedOperation are the permission-check results documented by the five public address APIs.",
+        "DryRun does not prove actual allocation, state validation or mutation; operation-specific native precedence must be taken from paired capture rows.",
+        "InvalidInstanceID is documented for operations that require an ENI selector on a multi-ENI instance.",
+        "InvalidNetworkInterface.InUse or InvalidParameterValue can describe an attached ENI deletion rejection."
+      ]
+    }
+  ]
+}

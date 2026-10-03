@@ -1,0 +1,1454 @@
+{
+  "Source": "cors_evidence.json.gz",
+  "AuditBucket": "cors-audit-replay-logs",
+  "AuditPrefix": "owned/AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Request-correlated native LookupEvents establish PUT/DELETE management event names and parameters. The local real-trail sink verifies durable delivery without inventing an AWS delivery observation.",
+    "Native bounded lookups contained no GetBucketCors events. No assertion of permanent GET exclusion is made.",
+    "Serialized byte counts and request/host IDs are checked against actual local public responses; native timestamps and provider transport values are not pinned."
+  ],
+  "Setup": [
+    {
+      "Label": "create-cors-audit-replay",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "cors-audit-replay"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-cors-audit-replay-logs",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "cors-audit-replay-logs"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "configure-trail-delivery-policy",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "cors-audit-replay-logs",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AWSCloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::cors-audit-replay-logs\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/cors-audit-replay\"}}}, {\"Sid\": \"AWSCloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::cors-audit-replay-logs/owned/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/cors-audit-replay\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "Output": {}
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create-classic-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EnableLogFileValidation": false,
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "IsOrganizationTrail": false,
+        "Name": "cors-audit-replay",
+        "S3BucketName": "cors-audit-replay-logs",
+        "S3KeyPrefix": "owned"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "scope-owned-object-data-and-write-management",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EventSelectors": [
+          {
+            "DataResources": [
+              {
+                "Type": "AWS::S3::Object",
+                "Values": [
+                  "arn:aws:s3:::cors-audit-replay/"
+                ]
+              }
+            ],
+            "ExcludeManagementEventSources": [
+              "kms.amazonaws.com",
+              "rdsdata.amazonaws.com"
+            ],
+            "IncludeManagementEvents": true,
+            "ReadWriteType": "All"
+          }
+        ],
+        "TrailName": "cors-audit-replay"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "cors-audit-replay"
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "delete-missing-config",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 3,
+      "Service": "s3",
+      "Operation": "DeleteBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay"
+      },
+      "Code": "Success",
+      "Status": 204,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:05Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789908065911,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908065999,
+          "x-amz-id-2": "SWWXazG8wA9Wuz5vgYiwi34ucQuc3FQoFtsbLgncWiEQilWdXzKxjTjbsNVS1oOVqCjigkYA/4I=",
+          "turnAroundTime": 86,
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "NVKDPW2WX5MAC6N4",
+        "eventID": "f2f09994-2976-42b1-b6e9-3b1bb295a3a5",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "ordered-retained-config",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 11,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "ID": "first",
+              "AllowedOrigins": [
+                "https://app.example"
+              ],
+              "AllowedMethods": [
+                "GET",
+                "HEAD",
+                "PUT"
+              ],
+              "AllowedHeaders": [
+                "x-probe-*",
+                "Content-Type"
+              ],
+              "ExposeHeaders": [
+                "ETag",
+                "x-amz-request-id"
+              ],
+              "MaxAgeSeconds": 17
+            },
+            {
+              "ID": "fallback",
+              "AllowedOrigins": [
+                "*"
+              ],
+              "AllowedMethods": [
+                "GET",
+                "HEAD",
+                "PUT",
+                "POST",
+                "DELETE"
+              ],
+              "AllowedHeaders": [
+                "*"
+              ],
+              "ExposeHeaders": [
+                "x-amz-version-id"
+              ],
+              "MaxAgeSeconds": 41
+            }
+          ]
+        }
+      },
+      "Code": "Success",
+      "Status": 200,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:09Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": [
+              {
+                "AllowedMethod": [
+                  "GET",
+                  "HEAD",
+                  "PUT"
+                ],
+                "MaxAgeSeconds": 17,
+                "ExposeHeader": [
+                  "ETag",
+                  "x-amz-request-id"
+                ],
+                "ID": "first",
+                "AllowedOrigin": "https://app.example",
+                "AllowedHeader": [
+                  "x-probe-*",
+                  "Content-Type"
+                ]
+              },
+              {
+                "AllowedMethod": [
+                  "GET",
+                  "HEAD",
+                  "PUT",
+                  "POST",
+                  "DELETE"
+                ],
+                "MaxAgeSeconds": 41,
+                "ExposeHeader": "x-amz-version-id",
+                "ID": "fallback",
+                "AllowedOrigin": "*",
+                "AllowedHeader": "*"
+              }
+            ]
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 824,
+          "startTime": 1789908069774,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908069880,
+          "x-amz-id-2": "qkJw7sc7J96pihBIaDbsj1xyzHTIjIAF0cfGZQg93qFVK6baMEWSwvWiSF8GEWFljZtx1OAX2ew=",
+          "turnAroundTime": 106,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "8ZDHVPZ90NG118TZ",
+        "eventID": "4cc399dc-a16f-4a2a-8ced-fb806100d3e8",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "admission-method-options",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 13,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "AllowedOrigins": [
+                "https://app.example"
+              ],
+              "AllowedMethods": [
+                "OPTIONS"
+              ]
+            }
+          ]
+        }
+      },
+      "Code": "InvalidRequest",
+      "Status": 400,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:11Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "errorCode": "InvalidRequest",
+        "errorMessage": "Found unsupported HTTP method in CORS config. Unsupported method is OPTIONS",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": "OPTIONS",
+              "AllowedOrigin": "https://app.example"
+            }
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 196,
+          "startTime": 1789908071325,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908071347,
+          "x-amz-id-2": "v4AmFF6OQTPea+OUv8qwBe+CCEjJxdMhbFOiJUFOyKTM1uIzTUVDPqaYYafz+pwIAwRPQFrruBU=",
+          "turnAroundTime": 21,
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 307
+        },
+        "requestID": "T9QBYQAEXDT6D2JF",
+        "eventID": "33a4f989-7fd3-487b-8211-72ee1af51a82",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "admission-origin-empty",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 23,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "AllowedOrigins": [
+                ""
+              ],
+              "AllowedMethods": [
+                "GET"
+              ]
+            }
+          ]
+        }
+      },
+      "Code": "Success",
+      "Status": 200,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:15Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": "GET",
+              "AllowedOrigin": ""
+            }
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 159,
+          "startTime": 1789908075812,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908075910,
+          "x-amz-id-2": "QFLD/CmmsOiLHEcByIHL2ZemB3rBatxt8O4hew5C4Be+aAHExjmXgLCUZV+Z+Eg8psm1WGYUKJqGQrMDePVtHgk/kyEXHoKH",
+          "turnAroundTime": 96,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "XQV47NQGD3YM9VVW",
+        "eventID": "ad58f181-6ba4-40de-bc75-f61b12824eef",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "admission-origin-null",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 29,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "AllowedOrigins": [
+                "null"
+              ],
+              "AllowedMethods": [
+                "GET"
+              ]
+            }
+          ]
+        }
+      },
+      "Code": "Success",
+      "Status": 200,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:18Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": "GET"
+            }
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 177,
+          "startTime": 1789908078701,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908078801,
+          "x-amz-id-2": "EL2FJQOgdEZSqwo/jpFct+D4Kty6jOIVJ2V2ASAmZbul7v3gPN14tG6i+EAs/q/jK1ZnhvNDr5bStq+5CUnRgoHiQzejPqxb",
+          "turnAroundTime": 98,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "QX6H0QQJX5R87720",
+        "eventID": "3e1c93ee-f6c1-4dd8-910f-a67b06c6fb29",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "admission-header-empty",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 33,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "AllowedOrigins": [
+                "https://app.example"
+              ],
+              "AllowedMethods": [
+                "GET"
+              ],
+              "AllowedHeaders": [
+                ""
+              ]
+            }
+          ]
+        }
+      },
+      "Code": "Success",
+      "Status": 200,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:20Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": "GET",
+              "AllowedOrigin": "https://app.example",
+              "AllowedHeader": ""
+            }
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 209,
+          "startTime": 1789908080573,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908080715,
+          "x-amz-id-2": "WGZKK/hVEDIJ4AWchM6IjYt6WRiCC1X7T9GYUnlscfTc+TFT1Cc8Rwxz6aaclESAn7Jq7jlJ0Uk=",
+          "turnAroundTime": 140,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "KEQE6V0671ZA63P5",
+        "eventID": "c51c8213-40c9-408d-bcb8-15a0fd8bb83e",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "admission-expose-wildcard",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 37,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "AllowedOrigins": [
+                "https://app.example"
+              ],
+              "AllowedMethods": [
+                "GET"
+              ],
+              "ExposeHeaders": [
+                "*"
+              ]
+            }
+          ]
+        }
+      },
+      "Code": "InvalidRequest",
+      "Status": 400,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:22Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "errorCode": "InvalidRequest",
+        "errorMessage": "ExposeHeader \"*\" contains wildcard. We currently do not support wildcard for ExposeHeader.",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": "GET",
+              "ExposeHeader": "*",
+              "AllowedOrigin": "https://app.example"
+            }
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 222,
+          "startTime": 1789908082584,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908082631,
+          "x-amz-id-2": "nuvHmyYiQs7WEcMBWrYo3OGG8vTEQkeTmMPz9IdU5T+lxI9gp8qiEaEuZZoz8Sfw5OssMWWN1euLZDFeLpu2s4MagstRNlt1",
+          "turnAroundTime": 47,
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 342
+        },
+        "requestID": "1W2V03BXPMWHPYBM",
+        "eventID": "7a19b10b-ce8b-49c8-97f5-c4485a45d081",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "admission-duplicate-id",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 43,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "ID": "same",
+              "AllowedOrigins": [
+                "https://app.example"
+              ],
+              "AllowedMethods": [
+                "GET"
+              ]
+            },
+            {
+              "ID": "same",
+              "AllowedOrigins": [
+                "https://app.example"
+              ],
+              "AllowedMethods": [
+                "GET"
+              ]
+            }
+          ]
+        }
+      },
+      "Code": "Success",
+      "Status": 200,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:25Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": [
+              {
+                "AllowedMethod": "GET",
+                "ID": "same",
+                "AllowedOrigin": "https://app.example"
+              },
+              {
+                "AllowedMethod": "GET",
+                "ID": "same",
+                "AllowedOrigin": "https://app.example"
+              }
+            ]
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 323,
+          "startTime": 1789908085258,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908085351,
+          "x-amz-id-2": "Alv5kGNqeM0uR/YFK+ZNLLC7zTVHMbDm64luT8ZClI5sg44IeGTro0qxnnRYgR/+O7EZI0SCy/tHtEQhUWcDg2ueuAVl99Tz",
+          "turnAroundTime": 91,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "K0NX7VCZ033STA48",
+        "eventID": "39b99039-2f8b-47b3-9d67-e9c9768c64b6",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "admission-duplicate-values",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 45,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "ID": "",
+              "AllowedOrigins": [
+                "https://app.example",
+                "https://app.example"
+              ],
+              "AllowedMethods": [
+                "GET",
+                "GET"
+              ],
+              "AllowedHeaders": [
+                "X-Probe",
+                "X-Probe"
+              ],
+              "ExposeHeaders": [
+                "ETag",
+                "ETag"
+              ],
+              "MaxAgeSeconds": 0
+            }
+          ]
+        }
+      },
+      "Code": "Success",
+      "Status": 200,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:26Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": [
+                "GET",
+                "GET"
+              ],
+              "MaxAgeSeconds": 0,
+              "ExposeHeader": [
+                "ETag",
+                "ETag"
+              ],
+              "ID": "",
+              "AllowedOrigin": [
+                "https://app.example",
+                "https://app.example"
+              ],
+              "AllowedHeader": [
+                "X-Probe",
+                "X-Probe"
+              ]
+            }
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 456,
+          "startTime": 1789908086289,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908086388,
+          "x-amz-id-2": "uDMCP2IUMkw/oDEYzlhCsviz38c6uVIvd/5PIMqNPEJmqectj7EmoV5LJF6ZTiFb16FXPsd/JrY=",
+          "turnAroundTime": 97,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "075CWD0CBYJ9ZJB8",
+        "eventID": "58863699-67d7-4b9f-bb48-7198afd34480",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "admission-negative-max-age",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 51,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "AllowedOrigins": [
+                "https://app.example"
+              ],
+              "AllowedMethods": [
+                "GET"
+              ],
+              "MaxAgeSeconds": -1
+            }
+          ]
+        }
+      },
+      "Code": "Success",
+      "Status": 200,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:41:29Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": "GET",
+              "MaxAgeSeconds": -1,
+              "AllowedOrigin": "https://app.example"
+            }
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 225,
+          "startTime": 1789908089146,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908089242,
+          "x-amz-id-2": "HsTbWR8Hskba5faMR+vk6j0D4BNVid+dy8lYmMWftOVM+eKOD3j6LTRbvLIDflHy9BhJMxyRemf77vS3BW97j3U7iVHLIN+r",
+          "turnAroundTime": 95,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "A39GT4EC7ZTPWTMC",
+        "eventID": "6faeebaa-c2a6-4378-b37d-8c1e7c7f5e29",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "origin-pattern-config",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 143,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "AllowedOrigins": [
+                "https://*.example"
+              ],
+              "AllowedMethods": [
+                "GET"
+              ],
+              "AllowedHeaders": [
+                "X-Probe-*"
+              ],
+              "ExposeHeaders": [
+                "ETag"
+              ]
+            }
+          ]
+        }
+      },
+      "Code": "Success",
+      "Status": 200,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:42:12Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": "GET",
+              "ExposeHeader": "ETag",
+              "AllowedOrigin": "https://*.example",
+              "AllowedHeader": "X-Probe-*"
+            }
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 263,
+          "startTime": 1789908132485,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908132597,
+          "x-amz-id-2": "/Hl8A7ZZbV1SiNCTrvGKJugD3AljlA427PiEBdudLsQ4dQBWOG3mN1g2+Xn3X2LkOowVGpuuMJ/34j77cCdVRKl8o3y82QES",
+          "turnAroundTime": 110,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "RWG4ECV9M8W3G9CE",
+        "eventID": "190e9d45-7769-4127-97a6-796581ecb49d",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "wildcard-first-config",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 151,
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "ID": "wild-first",
+              "AllowedOrigins": [
+                "*"
+              ],
+              "AllowedMethods": [
+                "GET"
+              ],
+              "AllowedHeaders": [
+                "*"
+              ],
+              "ExposeHeaders": [
+                "ETag"
+              ],
+              "MaxAgeSeconds": 99
+            },
+            {
+              "ID": "exact-second",
+              "AllowedOrigins": [
+                "https://app.example"
+              ],
+              "AllowedMethods": [
+                "GET"
+              ],
+              "AllowedHeaders": [
+                "*"
+              ],
+              "ExposeHeaders": [
+                "x-amz-request-id"
+              ],
+              "MaxAgeSeconds": 12
+            }
+          ]
+        }
+      },
+      "Code": "Success",
+      "Status": 200,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:42:16Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": [
+              {
+                "AllowedMethod": "GET",
+                "MaxAgeSeconds": 99,
+                "ExposeHeader": "ETag",
+                "ID": "wild-first",
+                "AllowedOrigin": "*",
+                "AllowedHeader": "*"
+              },
+              {
+                "AllowedMethod": "GET",
+                "MaxAgeSeconds": 12,
+                "ExposeHeader": "x-amz-request-id",
+                "ID": "exact-second",
+                "AllowedOrigin": "https://app.example",
+                "AllowedHeader": "*"
+              }
+            ]
+          },
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 527,
+          "startTime": 1789908136192,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908136318,
+          "x-amz-id-2": "yBjw4ayQlx9jb3UERW5f+vsCvfA+ZCJCY4FsjRhpNH/9opLElGqfWiJRkM/QjuVRp1f7W8ziXnc=",
+          "turnAroundTime": 124,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "HR45G5HD4SEQV6GW",
+        "eventID": "60d8121e-dace-4dcc-9120-b623e12beda4",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "delete-existing-config",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 155,
+      "Service": "s3",
+      "Operation": "DeleteBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay"
+      },
+      "Code": "Success",
+      "Status": 204,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:42:18Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789908138170,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908138278,
+          "x-amz-id-2": "L+38PuuUXWoSj2O2pt7GO9ObaaFCBAuRh3wXBo9ColhDhh+hItm4DWv02DGYTQKzYxIdOEmiLPqQk9P6aFUu4yv96go4ejoW",
+          "turnAroundTime": 106,
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "G7RRHCZAHB9XH3Y0",
+        "eventID": "06ece5d0-3bcb-40e5-978f-0fc36eea2be2",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "delete-config-again",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 157,
+      "Service": "s3",
+      "Operation": "DeleteBucketCors",
+      "Actor": "audit-user",
+      "Input": {
+        "Bucket": "cors-audit-replay"
+      },
+      "Code": "Success",
+      "Status": 204,
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "accessKeyId": "[REDACTED_CREDENTIAL]",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T12:42:19Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[]",
+        "requestParameters": {
+          "bucketName": "cors-audit-replay",
+          "Host": "cors-audit-replay.s3.us-east-1.amazonaws.com",
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789908139159,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789908139251,
+          "x-amz-id-2": "+CH+srFMUOTh44df870aVGHVMZW3hQq/fb+IOyNzeI8DlCsb9POvNInk3GnDNOSrmNFAwmTVSv4QUAdGQzL/iW9MrS4IgV3h",
+          "turnAroundTime": 90,
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "0SNKQTRFD98NZMGR",
+        "eventID": "e9f8d2ce-a73b-49f2-9658-8ab099fac1e9",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::cors-audit-replay"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "cors-audit-replay.s3.us-east-1.amazonaws.com"
+        }
+      }
+    }
+  ],
+  "Verify": [
+    {
+      "Label": "get-after-delete",
+      "Source": "cors_evidence.json.gz",
+      "Sequence": 156,
+      "Service": "s3",
+      "Operation": "GetBucketCors",
+      "Actor": "caller",
+      "Input": {
+        "Bucket": "cors-audit-replay"
+      },
+      "Code": "NoSuchCORSConfiguration",
+      "Status": 404
+    }
+  ]
+}

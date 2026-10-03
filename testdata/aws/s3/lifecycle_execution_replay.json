@@ -1,0 +1,4994 @@
+{
+  "Source": "DOCUMENT-DERIVED execution expectations; NOT native capture",
+  "Sources": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intro-lifecycle-rules.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-and-other-bucket-config.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/ev-events.html"
+  ],
+  "Notes": [
+    "The native lifecycle control/header fixtures separately establish admission and authority. This fixture asserts documented lifecycle semantics and the emulator daily next-UTC-midnight execution guarantee, not AWS completion latency.",
+    "Every action is observed through SDK Get/Head/List/status or real SQS/EventBridge/CloudTrail delivery. Opaque version, upload, key and checksum identities alone are rebound.",
+    "Clock jumps deliberately exercise retained due-day progression; reopen replaces services without replacing credentials or resource identity. No per-object lifecycle job state is inspected."
+  ],
+  "Payloads": {
+    "below128k": [
+      {
+        "Base64": "YQ==",
+        "Repeat": 131071
+      }
+    ],
+    "at128k": [
+      {
+        "Base64": "YQ==",
+        "Repeat": 131072
+      }
+    ],
+    "part5MiB": [
+      {
+        "Base64": "YQ==",
+        "Repeat": 5242880
+      }
+    ],
+    "tail": [
+      {
+        "Base64": "AHRhaWz/",
+        "Repeat": 1
+      }
+    ]
+  },
+  "Scenarios": [
+    {
+      "Name": "nonversioned-past-date-disabled-rule-and-strict-next-midnight",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-age",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Key": "age"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 1
+        },
+        {
+          "Label": "PutObject-past",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Key": "past"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 2
+        },
+        {
+          "Label": "PutObject-disabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Key": "disabled"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 3
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-current",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "age",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "age"
+                  },
+                  "Expiration": {
+                    "Days": 1
+                  }
+                },
+                {
+                  "ID": "age-transition-loses-to-permanent-deletion",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "And": {
+                      "Prefix": "age",
+                      "ObjectSizeGreaterThan": 0
+                    }
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 1,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                },
+                {
+                  "ID": "past",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "past"
+                  },
+                  "Expiration": {
+                    "Date": "2020-01-01T00:00:00Z"
+                  }
+                },
+                {
+                  "ID": "disabled",
+                  "Status": "Disabled",
+                  "Filter": {
+                    "Prefix": "disabled"
+                  },
+                  "Expiration": {
+                    "Days": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 4
+        },
+        {
+          "Label": "PutBucketPolicy-lifecycle-current",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:DeleteObject\", \"Resource\": \"arn:aws:s3:::lifecycle-current/*\"}]}"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 5
+        },
+        {
+          "Label": "GetObject-past",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Key": "past"
+          },
+          "At": "2026-09-21T23:59:59Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Drain": true,
+          "Sequence": 6
+        },
+        {
+          "Label": "GetObject-past",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Key": "past"
+          },
+          "At": "2026-09-22T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 7
+        },
+        {
+          "Label": "GetObject-age",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Key": "age"
+          },
+          "At": "2026-09-22T12:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Drain": true,
+          "Sequence": 8
+        },
+        {
+          "Label": "GetObject-age",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Key": "age"
+          },
+          "At": "2026-09-22T23:59:59Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Drain": true,
+          "Sequence": 9
+        },
+        {
+          "Label": "GetObject-age",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Key": "age"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 10
+        },
+        {
+          "Label": "GetObject-disabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current",
+            "Key": "disabled"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Sequence": 11
+        },
+        {
+          "Label": "ListObjectsV2-lifecycle-current",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-current"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "Contents": [
+              {
+                "Key": "disabled",
+                "Size": 7
+              }
+            ]
+          },
+          "Sequence": 12
+        }
+      ]
+    },
+    {
+      "Name": "enabled-expiry-preserves-data-and-only-cleans-sole-marker",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "v1": "VersionId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-enabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "expire",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "Expiration": {
+                    "Days": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 2
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled",
+            "Key": "key"
+          },
+          "At": "2026-09-22T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Drain": true,
+          "Sequence": 3
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-enabled",
+            "Key": "key"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 4
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-enabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "${marker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Bind": {
+            "marker": "DeleteMarkers.0.VersionId"
+          },
+          "Sequence": 5
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled",
+            "Key": "key",
+            "VersionId": "${v1}"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Sequence": 6
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-enabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "${marker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 7
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-enabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "expire",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "Expiration": {
+                    "ExpiredObjectDeleteMarker": true
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Sequence": 8
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-enabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled"
+          },
+          "At": "2026-09-25T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "${marker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Drain": true,
+          "Sequence": 9
+        },
+        {
+          "Label": "DeleteObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lifecycle-enabled",
+            "Key": "key",
+            "VersionId": "${v1}"
+          },
+          "At": "2026-09-25T00:00:00Z",
+          "Sequence": 10
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-enabled",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-enabled"
+          },
+          "At": "2026-09-26T00:00:00Z",
+          "Output": {
+            "Versions": [],
+            "DeleteMarkers": []
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 11
+        }
+      ]
+    },
+    {
+      "Name": "suspended-expiry-replaces-null-without-deleting-numbered-history",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "bnVtYmVyZWQ=",
+          "Bind": {
+            "numbered": "VersionId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "PutBucketVersioning-lifecycle-suspended",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "VersioningConfiguration": {
+              "Status": "Suspended"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 2
+        },
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "bnVsbC1kYXRh",
+          "Sequence": 3
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-suspended",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "expire",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "Expiration": {
+                    "Days": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 4
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "Key": "key"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 5
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-suspended",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${numbered}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "null",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Sequence": 6
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "Key": "key",
+            "VersionId": "${numbered}"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Plaintext": "bnVtYmVyZWQ=",
+          "Sequence": 7
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "MethodNotAllowed",
+          "Status": 405,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "Key": "key",
+            "VersionId": "null"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Sequence": 8
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-suspended",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${numbered}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "null",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 9
+        }
+      ]
+    },
+    {
+      "Name": "noncurrent-successor-clock-retention-and-permanent-delete-precedence",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "b25l",
+          "Bind": {
+            "v1": "VersionId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-successor",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "noncurrent",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "ObjectSizeGreaterThan": 0
+                  },
+                  "NoncurrentVersionExpiration": {
+                    "NoncurrentDays": 1,
+                    "NewerNoncurrentVersions": 1
+                  }
+                },
+                {
+                  "ID": "noncurrent-transition",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "ObjectSizeGreaterThan": 0
+                  },
+                  "NoncurrentVersionTransitions": [
+                    {
+                      "NoncurrentDays": 1,
+                      "NewerNoncurrentVersions": 1,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 2
+        },
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor",
+            "Key": "key"
+          },
+          "At": "2026-09-25T12:00:00Z",
+          "Body": "dHdv",
+          "Bind": {
+            "v2": "VersionId"
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor",
+            "Key": "key"
+          },
+          "At": "2026-09-26T12:00:00Z",
+          "Body": "dGhyZWU=",
+          "Bind": {
+            "v3": "VersionId"
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-successor",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor"
+          },
+          "At": "2026-09-26T23:59:59Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v3}",
+                "IsLatest": true
+              },
+              {
+                "Key": "key",
+                "VersionId": "${v2}",
+                "IsLatest": false
+              },
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": []
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 5
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-successor",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor"
+          },
+          "At": "2026-09-27T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v3}",
+                "IsLatest": true
+              },
+              {
+                "Key": "key",
+                "VersionId": "${v2}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": []
+          },
+          "Drain": true,
+          "Sequence": 6
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor",
+            "Key": "key",
+            "VersionId": "${v2}"
+          },
+          "At": "2026-09-27T00:00:00Z",
+          "Plaintext": "dHdv",
+          "Absent": [
+            "StorageClass"
+          ],
+          "Sequence": 7
+        },
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor",
+            "Key": "key"
+          },
+          "At": "2026-09-28T12:00:00Z",
+          "Body": "Zm91cg==",
+          "Bind": {
+            "v4": "VersionId"
+          },
+          "Sequence": 8
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-successor",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor"
+          },
+          "At": "2026-09-29T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v4}",
+                "IsLatest": true
+              },
+              {
+                "Key": "key",
+                "VersionId": "${v3}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": []
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 9
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-successor",
+            "Key": "key"
+          },
+          "At": "2026-09-29T00:00:00Z",
+          "Plaintext": "Zm91cg==",
+          "Sequence": 10
+        }
+      ]
+    },
+    {
+      "Name": "one-action-per-version-per-day-daywise-reopen",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "v1": "VersionId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-precedence",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "expire",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "Expiration": {
+                    "Days": 30
+                  }
+                },
+                {
+                  "ID": "ia",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "ObjectSizeGreaterThan": 0
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 30,
+                      "StorageClass": "STANDARD_IA"
+                    }
+                  ]
+                },
+                {
+                  "ID": "archive",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "ObjectSizeGreaterThan": 0
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 30,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 2
+        },
+        {
+          "Label": "HeadObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "Key": "key"
+          },
+          "At": "2026-10-22T00:00:00Z",
+          "Output": {
+            "StorageClass": "GLACIER",
+            "VersionId": "${v1}"
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 3
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-precedence",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence"
+          },
+          "At": "2026-10-22T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": true,
+                "StorageClass": "GLACIER"
+              }
+            ],
+            "DeleteMarkers": []
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "Key": "key"
+          },
+          "At": "2026-10-23T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 5
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-precedence",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence"
+          },
+          "At": "2026-10-23T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false,
+                "StorageClass": "GLACIER"
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "${marker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Bind": {
+            "marker": "DeleteMarkers.0.VersionId"
+          },
+          "Sequence": 6
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-precedence",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence"
+          },
+          "At": "2026-10-24T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false,
+                "StorageClass": "GLACIER"
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "${marker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Bind": {},
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 7
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "Key": "key",
+            "VersionId": "${v1}"
+          },
+          "At": "2026-10-24T00:00:00Z",
+          "Sequence": 8
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-precedence",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence"
+          },
+          "At": "2026-10-25T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false,
+                "StorageClass": "GLACIER"
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "${marker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 9
+        }
+      ]
+    },
+    {
+      "Name": "one-action-per-version-per-day-large-clock-advance",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "v1": "VersionId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-precedence",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "expire",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "Expiration": {
+                    "Days": 30
+                  }
+                },
+                {
+                  "ID": "ia",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "ObjectSizeGreaterThan": 0
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 30,
+                      "StorageClass": "STANDARD_IA"
+                    }
+                  ]
+                },
+                {
+                  "ID": "archive",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "ObjectSizeGreaterThan": 0
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 30,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 2
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-precedence",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence"
+          },
+          "At": "2026-10-24T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false,
+                "StorageClass": "GLACIER"
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "${marker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Bind": {
+            "marker": "DeleteMarkers.0.VersionId"
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 3
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lifecycle-precedence",
+            "Key": "key",
+            "VersionId": "${v1}"
+          },
+          "At": "2026-10-24T00:00:00Z",
+          "Sequence": 4
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-precedence",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-precedence"
+          },
+          "At": "2026-10-25T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false,
+                "StorageClass": "GLACIER"
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "${marker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 5
+        }
+      ]
+    },
+    {
+      "Name": "removal-replacement-and-live-tag-reselection",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-removed-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "removed-tag",
+            "Tagging": "expire=yes"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 1
+        },
+        {
+          "Label": "PutObject-added-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "added-tag"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 2
+        },
+        {
+          "Label": "PutObject-old-rule",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "old-rule"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 3
+        },
+        {
+          "Label": "PutObject-replacement-rule",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "replacement-rule"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 4
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-live",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "live",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Tag": {
+                      "Key": "expire",
+                      "Value": "yes"
+                    }
+                  },
+                  "Expiration": {
+                    "Days": 1
+                  }
+                },
+                {
+                  "ID": "old",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "old-rule"
+                  },
+                  "Expiration": {
+                    "Days": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 5
+        },
+        {
+          "Label": "DeleteBucketLifecycle-lifecycle-live",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "DeleteBucketLifecycle",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lifecycle-live"
+          },
+          "At": "2026-09-22T12:00:00Z",
+          "Sequence": 6
+        },
+        {
+          "Label": "GetObject-removed-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "removed-tag"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 7
+        },
+        {
+          "Label": "GetObject-old-rule",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "old-rule"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Sequence": 8
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-live",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "live",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Tag": {
+                      "Key": "expire",
+                      "Value": "yes"
+                    }
+                  },
+                  "Expiration": {
+                    "Days": 1
+                  }
+                },
+                {
+                  "ID": "old",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "old-rule"
+                  },
+                  "Expiration": {
+                    "Days": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Sequence": 9
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-live",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "live",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Tag": {
+                      "Key": "expire",
+                      "Value": "yes"
+                    }
+                  },
+                  "Expiration": {
+                    "Days": 1
+                  }
+                },
+                {
+                  "ID": "replacement",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "replacement-rule"
+                  },
+                  "Expiration": {
+                    "Days": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-23T12:00:00Z",
+          "Sequence": 10
+        },
+        {
+          "Label": "PutObjectTagging-removed-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObjectTagging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "removed-tag",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "expire",
+                  "Value": "no"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-23T23:59:58Z",
+          "Sequence": 11
+        },
+        {
+          "Label": "PutObjectTagging-added-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObjectTagging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "added-tag",
+            "Tagging": {
+              "TagSet": [
+                {
+                  "Key": "expire",
+                  "Value": "yes"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-23T23:59:59Z",
+          "Sequence": 12
+        },
+        {
+          "Label": "GetObject-added-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "added-tag"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 13
+        },
+        {
+          "Label": "GetObject-replacement-rule",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "replacement-rule"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Sequence": 14
+        },
+        {
+          "Label": "GetObject-removed-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "removed-tag"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Sequence": 15
+        },
+        {
+          "Label": "GetObject-old-rule",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "old-rule"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Sequence": 16
+        },
+        {
+          "Label": "GetObjectTagging-removed-tag",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObjectTagging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-live",
+            "Key": "removed-tag"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "expire",
+                "Value": "no"
+              }
+            ]
+          },
+          "Sequence": 17
+        }
+      ]
+    },
+    {
+      "Name": "noncurrent-transition-successor-age-and-newer-retention",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "b25l",
+          "Bind": {
+            "v1": "VersionId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-noncurrent-transition",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "retained",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "ObjectSizeGreaterThan": 0
+                  },
+                  "NoncurrentVersionTransitions": [
+                    {
+                      "NoncurrentDays": 1,
+                      "NewerNoncurrentVersions": 1,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 2
+        },
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition",
+            "Key": "key"
+          },
+          "At": "2026-09-25T12:00:00Z",
+          "Body": "dHdv",
+          "Bind": {
+            "v2": "VersionId"
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition",
+            "Key": "key"
+          },
+          "At": "2026-09-26T12:00:00Z",
+          "Body": "dGhyZWU=",
+          "Bind": {
+            "v3": "VersionId"
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "HeadObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition",
+            "Key": "key",
+            "VersionId": "${v1}"
+          },
+          "At": "2026-09-26T23:59:59Z",
+          "Absent": [
+            "StorageClass"
+          ],
+          "Drain": true,
+          "Sequence": 5
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-noncurrent-transition",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition"
+          },
+          "At": "2026-09-27T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v3}",
+                "IsLatest": true,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "key",
+                "VersionId": "${v2}",
+                "IsLatest": false,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false,
+                "StorageClass": "GLACIER"
+              }
+            ],
+            "DeleteMarkers": []
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 6
+        },
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition",
+            "Key": "key"
+          },
+          "At": "2026-09-28T12:00:00Z",
+          "Body": "Zm91cg==",
+          "Bind": {
+            "v4": "VersionId"
+          },
+          "Sequence": 7
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-noncurrent-transition",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-noncurrent-transition"
+          },
+          "At": "2026-09-29T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${v4}",
+                "IsLatest": true,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "key",
+                "VersionId": "${v3}",
+                "IsLatest": false,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "key",
+                "VersionId": "${v2}",
+                "IsLatest": false,
+                "StorageClass": "GLACIER"
+              },
+              {
+                "Key": "key",
+                "VersionId": "${v1}",
+                "IsLatest": false,
+                "StorageClass": "GLACIER"
+              }
+            ],
+            "DeleteMarkers": []
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 8
+        }
+      ]
+    },
+    {
+      "Name": "incomplete-multipart-initiation-age-and-retained-parts",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "CreateMultipartUpload-incomplete",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "Key": "incomplete"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Bind": {
+            "oldUpload": "UploadId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "UploadPart-incomplete",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "Key": "incomplete",
+            "UploadId": "${oldUpload}",
+            "PartNumber": 1
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGFydA==",
+          "Sequence": 2
+        },
+        {
+          "Label": "CreateMultipartUpload-completed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "Key": "completed"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Bind": {
+            "completeUpload": "UploadId"
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "UploadPart-completed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "Key": "completed",
+            "UploadId": "${completeUpload}",
+            "PartNumber": 1
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGFydA==",
+          "Bind": {
+            "partETag": "ETag"
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "CompleteMultipartUpload-completed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CompleteMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "Key": "completed",
+            "UploadId": "${completeUpload}",
+            "MultipartUpload": {
+              "Parts": [
+                {
+                  "PartNumber": 1,
+                  "ETag": "${partETag}"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 5
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-abort",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "abort",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "AbortIncompleteMultipartUpload": {
+                    "DaysAfterInitiation": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 6
+        },
+        {
+          "Label": "CreateMultipartUpload-young",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "Key": "young"
+          },
+          "At": "2026-09-22T12:00:00Z",
+          "Bind": {
+            "youngUpload": "UploadId"
+          },
+          "Sequence": 7
+        },
+        {
+          "Label": "ListParts-incomplete",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListParts",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "Key": "incomplete",
+            "UploadId": "${oldUpload}"
+          },
+          "At": "2026-09-22T23:59:59Z",
+          "Output": {
+            "Parts": [
+              {
+                "PartNumber": 1,
+                "Size": 4
+              }
+            ]
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 8
+        },
+        {
+          "Label": "ListMultipartUploads-lifecycle-abort",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListMultipartUploads",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "Uploads": [
+              {
+                "Key": "young",
+                "UploadId": "${youngUpload}"
+              }
+            ]
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 9
+        },
+        {
+          "Label": "ListParts-incomplete",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListParts",
+          "Actor": "caller",
+          "Code": "NoSuchUpload",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "Key": "incomplete",
+            "UploadId": "${oldUpload}"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Sequence": 10
+        },
+        {
+          "Label": "GetObject-completed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort",
+            "Key": "completed"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Plaintext": "cGFydA==",
+          "Sequence": 11
+        },
+        {
+          "Label": "ListMultipartUploads-lifecycle-abort",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListMultipartUploads",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-abort"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Output": {
+            "Uploads": []
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 12
+        }
+      ]
+    },
+    {
+      "Name": "object-lock-protects-permanent-deletion-not-current-marker",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "ObjectLockEnabledForBucket": true
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-governance",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "governance",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-25T00:00:00Z",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "governance": "VersionId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "PutObject-compliance",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "compliance",
+            "ObjectLockMode": "COMPLIANCE",
+            "ObjectLockRetainUntilDate": "2026-09-25T00:00:00Z",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "compliance": "VersionId"
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "PutObject-legal",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "legal",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "legal": "VersionId"
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-lock",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "current",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "Expiration": {
+                    "Date": "2020-01-01T00:00:00Z"
+                  }
+                },
+                {
+                  "ID": "noncurrent",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "NoncurrentVersionExpiration": {
+                    "NoncurrentDays": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 4
+        },
+        {
+          "Label": "GetObject-governance",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "governance"
+          },
+          "At": "2026-09-22T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 5
+        },
+        {
+          "Label": "GetObject-compliance",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "compliance"
+          },
+          "At": "2026-09-22T00:00:00Z",
+          "Sequence": 6
+        },
+        {
+          "Label": "GetObject-legal",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "legal"
+          },
+          "At": "2026-09-22T00:00:00Z",
+          "Sequence": 7
+        },
+        {
+          "Label": "GetObject-governance",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "governance",
+            "VersionId": "${governance}"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 8
+        },
+        {
+          "Label": "GetObject-compliance",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "compliance",
+            "VersionId": "${compliance}"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Drain": true,
+          "Reopen": false,
+          "Sequence": 9
+        },
+        {
+          "Label": "GetObject-legal",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "legal",
+            "VersionId": "${legal}"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Drain": true,
+          "Reopen": false,
+          "Sequence": 10
+        },
+        {
+          "Label": "GetObject-governance",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchVersion",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "governance",
+            "VersionId": "${governance}"
+          },
+          "At": "2026-09-25T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 11
+        },
+        {
+          "Label": "GetObject-compliance",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchVersion",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "compliance",
+            "VersionId": "${compliance}"
+          },
+          "At": "2026-09-25T00:00:00Z",
+          "Drain": true,
+          "Reopen": false,
+          "Sequence": 12
+        },
+        {
+          "Label": "GetObjectLegalHold-legal",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObjectLegalHold",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "legal",
+            "VersionId": "${legal}"
+          },
+          "At": "2026-09-25T00:00:00Z",
+          "Output": {
+            "LegalHold": {
+              "Status": "ON"
+            }
+          },
+          "Sequence": 13
+        },
+        {
+          "Label": "PutObjectLegalHold-legal",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObjectLegalHold",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "legal",
+            "VersionId": "${legal}",
+            "LegalHold": {
+              "Status": "OFF"
+            }
+          },
+          "At": "2026-09-25T00:00:00Z",
+          "Sequence": 14
+        },
+        {
+          "Label": "GetObject-legal",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchVersion",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-lock",
+            "Key": "legal",
+            "VersionId": "${legal}"
+          },
+          "At": "2026-09-26T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 15
+        }
+      ]
+    },
+    {
+      "Name": "pending-failed-barriers-and-lifecycle-markers-do-not-replicate",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication-dest"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication-dest",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "CreateRole",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "lifecycle-replication-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Bind": {
+            "replicationRole": "Role.Arn"
+          }
+        },
+        {
+          "Label": "PutBucketReplication",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketReplication",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "ReplicationConfiguration": {
+              "Role": "${replicationRole}",
+              "Rules": [
+                {
+                  "ID": "copy",
+                  "Priority": 1,
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": ""
+                  },
+                  "DeleteMarkerReplication": {
+                    "Status": "Enabled"
+                  },
+                  "Destination": {
+                    "Bucket": "arn:aws:s3:::lifecycle-replication-dest"
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-expire-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "expire/key"
+          },
+          "At": "2026-09-21T23:59:59.500Z",
+          "Body": "b2xk",
+          "Bind": {
+            "failedOld": "VersionId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "PutObject-expire-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "expire/key"
+          },
+          "At": "2026-09-21T23:59:59.500Z",
+          "Body": "Y3VycmVudA==",
+          "Bind": {
+            "failedCurrent": "VersionId"
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "PutObject-transition-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "transition/key"
+          },
+          "At": "2026-09-21T23:59:59.500Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "failedTransition": "VersionId"
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-replication",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "expire",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "expire/"
+                  },
+                  "Expiration": {
+                    "Date": "2020-01-01T00:00:00Z"
+                  }
+                },
+                {
+                  "ID": "transition",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "And": {
+                      "Prefix": "transition/",
+                      "ObjectSizeGreaterThan": 0
+                    }
+                  },
+                  "Transitions": [
+                    {
+                      "Date": "2020-01-01T00:00:00Z",
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                },
+                {
+                  "ID": "noncurrent",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "NoncurrentVersionExpiration": {
+                    "NoncurrentDays": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T23:59:59.500Z",
+          "Sequence": 4
+        },
+        {
+          "Label": "HeadObject-expire-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "expire/key"
+          },
+          "At": "2026-09-22T00:00:00Z",
+          "Output": {
+            "ReplicationStatus": "PENDING"
+          },
+          "Absent": [
+            "StorageClass"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 5
+        },
+        {
+          "Label": "HeadObject-transition-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "transition/key"
+          },
+          "At": "2026-09-22T00:00:00Z",
+          "Output": {
+            "ReplicationStatus": "PENDING"
+          },
+          "Absent": [
+            "StorageClass"
+          ],
+          "Drain": true,
+          "Reopen": false,
+          "Sequence": 6
+        },
+        {
+          "Label": "HeadObject-expire-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "expire/key",
+            "VersionId": "${failedOld}"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Output": {
+            "ReplicationStatus": "FAILED"
+          },
+          "Absent": [
+            "StorageClass"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 7
+        },
+        {
+          "Label": "HeadObject-expire-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "expire/key",
+            "VersionId": "${failedCurrent}"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Output": {
+            "ReplicationStatus": "FAILED"
+          },
+          "Absent": [
+            "StorageClass"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 8
+        },
+        {
+          "Label": "HeadObject-transition-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "transition/key",
+            "VersionId": "${failedTransition}"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Output": {
+            "ReplicationStatus": "FAILED"
+          },
+          "Absent": [
+            "StorageClass"
+          ],
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 9
+        },
+        {
+          "Label": "PutRolePolicy-",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "lifecycle-replication-role",
+            "PolicyName": "allow",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:*\", \"Resource\": \"*\"}]}"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Sequence": 10
+        },
+        {
+          "Label": "PutObject-expire-completed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "expire/completed"
+          },
+          "At": "2026-09-24T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "completedVersion": "VersionId"
+          },
+          "Sequence": 11
+        },
+        {
+          "Label": "HeadObject-expire-completed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "expire/completed"
+          },
+          "At": "2026-09-24T12:00:02Z",
+          "Output": {
+            "ReplicationStatus": "COMPLETED"
+          },
+          "Drain": true,
+          "Sequence": 12
+        },
+        {
+          "Label": "HeadObject-expire-completed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication-dest",
+            "Key": "expire/completed"
+          },
+          "At": "2026-09-24T12:00:02Z",
+          "Output": {
+            "ReplicationStatus": "REPLICA",
+            "VersionId": "${completedVersion}"
+          },
+          "Sequence": 13
+        },
+        {
+          "Label": "GetObject-expire-completed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-replication",
+            "Key": "expire/completed"
+          },
+          "At": "2026-09-25T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 14
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-replication-dest",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication-dest"
+          },
+          "At": "2026-09-25T00:01:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "expire/completed",
+                "VersionId": "${completedVersion}",
+                "IsLatest": true
+              }
+            ],
+            "DeleteMarkers": []
+          },
+          "Drain": true,
+          "Sequence": 15
+        },
+        {
+          "Label": "GetObject-expire-completed",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-replication-dest",
+            "Key": "expire/completed"
+          },
+          "At": "2026-09-25T00:01:00Z",
+          "Plaintext": "cGF5bG9hZA==",
+          "Sequence": 16
+        }
+      ]
+    },
+    {
+      "Name": "suspended-expiry-preserves-current-marker-with-old-null-history",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-old-null",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "bnVsbC1kYXRh",
+          "Sequence": 1
+        },
+        {
+          "Label": "Enable-versioning-after-null-write",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 2
+        },
+        {
+          "Label": "PutObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "Key": "key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "bnVtYmVyZWQ=",
+          "Bind": {
+            "numbered": "VersionId"
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "PutBucketVersioning-lifecycle-suspended",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "VersioningConfiguration": {
+              "Status": "Suspended"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 4
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-suspended",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "expire",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "Expiration": {
+                    "Days": 1
+                  },
+                  "NoncurrentVersionExpiration": {
+                    "NoncurrentDays": 1
+                  }
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 5
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "Key": "key"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 6
+        },
+        {
+          "Label": "ListObjectVersions-lifecycle-suspended",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "key",
+                "VersionId": "${numbered}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "key",
+                "VersionId": "null",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Sequence": 7
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-suspended",
+            "Key": "key",
+            "VersionId": "${numbered}"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Plaintext": "bnVtYmVyZWQ=",
+          "Sequence": 8
+        }
+      ]
+    }
+  ],
+  "Workflows": [
+    {
+      "Name": "transition-size-boundary-custom-exclusive-and-forward-only",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-default-small",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "default-small"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "below128k",
+          "Sequence": 1
+        },
+        {
+          "Label": "PutObject-boundary",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "boundary"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "at128k",
+          "Sequence": 2
+        },
+        {
+          "Label": "PutObject-custom-small",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "custom-small"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 3
+        },
+        {
+          "Label": "PutObject-excluded-equal",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "excluded-equal"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "MTIzNDU2Nw==",
+          "Sequence": 4
+        },
+        {
+          "Label": "PutObject-cold",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "cold",
+            "StorageClass": "DEEP_ARCHIVE"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 5
+        },
+        {
+          "Label": "PutObject-one-zone",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "one-zone",
+            "StorageClass": "ONEZONE_IA"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Sequence": 6
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-size",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "default",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "default-"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 1,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                },
+                {
+                  "ID": "boundary",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "boundary"
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 1,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                },
+                {
+                  "ID": "custom",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "And": {
+                      "Prefix": "custom-",
+                      "ObjectSizeGreaterThan": 0,
+                      "ObjectSizeLessThan": 8
+                    }
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 1,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                },
+                {
+                  "ID": "exclusive",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "And": {
+                      "Prefix": "excluded-",
+                      "ObjectSizeGreaterThan": 7
+                    }
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 1,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                },
+                {
+                  "ID": "not-backwards",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "And": {
+                      "Prefix": "cold",
+                      "ObjectSizeGreaterThan": 0
+                    }
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 1,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                },
+                {
+                  "ID": "no-one-zone-to-instant",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "And": {
+                      "Prefix": "one-zone",
+                      "ObjectSizeGreaterThan": 0
+                    }
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 1,
+                      "StorageClass": "GLACIER_IR"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 7
+        },
+        {
+          "Label": "HeadObject-default-small",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "default-small"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Absent": [
+            "StorageClass"
+          ],
+          "Output": {
+            "ContentLength": 131071
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 8
+        },
+        {
+          "Label": "HeadObject-boundary",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "boundary"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "StorageClass": "GLACIER",
+            "ContentLength": 131072
+          },
+          "Sequence": 9
+        },
+        {
+          "Label": "HeadObject-custom-small",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "custom-small"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "StorageClass": "GLACIER"
+          },
+          "Sequence": 10
+        },
+        {
+          "Label": "HeadObject-excluded-equal",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "excluded-equal"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Absent": [
+            "StorageClass"
+          ],
+          "Sequence": 11
+        },
+        {
+          "Label": "HeadObject-cold",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "cold"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "StorageClass": "DEEP_ARCHIVE"
+          },
+          "Sequence": 12
+        },
+        {
+          "Label": "HeadObject-one-zone",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "one-zone"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "StorageClass": "ONEZONE_IA"
+          },
+          "Sequence": 13
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-size",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "forward",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "ObjectSizeGreaterThan": 0
+                  },
+                  "Transitions": [
+                    {
+                      "Days": 1,
+                      "StorageClass": "DEEP_ARCHIVE"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Sequence": 14
+        },
+        {
+          "Label": "HeadObject-boundary",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "boundary"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Output": {
+            "StorageClass": "DEEP_ARCHIVE"
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 15
+        },
+        {
+          "Label": "HeadObject-one-zone",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-size",
+            "Key": "one-zone"
+          },
+          "At": "2026-09-24T00:00:00Z",
+          "Output": {
+            "StorageClass": "DEEP_ARCHIVE"
+          },
+          "Sequence": 16
+        }
+      ]
+    },
+    {
+      "Name": "kms-encrypted-multipart-preserves-bytes-parts-checksums-tags-and-restore-gate",
+      "Setup": [
+        {
+          "Label": "CreateBucket",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart"
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "PutBucketVersioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "At": "2026-09-21T12:00:00Z"
+        },
+        {
+          "Label": "CreateKey",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "kms",
+          "Operation": "CreateKey",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Description": "lifecycle payload retention"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Bind": {
+            "kms": "KeyMetadata.Arn"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "CreateMultipartUpload-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": "${kms}",
+            "ChecksumAlgorithm": "SHA256",
+            "Metadata": {
+              "purpose": "lifecycle"
+            },
+            "Tagging": "keep=tag"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Bind": {
+            "upload": "UploadId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "UploadPart-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "UploadId": "${upload}",
+            "PartNumber": 1,
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "part5MiB",
+          "Bind": {
+            "etag1": "ETag",
+            "sum1": "ChecksumSHA256"
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "UploadPart-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "UploadId": "${upload}",
+            "PartNumber": 2,
+            "ChecksumAlgorithm": "SHA256"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Payload": "tail",
+          "Bind": {
+            "etag2": "ETag",
+            "sum2": "ChecksumSHA256"
+          },
+          "Sequence": 3
+        },
+        {
+          "Label": "CompleteMultipartUpload-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "CompleteMultipartUpload",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "UploadId": "${upload}",
+            "MultipartUpload": {
+              "Parts": [
+                {
+                  "PartNumber": 1,
+                  "ETag": "${etag1}",
+                  "ChecksumSHA256": "${sum1}"
+                },
+                {
+                  "PartNumber": 2,
+                  "ETag": "${etag2}",
+                  "ChecksumSHA256": "${sum2}"
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Bind": {
+            "version": "VersionId",
+            "etag": "ETag"
+          },
+          "Sequence": 4
+        },
+        {
+          "Label": "HeadObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Bind": {
+            "sum": "ChecksumSHA256",
+            "modified": "LastModified"
+          },
+          "Output": {
+            "ETag": "${etag}",
+            "VersionId": "${version}",
+            "ContentLength": 5242886,
+            "ChecksumType": "COMPOSITE",
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": "${kms}",
+            "Metadata": {
+              "purpose": "lifecycle"
+            }
+          },
+          "Sequence": 5
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-encrypted-multipart",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "archive",
+                  "Status": "Enabled",
+                  "Filter": {},
+                  "Transitions": [
+                    {
+                      "Days": 1,
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 6
+        },
+        {
+          "Label": "HeadObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Output": {
+            "ETag": "${etag}",
+            "VersionId": "${version}",
+            "LastModified": "${modified}",
+            "ContentLength": 5242886,
+            "ChecksumSHA256": "${sum}",
+            "ChecksumType": "COMPOSITE",
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": "${kms}",
+            "Metadata": {
+              "purpose": "lifecycle"
+            },
+            "StorageClass": "GLACIER"
+          },
+          "Sequence": 7
+        },
+        {
+          "Label": "GetObjectAttributes-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObjectAttributes",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "ObjectAttributes": [
+              "ETag",
+              "Checksum",
+              "ObjectParts",
+              "StorageClass",
+              "ObjectSize"
+            ]
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "Checksum": {
+              "ChecksumSHA256": "/husagSl3JIcWxpYX3/1EKCrpn1SnU6v9uAzC7m4ocA=",
+              "ChecksumType": "COMPOSITE"
+            },
+            "ObjectParts": {
+              "TotalPartsCount": 2
+            },
+            "ObjectSize": 5242886,
+            "StorageClass": "GLACIER",
+            "VersionId": "${version}"
+          },
+          "Sequence": 8
+        },
+        {
+          "Label": "GetObjectTagging-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObjectTagging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "TagSet": [
+              {
+                "Key": "keep",
+                "Value": "tag"
+              }
+            ],
+            "VersionId": "${version}"
+          },
+          "Sequence": 9
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key"
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Sequence": 10
+        },
+        {
+          "Label": "RestoreObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 202,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "At": "2026-09-23T00:00:00Z",
+          "Sequence": 11
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key"
+          },
+          "At": "2026-09-23T00:04:59Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 12
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "ChecksumMode": "ENABLED"
+          },
+          "At": "2026-09-23T00:05:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Digest": {
+            "Length": 5242886,
+            "SHA256": "cf15b86db963f95fd3b7ff64042050b5026644013eb7edb7959d6a6ce8ba5156"
+          },
+          "Output": {
+            "ETag": "${etag}",
+            "VersionId": "${version}",
+            "ChecksumSHA256": "${sum}",
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": "${kms}",
+            "Metadata": {
+              "purpose": "lifecycle"
+            },
+            "StorageClass": "GLACIER"
+          },
+          "Sequence": 13
+        },
+        {
+          "Label": "DisableKey-",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "kms",
+          "Operation": "DisableKey",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "KeyId": "${kms}"
+          },
+          "At": "2026-09-23T00:05:00Z",
+          "Sequence": 14
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "KMS.DisabledException",
+          "Status": 400,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key"
+          },
+          "At": "2026-09-23T00:05:00Z",
+          "Sequence": 15
+        },
+        {
+          "Label": "EnableKey-",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "kms",
+          "Operation": "EnableKey",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "KeyId": "${kms}"
+          },
+          "At": "2026-09-23T00:05:00Z",
+          "Sequence": 16
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 206,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key",
+            "PartNumber": 2
+          },
+          "At": "2026-09-23T00:05:00Z",
+          "Digest": {
+            "Length": 6,
+            "SHA256": "c159720c5b7d5e85a3b79f67b16d9333cd3846a06caa533674d2fcb8910bd054"
+          },
+          "Output": {
+            "PartsCount": 2,
+            "ContentLength": 6,
+            "StorageClass": "GLACIER"
+          },
+          "Sequence": 17
+        },
+        {
+          "Label": "GetObject-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lifecycle-encrypted-multipart",
+            "Key": "key"
+          },
+          "At": "2026-09-25T00:00:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Sequence": 18
+        }
+      ]
+    },
+    {
+      "Name": "transactional-lifecycle-queue-eventbridge-and-no-fabricated-cloudtrail",
+      "Setup": [
+        {
+          "Label": "create-lifecycle-delivery",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-lifecycle-delivery-audit",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery-audit"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "versioning",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-lifecycle-delivery-classic",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "sqs",
+          "Operation": "CreateQueue",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueName": "lifecycle-delivery-classic"
+          },
+          "Output": {},
+          "Bind": {
+            "queue_classic": "QueueUrl"
+          }
+        },
+        {
+          "Label": "create-lifecycle-delivery-eb",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "sqs",
+          "Operation": "CreateQueue",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueName": "lifecycle-delivery-eb"
+          },
+          "Output": {},
+          "Bind": {
+            "queue_eventbridge": "QueueUrl"
+          }
+        },
+        {
+          "Label": "policy-lifecycle-delivery-classic",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "sqs",
+          "Operation": "SetQueueAttributes",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/lifecycle-delivery-classic",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:lifecycle-delivery-classic\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:s3:::lifecycle-delivery\"}}}]}"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "policy-lifecycle-delivery-eb",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "sqs",
+          "Operation": "SetQueueAttributes",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/lifecycle-delivery-eb",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:lifecycle-delivery-eb\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/lifecycle-delivery-rule\"}}}]}"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "event-rule",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "eventbridge",
+          "Operation": "PutRule",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Name": "lifecycle-delivery-rule",
+            "EventPattern": "{\"source\": [\"aws.s3\"], \"detail\": {\"bucket\": {\"name\": [\"lifecycle-delivery\"]}}, \"detail-type\": [\"Object Deleted\", \"Object Storage Class Changed\"]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "event-target",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "eventbridge",
+          "Operation": "PutTargets",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Rule": "lifecycle-delivery-rule",
+            "Targets": [
+              {
+                "Id": "queue",
+                "Arn": "arn:aws:sqs:us-east-1:123456789012:lifecycle-delivery-eb"
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Label": "notifications",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "s3",
+          "Operation": "PutBucketNotificationConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery",
+            "NotificationConfiguration": {
+              "EventBridgeConfiguration": {},
+              "QueueConfigurations": [
+                {
+                  "Id": "lifecycle-events",
+                  "QueueArn": "arn:aws:sqs:us-east-1:123456789012:lifecycle-delivery-classic",
+                  "Events": [
+                    "s3:LifecycleExpiration:*",
+                    "s3:LifecycleTransition"
+                  ]
+                }
+              ]
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "trail-bucket-policy",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lifecycle-delivery-audit",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::lifecycle-delivery-audit\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/lifecycle-delivery-trail\"}}}, {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::lifecycle-delivery-audit/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"s3:x-amz-acl\": \"bucket-owner-full-control\", \"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/lifecycle-delivery-trail\"}}}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create-trail",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "cloudtrail",
+          "Operation": "CreateTrail",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Name": "lifecycle-delivery-trail",
+            "S3BucketName": "lifecycle-delivery-audit",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false
+          },
+          "Output": {}
+        },
+        {
+          "Label": "trail-selectors",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "cloudtrail",
+          "Operation": "PutEventSelectors",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "TrailName": "lifecycle-delivery-trail",
+            "AdvancedEventSelectors": [
+              {
+                "Name": "owned-objects",
+                "FieldSelectors": [
+                  {
+                    "Field": "eventCategory",
+                    "Equals": [
+                      "Data"
+                    ]
+                  },
+                  {
+                    "Field": "resources.type",
+                    "Equals": [
+                      "AWS::S3::Object"
+                    ]
+                  },
+                  {
+                    "Field": "resources.ARN",
+                    "StartsWith": [
+                      "arn:aws:s3:::lifecycle-delivery/"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "Output": {}
+        },
+        {
+          "Label": "start-trail",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+          "Service": "cloudtrail",
+          "Operation": "StartLogging",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Name": "lifecycle-delivery-trail"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "PutObject-expire-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery",
+            "Key": "expire/key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "expiredVersion": "VersionId"
+          },
+          "Sequence": 1
+        },
+        {
+          "Label": "PutObject-transition-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery",
+            "Key": "transition/key"
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Body": "cGF5bG9hZA==",
+          "Bind": {
+            "transitionVersion": "VersionId"
+          },
+          "Sequence": 2
+        },
+        {
+          "Label": "PutBucketLifecycleConfiguration-lifecycle-delivery",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html",
+          "Service": "s3",
+          "Operation": "PutBucketLifecycleConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery",
+            "LifecycleConfiguration": {
+              "Rules": [
+                {
+                  "ID": "expiry",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "expire/"
+                  },
+                  "Expiration": {
+                    "Date": "2020-01-01T00:00:00Z"
+                  }
+                },
+                {
+                  "ID": "noncurrent",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "Prefix": "expire/"
+                  },
+                  "NoncurrentVersionExpiration": {
+                    "NoncurrentDays": 1
+                  }
+                },
+                {
+                  "ID": "archive",
+                  "Status": "Enabled",
+                  "Filter": {
+                    "And": {
+                      "Prefix": "transition/",
+                      "ObjectSizeGreaterThan": 0
+                    }
+                  },
+                  "Transitions": [
+                    {
+                      "Date": "2020-01-01T00:00:00Z",
+                      "StorageClass": "GLACIER"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "At": "2026-09-21T12:00:00Z",
+          "Sequence": 3
+        },
+        {
+          "Label": "ListObjectVersions-expire-",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery",
+            "Prefix": "expire/"
+          },
+          "At": "2026-09-22T00:01:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "expire/key",
+                "VersionId": "${expiredVersion}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "expire/key",
+                "VersionId": "${expiredMarker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Bind": {
+            "expiredMarker": "DeleteMarkers.0.VersionId"
+          },
+          "Drain": true,
+          "Reopen": true,
+          "Notifications": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+              "Payload": {
+                "eventVersion": "2.3",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventName": "LifecycleExpiration:DeleteMarkerCreated",
+                "userIdentity": {
+                  "principalId": "s3.amazonaws.com"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "s3.amazonaws.com"
+                },
+                "s3": {
+                  "configurationId": "lifecycle-events",
+                  "bucket": {
+                    "name": "lifecycle-delivery",
+                    "arn": "arn:aws:s3:::lifecycle-delivery"
+                  },
+                  "object": {
+                    "key": "expire/key",
+                    "versionId": "${expiredMarker}"
+                  }
+                }
+              }
+            },
+            {
+              "Queue": "${queue_eventbridge}",
+              "Kind": "eventbridge",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/ev-events.html",
+              "Payload": {
+                "source": "aws.s3",
+                "detail-type": "Object Deleted",
+                "account": "123456789012",
+                "region": "us-east-1",
+                "resources": [
+                  "arn:aws:s3:::lifecycle-delivery"
+                ],
+                "detail": {
+                  "bucket": {
+                    "name": "lifecycle-delivery"
+                  },
+                  "object": {
+                    "key": "expire/key",
+                    "version-id": "${expiredMarker}"
+                  },
+                  "requester": "s3.amazonaws.com",
+                  "reason": "Lifecycle Expiration",
+                  "deletion-type": "Delete Marker Created"
+                }
+              }
+            },
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+              "Payload": {
+                "eventVersion": "2.3",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventName": "LifecycleTransition",
+                "userIdentity": {
+                  "principalId": "s3.amazonaws.com"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "s3.amazonaws.com"
+                },
+                "s3": {
+                  "configurationId": "lifecycle-events",
+                  "bucket": {
+                    "name": "lifecycle-delivery",
+                    "arn": "arn:aws:s3:::lifecycle-delivery"
+                  },
+                  "object": {
+                    "key": "transition/key",
+                    "versionId": "${transitionVersion}"
+                  }
+                },
+                "lifecycleEventData": {
+                  "transitionEventData": {
+                    "destinationStorageClass": "GLACIER"
+                  }
+                }
+              }
+            },
+            {
+              "Queue": "${queue_eventbridge}",
+              "Kind": "eventbridge",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/ev-events.html",
+              "Payload": {
+                "source": "aws.s3",
+                "detail-type": "Object Storage Class Changed",
+                "account": "123456789012",
+                "region": "us-east-1",
+                "resources": [
+                  "arn:aws:s3:::lifecycle-delivery"
+                ],
+                "detail": {
+                  "bucket": {
+                    "name": "lifecycle-delivery"
+                  },
+                  "object": {
+                    "key": "transition/key",
+                    "version-id": "${transitionVersion}"
+                  },
+                  "requester": "s3.amazonaws.com",
+                  "destination-storage-class": "GLACIER"
+                }
+              }
+            }
+          ],
+          "Sequence": 4
+        },
+        {
+          "Label": "HeadObject-transition-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery",
+            "Key": "transition/key"
+          },
+          "At": "2026-09-22T00:02:00Z",
+          "Output": {
+            "StorageClass": "GLACIER"
+          },
+          "Drain": true,
+          "Reopen": true,
+          "QuietQueues": [
+            "${queue_classic}",
+            "${queue_eventbridge}"
+          ],
+          "Sequence": 5
+        },
+        {
+          "Label": "ListObjectVersions-expire-",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "ListObjectVersions",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lifecycle-delivery",
+            "Prefix": "expire/"
+          },
+          "At": "2026-09-23T00:01:00Z",
+          "Output": {
+            "Versions": [
+              {
+                "Key": "expire/key",
+                "VersionId": "${expiredVersion}",
+                "IsLatest": false
+              }
+            ],
+            "DeleteMarkers": [
+              {
+                "Key": "expire/key",
+                "VersionId": "${expiredMarker}",
+                "IsLatest": true
+              }
+            ]
+          },
+          "Drain": true,
+          "Reopen": true,
+          "QuietQueues": [
+            "${queue_classic}",
+            "${queue_eventbridge}"
+          ],
+          "Sequence": 6
+        },
+        {
+          "Label": "GetObject-expire-key",
+          "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "NoSuchVersion",
+          "Status": 404,
+          "Input": {
+            "Bucket": "lifecycle-delivery",
+            "Key": "expire/key",
+            "VersionId": "${expiredVersion}"
+          },
+          "At": "2026-09-24T00:01:00Z",
+          "Drain": true,
+          "Reopen": true,
+          "Notifications": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "classic",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html",
+              "Payload": {
+                "eventVersion": "2.3",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventName": "LifecycleExpiration:Delete",
+                "userIdentity": {
+                  "principalId": "s3.amazonaws.com"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "s3.amazonaws.com"
+                },
+                "s3": {
+                  "configurationId": "lifecycle-events",
+                  "bucket": {
+                    "name": "lifecycle-delivery",
+                    "arn": "arn:aws:s3:::lifecycle-delivery"
+                  },
+                  "object": {
+                    "key": "expire/key",
+                    "versionId": "${expiredVersion}"
+                  }
+                }
+              }
+            },
+            {
+              "Queue": "${queue_eventbridge}",
+              "Kind": "eventbridge",
+              "Source": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/ev-events.html",
+              "Payload": {
+                "source": "aws.s3",
+                "detail-type": "Object Deleted",
+                "account": "123456789012",
+                "region": "us-east-1",
+                "resources": [
+                  "arn:aws:s3:::lifecycle-delivery"
+                ],
+                "detail": {
+                  "bucket": {
+                    "name": "lifecycle-delivery"
+                  },
+                  "object": {
+                    "key": "expire/key",
+                    "version-id": "${expiredVersion}"
+                  },
+                  "requester": "s3.amazonaws.com",
+                  "reason": "Lifecycle Expiration",
+                  "deletion-type": "Permanently Deleted"
+                }
+              }
+            }
+          ],
+          "Sequence": 7
+        }
+      ],
+      "AuditBucket": "lifecycle-delivery-audit",
+      "AuditPrefix": "AWSLogs/123456789012/CloudTrail/",
+      "RequiredCloudTrailEvents": ["PutObject"],
+      "ForbiddenCloudTrailEvents": ["DeleteObject", "DeleteObjects", "CopyObject", "AbortMultipartUpload", "LifecycleExpiration", "LifecycleTransition"]
+    }
+  ]
+}

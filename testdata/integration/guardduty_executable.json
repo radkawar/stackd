@@ -1,0 +1,166 @@
+{
+  "source": "Local assembled stackd executable and signed AWS SDK for Go v2; not a native AWS event capture",
+  "observed_at": "2026-09-29",
+  "sdk": "github.com/aws/aws-sdk-go-v2/service/guardduty v1.96.0",
+  "command": "go run ./scripts/guardduty_smoke /tmp/stackd-guardduty-principal-policy",
+  "evidence_directory": "/tmp/stackd-guardduty-483164918",
+  "exit_code": 0,
+  "stdout": [
+    "GuardDuty current IAM role admission, rollback/no orphan, and resource-tag revocation: PASS",
+    "GuardDuty producer event -> EventBridge pattern -> authorized SQS delivery: PASS",
+    "GuardDuty producer event -> EventBridge pattern -> authorized SQS delivery: PASS",
+    "GuardDuty S3 access logging: enable and denied disable excluded; successful disable identifies actual bucket: PASS",
+    "GuardDuty S3 bucket/account public access: enabled and denied changes excluded; successful partial disable and delete identify actual targets: PASS",
+    "GuardDuty IAM password policy: updates aggregate; denied and missing-policy attempts retain actual outcomes without state changes: PASS",
+    "GuardDuty structured root/trail/bucket rules, real EventBridge delivery, aggregation and disabled-source gate: PASS",
+    "GuardDuty signed destination CRUD/tags, source-policy denial, trusted encrypted marker, observed/sample gzip S3 exports, archive exclusion, current KMS denial/retry, prefix IAM grant/revocation, SQLite cursor restart and owned cleanup: PASS",
+    "GuardDuty observed finding identity/count and detector source gate survive SQLite restart: PASS",
+    "GuardDuty real S3 data events: feature enable/disable, rejected-update rollback, no replay and SQLite restart aggregation: PASS",
+    "GuardDuty actual S3 canned/header/XML public ACL grants, denied/private exclusions, anonymous/authenticated separation and retained restart evidence: PASS",
+    "GuardDuty admitted bucket policy: unsigned private denial/public exact bytes, HTTP transport-conditioned allow exact bytes/matching deny/split-transport denies, anonymous PrincipalAccount and absent PrincipalIsAWSService with Bool/BoolIfExists/Null, signed finding API/bucket identity, IAM-denied unchanged state, covered action/resource denies, fixed-principal exclusion, private replacement and SQLite restart evidence: PASS",
+    "GuardDuty signed IP/threat list S3 activation, current IAM denial, child tags, quotas/pagination, SQLite restart and cleanup: PASS (address membership is not exposed by Get APIs)",
+    "GuardDuty signed SDK 90-day creation cap, refreshed/archive/feedback expiry, exact Get/List/statistics boundary, regional isolation, saved-clock/job restart and fresh sample: PASS",
+    "GuardDuty signed SDK samples, criteria, statistics, scope isolation, linked role dependency, SQLite restart and cleanup: PASS"
+  ],
+  "transport_listener_smoke": {
+    "source": "Local assembled executable; certificate-verified HTTPS and HTTP, unsigned S3 reads and signed Go SDK finding reads; not a native AWS capture",
+    "evidence_directory": "/tmp/stackd-guardduty-transport-120310088",
+    "passed": true,
+    "finding_id": "e7c53f01058f715815032b6650393a7b",
+    "bucket": "owned-transport-proof",
+    "exact_object_bytes": "actual HTTPS and HTTP object bytes",
+    "observations": [
+      {"scenario": "HTTPS-only allow over TLS", "allowed": true, "finding_count": 1},
+      {"scenario": "matching HTTPS deny", "allowed": false, "finding_count": 1},
+      {"scenario": "opposite transport deny leaves HTTPS grant", "allowed": true, "finding_count": 2},
+      {"scenario": "HTTP restart retains HTTPS policy and denies HTTP", "allowed": false, "finding_count": 2},
+      {"scenario": "HTTP-only allow over HTTP", "allowed": true, "finding_count": 3},
+      {"scenario": "TLS restart retains HTTP policy and denies HTTPS", "allowed": false, "finding_count": 3}
+    ],
+    "cleanup": "Owned bucket/object/policy/detector deleted and process stopped; temporary SQLite evidence and service-linked role retained"
+  },
+  "checks": [
+    "go test -race ./internal/services/guardduty ./storage/sqlite/guardduty",
+    "go test -race ./internal/integrations -run GuardDuty -count=1",
+    "go vet ./internal/services/guardduty ./storage/sqlite/guardduty ./internal/integrations ./scripts/guardduty_smoke",
+    "go tool staticcheck ./internal/services/guardduty ./storage/sqlite/guardduty ./internal/integrations ./scripts/guardduty_smoke",
+    "go test ./internal/services/guardduty",
+    "go vet ./internal/services/guardduty ./scripts/guardduty_smoke",
+    "go tool staticcheck ./internal/services/guardduty ./scripts/guardduty_smoke",
+    "go vet ./internal/services/guardduty ./storage/sqlite/guardduty ./scripts/guardduty_smoke",
+    "go tool staticcheck ./internal/services/guardduty ./storage/sqlite/guardduty ./scripts/guardduty_smoke",
+    "go test ./internal/services/iam ./internal/integrations ./internal/services/s3",
+    "go test ./internal/integrations -run TestGuardDutyIPList -count=1",
+    "go test -race ./internal/services/iam ./internal/integrations -run 'TestServiceLinkedOwnedPolicyIsolationAndRollback|TestGuardDutyIPList' -count=1",
+    "go vet ./internal/services/guardduty ./storage/sqlite/guardduty ./internal/services/iam ./internal/integrations ./internal/services/s3 ./scripts/guardduty_smoke",
+    "go tool staticcheck ./internal/services/guardduty ./storage/sqlite/guardduty ./internal/services/iam ./internal/integrations ./internal/services/s3 ./scripts/guardduty_smoke",
+    "go vet ./internal/services/guardduty ./storage/sqlite/guardduty ./internal/integrations ./internal/services/s3 ./scripts/guardduty_smoke",
+    "go tool staticcheck ./internal/services/guardduty ./storage/sqlite/guardduty ./internal/integrations ./internal/services/s3 ./scripts/guardduty_smoke",
+    "go test ./iam/policy ./internal/services/s3 ./internal/services/guardduty ./scripts/guardduty_smoke",
+    "go test -race ./internal/integrations -run TestGuardDutyBucketGrantCommitsWithAdmittedState -count=1",
+    "go vet ./iam/policy ./internal/services/s3 ./internal/services/guardduty ./internal/integrations ./scripts/guardduty_smoke",
+    "go tool staticcheck ./iam/policy ./internal/services/s3 ./internal/services/guardduty ./internal/integrations ./scripts/guardduty_smoke",
+    "go test ./internal/services/iam -run 'TestListPoliciesGrantingServiceAccess|TestServiceAccessARNFormsAWSReplay'",
+    "make generate-guardduty-findings generate-guardduty-findings-check"
+  ],
+  "causality_check": "In /tmp/stackd-guardduty-3464672733/state.db, persisted eventbridge.accepted.v1 events from guardduty.amazonaws.com join their parent_event_id to actual api_call_events.event_id, including ListUsers and StopLogging.",
+  "ip_list_detection_smoke": {
+    "source": "Throwaway signed SDK HTTP workflow against the assembled in-process Stack; handler injected connection addresses, not real public-origin traffic",
+    "command": "go run ./.guardduty-list-smoke",
+    "exit_code": 0,
+    "stdout": "PASS: signed SDK HTTP workflow; injected connection addresses; actual KMS-encrypted S3 ingestion, current KMS denial/recovery, literal wildcard key, trusted precedence, immutable snapshots, reactivation, retained threat evidence, delete stops new detection",
+    "cleanup": "Deleted the detector (including its remaining trusted list), S3 object and bucket; scheduled owned KMS key deletion; closed isolated memory Stack. Throwaway harness removed after verification."
+  },
+  "custom_threat_types_smoke": {
+    "source": "Throwaway signed SDK HTTP workflow against the assembled SQLite Stack; handler configured RemoteAddr=8.8.8.8:12345, not real public-origin traffic",
+    "command": "go run ./.guardduty-custom-smoke",
+    "evidence_directory": "/tmp/stackd-custom-threat-1979565650",
+    "exit_code": 0,
+    "stdout": "GuardDuty transport-fixture custom IAM reconnaissance/access and S3 discovery/access, retained bucket ARN and SQLite restart: PASS",
+    "checks": ["go test ./internal/services/guardduty ./storage/sqlite/guardduty ./cmd/guarddutyfindingsgen", "go test ./internal/integrations -run GuardDuty -count=1", "go vet ./internal/services/guardduty ./storage/sqlite/guardduty ./cmd/guarddutyfindingsgen", "go tool staticcheck ./internal/services/guardduty ./storage/sqlite/guardduty ./cmd/guarddutyfindingsgen", "make generate-guardduty-findings generate-guardduty-findings-check"],
+    "corrected_integration_failure": "The existing executable smoke rejected an overbroad S3Bucket projection for management findings. Projection now requires S3DataEvent; unchanged existing assertions and the custom S3 data workflow both pass.",
+    "cleanup": "Deleted threat list, user, source/object bytes, bucket and detector; closed Stack and SQLite database. Throwaway harness removed after verification.",
+    "limits": "Four custom-threat types have local predicates, not complete AWS private API classification. Catalog declaration evidence is 11 of 204 types, not behavioral completeness."
+  },
+  "observed_statistics_smoke": {
+    "source": "Throwaway signed SDK HTTP workflow against an isolated in-process Stack",
+    "command": "go run ./.guardduty-statistics-smoke",
+    "regression": "Before correction, GetFindings returned root type count 4 and password-policy type count 1, but statistics returned empty type count 4 and root sample count 1.",
+    "exit_code": 0,
+    "stdout": [
+      "GetFindings type counts: map[Policy:IAMUser/RootCredentialUsage:4 Stealth:IAMUser/PasswordPolicyChange:1]; statistics: map[Policy:IAMUser/RootCredentialUsage:4 Stealth:IAMUser/PasswordPolicyChange:1]",
+      "PASS: signed SDK observed root/password-policy findings and samples retain distinct finding-type statistics"
+    ],
+    "regression_test": "TestFindingTypeStatisticsCombineSamplesAndObservations",
+    "cleanup": "Deleted the detector and closed the isolated memory Stack. Throwaway harness removed after verification."
+  },
+  "destination_exports": {
+    "source": "Signed SDK executable workflow with saved manual time and SQLite restart; real S3/KMS writes and SDK-read gzip JSONL bytes",
+    "causality": "In /tmp/stackd-guardduty-1280606527/state.db, GuardDuty AWSService PutObject envelopes join parent_event_id to CreatePublishingDestination (2), UpdatePublishingDestination (2), CreateSampleFindings (1), successful ListKeys-origin exports (4) and one denied ListKeys-origin export.",
+    "native_captures": [
+      "testdata/aws/guardduty/publishing_destinations.json",
+      "testdata/aws/guardduty/publishing_destinations_export.json"
+    ],
+    "native_export_observation_seconds": [120.56, 600.907],
+    "native_export_result": "No finding object in either bounded capture. The longer capture retained an active sample and PUBLISHING destination. Lifecycle and encrypted permission markers do not prove native finding-export equivalence.",
+    "native_cleanup": "Owned destinations, detectors and buckets removed; owned KMS key deletions scheduled; preexisting service-linked role not explicitly changed.",
+    "local_cleanup": "Owned destination/detector, S3 objects/bucket and controller IAM user/policies/access key removed; owned KMS key deletion scheduled."
+  },
+  "prefix_authority_calibration": {
+    "native_capture": "testdata/aws/guardduty/publishing_destinations_prefix_authority.json",
+    "native_command": "python scripts/aws/guardduty_destinations_probe.py --prefix-authority --observe-seconds 0 --output testdata/aws/guardduty/publishing_destinations_prefix_authority.json",
+    "local_command": "go run ./scripts/guardduty_smoke /tmp/stackd-guardduty-prefix-authority",
+    "local_evidence_directory": "/tmp/stackd-guardduty-875826948",
+    "checksums": {
+      "/tmp/stackd-guardduty-prefix-authority": "5776f60f2ac861de86566d5403e61e2c000cc0797d2032f58486a5acc60d1d8a",
+      "testdata/aws/guardduty/publishing_destinations_prefix_authority.json": "889dc62f9f945526f6e540e98627084339d6f16d545ce4d2ef780fae7a2248b7",
+      "internal/integrations/guardduty_destinations.go": "208070baa1be23b12e38969a04e3f17f06fc0187cb1091230bde510780fcbb78",
+      "scripts/guardduty_smoke/destinations.go": "b4712f0c2b04bc1dba2f374ea8c1f57db25516f3980a6203c1701724f1f05327",
+      "scripts/aws/guardduty_destinations_probe.py": "003f3896456adc94fb19739b77de10fcf8403ac8d4f8b0e487a8559c75d9e1b5"
+    },
+    "native_result": "Federated caller explicitly denied all S3/KMS access: direct List/Head/DescribeKey denied; root-bucket destination succeeds; existing/missing-prefix create and existing-prefix update fail with GuardDuty BadRequestException HTTP 400.",
+    "native_cleanup": "Owned destinations, detector and bucket absent; owned KMS key PendingDeletion; no persistent IAM identity created or modified.",
+    "local_result": "Full GuardDuty executable smoke passed with modeled prefix permission errors, list-only denial, complete read grants, revocation, unchanged rejected-update state and successful root update despite explicit caller S3/KMS denial.",
+    "verification": "GuardDuty package tests, GuardDuty integration-owner tests, vet, staticcheck, build and actual executable SDK smoke passed.",
+    "before_fix": "The retained /tmp/stackd-guardduty-2285170705 smoke failed: UpdatePublishingDestination returned S3 AccessDenied HTTP 403 instead of GuardDuty BadRequestException.",
+    "limits": [
+      "No native finding export or payload/timing calibration",
+      "Native capture denies both S3 read actions together; separate list-only denial is local executable coverage",
+      "No repository-wide or race checkpoint"
+    ]
+  },
+  "policy_grant_race_smoke_attempt": {
+    "command": "go run ./scripts/guardduty_smoke /tmp/stackd-guardduty-policy-grants",
+    "build": "go build -race -o /tmp/stackd-guardduty-policy-grants ./cmd/stackd",
+    "evidence_directory": "/tmp/stackd-guardduty-1312446888",
+    "exit_code": 1,
+    "result": "Existing three-minute smoke context expired during IP-list setup at IAM ListRolePolicies, before the policy-grant scenario. Deferred EventBridge cleanup also used the expired context. Controller stopped; isolated database/log retained. This attempt is not passing runtime evidence.",
+    "normal_executable_result": "The normal build completed the full unchanged smoke assertions successfully. Targeted memory/SQLite transaction race checks passed separately."
+  },
+  "corrected_smoke_attempts": [
+    "The first detection smoke reached actual root finding delivery, then DeleteBucket returned BucketNotEmpty. The owned CloudTrail bucket is now emptied before deletion.",
+    "The temporary-root smoke initially expected IAM success from non-MFA GetSessionToken credentials. IAM correctly returned AccessDenied; the smoke now verifies that denial is retained in a separate short-term root finding.",
+    "The first S3 Control smoke attempted account-prefixed IP hostname resolution. The local client now uses EndpointResolverV2 with the actual IP listener and signed account header.",
+    "The password-policy smoke initially expected a separate finding for a missing-policy delete. Retained SQLite evidence showed count 2 and latest NoSuchEntityException in the same aggregate. The smoke now verifies stable finding identity and latest recorded audit outcome.",
+    "The first retention smoke passed its API assertions but stopped the original controller before deferred EventBridge cleanup. The controller now stays alive until that cleanup completes; the full corrected run exited successfully.",
+    "The IP-list workflow initially expected immediate service-linked-role deletion after detector deletion. Actual ingestion had issued live role sessions. The smoke now verifies IAM's active-session rejection, advances manual service time one hour, and verifies successful deletion without changing IAM enforcement.",
+    "The throwaway detection harness initially bypassed net/http transport normalization and supplied an incorrect feature enum. It was corrected to an actual local HTTP server and the modeled AI_ANALYST enum before the successful detection/KMS run.",
+    "The destination smoke initially rejected the native continuation on a full final page. It now follows the cursor through the terminal empty page.",
+    "The destination smoke initially used root to enable detection, which legitimately generated an additional UpdateDetector root finding. A named IAM controller now isolates the intentional root ListKeys source without suppressing detection.",
+    "After implementing EKS audit protection, the S3 rollback smoke no longer assumes that EKS_AUDIT_LOGS activation fails. It now rejects the documented mutually exclusive EKS_RUNTIME_MONITORING/RUNTIME_MONITORING pair and verifies that enabled S3 protection was not partially disabled."
+  ],
+  "limits": [
+    "Samples and actual observed API findings are separate. Implemented structured rules do not reproduce AWS private anomaly scoring or grouping.",
+    "Public-access-block rules identify successful disabling requests, not proven public exposure or prior true-to-false transitions. Exact native partial-setting detection eligibility and grouping remain uncalibrated.",
+    "Public bucket grant rules consume admitted ACL groups and bounded unconditional or literal SecureTransport/PrincipalAccount/PrincipalIsAWSService-conditioned anonymous bucket-policy proofs, not IsPublic or effective access after Block Public Access. Other condition/variable-resource proofs, additional unsigned operations, authenticated policy audiences and native event eligibility/grouping remain open; no Zelkova-equivalence claim.",
+    "Password-policy detection implements documented update/delete attempts, not inferred policy weakening. Aggregation retains the latest outcome; the source journal retains individual API events.",
+    "Enabled S3 data events feed the implemented authenticated root-use and CloudTrail log-deletion predicates only, not all S3 finding types or private anomaly models. DNS and flow telemetry consumers remain absent.",
+    "Retention uses a conservative creation-based 90-day cap. AWS documents the maximum retention period but not whether aggregation resets its timestamp anchor; native refreshed-finding expiry remains uncalibrated.",
+    "The 444 native sample variants and 102-operation inventory do not establish behavioral completeness.",
+    "Legacy list lifecycle and source-error calibration do not establish native custom-threat timing/grouping or service-owned policy naming/granularity. New entity lists and member propagation remain unimplemented.",
+    "S3 exports use local deterministic five-minute initial/retry deadlines and one finding per gzip JSONL object. Native export eligibility, exact payload/batching, naming and retry timing remain uncalibrated despite the bounded native captures. Explicit-prefix caller denial and its GuardDuty error envelope are calibrated separately.",
+    "Native disabled and enabled-core event probes received no finding event within their 300-second windows; native event eligibility, latency and full payload equivalence remain uncalibrated.",
+    "Native exact-owned service-linked role cleanup remains unresolved after terminal AWS internal-error deletion failures; local cleanup passed.",
+    "No repository-wide test or race checkpoint was run."
+  ]
+}

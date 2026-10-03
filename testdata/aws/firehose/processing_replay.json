@@ -1,0 +1,32 @@
+{
+  "source": "lambda_processing.json.gz",
+  "setup": ["create-bucket", "create-logs-lambda", "create-logs-kinesisfirehose", "create-diagnostic-stream", "create-role-stackd-fhlambda-21a2a27d16-exec", "create-role-stackd-fhlambda-21a2a27d16-delivery", "execution-policy", "delivery-policy", "create-function-0"],
+  "creates": ["create-stream-enabled-0", "create-stream-disabled-0", "create-stream-denied-0"],
+  "transitions": [
+    {"describe": "ready-enabled-5"},
+    {"change": "enabled-tune", "describe": "enabled-tune-describe"},
+    {"change": "enabled-identical-update", "describe": "enabled-identical-update-describe"},
+    {"change": "enabled-stale-update", "describe": "enabled-stale-update-describe"},
+    {"change": "enabled-cannot-disable-backup", "describe": "enabled-cannot-disable-backup-describe"}
+  ],
+  "waves": [
+    {"puts": ["mixed-backup-enabled", "mixed-backup-disabled"], "initialMetrics": true},
+    {"before": ["create-denied-role", "denied-policy", "denied-role-update-2"], "puts": ["denied-invoke"]},
+    {"puts": ["execution-error-zero-retries", "missing-result-zero-retries"]},
+    {"puts": ["malformed-result-zero-retries"]},
+    {"before": ["recover-invoke-permission"], "puts": ["permission-recovery-observed-later"]},
+    {"before": ["disabled-enable-backup"], "puts": ["backup-enabled-update", "single-put-record"], "describe": "disabled-enable-backup-after"}
+  ],
+  "initialMetrics": {
+    "DeliveryToS3.Records": 2,
+    "DeliveryToS3.Bytes": 104,
+    "BackupToS3.Records": 3,
+    "BackupToS3.Bytes": 157,
+    "SucceedProcessing.Records": 1,
+    "SucceedProcessing.Bytes": 51
+  },
+  "irreversible": {"reject": "enabled-cannot-disable-backup", "target": "disabled-enable-backup", "describe": "disabled-enable-backup-after"},
+  "recovery": {"update": "processing-destination-boundary-config", "put": "buffer-boundary", "primaryPrefix": "enabled/boundary/", "backupPrefix": "enabled/backup/"},
+  "localRecords": [{"data": "", "transformed": "VFJBTlNGT1JNRUQ6"}],
+  "excludedNativeBoundaries": ["IAM propagation delay and the immediately restored permission-recovered marker", "Kinesis metadata", "nonzero retries", "oversized payloads", "Lambda timeout/throttling", "mixed-version in-flight cutover"]
+}

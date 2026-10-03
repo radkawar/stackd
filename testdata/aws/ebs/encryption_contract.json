@@ -1,0 +1,64 @@
+{
+  "status": "Capture intentionally stopped after parent/user priority change; no EBS implementation or documentation edits",
+  "evidence": ["encryption_readiness.json", "encryption.json"],
+  "native_observations": [
+    {
+      "contract": "With the observed account encryption default disabled, omitted flags and explicit Encrypted=false produced unencrypted snapshots; Encrypted=true plus the owned key, key-only, and Encrypted=true with the existing default key produced encrypted snapshots.",
+      "evidence_file": "encryption_readiness.json",
+      "labels": ["no-encryption-fields", "explicit-false", "explicit-encrypted-key", "key-only", "true-default-key"]
+    },
+    {
+      "contract": "Encrypted=false plus KmsKeyArn rejects with HTTP 400 ValidationException, Reason INVALID_PARAMETER_VALUE, message 'Encrypt cannot be false when KmsKeyArn is specified'.",
+      "evidence_file": "encryption_readiness.json",
+      "labels": ["false-with-key"]
+    },
+    {
+      "contract": "EC2 State=completed is not proof of EBS direct readiness. An immediate ListSnapshotBlocks returned HTTP 404 ResourceNotFoundException/SNAPSHOT_NOT_FOUND, and parent admission returned HTTP 400 ValidationException/INVALID_SNAPSHOT_ID with source snapshot not complete. The second run's unencrypted snapshot became list-readable after eleven five-second readiness waits.",
+      "evidence_file": "encryption_readiness.json",
+      "labels": ["encrypted-owner-list", "plain-inherited"],
+      "additional_evidence": "encryption.json: plain-state-1 and plain-readiness-0 through plain-readiness-11"
+    },
+    {
+      "contract": "Correlated management events show EBS StartSnapshot invoked KMS GenerateDataKey with numberOfBytes=64 and encryptionContext aws:ebs:id equal to the new snapshot ID. userIdentity.invokedBy and userAgent are ebs.amazonaws.com. This is GenerateDataKey, not GenerateDataKeyWithoutPlaintext. ViaService condition context was not measured and must not be inferred from invokedBy.",
+      "evidence_file": "encryption_readiness.json",
+      "event_source": "kms.amazonaws.com",
+      "event_name": "GenerateDataKey"
+    },
+    {
+      "contract": "Native StartSnapshot management events replace response kmsKeyArn with HIDDEN_DUE_TO_SECURITY_REASONS. CompleteSnapshot returned status pending in captured events.",
+      "evidence_file": "encryption_readiness.json",
+      "event_source": "ebs.amazonaws.com"
+    }
+  ],
+  "primary_documentation_only": [
+    {
+      "contract": "EBS direct snapshot resource ARN uses EC2 namespace and an empty account component: arn:${Partition}:ec2:${Region}::snapshot/${SnapshotId}. StartSnapshot has dependent ec2:CreateTags authorization when creating tags; resource tags and request tags are distinct supported condition keys.",
+      "sources": ["https://servicereference.us-east-1.amazonaws.com/v1/ebs/ebs.json", "https://docs.aws.amazon.com/ebs/latest/userguide/ebsapi-permissions.html"]
+    },
+    {
+      "contract": "ParentSnapshotId disallows any explicit Encrypted or KmsKeyArn. With both omitted an encrypted child inherits its parent's key. Encryption-by-default enabled rejects an unencrypted parent.",
+      "source": "https://docs.aws.amazon.com/ebs/latest/userguide/ebsapis-using-encryption.html"
+    }
+  ],
+  "unmeasured": [
+    "Native restricted-IAM allow/deny and dependent-action matrix; no role, user, inline policy or access key was created",
+    "KMS permission subsets, disabled-key behavior, ViaService values and encryption-context IAM conditions",
+    "Completed encrypted-parent inheritance and explicit parent/encryption incompatibility matrix",
+    "Regional/account isolation and cross-account sharing; no public sharing was attempted",
+    "Encryption-by-default enabled account; defaults and existing keys/policies were not changed",
+    "CloudTrail block data events; no trail selectors, CloudTrail Lake or audit configuration was created or changed",
+    "Second run had nine not-yet-visible management call events at its final read-only lookup; missing events are listed in encryption.json and are not invented"
+  ],
+  "cleanup": {
+    "deleted_snapshots": 7,
+    "remaining_owned_snapshots": 0,
+    "verification": "Both captures contain successful DeleteSnapshot receipts, an empty description-prefix/owner-scoped DescribeSnapshots inventory, and DescribeKey showing PendingDeletion after snapshot deletion.",
+    "iam_resources_created": 0,
+    "keys_pending_deletion": [
+      {"key_id": "3976658a-07a9-4d0e-b544-4ad4af68871e", "region": "us-east-1", "deletion_date_utc": "2026-10-02T11:56:56.651Z", "pending_window_days": 7},
+      {"key_id": "a4f451a3-b46d-4eaf-a3c2-02936ac01481", "region": "us-east-1", "deletion_date_utc": "2026-10-02T12:00:38.801Z", "pending_window_days": 7}
+    ],
+    "cost_boundary": "The two customer-managed keys remain physically present until their mandatory deletion dates. AWS states keys scheduled for deletion incur no key-storage charge unless deletion is cancelled. Prior short-lived key/snapshot storage and API usage may incur small charges; no account billing total was queried.",
+    "pricing_source": "https://aws.amazon.com/kms/pricing/"
+  }
+}

@@ -1,0 +1,878 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-19T00:00:00Z",
+  "source": "Native replica_autoscaling_api.json and replica_autoscaling_edges.json. Partial-error fixture selects the repeatedly observed retained-sibling outcome, not an AWS interleaving guarantee.",
+  "steps": [
+    {
+      "name": "missing-global-table",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "missing-update-before-existence",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "incomplete-setting-before-existence",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ProvisionedWriteCapacityAutoScalingUpdate": {
+          "MinimumUnits": 2,
+          "MaximumUnits": 6
+        }
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "region-needs-an-update",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ReplicaUpdates": [
+          {
+            "RegionName": "us-east-1"
+          }
+        ]
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "missing-index-selector-native-error",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "GlobalSecondaryIndexUpdates": [
+          {
+            "ProvisionedWriteCapacityAutoScalingUpdate": {
+              "MinimumUnits": 2,
+              "MaximumUnits": 6,
+              "ScalingPolicyUpdate": {
+                "TargetTrackingScalingPolicyConfiguration": {
+                  "TargetValue": 60
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "InternalServerError"
+    },
+    {
+      "name": "valid-setting-needs-global-table",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ProvisionedWriteCapacityAutoScalingUpdate": {
+          "MinimumUnits": 2,
+          "MaximumUnits": 6,
+          "ScalingPolicyUpdate": {
+            "TargetTrackingScalingPolicyConfiguration": {
+              "TargetValue": 60
+            }
+          }
+        }
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "create-regional-source",
+      "operation": "CreateTable",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "gpk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "by-g",
+            "KeySchema": [
+              {
+                "AttributeName": "gpk",
+                "KeyType": "HASH"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "ordinary-regional-table-is-not-global",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "add-real-regional-replica",
+      "operation": "UpdateTable",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "await-real-peer",
+      "operation": "DescribeTable",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "region": "us-east-2",
+      "waitWant": true
+    },
+    {
+      "name": "await-source-membership",
+      "operation": "DescribeTable",
+      "advance": "0s",
+      "region": "us-east-1",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "fresh-on-demand-has-no-scaling",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.RegionName": "us-east-1",
+        "TableAutoScalingDescription.Replicas.1.RegionName": "us-east-2",
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings": {
+          "AutoScalingDisabled": true,
+          "ScalingPolicies": []
+        },
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedWriteCapacityAutoScalingSettings": {
+          "AutoScalingDisabled": true,
+          "ScalingPolicies": []
+        },
+        "TableAutoScalingDescription.Replicas.0.GlobalSecondaryIndexes.0.ProvisionedWriteCapacityAutoScalingSettings": {
+          "AutoScalingDisabled": true,
+          "ScalingPolicies": []
+        }
+      }
+    },
+    {
+      "name": "on-demand-rejects-enabling",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ProvisionedWriteCapacityAutoScalingUpdate": {
+          "MinimumUnits": 2,
+          "MaximumUnits": 6,
+          "ScalingPolicyUpdate": {
+            "TargetTrackingScalingPolicyConfiguration": {
+              "TargetValue": 60
+            }
+          }
+        }
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "unconfigured-disable-is-valid",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ReplicaUpdates": [
+          {
+            "RegionName": "us-east-1",
+            "ReplicaProvisionedReadCapacityAutoScalingUpdate": {
+              "AutoScalingDisabled": true,
+              "AutoScalingRoleArn": "not-an-arn"
+            }
+          }
+        ]
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings": {
+          "AutoScalingDisabled": true,
+          "ScalingPolicies": []
+        }
+      }
+    },
+    {
+      "name": "enable-provisioned-global-capacity",
+      "operation": "UpdateTable",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "BillingMode": "PROVISIONED",
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 2,
+          "WriteCapacityUnits": 2
+        },
+        "GlobalSecondaryIndexUpdates": [
+          {
+            "Update": {
+              "IndexName": "by-g",
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 2,
+                "WriteCapacityUnits": 2
+              }
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "observe-billing-owned-policies",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 70,
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 70,
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings.AutoScalingDisabled": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "remember-source-read-target",
+      "operation": "DescribeScalableTargets",
+      "advance": "0s",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-replica-autoscaling"
+        ],
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits"
+      },
+      "want": {},
+      "bind": {
+        "@read-target": "ScalableTargets.0.ScalableTargetARN",
+        "@read-created": "ScalableTargets.0.CreationTime"
+      }
+    },
+    {
+      "name": "suspend-existing-read-target",
+      "operation": "RegisterScalableTarget",
+      "advance": "0s",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-replica-autoscaling",
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits",
+        "SuspendedState": {
+          "DynamicScalingInSuspended": true,
+          "DynamicScalingOutSuspended": true,
+          "ScheduledScalingSuspended": true
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "suspension-is-not-disabled",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings.AutoScalingDisabled": null
+      }
+    },
+    {
+      "name": "ddb-authority-does-not-require-public-as",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings.AutoScalingRoleArn": "arn:aws:iam::000000000000:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
+      },
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": [
+              "application-autoscaling:*",
+              "iam:PassRole"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "name": "caller-still-cannot-call-public-as",
+      "operation": "DescribeScalableTargets",
+      "advance": "0s",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-replica-autoscaling"
+        ],
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits"
+      },
+      "want": {},
+      "code": "AccessDeniedException"
+    },
+    {
+      "name": "configure-global-writes-and-regional-read",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ProvisionedWriteCapacityAutoScalingUpdate": {
+          "MinimumUnits": 2,
+          "MaximumUnits": 6,
+          "ScalingPolicyUpdate": {
+            "TargetTrackingScalingPolicyConfiguration": {
+              "TargetValue": 62
+            }
+          }
+        },
+        "GlobalSecondaryIndexUpdates": [
+          {
+            "IndexName": "by-g",
+            "ProvisionedWriteCapacityAutoScalingUpdate": {
+              "MinimumUnits": 2,
+              "MaximumUnits": 6,
+              "ScalingPolicyUpdate": {
+                "TargetTrackingScalingPolicyConfiguration": {
+                  "TargetValue": 63
+                }
+              }
+            }
+          }
+        ],
+        "ReplicaUpdates": [
+          {
+            "RegionName": "us-east-1",
+            "ReplicaProvisionedReadCapacityAutoScalingUpdate": {
+              "MinimumUnits": 2,
+              "MaximumUnits": 6,
+              "ScalingPolicyUpdate": {
+                "PolicyName": "owned-read",
+                "TargetTrackingScalingPolicyConfiguration": {
+                  "TargetValue": 64,
+                  "DisableScaleIn": true,
+                  "ScaleInCooldown": 12,
+                  "ScaleOutCooldown": 34
+                }
+              },
+              "AutoScalingRoleArn": "arn:aws:iam::000000000000:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
+            }
+          }
+        ]
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 70,
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 70
+      }
+    },
+    {
+      "name": "observe-synchronized-and-regional-settings",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 62,
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 62,
+        "TableAutoScalingDescription.Replicas.0.GlobalSecondaryIndexes.0.ProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 63,
+        "TableAutoScalingDescription.Replicas.1.GlobalSecondaryIndexes.0.ProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 63,
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings.ScalingPolicies.0.PolicyName": "owned-read",
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.ScaleInCooldown": 12,
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedReadCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 70
+      }
+    },
+    {
+      "name": "same-name-policy-is-replaced-not-merged",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ReplicaUpdates": [
+          {
+            "RegionName": "us-east-1",
+            "ReplicaProvisionedReadCapacityAutoScalingUpdate": {
+              "MinimumUnits": 2,
+              "MaximumUnits": 5,
+              "ScalingPolicyUpdate": {
+                "PolicyName": "owned-read",
+                "TargetTrackingScalingPolicyConfiguration": {
+                  "TargetValue": 66
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "omitted-tracking-fields-do-not-survive",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings.ScalingPolicies": [
+          {
+            "PolicyName": "owned-read",
+            "TargetTrackingScalingPolicyConfiguration": {
+              "TargetValue": 66
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "replacement-preserves-target-and-suspension",
+      "operation": "DescribeScalableTargets",
+      "advance": "0s",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-replica-autoscaling"
+        ],
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits"
+      },
+      "want": {
+        "ScalableTargets.0.ScalableTargetARN": "@read-target",
+        "ScalableTargets.0.CreationTime": "@read-created",
+        "ScalableTargets.0.SuspendedState": {
+          "DynamicScalingInSuspended": true,
+          "DynamicScalingOutSuspended": true,
+          "ScheduledScalingSuspended": true
+        }
+      },
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "name": "disabled-setting-forbids-bounds",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ReplicaUpdates": [
+          {
+            "RegionName": "us-east-1",
+            "ReplicaProvisionedReadCapacityAutoScalingUpdate": {
+              "AutoScalingDisabled": true,
+              "MinimumUnits": 2
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "unknown-region-prevents-all-settings",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ProvisionedWriteCapacityAutoScalingUpdate": {
+          "MinimumUnits": 2,
+          "MaximumUnits": 6,
+          "ScalingPolicyUpdate": {
+            "TargetTrackingScalingPolicyConfiguration": {
+              "TargetValue": 55
+            }
+          }
+        },
+        "ReplicaUpdates": [
+          {
+            "RegionName": "eu-west-1",
+            "ReplicaProvisionedReadCapacityAutoScalingUpdate": {
+              "MinimumUnits": 2,
+              "MaximumUnits": 6,
+              "ScalingPolicyUpdate": {
+                "TargetTrackingScalingPolicyConfiguration": {
+                  "TargetValue": 55
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "unknown-index-prevents-all-settings",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ProvisionedWriteCapacityAutoScalingUpdate": {
+          "MinimumUnits": 2,
+          "MaximumUnits": 6,
+          "ScalingPolicyUpdate": {
+            "TargetTrackingScalingPolicyConfiguration": {
+              "TargetValue": 54
+            }
+          }
+        },
+        "GlobalSecondaryIndexUpdates": [
+          {
+            "IndexName": "missing-index",
+            "ProvisionedWriteCapacityAutoScalingUpdate": {
+              "MinimumUnits": 2,
+              "MaximumUnits": 6,
+              "ScalingPolicyUpdate": {
+                "TargetTrackingScalingPolicyConfiguration": {
+                  "TargetValue": 54
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "membership-rejections-are-nonmutating",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 62,
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 62
+      }
+    },
+    {
+      "name": "bad-write-bounds-do-not-roll-back-valid-peer-read",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ProvisionedWriteCapacityAutoScalingUpdate": {
+          "MinimumUnits": 6,
+          "MaximumUnits": 2,
+          "ScalingPolicyUpdate": {
+            "TargetTrackingScalingPolicyConfiguration": {
+              "TargetValue": 60
+            }
+          }
+        },
+        "ReplicaUpdates": [
+          {
+            "RegionName": "us-east-2",
+            "ReplicaProvisionedReadCapacityAutoScalingUpdate": {
+              "MinimumUnits": 2,
+              "MaximumUnits": 4,
+              "ScalingPolicyUpdate": {
+                "TargetTrackingScalingPolicyConfiguration": {
+                  "TargetValue": 57
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "successful-sibling-remains-after-error",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 62,
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedReadCapacityAutoScalingSettings.MaximumUnits": 4,
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedReadCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 57
+      }
+    },
+    {
+      "name": "bad-read-policy-does-not-roll-back-global-writes",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ProvisionedWriteCapacityAutoScalingUpdate": {
+          "MinimumUnits": 2,
+          "MaximumUnits": 5,
+          "ScalingPolicyUpdate": {
+            "TargetTrackingScalingPolicyConfiguration": {
+              "TargetValue": 56
+            }
+          }
+        },
+        "ReplicaUpdates": [
+          {
+            "RegionName": "us-east-2",
+            "ReplicaProvisionedReadCapacityAutoScalingUpdate": {
+              "MinimumUnits": 2,
+              "MaximumUnits": 4,
+              "ScalingPolicyUpdate": {
+                "TargetTrackingScalingPolicyConfiguration": {
+                  "TargetValue": 101
+                }
+              }
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "failed-policy-is-disabled-without-hiding-successful-writes",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 56,
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 56,
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedReadCapacityAutoScalingSettings": {
+          "AutoScalingDisabled": true,
+          "ScalingPolicies": []
+        }
+      },
+      "reopen": true
+    },
+    {
+      "name": "policyless-target-remains-registered",
+      "operation": "DescribeScalableTargets",
+      "advance": "0s",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-replica-autoscaling"
+        ],
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits"
+      },
+      "want": {
+        "ScalableTargets.0.MinCapacity": 2,
+        "ScalableTargets.0.MaxCapacity": 4
+      },
+      "region": "us-east-2"
+    },
+    {
+      "name": "replication-role-must-be-allowed-to-pass-role",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ReplicaUpdates": [
+          {
+            "RegionName": "us-east-1",
+            "ReplicaProvisionedReadCapacityAutoScalingUpdate": {
+              "MinimumUnits": 2,
+              "MaximumUnits": 6,
+              "ScalingPolicyUpdate": {
+                "TargetTrackingScalingPolicyConfiguration": {
+                  "TargetValue": 65
+                }
+              },
+              "AutoScalingRoleArn": "arn:aws:iam::000000000000:role/absent-replica-scaling-role"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "role-failure-preserves-existing-policy",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 66
+      }
+    },
+    {
+      "name": "return-to-on-demand",
+      "operation": "UpdateTable",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "BillingMode": "PAY_PER_REQUEST"
+      },
+      "want": {}
+    },
+    {
+      "name": "on-demand-retains-configuration-but-disables-scaling",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.AutoScalingDisabled": true,
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.MaximumUnits": 5,
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 56,
+        "TableAutoScalingDescription.Replicas.1.ReplicaProvisionedWriteCapacityAutoScalingSettings.AutoScalingDisabled": true
+      },
+      "waitWant": true
+    },
+    {
+      "name": "disable-on-demand-under-ddb-only-authority",
+      "operation": "UpdateTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling",
+        "ReplicaUpdates": [
+          {
+            "RegionName": "us-east-1",
+            "ReplicaProvisionedReadCapacityAutoScalingUpdate": {
+              "AutoScalingDisabled": true,
+              "AutoScalingRoleArn": "not-an-arn"
+            }
+          }
+        ]
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings.ScalingPolicies.0.PolicyName": "owned-read"
+      },
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "dynamodb:*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": [
+              "application-autoscaling:*",
+              "iam:PassRole"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "name": "selected-read-target-is-now-unconfigured",
+      "operation": "DescribeTableReplicaAutoScaling",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-replica-autoscaling"
+      },
+      "want": {
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedReadCapacityAutoScalingSettings": {
+          "AutoScalingDisabled": true,
+          "ScalingPolicies": []
+        },
+        "TableAutoScalingDescription.Replicas.0.ReplicaProvisionedWriteCapacityAutoScalingSettings.ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 56
+      },
+      "reopen": true
+    },
+    {
+      "name": "disabled-target-actually-removed",
+      "operation": "DescribeScalableTargets",
+      "advance": "0s",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-replica-autoscaling"
+        ],
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits"
+      },
+      "want": {
+        "ScalableTargets": []
+      },
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          }
+        ]
+      }
+    }
+  ]
+}

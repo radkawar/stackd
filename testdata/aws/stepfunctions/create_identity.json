@@ -1,0 +1,3777 @@
+{
+  "started_at": "2026-09-23T22:20:35.780136+00:00",
+  "account": "000000000000",
+  "region": "us-west-2",
+  "owned_resources": {
+    "state_machine": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+    "versions": [
+      "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1",
+      "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:2"
+    ],
+    "roles_created": [],
+    "executions": []
+  },
+  "protocol": {
+    "maximum_state_machines": 1,
+    "maximum_executions": 0,
+    "request_timeout_seconds": 35,
+    "automatic_retries": 0,
+    "cleanup_timeout_seconds": 180,
+    "account_settings_modified": false
+  },
+  "sources": [
+    "https://docs.aws.amazon.com/step-functions/latest/apireference/API_CreateStateMachine.html",
+    "https://docs.aws.amazon.com/step-functions/latest/apireference/API_PublishStateMachineVersion.html"
+  ],
+  "temporary_source": "#!/usr/bin/env python3\n\"\"\"One owned state machine, no executions or roles, exact Create identity observations.\"\"\"\nimport datetime\nimport json\nimport os\nfrom pathlib import Path\nimport time\nimport uuid\n\nfrom aws_cli import run\n\n\ndef main():\n    environment = dict(os.environ, AWS_PROFILE=\"default\", AWS_REGION=\"us-west-2\", AWS_DEFAULT_REGION=\"us-west-2\", AWS_MAX_ATTEMPTS=\"1\", AWS_RETRY_MODE=\"standard\", AWS_PAGER=\"\")\n    prefix = \"sd-sfn-create-\" + uuid.uuid4().hex[:12]\n    account = \"000000000000\"\n    arn = \"arn:aws:states:us-west-2:\" + account + \":stateMachine:\" + prefix\n    path = Path(\"testdata/aws/stepfunctions/create_identity.json\")\n    capture = {\"started_at\": datetime.datetime.now(datetime.timezone.utc).isoformat(), \"account\": account, \"region\": \"us-west-2\", \"owned_resources\": {\"state_machine\": arn, \"versions\": [], \"roles_created\": [], \"executions\": []}, \"protocol\": {\"maximum_state_machines\": 1, \"maximum_executions\": 0, \"request_timeout_seconds\": 35, \"automatic_retries\": 0, \"cleanup_timeout_seconds\": 180, \"account_settings_modified\": False}, \"sources\": [\"https://docs.aws.amazon.com/step-functions/latest/apireference/API_CreateStateMachine.html\", \"https://docs.aws.amazon.com/step-functions/latest/apireference/API_PublishStateMachineVersion.html\"], \"temporary_source\": Path(__file__).read_text(), \"observations\": [], \"cleanup\": {\"machine_absent\": False, \"versions_absent\": []}}\n    if path.exists():\n        capture[\"prior_invocations\"] = [json.loads(path.read_text())]\n    deadline = time.monotonic() + 180\n\n    def save():\n        path.write_text(json.dumps(capture, indent=2) + \"\\n\")\n\n    def request(label, operation, parameters, service=\"stepfunctions\", cleanup=False):\n        if not cleanup and time.monotonic() > deadline:\n            raise RuntimeError(\"Experiment deadline reached\")\n        started = time.time_ns() // 1000000\n        process = run(service, operation, parameters, environment, options=[\"--no-paginate\", \"--cli-error-format\", \"json\", \"--cli-connect-timeout\", \"10\", \"--cli-read-timeout\", \"25\"], timeout=35)\n        if process.returncode == 0:\n            result = {\"code\": \"Success\", \"output\": json.loads(process.stdout or \"{}\")}\n        elif process.returncode in (252, 254):\n            details = json.loads(process.stderr)\n            result = {\"code\": details[\"Code\"], \"error\": details}\n        else:\n            raise RuntimeError(\"CLI transport failed; diagnostics discarded\")\n        capture[\"observations\"].append({\"label\": label, \"service\": service, \"operation\": operation, \"input\": parameters, \"request_started_ms\": started, \"request_finished_ms\": time.time_ns() // 1000000, \"result\": result})\n        version = result.get(\"output\", {}).get(\"stateMachineVersionArn\")\n        if version and version not in capture[\"owned_resources\"][\"versions\"]:\n            capture[\"owned_resources\"][\"versions\"].append(version)\n        save()\n        print(label + \": \" + result[\"code\"], flush=True)\n        return result\n\n    identity = request(\"identity\", \"get-caller-identity\", {}, \"sts\")\n    if identity.get(\"output\", {}).get(\"Account\") != account:\n        raise RuntimeError(\"Unexpected AWS account\")\n    if request(\"preflight-absence\", \"describe-state-machine\", {\"stateMachineArn\": arn})[\"code\"] != \"StateMachineDoesNotExist\":\n        raise RuntimeError(\"Owned prefix was not absent\")\n    original = '{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}'\n    changed = '{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}'\n    base = {\"name\": prefix, \"definition\": original, \"roleArn\": \"arn:aws:iam::\" + account + \":role/\" + prefix + \"-uncreated\", \"publish\": False}\n    try:\n        if request(\"create-unpublished\", \"create-state-machine\", base)[\"code\"] != \"Success\":\n            raise RuntimeError(\"Owned creation failed\")\n        request(\"repeat-unpublished-before-publish\", \"create-state-machine\", base)\n        request(\"publish-after-create\", \"publish-state-machine-version\", {\"stateMachineArn\": arn, \"description\": \"later-publication\"})\n        request(\"repeat-unpublished-after-publish\", \"create-state-machine\", base)\n        request(\"repeat-publish-true-no-description\", \"create-state-machine\", dict(base, publish=True))\n        request(\"repeat-publish-true-matching-description\", \"create-state-machine\", dict(base, publish=True, versionDescription=\"later-publication\"))\n        request(\"repeat-publish-true-different-description\", \"create-state-machine\", dict(base, publish=True, versionDescription=\"other-description\"))\n        update = request(\"update-definition\", \"update-state-machine\", {\"stateMachineArn\": arn, \"definition\": changed})\n        revision = update.get(\"output\", {}).get(\"revisionId\")\n        for attempt in range(20):\n            snapshot = request(\"wait-updated-definition-\" + str(attempt), \"describe-state-machine\", {\"stateMachineArn\": arn})\n            if snapshot.get(\"output\", {}).get(\"definition\") == changed and snapshot.get(\"output\", {}).get(\"revisionId\") == revision:\n                break\n            time.sleep(1)\n        else:\n            raise RuntimeError(\"Updated definition not observed\")\n        request(\"repeat-original-after-update\", \"create-state-machine\", base)\n        request(\"repeat-current-after-update\", \"create-state-machine\", dict(base, definition=changed))\n        request(\"repeat-current-publish-true-after-update\", \"create-state-machine\", dict(base, definition=changed, publish=True))\n        request(\"publish-updated-with-description\", \"publish-state-machine-version\", {\"stateMachineArn\": arn, \"description\": \"updated-publication\"})\n        request(\"repeat-current-unpublished-after-second-publish\", \"create-state-machine\", dict(base, definition=changed))\n        request(\"repeat-current-published-description-after-second-publish\", \"create-state-machine\", dict(base, definition=changed, publish=True, versionDescription=\"updated-publication\"))\n        for attempt in range(6):\n            for definition_label, definition in ((\"original\", original), (\"current\", changed)):\n                for description in (\"later-publication\", \"updated-publication\"):\n                    request(\"convergence-\" + str(attempt) + \"-\" + definition_label + \"-\" + description, \"create-state-machine\", dict(base, definition=definition, publish=True, versionDescription=description))\n            time.sleep(3)\n        request(\"versions-before-delete\", \"list-state-machine-versions\", {\"stateMachineArn\": arn})\n    finally:\n        request(\"cleanup-delete-machine\", \"delete-state-machine\", {\"stateMachineArn\": arn}, cleanup=True)\n        cleanup_deadline = time.monotonic() + 180\n        attempt = 0\n        while time.monotonic() < cleanup_deadline:\n            observed = request(\"cleanup-machine-absence-\" + str(attempt), \"describe-state-machine\", {\"stateMachineArn\": arn}, cleanup=True)\n            if observed[\"code\"] == \"StateMachineDoesNotExist\":\n                capture[\"cleanup\"][\"machine_absent\"] = True\n                break\n            attempt += 1\n            time.sleep(2)\n        for version in capture[\"owned_resources\"][\"versions\"]:\n            observed = request(\"cleanup-version-absence-\" + version.rsplit(\":\", 1)[1], \"describe-state-machine\", {\"stateMachineArn\": version}, cleanup=True)\n            if observed[\"code\"] == \"StateMachineDoesNotExist\":\n                capture[\"cleanup\"][\"versions_absent\"].append(version)\n        capture[\"finished_at\"] = datetime.datetime.now(datetime.timezone.utc).isoformat()\n        save()\n        if not capture[\"cleanup\"][\"machine_absent\"] or len(capture[\"cleanup\"][\"versions_absent\"]) != len(capture[\"owned_resources\"][\"versions\"]):\n            raise RuntimeError(\"Positive cleanup absence missing\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790202035780,
+      "request_finished_ms": 1790202036684,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      }
+    },
+    {
+      "label": "preflight-absence",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202036686,
+      "request_finished_ms": 1790202037615,
+      "result": {
+        "code": "StateMachineDoesNotExist",
+        "error": {
+          "Message": "State Machine Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineDoesNotExist",
+          "message": "State Machine Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "create-unpublished",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": false
+      },
+      "request_started_ms": 1790202037617,
+      "request_finished_ms": 1790202038632,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00"
+        }
+      }
+    },
+    {
+      "label": "repeat-unpublished-before-publish",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": false
+      },
+      "request_started_ms": 1790202038634,
+      "request_finished_ms": 1790202039548,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00"
+        }
+      }
+    },
+    {
+      "label": "publish-after-create",
+      "service": "stepfunctions",
+      "operation": "publish-state-machine-version",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+        "description": "later-publication"
+      },
+      "request_started_ms": 1790202039550,
+      "request_finished_ms": 1790202040444,
+      "result": {
+        "code": "Success",
+        "output": {
+          "creationDate": "2026-09-23T23:20:40.284000+01:00",
+          "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1"
+        }
+      }
+    },
+    {
+      "label": "repeat-unpublished-after-publish",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": false
+      },
+      "request_started_ms": 1790202040446,
+      "request_finished_ms": 1790202041358,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version."
+        }
+      }
+    },
+    {
+      "label": "repeat-publish-true-no-description",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true
+      },
+      "request_started_ms": 1790202041360,
+      "request_finished_ms": 1790202042267,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "repeat-publish-true-matching-description",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202042268,
+      "request_finished_ms": 1790202043188,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1"
+        }
+      }
+    },
+    {
+      "label": "repeat-publish-true-different-description",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "other-description"
+      },
+      "request_started_ms": 1790202043190,
+      "request_finished_ms": 1790202044085,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "update-definition",
+      "service": "stepfunctions",
+      "operation": "update-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}"
+      },
+      "request_started_ms": 1790202044087,
+      "request_finished_ms": 1790202045082,
+      "result": {
+        "code": "Success",
+        "output": {
+          "updateDate": "2026-09-23T23:20:44.917000+01:00",
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98"
+        }
+      }
+    },
+    {
+      "label": "wait-updated-definition-0",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202045083,
+      "request_finished_ms": 1790202045998,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "ACTIVE",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "repeat-original-after-update",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": false
+      },
+      "request_started_ms": 1790202046000,
+      "request_finished_ms": 1790202046889,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "repeat-current-after-update",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": false
+      },
+      "request_started_ms": 1790202046891,
+      "request_finished_ms": 1790202047826,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version."
+        }
+      }
+    },
+    {
+      "label": "repeat-current-publish-true-after-update",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true
+      },
+      "request_started_ms": 1790202047828,
+      "request_finished_ms": 1790202048760,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "publish-updated-with-description",
+      "service": "stepfunctions",
+      "operation": "publish-state-machine-version",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+        "description": "updated-publication"
+      },
+      "request_started_ms": 1790202048761,
+      "request_finished_ms": 1790202049640,
+      "result": {
+        "code": "Success",
+        "output": {
+          "creationDate": "2026-09-23T23:20:49.478000+01:00",
+          "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:2"
+        }
+      }
+    },
+    {
+      "label": "repeat-current-unpublished-after-second-publish",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": false
+      },
+      "request_started_ms": 1790202049642,
+      "request_finished_ms": 1790202050561,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version."
+        }
+      }
+    },
+    {
+      "label": "repeat-current-published-description-after-second-publish",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202050563,
+      "request_finished_ms": 1790202051495,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "convergence-0-original-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202051496,
+      "request_finished_ms": 1790202052431,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-0-original-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202052433,
+      "request_finished_ms": 1790202053351,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-0-current-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202053353,
+      "request_finished_ms": 1790202054286,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1"
+        }
+      }
+    },
+    {
+      "label": "convergence-0-current-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202054288,
+      "request_finished_ms": 1790202055198,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "convergence-1-original-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202058199,
+      "request_finished_ms": 1790202059133,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-1-original-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202059134,
+      "request_finished_ms": 1790202060018,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-1-current-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202060020,
+      "request_finished_ms": 1790202060955,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1"
+        }
+      }
+    },
+    {
+      "label": "convergence-1-current-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202060956,
+      "request_finished_ms": 1790202061881,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "convergence-2-original-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202064883,
+      "request_finished_ms": 1790202065782,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-2-original-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202065784,
+      "request_finished_ms": 1790202066677,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-2-current-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202066679,
+      "request_finished_ms": 1790202067594,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1"
+        }
+      }
+    },
+    {
+      "label": "convergence-2-current-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202067597,
+      "request_finished_ms": 1790202068514,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "convergence-3-original-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202071516,
+      "request_finished_ms": 1790202072432,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-3-original-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202072433,
+      "request_finished_ms": 1790202073324,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-3-current-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202073325,
+      "request_finished_ms": 1790202074204,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1"
+        }
+      }
+    },
+    {
+      "label": "convergence-3-current-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202074207,
+      "request_finished_ms": 1790202075173,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "convergence-4-original-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202078175,
+      "request_finished_ms": 1790202079058,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-4-original-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202079060,
+      "request_finished_ms": 1790202079944,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-4-current-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202079945,
+      "request_finished_ms": 1790202080823,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1"
+        }
+      }
+    },
+    {
+      "label": "convergence-4-current-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202080826,
+      "request_finished_ms": 1790202081731,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "convergence-5-original-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202084734,
+      "request_finished_ms": 1790202085641,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-5-original-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202085643,
+      "request_finished_ms": 1790202086545,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "convergence-5-current-later-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "later-publication"
+      },
+      "request_started_ms": 1790202086548,
+      "request_finished_ms": 1790202087461,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1"
+        }
+      }
+    },
+    {
+      "label": "convergence-5-current-updated-publication",
+      "service": "stepfunctions",
+      "operation": "create-state-machine",
+      "input": {
+        "name": "sd-sfn-create-97a6c8b1a61c",
+        "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+        "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+        "publish": true,
+        "versionDescription": "updated-publication"
+      },
+      "request_started_ms": 1790202087463,
+      "request_finished_ms": 1790202088385,
+      "result": {
+        "code": "StateMachineAlreadyExists",
+        "error": {
+          "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+          "Code": "StateMachineAlreadyExists",
+          "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+        }
+      }
+    },
+    {
+      "label": "versions-before-delete",
+      "service": "stepfunctions",
+      "operation": "list-state-machine-versions",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202091388,
+      "request_finished_ms": 1790202092284,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineVersions": [
+            {
+              "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:2",
+              "creationDate": "2026-09-23T23:20:49.478000+01:00"
+            },
+            {
+              "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1",
+              "creationDate": "2026-09-23T23:20:40.284000+01:00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "cleanup-delete-machine",
+      "service": "stepfunctions",
+      "operation": "delete-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202092287,
+      "request_finished_ms": 1790202093210,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-0",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202093212,
+      "request_finished_ms": 1790202094099,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "DELETING",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-1",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202096100,
+      "request_finished_ms": 1790202097018,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "DELETING",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-2",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202099020,
+      "request_finished_ms": 1790202099918,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "DELETING",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-3",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202101920,
+      "request_finished_ms": 1790202102800,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "DELETING",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-4",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202104803,
+      "request_finished_ms": 1790202105712,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "DELETING",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-5",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202107713,
+      "request_finished_ms": 1790202108623,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "DELETING",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-6",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202110625,
+      "request_finished_ms": 1790202111525,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "DELETING",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-7",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202113527,
+      "request_finished_ms": 1790202114410,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "DELETING",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-8",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202116412,
+      "request_finished_ms": 1790202117646,
+      "result": {
+        "code": "Success",
+        "output": {
+          "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c",
+          "name": "sd-sfn-create-97a6c8b1a61c",
+          "status": "DELETING",
+          "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+          "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-97a6c8b1a61c-uncreated",
+          "type": "STANDARD",
+          "creationDate": "2026-09-23T23:20:38.467000+01:00",
+          "loggingConfiguration": {
+            "level": "OFF",
+            "includeExecutionData": false
+          },
+          "tracingConfiguration": {
+            "enabled": false
+          },
+          "revisionId": "50f02c45-40dc-44f6-89b9-809d29209a98",
+          "encryptionConfiguration": {
+            "type": "AWS_OWNED_KEY"
+          }
+        }
+      }
+    },
+    {
+      "label": "cleanup-machine-absence-9",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c"
+      },
+      "request_started_ms": 1790202119647,
+      "request_finished_ms": 1790202120550,
+      "result": {
+        "code": "StateMachineDoesNotExist",
+        "error": {
+          "Message": "State Machine Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'",
+          "Code": "StateMachineDoesNotExist",
+          "message": "State Machine Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c'"
+        }
+      }
+    },
+    {
+      "label": "cleanup-version-absence-1",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1"
+      },
+      "request_started_ms": 1790202120552,
+      "request_finished_ms": 1790202121452,
+      "result": {
+        "code": "StateMachineDoesNotExist",
+        "error": {
+          "Message": "State Machine Version Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1'",
+          "Code": "StateMachineDoesNotExist",
+          "message": "State Machine Version Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1'"
+        }
+      }
+    },
+    {
+      "label": "cleanup-version-absence-2",
+      "service": "stepfunctions",
+      "operation": "describe-state-machine",
+      "input": {
+        "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:2"
+      },
+      "request_started_ms": 1790202121455,
+      "request_finished_ms": 1790202122357,
+      "result": {
+        "code": "StateMachineDoesNotExist",
+        "error": {
+          "Message": "State Machine Version Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:2'",
+          "Code": "StateMachineDoesNotExist",
+          "message": "State Machine Version Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:2'"
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "machine_absent": true,
+    "versions_absent": [
+      "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:1",
+      "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-97a6c8b1a61c:2"
+    ]
+  },
+  "prior_invocations": [
+    {
+      "started_at": "2026-09-23T22:16:10.524596+00:00",
+      "account": "000000000000",
+      "region": "us-west-2",
+      "owned_resources": {
+        "state_machine": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+        "versions": [
+          "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:1",
+          "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:2"
+        ],
+        "roles_created": [],
+        "executions": []
+      },
+      "protocol": {
+        "maximum_state_machines": 1,
+        "maximum_executions": 0,
+        "request_timeout_seconds": 35,
+        "automatic_retries": 0,
+        "cleanup_timeout_seconds": 180,
+        "account_settings_modified": false
+      },
+      "sources": [
+        "https://docs.aws.amazon.com/step-functions/latest/apireference/API_CreateStateMachine.html",
+        "https://docs.aws.amazon.com/step-functions/latest/apireference/API_PublishStateMachineVersion.html"
+      ],
+      "temporary_source": "#!/usr/bin/env python3\n\"\"\"One owned state machine, no executions or roles, exact Create identity observations.\"\"\"\nimport datetime\nimport json\nimport os\nfrom pathlib import Path\nimport time\nimport uuid\n\nfrom aws_cli import run\n\n\ndef main():\n    environment = dict(os.environ, AWS_PROFILE=\"default\", AWS_REGION=\"us-west-2\", AWS_DEFAULT_REGION=\"us-west-2\", AWS_MAX_ATTEMPTS=\"1\", AWS_RETRY_MODE=\"standard\", AWS_PAGER=\"\")\n    prefix = \"sd-sfn-create-\" + uuid.uuid4().hex[:12]\n    account = \"000000000000\"\n    arn = \"arn:aws:states:us-west-2:\" + account + \":stateMachine:\" + prefix\n    path = Path(\"testdata/aws/stepfunctions/create_identity.json\")\n    capture = {\"started_at\": datetime.datetime.now(datetime.timezone.utc).isoformat(), \"account\": account, \"region\": \"us-west-2\", \"owned_resources\": {\"state_machine\": arn, \"versions\": [], \"roles_created\": [], \"executions\": []}, \"protocol\": {\"maximum_state_machines\": 1, \"maximum_executions\": 0, \"request_timeout_seconds\": 35, \"automatic_retries\": 0, \"cleanup_timeout_seconds\": 180, \"account_settings_modified\": False}, \"sources\": [\"https://docs.aws.amazon.com/step-functions/latest/apireference/API_CreateStateMachine.html\", \"https://docs.aws.amazon.com/step-functions/latest/apireference/API_PublishStateMachineVersion.html\"], \"temporary_source\": Path(__file__).read_text(), \"observations\": [], \"cleanup\": {\"machine_absent\": False, \"versions_absent\": []}}\n    deadline = time.monotonic() + 180\n\n    def save():\n        path.write_text(json.dumps(capture, indent=2) + \"\\n\")\n\n    def request(label, operation, parameters, service=\"stepfunctions\", cleanup=False):\n        if not cleanup and time.monotonic() > deadline:\n            raise RuntimeError(\"Experiment deadline reached\")\n        started = time.time_ns() // 1000000\n        process = run(service, operation, parameters, environment, options=[\"--no-paginate\", \"--cli-error-format\", \"json\", \"--cli-connect-timeout\", \"10\", \"--cli-read-timeout\", \"25\"], timeout=35)\n        if process.returncode == 0:\n            result = {\"code\": \"Success\", \"output\": json.loads(process.stdout or \"{}\")}\n        elif process.returncode in (252, 254):\n            details = json.loads(process.stderr)\n            result = {\"code\": details[\"Code\"], \"error\": details}\n        else:\n            raise RuntimeError(\"CLI transport failed; diagnostics discarded\")\n        capture[\"observations\"].append({\"label\": label, \"service\": service, \"operation\": operation, \"input\": parameters, \"request_started_ms\": started, \"request_finished_ms\": time.time_ns() // 1000000, \"result\": result})\n        version = result.get(\"output\", {}).get(\"stateMachineVersionArn\")\n        if version and version not in capture[\"owned_resources\"][\"versions\"]:\n            capture[\"owned_resources\"][\"versions\"].append(version)\n        save()\n        print(label + \": \" + result[\"code\"], flush=True)\n        return result\n\n    identity = request(\"identity\", \"get-caller-identity\", {}, \"sts\")\n    if identity.get(\"output\", {}).get(\"Account\") != account:\n        raise RuntimeError(\"Unexpected AWS account\")\n    if request(\"preflight-absence\", \"describe-state-machine\", {\"stateMachineArn\": arn})[\"code\"] != \"StateMachineDoesNotExist\":\n        raise RuntimeError(\"Owned prefix was not absent\")\n    original = '{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}'\n    changed = '{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}'\n    base = {\"name\": prefix, \"definition\": original, \"roleArn\": \"arn:aws:iam::\" + account + \":role/\" + prefix + \"-uncreated\", \"publish\": False}\n    try:\n        if request(\"create-unpublished\", \"create-state-machine\", base)[\"code\"] != \"Success\":\n            raise RuntimeError(\"Owned creation failed\")\n        request(\"repeat-unpublished-before-publish\", \"create-state-machine\", base)\n        request(\"publish-after-create\", \"publish-state-machine-version\", {\"stateMachineArn\": arn, \"description\": \"later-publication\"})\n        request(\"repeat-unpublished-after-publish\", \"create-state-machine\", base)\n        request(\"repeat-publish-true-no-description\", \"create-state-machine\", dict(base, publish=True))\n        request(\"repeat-publish-true-matching-description\", \"create-state-machine\", dict(base, publish=True, versionDescription=\"later-publication\"))\n        request(\"repeat-publish-true-different-description\", \"create-state-machine\", dict(base, publish=True, versionDescription=\"other-description\"))\n        update = request(\"update-definition\", \"update-state-machine\", {\"stateMachineArn\": arn, \"definition\": changed})\n        revision = update.get(\"output\", {}).get(\"revisionId\")\n        for attempt in range(20):\n            snapshot = request(\"wait-updated-definition-\" + str(attempt), \"describe-state-machine\", {\"stateMachineArn\": arn})\n            if snapshot.get(\"output\", {}).get(\"definition\") == changed and snapshot.get(\"output\", {}).get(\"revisionId\") == revision:\n                break\n            time.sleep(1)\n        else:\n            raise RuntimeError(\"Updated definition not observed\")\n        request(\"repeat-original-after-update\", \"create-state-machine\", base)\n        request(\"repeat-current-after-update\", \"create-state-machine\", dict(base, definition=changed))\n        request(\"repeat-current-publish-true-after-update\", \"create-state-machine\", dict(base, definition=changed, publish=True))\n        request(\"publish-updated-with-description\", \"publish-state-machine-version\", {\"stateMachineArn\": arn, \"description\": \"updated-publication\"})\n        request(\"repeat-current-unpublished-after-second-publish\", \"create-state-machine\", dict(base, definition=changed))\n        request(\"repeat-current-published-description-after-second-publish\", \"create-state-machine\", dict(base, definition=changed, publish=True, versionDescription=\"updated-publication\"))\n        request(\"versions-before-delete\", \"list-state-machine-versions\", {\"stateMachineArn\": arn})\n    finally:\n        request(\"cleanup-delete-machine\", \"delete-state-machine\", {\"stateMachineArn\": arn}, cleanup=True)\n        cleanup_deadline = time.monotonic() + 180\n        attempt = 0\n        while time.monotonic() < cleanup_deadline:\n            observed = request(\"cleanup-machine-absence-\" + str(attempt), \"describe-state-machine\", {\"stateMachineArn\": arn}, cleanup=True)\n            if observed[\"code\"] == \"StateMachineDoesNotExist\":\n                capture[\"cleanup\"][\"machine_absent\"] = True\n                break\n            attempt += 1\n            time.sleep(2)\n        for version in capture[\"owned_resources\"][\"versions\"]:\n            observed = request(\"cleanup-version-absence-\" + version.rsplit(\":\", 1)[1], \"describe-state-machine\", {\"stateMachineArn\": version}, cleanup=True)\n            if observed[\"code\"] == \"StateMachineDoesNotExist\":\n                capture[\"cleanup\"][\"versions_absent\"].append(version)\n        capture[\"finished_at\"] = datetime.datetime.now(datetime.timezone.utc).isoformat()\n        save()\n        if not capture[\"cleanup\"][\"machine_absent\"] or len(capture[\"cleanup\"][\"versions_absent\"]) != len(capture[\"owned_resources\"][\"versions\"]):\n            raise RuntimeError(\"Positive cleanup absence missing\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+      "observations": [
+        {
+          "label": "identity",
+          "service": "sts",
+          "operation": "get-caller-identity",
+          "input": {},
+          "request_started_ms": 1790201770524,
+          "request_finished_ms": 1790201771410,
+          "result": {
+            "code": "Success",
+            "output": {
+              "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+              "Account": "000000000000",
+              "Arn": "arn:aws:iam::000000000000:user/Delegated"
+            }
+          }
+        },
+        {
+          "label": "preflight-absence",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201771410,
+          "request_finished_ms": 1790201772323,
+          "result": {
+            "code": "StateMachineDoesNotExist",
+            "error": {
+              "Message": "State Machine Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb'",
+              "Code": "StateMachineDoesNotExist",
+              "message": "State Machine Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb'"
+            }
+          }
+        },
+        {
+          "label": "create-unpublished",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": false
+          },
+          "request_started_ms": 1790201772324,
+          "request_finished_ms": 1790201773315,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00"
+            }
+          }
+        },
+        {
+          "label": "repeat-unpublished-before-publish",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": false
+          },
+          "request_started_ms": 1790201773315,
+          "request_finished_ms": 1790201774221,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00"
+            }
+          }
+        },
+        {
+          "label": "publish-after-create",
+          "service": "stepfunctions",
+          "operation": "publish-state-machine-version",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+            "description": "later-publication"
+          },
+          "request_started_ms": 1790201774221,
+          "request_finished_ms": 1790201775147,
+          "result": {
+            "code": "Success",
+            "output": {
+              "creationDate": "2026-09-23T23:16:14.985000+01:00",
+              "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:1"
+            }
+          }
+        },
+        {
+          "label": "repeat-unpublished-after-publish",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": false
+          },
+          "request_started_ms": 1790201775148,
+          "request_finished_ms": 1790201776079,
+          "result": {
+            "code": "StateMachineAlreadyExists",
+            "error": {
+              "Message": "State Machine Already Exists: This state machine was already created with a published version.",
+              "Code": "StateMachineAlreadyExists",
+              "message": "State Machine Already Exists: This state machine was already created with a published version."
+            }
+          }
+        },
+        {
+          "label": "repeat-publish-true-no-description",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": true
+          },
+          "request_started_ms": 1790201776079,
+          "request_finished_ms": 1790201777005,
+          "result": {
+            "code": "StateMachineAlreadyExists",
+            "error": {
+              "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+              "Code": "StateMachineAlreadyExists",
+              "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+            }
+          }
+        },
+        {
+          "label": "repeat-publish-true-matching-description",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": true,
+            "versionDescription": "later-publication"
+          },
+          "request_started_ms": 1790201777005,
+          "request_finished_ms": 1790201777906,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:1"
+            }
+          }
+        },
+        {
+          "label": "repeat-publish-true-different-description",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": true,
+            "versionDescription": "other-description"
+          },
+          "request_started_ms": 1790201777906,
+          "request_finished_ms": 1790201778799,
+          "result": {
+            "code": "StateMachineAlreadyExists",
+            "error": {
+              "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+              "Code": "StateMachineAlreadyExists",
+              "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+            }
+          }
+        },
+        {
+          "label": "update-definition",
+          "service": "stepfunctions",
+          "operation": "update-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}"
+          },
+          "request_started_ms": 1790201778800,
+          "request_finished_ms": 1790201779800,
+          "result": {
+            "code": "Success",
+            "output": {
+              "updateDate": "2026-09-23T23:16:19.638000+01:00",
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4"
+            }
+          }
+        },
+        {
+          "label": "wait-updated-definition-0",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201779800,
+          "request_finished_ms": 1790201780677,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "ACTIVE",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "repeat-original-after-update",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"original\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": false
+          },
+          "request_started_ms": 1790201780677,
+          "request_finished_ms": 1790201781581,
+          "result": {
+            "code": "StateMachineAlreadyExists",
+            "error": {
+              "Message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb'",
+              "Code": "StateMachineAlreadyExists",
+              "message": "State Machine Already Exists: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb'"
+            }
+          }
+        },
+        {
+          "label": "repeat-current-after-update",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": false
+          },
+          "request_started_ms": 1790201781581,
+          "request_finished_ms": 1790201782522,
+          "result": {
+            "code": "StateMachineAlreadyExists",
+            "error": {
+              "Message": "State Machine Already Exists: This state machine was already created with a published version.",
+              "Code": "StateMachineAlreadyExists",
+              "message": "State Machine Already Exists: This state machine was already created with a published version."
+            }
+          }
+        },
+        {
+          "label": "repeat-current-publish-true-after-update",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": true
+          },
+          "request_started_ms": 1790201782523,
+          "request_finished_ms": 1790201783468,
+          "result": {
+            "code": "StateMachineAlreadyExists",
+            "error": {
+              "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+              "Code": "StateMachineAlreadyExists",
+              "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+            }
+          }
+        },
+        {
+          "label": "publish-updated-with-description",
+          "service": "stepfunctions",
+          "operation": "publish-state-machine-version",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+            "description": "updated-publication"
+          },
+          "request_started_ms": 1790201783469,
+          "request_finished_ms": 1790201784376,
+          "result": {
+            "code": "Success",
+            "output": {
+              "creationDate": "2026-09-23T23:16:24.214000+01:00",
+              "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:2"
+            }
+          }
+        },
+        {
+          "label": "repeat-current-unpublished-after-second-publish",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": false
+          },
+          "request_started_ms": 1790201784376,
+          "request_finished_ms": 1790201785291,
+          "result": {
+            "code": "StateMachineAlreadyExists",
+            "error": {
+              "Message": "State Machine Already Exists: This state machine was already created with a published version.",
+              "Code": "StateMachineAlreadyExists",
+              "message": "State Machine Already Exists: This state machine was already created with a published version."
+            }
+          }
+        },
+        {
+          "label": "repeat-current-published-description-after-second-publish",
+          "service": "stepfunctions",
+          "operation": "create-state-machine",
+          "input": {
+            "name": "sd-sfn-create-b9207a4a23cb",
+            "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+            "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+            "publish": true,
+            "versionDescription": "updated-publication"
+          },
+          "request_started_ms": 1790201785292,
+          "request_finished_ms": 1790201786215,
+          "result": {
+            "code": "StateMachineAlreadyExists",
+            "error": {
+              "Message": "State Machine Already Exists: This state machine was already created with a published version using a different description.",
+              "Code": "StateMachineAlreadyExists",
+              "message": "State Machine Already Exists: This state machine was already created with a published version using a different description."
+            }
+          }
+        },
+        {
+          "label": "versions-before-delete",
+          "service": "stepfunctions",
+          "operation": "list-state-machine-versions",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201786216,
+          "request_finished_ms": 1790201787088,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineVersions": [
+                {
+                  "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:2",
+                  "creationDate": "2026-09-23T23:16:24.214000+01:00"
+                },
+                {
+                  "stateMachineVersionArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:1",
+                  "creationDate": "2026-09-23T23:16:14.985000+01:00"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "label": "cleanup-delete-machine",
+          "service": "stepfunctions",
+          "operation": "delete-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201787088,
+          "request_finished_ms": 1790201787973,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-0",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201787974,
+          "request_finished_ms": 1790201788824,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-1",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201790825,
+          "request_finished_ms": 1790201791705,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-2",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201793705,
+          "request_finished_ms": 1790201794625,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-3",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201796625,
+          "request_finished_ms": 1790201797489,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-4",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201799490,
+          "request_finished_ms": 1790201800378,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-5",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201802378,
+          "request_finished_ms": 1790201803254,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-6",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201805255,
+          "request_finished_ms": 1790201806169,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-7",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201808169,
+          "request_finished_ms": 1790201809059,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-8",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201811060,
+          "request_finished_ms": 1790201811917,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-9",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201813917,
+          "request_finished_ms": 1790201814798,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-10",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201816799,
+          "request_finished_ms": 1790201817686,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-11",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201819687,
+          "request_finished_ms": 1790201820580,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-12",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201822581,
+          "request_finished_ms": 1790201823468,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-13",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201825469,
+          "request_finished_ms": 1790201826369,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-14",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201828370,
+          "request_finished_ms": 1790201829238,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-15",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201831239,
+          "request_finished_ms": 1790201832129,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-16",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201834129,
+          "request_finished_ms": 1790201835019,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-17",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201837020,
+          "request_finished_ms": 1790201837925,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-18",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201839926,
+          "request_finished_ms": 1790201840828,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-19",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201842829,
+          "request_finished_ms": 1790201843731,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-20",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201845732,
+          "request_finished_ms": 1790201846639,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-21",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201848640,
+          "request_finished_ms": 1790201849526,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-22",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201851527,
+          "request_finished_ms": 1790201852459,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-23",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201854460,
+          "request_finished_ms": 1790201855328,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-24",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201857330,
+          "request_finished_ms": 1790201858218,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-25",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201860219,
+          "request_finished_ms": 1790201861116,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-26",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201863117,
+          "request_finished_ms": 1790201864008,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-27",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201866009,
+          "request_finished_ms": 1790201866893,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-28",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201868894,
+          "request_finished_ms": 1790201869771,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-29",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201871771,
+          "request_finished_ms": 1790201872704,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-30",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201874705,
+          "request_finished_ms": 1790201875667,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-31",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201877668,
+          "request_finished_ms": 1790201878565,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-32",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201880566,
+          "request_finished_ms": 1790201881439,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-33",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201883441,
+          "request_finished_ms": 1790201884333,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-34",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201886333,
+          "request_finished_ms": 1790201887250,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-35",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201889251,
+          "request_finished_ms": 1790201890125,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-36",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201892126,
+          "request_finished_ms": 1790201893024,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-37",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201895025,
+          "request_finished_ms": 1790201895972,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-38",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201897973,
+          "request_finished_ms": 1790201898868,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-39",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201900869,
+          "request_finished_ms": 1790201901772,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-40",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201903773,
+          "request_finished_ms": 1790201904671,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-41",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201906671,
+          "request_finished_ms": 1790201907558,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-42",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201909560,
+          "request_finished_ms": 1790201910469,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-43",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201912470,
+          "request_finished_ms": 1790201913360,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-44",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201915361,
+          "request_finished_ms": 1790201916255,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-45",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201918256,
+          "request_finished_ms": 1790201919143,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-46",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201921145,
+          "request_finished_ms": 1790201922060,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-47",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201924061,
+          "request_finished_ms": 1790201924944,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-48",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201926945,
+          "request_finished_ms": 1790201927850,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-49",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201929851,
+          "request_finished_ms": 1790201930715,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-50",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201932716,
+          "request_finished_ms": 1790201933623,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-51",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201935624,
+          "request_finished_ms": 1790201936491,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-52",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201938492,
+          "request_finished_ms": 1790201939372,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-53",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201941373,
+          "request_finished_ms": 1790201942249,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-54",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201944250,
+          "request_finished_ms": 1790201945157,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-55",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201947159,
+          "request_finished_ms": 1790201948040,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-56",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201950041,
+          "request_finished_ms": 1790201950916,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-57",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201952917,
+          "request_finished_ms": 1790201953940,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-58",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201955941,
+          "request_finished_ms": 1790201956890,
+          "result": {
+            "code": "Success",
+            "output": {
+              "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb",
+              "name": "sd-sfn-create-b9207a4a23cb",
+              "status": "DELETING",
+              "definition": "{\"StartAt\":\"Result\",\"States\":{\"Result\":{\"Type\":\"Pass\",\"Result\":\"changed\",\"End\":true}}}",
+              "roleArn": "arn:aws:iam::000000000000:role/sd-sfn-create-b9207a4a23cb-uncreated",
+              "type": "STANDARD",
+              "creationDate": "2026-09-23T23:16:13.141000+01:00",
+              "loggingConfiguration": {
+                "level": "OFF",
+                "includeExecutionData": false
+              },
+              "tracingConfiguration": {
+                "enabled": false
+              },
+              "revisionId": "891cc8f0-0df8-4a9e-93c6-0423f3c4f7f4",
+              "encryptionConfiguration": {
+                "type": "AWS_OWNED_KEY"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-machine-absence-59",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb"
+          },
+          "request_started_ms": 1790201958891,
+          "request_finished_ms": 1790201959816,
+          "result": {
+            "code": "StateMachineDoesNotExist",
+            "error": {
+              "Message": "State Machine Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb'",
+              "Code": "StateMachineDoesNotExist",
+              "message": "State Machine Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb'"
+            }
+          }
+        },
+        {
+          "label": "cleanup-version-absence-1",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:1"
+          },
+          "request_started_ms": 1790201959817,
+          "request_finished_ms": 1790201960702,
+          "result": {
+            "code": "StateMachineDoesNotExist",
+            "error": {
+              "Message": "State Machine Version Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:1'",
+              "Code": "StateMachineDoesNotExist",
+              "message": "State Machine Version Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:1'"
+            }
+          }
+        },
+        {
+          "label": "cleanup-version-absence-2",
+          "service": "stepfunctions",
+          "operation": "describe-state-machine",
+          "input": {
+            "stateMachineArn": "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:2"
+          },
+          "request_started_ms": 1790201960703,
+          "request_finished_ms": 1790201961595,
+          "result": {
+            "code": "StateMachineDoesNotExist",
+            "error": {
+              "Message": "State Machine Version Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:2'",
+              "Code": "StateMachineDoesNotExist",
+              "message": "State Machine Version Does Not Exist: 'arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:2'"
+            }
+          }
+        }
+      ],
+      "cleanup": {
+        "machine_absent": true,
+        "versions_absent": [
+          "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:1",
+          "arn:aws:states:us-west-2:000000000000:stateMachine:sd-sfn-create-b9207a4a23cb:2"
+        ]
+      },
+      "finished_at": "2026-09-23T22:19:21.597453+00:00"
+    }
+  ],
+  "finished_at": "2026-09-23T22:22:02.360002+00:00",
+  "findings": [
+    {
+      "observation": "After unpublished creation, publishing version 1 changed Create idempotency: publish=false repeats conflicted, while publish=true with the first publication description succeeded and returned version 1.",
+      "evidence": [
+        "repeat-unpublished-after-publish",
+        "repeat-publish-true-no-description",
+        "repeat-publish-true-matching-description",
+        "repeat-publish-true-different-description"
+      ]
+    },
+    {
+      "observation": "After updating the definition and publishing version 2 with another description, six bounded observation rounds admitted Create with the current definition and first publication description, returning version 1. Original definition or second publication description conflicted.",
+      "evidence": [
+        "publish-updated-with-description",
+        "convergence-0-current-later-publication",
+        "convergence-5-current-later-publication",
+        "convergence-5-original-later-publication",
+        "convergence-5-current-updated-publication"
+      ],
+      "contract": "Current configuration comparison is separate from first-publication identity."
+    },
+    {
+      "observation": "Both invocation-owned machines and all four observed versions were positively absent after cleanup. No execution or IAM role was created.",
+      "evidence": [
+        "cleanup-machine-absence-9",
+        "cleanup-version-absence-1",
+        "cleanup-version-absence-2"
+      ],
+      "boundary": "The previous invocation preserves its own raw cleanup observations and source."
+    }
+  ],
+  "limitations": [
+    "No logging, tracing, encryption, IAM task trust, or execution behavior was tested.",
+    "Deletion of version 1 before a repeated Create was not tested; the observations establish identity while both versions exist.",
+    "CLI JSON outputs and native error objects are retained unchanged; timestamps are the AWS CLI representation.",
+    "The first attempted invocation named a nonexistent local Delegated profile and stopped before STS/resource calls; the corrected default profile positively identified IAM user Delegated in the expected account."
+  ]
+}

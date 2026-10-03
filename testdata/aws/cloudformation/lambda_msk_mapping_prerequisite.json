@@ -1,0 +1,547 @@
+{
+  "account": "000000000000",
+  "region": "us-east-1",
+  "actor": "arn:aws:iam::000000000000:user/Delegated",
+  "ethics_review": {
+    "allowed": true,
+    "decision": "allow",
+    "reason": "permitted",
+    "scope": "After fresh NoSuchEntity, explicitly create AWSServiceRoleForKafka for kafka.amazonaws.com and retain exact ARN+RoleId. Abort on concurrent role creation; never adopt a preexisting role. One private two-AZ two-t3.small MSK cluster and disabled concurrency-zero Lambda capture within prior bounds. Cleanup exact-owned cluster/network before deleting role, only if ARN+RoleId match. Observe DeleteServiceLinkedRole native dependency checks and deletion status; never remove other resources to satisfy deletion. Durable recovery; 70 minute workflow, 25 minute readiness, 40 minute cleanup, target below $2."
+  },
+  "calls": [
+    {
+      "label": "identity-before-prerequisite-writes",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "request": {},
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        }
+      },
+      "at": "2026-09-30T21:46:26.723624+00:00"
+    },
+    {
+      "label": "role-absence-immediately-before-create",
+      "service": "iam",
+      "operation": "get-role",
+      "request": {
+        "RoleName": "AWSServiceRoleForKafka"
+      },
+      "result": {
+        "code": "NoSuchEntity",
+        "error": {
+          "Code": "NoSuchEntity",
+          "Message": "The role with name AWSServiceRoleForKafka cannot be found."
+        }
+      },
+      "at": "2026-09-30T21:46:27.573716+00:00"
+    },
+    {
+      "label": "create-exact-owned-msk-service-linked-role",
+      "service": "iam",
+      "operation": "create-service-linked-role",
+      "request": {
+        "AWSServiceName": "kafka.amazonaws.com",
+        "Description": "Temporary stackd owned MSK CFN calibration prerequisite"
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/aws-service-role/kafka.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForKafka",
+            "RoleId": "AROAQAAAAAAAHS26FIMPM",
+            "Arn": "arn:aws:iam::000000000000:role/aws-service-role/kafka.amazonaws.com/AWSServiceRoleForKafka",
+            "CreateDate": "2026-09-30T21:46:28+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Action": [
+                    "sts:AssumeRole"
+                  ],
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": [
+                      "kafka.amazonaws.com"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "at": "2026-09-30T21:46:28.527601+00:00"
+    },
+    {
+      "label": "available-azs",
+      "service": "ec2",
+      "operation": "describe-availability-zones",
+      "request": {
+        "Filters": [
+          {
+            "Name": "state",
+            "Values": [
+              "available"
+            ]
+          }
+        ],
+        "AllAvailabilityZones": false
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "AvailabilityZones": [
+            {
+              "OptInStatus": "opt-in-not-required",
+              "Messages": [],
+              "RegionName": "us-east-1",
+              "ZoneName": "us-east-1a",
+              "ZoneId": "use1-az6",
+              "GroupName": "us-east-1-zg-1",
+              "NetworkBorderGroup": "us-east-1",
+              "ZoneType": "availability-zone",
+              "GroupLongName": "US East (N. Virginia) 1",
+              "Geography": [
+                {
+                  "Name": "United States of America"
+                }
+              ],
+              "SubGeography": [
+                {
+                  "Name": "Virginia"
+                }
+              ],
+              "State": "available"
+            },
+            {
+              "OptInStatus": "opt-in-not-required",
+              "Messages": [],
+              "RegionName": "us-east-1",
+              "ZoneName": "us-east-1b",
+              "ZoneId": "use1-az1",
+              "GroupName": "us-east-1-zg-1",
+              "NetworkBorderGroup": "us-east-1",
+              "ZoneType": "availability-zone",
+              "GroupLongName": "US East (N. Virginia) 1",
+              "Geography": [
+                {
+                  "Name": "United States of America"
+                }
+              ],
+              "SubGeography": [
+                {
+                  "Name": "Virginia"
+                }
+              ],
+              "State": "available"
+            },
+            {
+              "OptInStatus": "opt-in-not-required",
+              "Messages": [],
+              "RegionName": "us-east-1",
+              "ZoneName": "us-east-1c",
+              "ZoneId": "use1-az2",
+              "GroupName": "us-east-1-zg-1",
+              "NetworkBorderGroup": "us-east-1",
+              "ZoneType": "availability-zone",
+              "GroupLongName": "US East (N. Virginia) 1",
+              "Geography": [
+                {
+                  "Name": "United States of America"
+                }
+              ],
+              "SubGeography": [
+                {
+                  "Name": "Virginia"
+                }
+              ],
+              "State": "available"
+            },
+            {
+              "OptInStatus": "opt-in-not-required",
+              "Messages": [],
+              "RegionName": "us-east-1",
+              "ZoneName": "us-east-1d",
+              "ZoneId": "use1-az4",
+              "GroupName": "us-east-1-zg-1",
+              "NetworkBorderGroup": "us-east-1",
+              "ZoneType": "availability-zone",
+              "GroupLongName": "US East (N. Virginia) 1",
+              "Geography": [
+                {
+                  "Name": "United States of America"
+                }
+              ],
+              "SubGeography": [
+                {
+                  "Name": "Virginia"
+                }
+              ],
+              "State": "available"
+            },
+            {
+              "OptInStatus": "opt-in-not-required",
+              "Messages": [],
+              "RegionName": "us-east-1",
+              "ZoneName": "us-east-1e",
+              "ZoneId": "use1-az3",
+              "GroupName": "us-east-1-zg-1",
+              "NetworkBorderGroup": "us-east-1",
+              "ZoneType": "availability-zone",
+              "GroupLongName": "US East (N. Virginia) 1",
+              "Geography": [
+                {
+                  "Name": "United States of America"
+                }
+              ],
+              "SubGeography": [
+                {
+                  "Name": "Virginia"
+                }
+              ],
+              "State": "available"
+            },
+            {
+              "OptInStatus": "opt-in-not-required",
+              "Messages": [],
+              "RegionName": "us-east-1",
+              "ZoneName": "us-east-1f",
+              "ZoneId": "use1-az5",
+              "GroupName": "us-east-1-zg-1",
+              "NetworkBorderGroup": "us-east-1",
+              "ZoneType": "availability-zone",
+              "GroupLongName": "US East (N. Virginia) 1",
+              "Geography": [
+                {
+                  "Name": "United States of America"
+                }
+              ],
+              "SubGeography": [
+                {
+                  "Name": "Virginia"
+                }
+              ],
+              "State": "available"
+            }
+          ]
+        }
+      },
+      "at": "2026-09-30T21:47:11.545073+00:00"
+    },
+    {
+      "label": "create-owned-vpc",
+      "service": "ec2",
+      "operation": "create-vpc",
+      "request": {
+        "CidrBlock": "10.231.0.0/24",
+        "TagSpecifications": [
+          {
+            "ResourceType": "vpc",
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-cfn-msk-3203a26e67cb"
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "Vpc": {
+            "OwnerId": "000000000000",
+            "InstanceTenancy": "default",
+            "Ipv6CidrBlockAssociationSet": [],
+            "CidrBlockAssociationSet": [
+              {
+                "AssociationId": "vpc-cidr-assoc-0c10791136c408454",
+                "CidrBlock": "10.231.0.0/24",
+                "CidrBlockState": {
+                  "State": "associated"
+                }
+              }
+            ],
+            "IsDefault": false,
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-cfn-msk-3203a26e67cb"
+              }
+            ],
+            "VpcId": "vpc-05ec70abf34fd397d",
+            "State": "pending",
+            "CidrBlock": "10.231.0.0/24",
+            "DhcpOptionsId": "dopt-0f7ace7ebae95c51e"
+          }
+        }
+      },
+      "at": "2026-09-30T21:47:12.677867+00:00"
+    },
+    {
+      "label": "create-owned-subnet0",
+      "service": "ec2",
+      "operation": "create-subnet",
+      "request": {
+        "VpcId": "vpc-05ec70abf34fd397d",
+        "CidrBlock": "10.231.0.0/26",
+        "AvailabilityZone": "us-east-1a",
+        "TagSpecifications": [
+          {
+            "ResourceType": "subnet",
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-cfn-msk-3203a26e67cb"
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "Subnet": {
+            "AvailabilityZoneId": "use1-az6",
+            "MapCustomerOwnedIpOnLaunch": false,
+            "OwnerId": "000000000000",
+            "AssignIpv6AddressOnCreation": false,
+            "Ipv6CidrBlockAssociationSet": [],
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-cfn-msk-3203a26e67cb"
+              }
+            ],
+            "SubnetArn": "arn:aws:ec2:us-east-1:000000000000:subnet/subnet-04e89c4c7c8bc7156",
+            "EnableDns64": false,
+            "Ipv6Native": false,
+            "PrivateDnsNameOptionsOnLaunch": {
+              "HostnameType": "ip-name",
+              "EnableResourceNameDnsARecord": false,
+              "EnableResourceNameDnsAAAARecord": false
+            },
+            "SubnetId": "subnet-04e89c4c7c8bc7156",
+            "State": "available",
+            "VpcId": "vpc-05ec70abf34fd397d",
+            "CidrBlock": "10.231.0.0/26",
+            "AvailableIpAddressCount": 59,
+            "AvailabilityZone": "us-east-1a",
+            "DefaultForAz": false,
+            "MapPublicIpOnLaunch": false
+          }
+        }
+      },
+      "at": "2026-09-30T21:47:13.830807+00:00"
+    },
+    {
+      "label": "create-owned-subnet1",
+      "service": "ec2",
+      "operation": "create-subnet",
+      "request": {
+        "VpcId": "vpc-05ec70abf34fd397d",
+        "CidrBlock": "10.231.0.64/26",
+        "AvailabilityZone": "us-east-1b",
+        "TagSpecifications": [
+          {
+            "ResourceType": "subnet",
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-cfn-msk-3203a26e67cb"
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "Subnet": {
+            "AvailabilityZoneId": "use1-az1",
+            "MapCustomerOwnedIpOnLaunch": false,
+            "OwnerId": "000000000000",
+            "AssignIpv6AddressOnCreation": false,
+            "Ipv6CidrBlockAssociationSet": [],
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-cfn-msk-3203a26e67cb"
+              }
+            ],
+            "SubnetArn": "arn:aws:ec2:us-east-1:000000000000:subnet/subnet-0e9a8529f672448df",
+            "EnableDns64": false,
+            "Ipv6Native": false,
+            "PrivateDnsNameOptionsOnLaunch": {
+              "HostnameType": "ip-name",
+              "EnableResourceNameDnsARecord": false,
+              "EnableResourceNameDnsAAAARecord": false
+            },
+            "SubnetId": "subnet-0e9a8529f672448df",
+            "State": "available",
+            "VpcId": "vpc-05ec70abf34fd397d",
+            "CidrBlock": "10.231.0.64/26",
+            "AvailableIpAddressCount": 59,
+            "AvailabilityZone": "us-east-1b",
+            "DefaultForAz": false,
+            "MapPublicIpOnLaunch": false
+          }
+        }
+      },
+      "at": "2026-09-30T21:47:14.915887+00:00"
+    },
+    {
+      "label": "create-owned-security_group",
+      "service": "ec2",
+      "operation": "create-security-group",
+      "request": {
+        "VpcId": "vpc-05ec70abf34fd397d",
+        "GroupName": "stackd-cfn-msk-3203a26e67cb",
+        "Description": "Exact-owned no-ingress disabled MSK calibration",
+        "TagSpecifications": [
+          {
+            "ResourceType": "security-group",
+            "Tags": [
+              {
+                "Key": "stackd-probe",
+                "Value": "stackd-cfn-msk-3203a26e67cb"
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "GroupId": "sg-01c7d0120fdf15b2c",
+          "Tags": [
+            {
+              "Key": "stackd-probe",
+              "Value": "stackd-cfn-msk-3203a26e67cb"
+            }
+          ],
+          "SecurityGroupArn": "arn:aws:ec2:us-east-1:000000000000:security-group/sg-01c7d0120fdf15b2c"
+        }
+      },
+      "at": "2026-09-30T21:47:15.923214+00:00"
+    },
+    {
+      "label": "create-owned-two-broker-cluster",
+      "service": "kafka",
+      "operation": "create-cluster",
+      "request": {
+        "ClusterName": "stackd-cfn-msk-3203a26e67cb",
+        "KafkaVersion": "3.9.x",
+        "NumberOfBrokerNodes": 2,
+        "BrokerNodeGroupInfo": {
+          "BrokerAZDistribution": "DEFAULT",
+          "ClientSubnets": [
+            "subnet-04e89c4c7c8bc7156",
+            "subnet-0e9a8529f672448df"
+          ],
+          "InstanceType": "kafka.t3.small",
+          "SecurityGroups": [
+            "sg-01c7d0120fdf15b2c"
+          ],
+          "StorageInfo": {
+            "EbsStorageInfo": {
+              "VolumeSize": 1
+            }
+          },
+          "ConnectivityInfo": {
+            "PublicAccess": {
+              "Type": "DISABLED"
+            }
+          }
+        },
+        "ClientAuthentication": {
+          "Sasl": {
+            "Iam": {
+              "Enabled": true
+            }
+          },
+          "Unauthenticated": {
+            "Enabled": false
+          }
+        },
+        "EncryptionInfo": {
+          "EncryptionInTransit": {
+            "ClientBroker": "TLS",
+            "InCluster": true
+          }
+        },
+        "EnhancedMonitoring": "DEFAULT",
+        "Tags": {
+          "stackd-probe": "stackd-cfn-msk-3203a26e67cb"
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "ClusterArn": "arn:aws:kafka:us-east-1:000000000000:cluster/stackd-cfn-msk-3203a26e67cb/2274f5db-a593-4130-8b06-5ad90e4c33a6-9",
+          "ClusterName": "stackd-cfn-msk-3203a26e67cb",
+          "State": "CREATING"
+        }
+      },
+      "at": "2026-09-30T21:47:17.754857+00:00"
+    }
+  ],
+  "owned": {
+    "service_linked_role": {
+      "name": "AWSServiceRoleForKafka",
+      "creation_attempted": true,
+      "absence_verified": true,
+      "arn": "arn:aws:iam::000000000000:role/aws-service-role/kafka.amazonaws.com/AWSServiceRoleForKafka",
+      "id": "AROAQAAAAAAAHS26FIMPM",
+      "deletion_task": "task/aws-service-role/kafka.amazonaws.com/AWSServiceRoleForKafka/a1d7624e-0ba1-4518-9719-bc724ccaee24",
+      "deleted": true,
+      "terminal_deletion_status": {
+        "Status": "SUCCEEDED"
+      }
+    },
+    "network": {
+      "vpc": {
+        "creation_attempted": true,
+        "tag": "stackd-cfn-msk-3203a26e67cb",
+        "id": "vpc-05ec70abf34fd397d",
+        "deleted": true
+      },
+      "subnet0": {
+        "creation_attempted": true,
+        "tag": "stackd-cfn-msk-3203a26e67cb",
+        "id": "subnet-04e89c4c7c8bc7156",
+        "deleted": true
+      },
+      "subnet1": {
+        "creation_attempted": true,
+        "tag": "stackd-cfn-msk-3203a26e67cb",
+        "id": "subnet-0e9a8529f672448df",
+        "deleted": true
+      },
+      "security_group": {
+        "creation_attempted": true,
+        "tag": "stackd-cfn-msk-3203a26e67cb",
+        "id": "sg-01c7d0120fdf15b2c",
+        "deleted": true
+      }
+    },
+    "cluster": {
+      "name": "stackd-cfn-msk-3203a26e67cb",
+      "creation_attempted": true,
+      "arn": "arn:aws:kafka:us-east-1:000000000000:cluster/stackd-cfn-msk-3203a26e67cb/2274f5db-a593-4130-8b06-5ad90e4c33a6-9",
+      "created_at": "2026-09-30T21:47:17.755256+00:00",
+      "deleted": true
+    }
+  },
+  "cleanup": {
+    "complete": true,
+    "finished_at": "2026-09-30T22:47:01.136151+00:00"
+  },
+  "prefix": "stackd-cfn-msk-3203a26e67cb"
+}

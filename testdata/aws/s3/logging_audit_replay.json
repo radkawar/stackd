@@ -1,0 +1,3124 @@
+{
+  "Source": "access_logging_evidence.json.gz",
+  "AuditBucket": "logging-native-audit",
+  "AuditPrefix": "owned/AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Every Record is positively observed inside a delivered native CloudTrail gzip object and correlated by request ID; NativeRecord indexes are zero-based into delivered_objects and its cloudtrail.Records. No absence-of-delivery expectation is inferred.",
+    "Original request XML is replayed through Raw, including namespace attributes, empty elements, malformed XML and wrong-root name. Canonical grants bind the public GetBucketAcl owner ID. Only account/bucket/canonical identities and transport/timing/request IDs are rebound; full native requestParameters projection is retained.",
+    "SDK-origin raw requests use bodyMD5 over rebound XML instead of captured CRC32 over original resource names. Native bad/absent/algorithm-only checksum cases are unchanged. The local trail setup selects management events; all expected logging events are actual native delivered records.",
+    "Initial enable observations predate the valid native management selector; they are prerequisites only, not invented audit expectations. Non-logging ownership/policy transitions carry no Record.",
+    "Fresh payment calls 842 and 843 replay the exact caller_audit_pairs[0..1] requests, not earlier requester probes. CallerRecord comes from caller_audit_records[0..1], observed through member LookupEvents in events[883..884] and events[1019..1020]; owner Record comes from delivered_objects[123].cloudtrail.Records[13..14]. Caller identity retains its assumed-role session while owner identity contains only AWSAccount fields, and caller bucket accountId remains HIDDEN_DUE_TO_SECURITY_REASONS. Created role/session identifiers, credentials and session creation time bind to public setup outputs and the manual clock; original native IDs remain in NativeRecord."
+  ],
+  "Setup": [
+    {
+      "Label": "local-prerequisite-createrole",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "iam",
+      "Actor": "other",
+      "Operation": "CreateRole",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "OrganizationAccountAccessRole",
+        "AssumeRolePolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${account}:root\"},\"Action\":\"sts:AssumeRole\"}]}"
+      },
+      "Output": {},
+      "Bind": {
+        "memberRole": "Role.Arn",
+        "memberRoleID": "Role.RoleId"
+      }
+    },
+    {
+      "Label": "local-prerequisite-putrolepolicy",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "iam",
+      "Actor": "other",
+      "Operation": "PutRolePolicy",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleName": "OrganizationAccountAccessRole",
+        "PolicyName": "NativeOwnershipProbe",
+        "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:*\",\"Resource\":\"*\"}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "cross-assume-existing-member-role",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Operation": "AssumeRole",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleArn": "${memberRole}",
+        "RoleSessionName": "logging-native"
+      },
+      "Output": {},
+      "Actor": "caller",
+      "Service": "sts",
+      "Session": "foreign"
+    },
+    {
+      "Label": "fresh paired audit member role",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "sts",
+      "Actor": "caller",
+      "Operation": "AssumeRole",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "RoleArn": "${memberRole}",
+        "RoleSessionName": "stackd-sal-caller-audit"
+      },
+      "Output": {},
+      "Bind": {
+        "pairedPrincipalID": "AssumedRoleUser.AssumedRoleId",
+        "pairedPrincipalARN": "AssumedRoleUser.Arn",
+        "pairedAccessKey": "Credentials.AccessKeyId"
+      },
+      "Session": "paired-foreign"
+    },
+    {
+      "Label": "create stackd-sal-caebb7dc8db4-simple",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 1,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "CreateBucket",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create stackd-sal-caebb7dc8db4-event",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 3,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "CreateBucket",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-event"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create stackd-sal-caebb7dc8db4-delivery",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 5,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "CreateBucket",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-delivery"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create stackd-sal-caebb7dc8db4-dest1",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 7,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "CreateBucket",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-dest1"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create stackd-sal-caebb7dc8db4-dest2",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 9,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "CreateBucket",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-dest2"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create stackd-sal-caebb7dc8db4-west",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 103,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "CreateBucket",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-west",
+        "CreateBucketConfiguration": {
+          "LocationConstraint": "us-west-2"
+        }
+      },
+      "Output": {},
+      "Region": "us-west-2"
+    },
+    {
+      "Label": "destination allow policy stackd-sal-caebb7dc8db4-dest1",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 17,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "PutBucketPolicy",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "logging-native-dest1",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedSourceScopedDelivery\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"logging.s3.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::logging-native-dest1/*\", \"Condition\": {\"ArnLike\": {\"aws:SourceArn\": [\"arn:aws:s3:::logging-native-simple\", \"arn:aws:s3:::logging-native-event\", \"arn:aws:s3:::logging-native-delivery\"]}, \"StringEquals\": {\"aws:SourceAccount\": \"${account}\"}}}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "owned source bucket-local public controls",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 22,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "PutPublicAccessBlock",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": false,
+          "RestrictPublicBuckets": false
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "enable delivery",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 36,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-delivery",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-dest1",
+            "TargetPrefix": "delivery/",
+            "TargetObjectKeyFormat": {
+              "PartitionedPrefix": {
+                "PartitionDateSource": "DeliveryTime"
+              }
+            }
+          }
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "canonical source owner",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 113,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "GetBucketAcl",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple"
+      },
+      "Output": {},
+      "Bind": {
+        "ownerCanonical": "Owner.ID"
+      }
+    },
+    {
+      "Label": "create-logging-native-audit",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-audit"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "configure-trail-delivery-policy",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "logging-native-audit",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AWSCloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::logging-native-audit\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/logging-native-simple\"}}}, {\"Sid\": \"AWSCloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::logging-native-audit/owned/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/logging-native-simple\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "Output": {}
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create-classic-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EnableLogFileValidation": false,
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "IsOrganizationTrail": false,
+        "Name": "logging-native-simple",
+        "S3BucketName": "logging-native-audit",
+        "S3KeyPrefix": "owned"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "scope-owned-object-data-and-write-management",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EventSelectors": [
+          {
+            "DataResources": [
+              {
+                "Type": "AWS::S3::Object",
+                "Values": [
+                  "arn:aws:s3:::logging-native-simple/"
+                ]
+              }
+            ],
+            "ExcludeManagementEventSources": [
+              "kms.amazonaws.com",
+              "rdsdata.amazonaws.com"
+            ],
+            "IncludeManagementEvents": true,
+            "ReadWriteType": "All"
+          }
+        ],
+        "TrailName": "logging-native-simple"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "logging-native-simple"
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "restore baseline after permission admission",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 111,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-dest1",
+            "TargetPrefix": "simple/",
+            "TargetObjectKeyFormat": {
+              "SimplePrefix": {}
+            }
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "restore baseline after permission admission",
+        "Sequence": 111,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-dest1</TargetBucket><TargetPrefix>simple/</TargetPrefix><TargetObjectKeyFormat><SimplePrefix /></TargetObjectKeyFormat></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:42Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,D,a,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "simple/",
+              "TargetObjectKeyFormat": {
+                "SimplePrefix": ""
+              },
+              "TargetBucket": "logging-native-dest1"
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 281,
+          "startTime": 1789915842602,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915842661,
+          "x-amz-id-2": "LcoOspSMCLCgWPDnHVJPy34GunM5eyPo7vf252wV681yAdndYSlN69a/WEMl4Q1lwhBLSWO8J2/zuH0K3RjNkInwnujEU+Vc",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "8E8HDR75KCSVJV50",
+        "eventID": "9e88806e-1324-4038-b978-a30b98ba3e1a",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 111,
+        "RequestID": "8E8HDR75KCSVJV50",
+        "EventID": "9e88806e-1324-4038-b978-a30b98ba3e1a",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 110,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "member without grant Get logging",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 150,
+      "Service": "s3",
+      "Actor": "foreign",
+      "Operation": "GetBucketLogging",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "Bucket": "logging-native-simple"
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "member without grant Get logging",
+        "Sequence": 150,
+        "Operation": "GetBucketLogging",
+        "Method": "GET",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {},
+        "Body": "",
+        "Status": 403,
+        "Code": "AccessDenied",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "AROA5LIQA72GUU3ZX4CQS:stackd-owned-sal-caebb7dc8db4",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T14:50:53Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,a,e,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: arn:aws:sts::${otherAccount}:assumed-role/OrganizationAccountAccessRole/stackd-owned-sal-caebb7dc8db4 is not authorized to perform: s3:GetBucketLogging on resource: \"arn:aws:s3:::logging-native-simple\" because no resource-based policy allows the s3:GetBucketLogging action",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789915853025,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915853049,
+          "x-amz-id-2": "MuuTHhuFhNHkP/totcKSc3JqUqfUtNYZDDtozIGZ4fDnvHri9K/mfyAYrq42ScOrAXFVYLp392w=",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 514
+        },
+        "requestID": "14EJ42ABGEX2D0RQ",
+        "eventID": "4534fe8e-bf1c-3d47-a1b9-4f9006b9e8bf",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "e9f83bd6-12a3-4b92-b05d-b60047e474f2",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 150,
+        "RequestID": "14EJ42ABGEX2D0RQ",
+        "EventID": "4534fe8e-bf1c-3d47-a1b9-4f9006b9e8bf",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 145,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "member without grant Put logging",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 151,
+      "Service": "s3",
+      "Actor": "foreign",
+      "Operation": "PutBucketLogging",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {}
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "member without grant Put logging",
+        "Sequence": 151,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\" />",
+        "Status": 403,
+        "Code": "AccessDenied",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "AROA5LIQA72GUU3ZX4CQS:stackd-owned-sal-caebb7dc8db4",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T14:50:53Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,U,e,a,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: arn:aws:sts::${otherAccount}:assumed-role/OrganizationAccountAccessRole/stackd-owned-sal-caebb7dc8db4 is not authorized to perform: s3:PutBucketLogging on resource: \"arn:aws:s3:::logging-native-simple\" because no resource-based policy allows the s3:PutBucketLogging action",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 71,
+          "startTime": 1789915853167,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915853177,
+          "x-amz-id-2": "nDA8m1zW2GPvqmGyUiiQCE5yVVQZREFaQY18Ww5gbSVCNF+2Fs34waO8T+tKlmubiysut9qUR/Q=",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 514
+        },
+        "requestID": "14EN6X9VN9EHDV92",
+        "eventID": "78b12d1e-b892-33fe-a97a-587c6b705922",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "8bee64a6-ad90-4a22-b2f0-436ce3085e48",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 151,
+        "RequestID": "14EN6X9VN9EHDV92",
+        "EventID": "78b12d1e-b892-33fe-a97a-587c6b705922",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 136,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "owned source grants member logging authority",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 245,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketPolicy",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::logging-native-simple/*\"}, {\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${otherAccount}:role/OrganizationAccountAccessRole\"}, \"Action\": [\"s3:GetBucketLogging\", \"s3:PutBucketLogging\"], \"Resource\": \"arn:aws:s3:::logging-native-simple\"}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "member explicitly granted Get logging",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 246,
+      "Service": "s3",
+      "Actor": "foreign",
+      "Operation": "GetBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple"
+      },
+      "Output": {
+        "LoggingEnabled": {
+          "TargetBucket": "logging-native-dest1",
+          "TargetPrefix": "simple/",
+          "TargetObjectKeyFormat": {
+            "SimplePrefix": {}
+          }
+        }
+      },
+      "Absent": [
+        "LoggingEnabled.TargetGrants"
+      ],
+      "Raw": {
+        "Label": "member explicitly granted Get logging",
+        "Sequence": 246,
+        "Operation": "GetBucketLogging",
+        "Method": "GET",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {},
+        "Body": "",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "AROA5LIQA72GUU3ZX4CQS:stackd-owned-sal-authority",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T14:52:59Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/e,a,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789915979698,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915979721,
+          "x-amz-id-2": "sd3q3LD/ipA0eSEGFrxm7Ob8qgYkgB/a3Vv4lKCFtDrR/laBEA5O1NBtJHMSpAoOFI12D/AlkU/X6WoBrZmGh2JMeSJurSrD",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 319
+        },
+        "requestID": "BH7R9KHVKDF5E7A6",
+        "eventID": "a2f9023c-de26-379f-9d76-3002537007ce",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "010aea41-9cc6-4344-bf59-0c5403dd3a65",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 246,
+        "RequestID": "BH7R9KHVKDF5E7A6",
+        "EventID": "a2f9023c-de26-379f-9d76-3002537007ce",
+        "DeliveredObjectIndex": 5,
+        "RecordIndex": 436,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_ZOpnYaz8Hb9JDMLL.json.gz"
+      }
+    },
+    {
+      "Label": "member explicitly granted Put logging",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 247,
+      "Service": "s3",
+      "Actor": "foreign",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-dest1",
+            "TargetPrefix": "simple/",
+            "TargetObjectKeyFormat": {
+              "SimplePrefix": {}
+            }
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "member explicitly granted Put logging",
+        "Sequence": 247,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-dest1</TargetBucket><TargetPrefix>simple/</TargetPrefix><TargetObjectKeyFormat><SimplePrefix /></TargetObjectKeyFormat></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "AROA5LIQA72GUU3ZX4CQS:stackd-owned-sal-authority",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T14:52:59Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/e,a,b,D,U cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "simple/",
+              "TargetObjectKeyFormat": {
+                "SimplePrefix": ""
+              },
+              "TargetBucket": "logging-native-dest1"
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 281,
+          "startTime": 1789915979848,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915979888,
+          "x-amz-id-2": "0nLJGtYszeaBRS1W57LwcOeUPlHolUSz/Qt6Irwz4wj97uwNocIMqTeiw/MCIbzC/l1J2ZXP9Lss+Wxhpx4MXr5CvhpbX7a/",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "BH7KE6Q4PPZ0GV0D",
+        "eventID": "6c354319-1889-301c-af3f-ff7304bcd336",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "f9f596ec-7ab7-4d99-882a-825fd306ce4f",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 247,
+        "RequestID": "BH7KE6Q4PPZ0GV0D",
+        "EventID": "6c354319-1889-301c-af3f-ff7304bcd336",
+        "DeliveredObjectIndex": 5,
+        "RecordIndex": 439,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_ZOpnYaz8Hb9JDMLL.json.gz"
+      }
+    },
+    {
+      "Label": "target absent",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 101,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "InvalidTargetBucketForLogging",
+      "Status": 400,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-absent",
+            "TargetPrefix": "rejected/"
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "target absent",
+        "Sequence": 101,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-absent</TargetBucket><TargetPrefix>rejected/</TargetPrefix></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 400,
+        "Code": "InvalidTargetBucketForLogging",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ],
+        "ErrorDetails": {
+          "TargetBucket": "logging-native-absent"
+        }
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:39Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,D,a,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "InvalidTargetBucketForLogging",
+        "errorMessage": "The target bucket for logging does not exist",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "rejected/",
+              "TargetBucket": "logging-native-absent"
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 228,
+          "startTime": 1789915838986,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915838997,
+          "x-amz-id-2": "Sc5PlMUvELK7zUMYFZD0FoOJLzOnAAW9Pofn+PMc5ol+GQ3m9XlNA2MhBg7WJg5CrNdkib/pF/PfqLqJkVlzyXkprPwag9uR",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 377
+        },
+        "requestID": "0H6516KSZJ5QMD0C",
+        "eventID": "22cb9cd4-5b35-400b-b66f-b5e0d023130e",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 101,
+        "RequestID": "0H6516KSZJ5QMD0C",
+        "EventID": "22cb9cd4-5b35-400b-b66f-b5e0d023130e",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 52,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "target wrong region",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 105,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "CrossLocationLoggingProhibitted",
+      "Status": 403,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-west",
+            "TargetPrefix": "rejected/"
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "target wrong region",
+        "Sequence": 105,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-west</TargetBucket><TargetPrefix>rejected/</TargetPrefix></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 403,
+        "Code": "CrossLocationLoggingProhibitted",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ],
+        "ErrorDetails": {
+          "TargetBucketLocation": "us-west-2"
+        }
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:41Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,D,a,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "CrossLocationLoggingProhibitted",
+        "errorMessage": "Cross S3 location logging not allowed. ",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "rejected/",
+              "TargetBucket": "logging-native-west"
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 219,
+          "startTime": 1789915841010,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915841023,
+          "x-amz-id-2": "TnN6/lU5h4BrVLX2dbq6U/9XaGjHqaFvAC5UYUemvmjdeTs+5iaqvY41BDg+21z7OFgc1OOi+e0FPKFIXVPEwPBBuMUpb3Go",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 362
+        },
+        "requestID": "YSXZCMWKQR6WSD8V",
+        "eventID": "924a04d9-2247-466f-8216-bcd4fad9795e",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 105,
+        "RequestID": "YSXZCMWKQR6WSD8V",
+        "EventID": "924a04d9-2247-466f-8216-bcd4fad9795e",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 113,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "BOE target grants",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 114,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "AccessControlListNotSupported",
+      "Status": 400,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-dest2",
+            "TargetPrefix": "grants/",
+            "TargetGrants": [
+              {
+                "Grantee": {
+                  "Type": "CanonicalUser",
+                  "ID": "${ownerCanonical}"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "BOE target grants",
+        "Sequence": 114,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-dest2</TargetBucket><TargetPrefix>grants/</TargetPrefix><TargetGrants><Grant><Grantee xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"CanonicalUser\"><ID>${ownerCanonical}</ID></Grantee><Permission>READ</Permission></Grant></TargetGrants></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 400,
+        "Code": "AccessControlListNotSupported",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:43Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,D,a,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessControlListNotSupported",
+        "errorMessage": "Target grants not allowed for bucket owner enforced buckets",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "grants/",
+              "TargetBucket": "logging-native-dest2",
+              "TargetGrants": {
+                "Grant": {
+                  "Grantee": {
+                    "xsi:type": "CanonicalUser",
+                    "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                    "ID": "${ownerCanonical}"
+                  },
+                  "Permission": "READ"
+                }
+              }
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 462,
+          "startTime": 1789915843046,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915843057,
+          "x-amz-id-2": "aVSwL5me9QOLa9/4yCZqILs2YxW1Dk1jmkNC+90+EqEEM2WhNkIAnthLV9jcJjrQ4em0690YPG/ormSoU2PhDdShSW9atiUT",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 326
+        },
+        "requestID": "Z3K8G24P15JWRZNG",
+        "eventID": "b3b726b6-5dc4-48b2-9412-a3387104137a",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 114,
+        "RequestID": "Z3K8G24P15JWRZNG",
+        "EventID": "b3b726b6-5dc4-48b2-9412-a3387104137a",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 111,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "BOE empty target grants",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 116,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-dest2",
+            "TargetPrefix": "empty-grants/",
+            "TargetGrants": []
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "BOE empty target grants",
+        "Sequence": 116,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-dest2</TargetBucket><TargetPrefix>empty-grants/</TargetPrefix><TargetGrants /></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:43Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,D,a,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "empty-grants/",
+              "TargetBucket": "logging-native-dest2",
+              "TargetGrants": ""
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 240,
+          "startTime": 1789915843554,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915843622,
+          "x-amz-id-2": "ktApNQBvc06eJKxURBXWLqR5MeF2WN0JIJFzpwNNUBY0jAhnieaZuFZJ6vJxV58ciJGHS9yCz2xnG8Gabx1Q3b1Kk/kfaULk",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "Z3K122W675XPG5WN",
+        "eventID": "616a4ca4-b972-415e-91c9-9f0586d05420",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 116,
+        "RequestID": "Z3K122W675XPG5WN",
+        "EventID": "616a4ca4-b972-415e-91c9-9f0586d05420",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 102,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "owned destination enable ACLs",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 118,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketOwnershipControls",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-dest2",
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "ObjectWriter"
+            }
+          ]
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "ACL-enabled target grants",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 119,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-dest2",
+            "TargetPrefix": "acl-grants/",
+            "TargetGrants": [
+              {
+                "Grantee": {
+                  "Type": "CanonicalUser",
+                  "ID": "${ownerCanonical}"
+                },
+                "Permission": "READ"
+              }
+            ]
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "ACL-enabled target grants",
+        "Sequence": 119,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-dest2</TargetBucket><TargetPrefix>acl-grants/</TargetPrefix><TargetGrants><Grant><Grantee xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"CanonicalUser\"><ID>${ownerCanonical}</ID></Grantee><Permission>READ</Permission></Grant></TargetGrants></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:44Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,D,a,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "acl-grants/",
+              "TargetBucket": "logging-native-dest2",
+              "TargetGrants": {
+                "Grant": {
+                  "Grantee": {
+                    "xsi:type": "CanonicalUser",
+                    "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                    "ID": "${ownerCanonical}"
+                  },
+                  "Permission": "READ"
+                }
+              }
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 466,
+          "startTime": 1789915844148,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915844212,
+          "x-amz-id-2": "DCNj/xUUF64odb6f1W/qKmI7+E7psL+8ZmNcfy4fnI6IRgfSAOaEbUylmxooVeFwIs3op6f/QNr28HlAeULzD9EwDQamyQmy",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "Q5FGFGN4DKFKHJX1",
+        "eventID": "3fe30888-e911-4fb3-bfee-61b15747a7eb",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 119,
+        "RequestID": "Q5FGFGN4DKFKHJX1",
+        "EventID": "3fe30888-e911-4fb3-bfee-61b15747a7eb",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 103,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "restore owned destination BOE",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 121,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketOwnershipControls",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-dest2",
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "omitted object format default",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 239,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-dest2",
+            "TargetPrefix": "default-format/"
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "omitted object format default",
+        "Sequence": 239,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-dest2</TargetBucket><TargetPrefix>default-format/</TargetPrefix></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:52:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,a,U,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "default-format/",
+              "TargetBucket": "logging-native-dest2"
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 226,
+          "startTime": 1789915977169,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915977225,
+          "x-amz-id-2": "hkJLG52W5Y1tXGyXh25HPTLlrR0KwcU7ARRYkbpYXXRgIfbg+/T62VgejA6n7BN58nXB3AbVb9moj4H7o+gXxmpF/OgOCIq/",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "XNRMHE94FG0MGXS8",
+        "eventID": "7e49fe47-4138-4a3b-9838-a32dd363bed8",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 239,
+        "RequestID": "XNRMHE94FG0MGXS8",
+        "EventID": "7e49fe47-4138-4a3b-9838-a32dd363bed8",
+        "DeliveredObjectIndex": 5,
+        "RecordIndex": 413,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_ZOpnYaz8Hb9JDMLL.json.gz"
+      }
+    },
+    {
+      "Label": "empty partition date default",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 241,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-dest2",
+            "TargetPrefix": "default-date/",
+            "TargetObjectKeyFormat": {
+              "PartitionedPrefix": {}
+            }
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "empty partition date default",
+        "Sequence": 241,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-dest2</TargetBucket><TargetPrefix>default-date/</TargetPrefix><TargetObjectKeyFormat><PartitionedPrefix /></TargetObjectKeyFormat></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:52:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,a,U,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "default-date/",
+              "TargetObjectKeyFormat": {
+                "PartitionedPrefix": ""
+              },
+              "TargetBucket": "logging-native-dest2"
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 292,
+          "startTime": 1789915977519,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915977578,
+          "x-amz-id-2": "qrDZNXUCnyX2sPgMx5prnd1M6VrTSDZdlyPzdiZ3WkYrGE4Epjb93kII2e8BokDQy0pRN1ogwHmA6G8NaH7A7qSarx12sjV7",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "XNRMXFJD7MMC6FZQ",
+        "eventID": "8cac4c02-8d41-4d6f-9763-f8899341517f",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 241,
+        "RequestID": "XNRMXFJD7MMC6FZQ",
+        "EventID": "8cac4c02-8d41-4d6f-9763-f8899341517f",
+        "DeliveredObjectIndex": 5,
+        "RecordIndex": 416,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_ZOpnYaz8Hb9JDMLL.json.gz"
+      }
+    },
+    {
+      "Label": "baseline before retained rejection checks",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 221,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "BucketLoggingStatus": {
+          "LoggingEnabled": {
+            "TargetBucket": "logging-native-dest1",
+            "TargetPrefix": "simple/",
+            "TargetObjectKeyFormat": {
+              "SimplePrefix": {}
+            }
+          }
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "baseline before retained rejection checks",
+        "Sequence": 221,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><LoggingEnabled><TargetBucket>logging-native-dest1</TargetBucket><TargetPrefix>simple/</TargetPrefix><TargetObjectKeyFormat><SimplePrefix /></TargetObjectKeyFormat></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:52:53Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,a,U,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "LoggingEnabled": {
+              "TargetPrefix": "simple/",
+              "TargetObjectKeyFormat": {
+                "SimplePrefix": ""
+              },
+              "TargetBucket": "logging-native-dest1"
+            }
+          },
+          "Host": "logging-native-simple.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 281,
+          "startTime": 1789915973445,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915973534,
+          "x-amz-id-2": "rGKGkjOlbsndV7JMHE5K+06Q373cc3vUsyTEXtFj5OJgLWTSFlJL3IiFkgeZgcZnazahWMwlwa8ZQGOXChd5+l3PZiz5gnrZ",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "QNY0MWCFXSEK5FR6",
+        "eventID": "69059772-7c40-4e4f-8e26-fb65fb317792",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 221,
+        "RequestID": "QNY0MWCFXSEK5FR6",
+        "EventID": "69059772-7c40-4e4f-8e26-fb65fb317792",
+        "DeliveredObjectIndex": 5,
+        "RecordIndex": 400,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_ZOpnYaz8Hb9JDMLL.json.gz"
+      }
+    },
+    {
+      "Label": "malformed XML retaining enabled",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 223,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "MalformedXML",
+      "Status": 400,
+      "Raw": {
+        "Label": "malformed XML retaining enabled",
+        "Sequence": 223,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus><",
+        "Status": 400,
+        "Code": "MalformedXML",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:52:54Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-access-log-probe/1]",
+        "errorCode": "MalformedXML",
+        "errorMessage": "The XML you provided was not well-formed or did not validate against our published schema",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "Host": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 22,
+          "startTime": 1789915974131,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915974156,
+          "x-amz-id-2": "j4l5THyw3NTywa6LBA8kQR0526r5fx4kxwa5uZyluKMIUaj6tY1DnJgPDkm93qmWP4nwDlfRa50=",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 319
+        },
+        "requestID": "SR9J3C1GZQBWR5NB",
+        "eventID": "0b1d81b1-8ad1-4542-9214-59b2fca11293",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 223,
+        "RequestID": "SR9J3C1GZQBWR5NB",
+        "EventID": "0b1d81b1-8ad1-4542-9214-59b2fca11293",
+        "DeliveredObjectIndex": 5,
+        "RecordIndex": 433,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_ZOpnYaz8Hb9JDMLL.json.gz"
+      }
+    },
+    {
+      "Label": "invalid partition retaining enabled",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 227,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "MalformedXML",
+      "Status": 400,
+      "Raw": {
+        "Label": "invalid partition retaining enabled",
+        "Sequence": 227,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus><LoggingEnabled><TargetBucket>logging-native-dest2</TargetBucket><TargetPrefix>rejected</TargetPrefix><TargetObjectKeyFormat><PartitionedPrefix><PartitionDateSource>Never</PartitionDateSource></PartitionedPrefix></TargetObjectKeyFormat></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 400,
+        "Code": "MalformedXML",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:52:54Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-access-log-probe/1]",
+        "errorCode": "MalformedXML",
+        "errorMessage": "The XML you provided was not well-formed or did not validate against our published schema",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "LoggingEnabled": {
+              "TargetPrefix": "rejected",
+              "TargetObjectKeyFormat": {
+                "PartitionedPrefix": {
+                  "PartitionDateSource": "Never"
+                }
+              },
+              "TargetBucket": "logging-native-dest2"
+            }
+          },
+          "Host": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 305,
+          "startTime": 1789915974939,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915974960,
+          "x-amz-id-2": "gU0jrFr0j6rmH8YbNAyP86f6zSUFyNCoA0UG56eDCxd6AmCSy+4/UvAs3VwB5B7Qeo134teKXxI=",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 319
+        },
+        "requestID": "SR9VBFS3E0WACEZC",
+        "eventID": "743f137f-c3a8-483b-9faf-53180ccf16c3",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 227,
+        "RequestID": "SR9VBFS3E0WACEZC",
+        "EventID": "743f137f-c3a8-483b-9faf-53180ccf16c3",
+        "DeliveredObjectIndex": 5,
+        "RecordIndex": 419,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_ZOpnYaz8Hb9JDMLL.json.gz"
+      }
+    },
+    {
+      "Label": "bad MD5 retaining enabled",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 231,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "BadDigest",
+      "Status": 400,
+      "Raw": {
+        "Label": "bad MD5 retaining enabled",
+        "Sequence": 231,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "AAAAAAAAAAAAAAAAAAAAAA=="
+        },
+        "Body": "<BucketLoggingStatus/>",
+        "Status": 400,
+        "Code": "BadDigest",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ],
+        "ErrorDetails": {
+          "CalculatedDigest": "uwqklQUo5s36ac3KB3zBiw==",
+          "ExpectedDigest": "AAAAAAAAAAAAAAAAAAAAAA=="
+        }
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:52:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-access-log-probe/1]",
+        "errorCode": "BadDigest",
+        "errorMessage": "The Content-MD5 you specified did not match what we received.",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": "",
+          "Host": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 22,
+          "startTime": 1789915975748,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915975767,
+          "x-amz-id-2": "LUHsqsQh7A9vZyfxkfPw9DcY4r6tPq6ucCNyfDZsrXh4S2q0qkz3qlV2H/y4uKPyDkOvZbRI3YkSs46qAlMvZGNOSc7/l6DV",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 426
+        },
+        "requestID": "NZP7JF2YMQ6H4C2H",
+        "eventID": "730477a2-0585-474c-98f9-56e6364e8885",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 231,
+        "RequestID": "NZP7JF2YMQ6H4C2H",
+        "EventID": "730477a2-0585-474c-98f9-56e6364e8885",
+        "DeliveredObjectIndex": 5,
+        "RecordIndex": 408,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_ZOpnYaz8Hb9JDMLL.json.gz"
+      }
+    },
+    {
+      "Label": "unknown child root",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 235,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "MalformedXML",
+      "Status": 400,
+      "Raw": {
+        "Label": "unknown child root",
+        "Sequence": 235,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus><Unrecognized>ignored?</Unrecognized></BucketLoggingStatus>",
+        "Status": 400,
+        "Code": "MalformedXML",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:52:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-access-log-probe/1]",
+        "errorCode": "MalformedXML",
+        "errorMessage": "The XML you provided was not well-formed or did not validate against our published schema",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "Unrecognized": "ignored?"
+          },
+          "Host": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 80,
+          "startTime": 1789915976551,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915976575,
+          "x-amz-id-2": "Y1YwMAMfJtt5YJViSiz8ugRXHoWWXSAMWjFaSpXic30ocTH5avQ1+Mc8flGQ0JyDPLN8MOn2vYeXK4ZYz5TIYuWnPYyAiVaG",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 339
+        },
+        "requestID": "T6628W2NWFCTMGPQ",
+        "eventID": "6f54a186-010c-4b29-8891-daa8e0bc9a4c",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 235,
+        "RequestID": "T6628W2NWFCTMGPQ",
+        "EventID": "6f54a186-010c-4b29-8891-daa8e0bc9a4c",
+        "DeliveredObjectIndex": 5,
+        "RecordIndex": 411,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1500Z_ZOpnYaz8Hb9JDMLL.json.gz"
+      }
+    },
+    {
+      "Label": "wrong root",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 130,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "wrong root",
+        "Sequence": 130,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-Type": "application/xml",
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<Wrong/>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:46Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-access-log-probe/1]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "Host": "logging-native-simple.s3.us-east-1.amazonaws.com",
+          "Wrong": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 8,
+          "startTime": 1789915846554,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915846623,
+          "x-amz-id-2": "vrjRf1hmP79xoHAZLE7GJfrBq8NPUTt+AJ89uoNu14XhGpBKY5CxYP+7LC6Kp6AJvpCSy5XJjNtxWSemYjQPLbxIbURS0eqG",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "N0B1SPGVBYB2V5G2",
+        "eventID": "2f8509e4-0d17-46bd-b6e5-e1be2337461a",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 130,
+        "RequestID": "N0B1SPGVBYB2V5G2",
+        "EventID": "2f8509e4-0d17-46bd-b6e5-e1be2337461a",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 120,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "both formats",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 134,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "MalformedXML",
+      "Status": 400,
+      "Raw": {
+        "Label": "both formats",
+        "Sequence": 134,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-Type": "application/xml",
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus><LoggingEnabled><TargetBucket>logging-native-dest2</TargetBucket><TargetPrefix>x</TargetPrefix><TargetObjectKeyFormat><SimplePrefix/><PartitionedPrefix><PartitionDateSource>EventTime</PartitionDateSource></PartitionedPrefix></TargetObjectKeyFormat></LoggingEnabled></BucketLoggingStatus>",
+        "Status": 400,
+        "Code": "MalformedXML",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:47Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-access-log-probe/1]",
+        "errorCode": "MalformedXML",
+        "errorMessage": "The XML you provided was not well-formed or did not validate against our published schema",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": {
+            "LoggingEnabled": {
+              "TargetPrefix": "x",
+              "TargetObjectKeyFormat": {
+                "PartitionedPrefix": {
+                  "PartitionDateSource": "EventTime"
+                },
+                "SimplePrefix": ""
+              },
+              "TargetBucket": "logging-native-dest2"
+            }
+          },
+          "Host": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 317,
+          "startTime": 1789915847584,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915847602,
+          "x-amz-id-2": "oAhgPiZQQr+zn/vv7UsVg3iXL+GoWwVIL7Pia35FNAm8VeRgGlTHjh9Db3U/571yj6NdsclFo3D5t1UWLLRqvex3SkifOjLw",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 339
+        },
+        "requestID": "EVHS7MZHCZ4NDXF2",
+        "eventID": "0b783d0c-ea61-4f13-9da8-fce000cd0432",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 134,
+        "RequestID": "EVHS7MZHCZ4NDXF2",
+        "EventID": "0b783d0c-ea61-4f13-9da8-fce000cd0432",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 86,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "algorithm header missing checksum",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 142,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "InvalidRequest",
+      "Status": 400,
+      "Raw": {
+        "Label": "algorithm header missing checksum",
+        "Sequence": 142,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-Type": "application/xml",
+          "x-amz-sdk-checksum-algorithm": "SHA256"
+        },
+        "Body": "<BucketLoggingStatus/>",
+        "Status": 400,
+        "Code": "InvalidRequest",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:49Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-access-log-probe/1]",
+        "errorCode": "InvalidRequest",
+        "errorMessage": "x-amz-sdk-checksum-algorithm specified, but no corresponding x-amz-checksum-* or x-amz-trailer headers were found.",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": "",
+          "Host": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 22,
+          "startTime": 1789915849806,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915849821,
+          "x-amz-id-2": "k2Mo41zQHOdyOyjRZTiRKjxWdxCkgQ18XklXBApyLRAfLY7BNni7vFRSn/ZdgwzL+9/y/Otz+Y4Iz45xYWQ35/zpbek/uxbo",
+          "httpStatusCode": 400,
+          "bytesTransferredOut": 366
+        },
+        "requestID": "6RXQ6W357HHQWEKY",
+        "eventID": "8b2def09-13a9-42cb-ad37-3427afb416c3",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 142,
+        "RequestID": "6RXQ6W357HHQWEKY",
+        "EventID": "8b2def09-13a9-42cb-ad37-3427afb416c3",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 126,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "missing checksum",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 140,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Label": "missing checksum",
+        "Sequence": 140,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-simple/?logging",
+        "Headers": {
+          "Content-Type": "application/xml"
+        },
+        "Body": "<BucketLoggingStatus/>",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T14:50:49Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[stackd-owned-access-log-probe/1]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-simple",
+          "BucketLoggingStatus": "",
+          "Host": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 22,
+          "startTime": 1789915849259,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789915849316,
+          "x-amz-id-2": "XztrDsRJHKdyrb3jRFX5xsnTQR2UOKHRL5c70I1HqLSnHPHm2pHQQS7vFuAu+N2aUs84INYY8ehAB0zetWfaxaL6GHkRY7iA",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "6RXRSTSQGTP5EB3D",
+        "eventID": "d5af71f2-0cb7-4f82-9462-4903e4092225",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.us-east-1.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 140,
+        "RequestID": "6RXRSTSQGTP5EB3D",
+        "EventID": "d5af71f2-0cb7-4f82-9462-4903e4092225",
+        "DeliveredObjectIndex": 2,
+        "RecordIndex": 147,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1455Z_R9sDYabboh2fkGqr.json.gz"
+      }
+    },
+    {
+      "Label": "disable third source logging",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 643,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "PutBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-delivery",
+        "BucketLoggingStatus": {}
+      },
+      "Output": {},
+      "Raw": {
+        "Label": "disable third source logging",
+        "Sequence": 643,
+        "Operation": "PutBucketLogging",
+        "Method": "PUT",
+        "Target": "/logging-native-delivery/?logging",
+        "Headers": {
+          "Content-MD5": "${bodyMD5}"
+        },
+        "Body": "<BucketLoggingStatus xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\" />",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T15:35:32Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/a,U,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-delivery",
+          "BucketLoggingStatus": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "Host": "logging-native-delivery.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 71,
+          "startTime": 1789918532530,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789918532581,
+          "x-amz-id-2": "aLhmf8amhmSVkTfk50OFpgQtJjaB5GzjP8S2kA95LnMaEkPD311343ASgLW+ToMN0Zelo7iKk5Nx50KwsEkWKrRckgL5F+WV",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "CRNMGJTKP417YFHM",
+        "eventID": "375edca0-193b-45bd-959d-a55696dddd80",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-delivery"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-delivery.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 643,
+        "RequestID": "CRNMGJTKP417YFHM",
+        "EventID": "375edca0-193b-45bd-959d-a55696dddd80",
+        "DeliveredObjectIndex": 116,
+        "RecordIndex": 19,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1540Z_pCylNdBf6qPD9Eqk.json.gz"
+      }
+    },
+    {
+      "Label": "disable third source logging state after",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 644,
+      "Service": "s3",
+      "Actor": "audit-user",
+      "Operation": "GetBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-delivery"
+      },
+      "Output": {},
+      "Absent": [
+        "LoggingEnabled"
+      ],
+      "Raw": {
+        "Label": "disable third source logging state after",
+        "Sequence": 644,
+        "Operation": "GetBucketLogging",
+        "Method": "GET",
+        "Target": "/logging-native-delivery/?logging",
+        "Headers": {},
+        "Body": "",
+        "Status": 200,
+        "Code": "",
+        "ResponseHeaders": {},
+        "AbsentHeaders": [
+          "x-amz-request-charged"
+        ]
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "${account}",
+          "accessKeyId": "<redacted>",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-20T15:35:33Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketLogging",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/a,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "logging": "",
+          "bucketName": "logging-native-delivery",
+          "Host": "logging-native-delivery.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789918533385,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789918533391,
+          "x-amz-id-2": "pA/MA/7D491Ku+KBEtwKC9n7MDC/ddQiE4RPFIXJhb+qtr/zCodl+XTo7vsOq4wxh90npjq/gtIVrwCYJLR4XAlAy5cwmiWb",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 289
+        },
+        "requestID": "72K7K2YQD230HE1M",
+        "eventID": "e716fdd0-4bcc-4e19-a562-e1f48d4a28b7",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-delivery"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-delivery.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 644,
+        "RequestID": "72K7K2YQD230HE1M",
+        "EventID": "e716fdd0-4bcc-4e19-a562-e1f48d4a28b7",
+        "DeliveredObjectIndex": 116,
+        "RecordIndex": 18,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1540Z_pCylNdBf6qPD9Eqk.json.gz"
+      }
+    },
+    {
+      "Label": "fresh foreign payment audit get_bucket_request_payment",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 842,
+      "Service": "s3",
+      "Actor": "paired-foreign",
+      "Operation": "GetBucketRequestPayment",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "Bucket": "logging-native-simple"
+      },
+      "Output": {},
+      "Raw": {
+        "Sequence": 842,
+        "Label": "fresh foreign payment audit get_bucket_request_payment",
+        "Operation": "GetBucketRequestPayment",
+        "Method": "GET",
+        "Target": "/logging-native-simple?requestPayment",
+        "Body": "",
+        "Headers": {},
+        "Code": "AccessDenied",
+        "Status": 403
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "${pairedPrincipalID}",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T15:49:42Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,e,a,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: ${pairedPrincipalARN} is not authorized to perform: s3:GetBucketRequestPayment on resource: \"arn:aws:s3:::logging-native-simple\" because no resource-based policy allows the s3:GetBucketRequestPayment action",
+        "requestParameters": {
+          "bucketName": "logging-native-simple",
+          "Host": "logging-native-simple.s3.amazonaws.com",
+          "requestPayment": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789919382145,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789919382167,
+          "x-amz-id-2": "uOOOwPQOPu/LN50kY5iMfecl/792FanqB/FhvHlRDOpwoBzKEJpz0XHaf0MpVbSD9fSq3O+vCEmZyXZweWww7g7nzbAnjlzl",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 542
+        },
+        "requestID": "6AJA7RFQXKSCJQ8P",
+        "eventID": "17245e58-0a3c-3e6f-9f06-9a881f0928f2",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "3ad617eb-2e65-41af-bdf7-46699f1de5e7",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "CallerRecord": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AssumedRole",
+          "principalId": "${pairedPrincipalID}",
+          "arn": "${pairedPrincipalARN}",
+          "accountId": "${otherAccount}",
+          "accessKeyId": "${pairedAccessKey}",
+          "sessionContext": {
+            "sessionIssuer": {
+              "type": "Role",
+              "principalId": "${memberRoleID}",
+              "arn": "${memberRole}",
+              "accountId": "${otherAccount}",
+              "userName": "OrganizationAccountAccessRole"
+            },
+            "attributes": {
+              "creationDate": "${paired-foreignCreated}",
+              "mfaAuthenticated": "false"
+            }
+          }
+        },
+        "eventTime": "2026-09-20T15:49:42Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,e,a,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: ${pairedPrincipalARN} is not authorized to perform: s3:GetBucketRequestPayment on resource: \"arn:aws:s3:::logging-native-simple\" because no resource-based policy allows the s3:GetBucketRequestPayment action",
+        "requestParameters": {
+          "bucketName": "logging-native-simple",
+          "Host": "logging-native-simple.s3.amazonaws.com",
+          "requestPayment": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789919382145,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789919382167,
+          "x-amz-id-2": "uOOOwPQOPu/LN50kY5iMfecl/792FanqB/FhvHlRDOpwoBzKEJpz0XHaf0MpVbSD9fSq3O+vCEmZyXZweWww7g7nzbAnjlzl",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 542
+        },
+        "requestID": "6AJA7RFQXKSCJQ8P",
+        "eventID": "0bcc1b4f-3f38-3f3c-b7a7-d8b6dc0294d2",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "HIDDEN_DUE_TO_SECURITY_REASONS",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${otherAccount}",
+        "sharedEventID": "3ad617eb-2e65-41af-bdf7-46699f1de5e7",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 842,
+        "RequestID": "6AJA7RFQXKSCJQ8P",
+        "EventID": "17245e58-0a3c-3e6f-9f06-9a881f0928f2",
+        "DeliveredObjectIndex": 123,
+        "RecordIndex": 14,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1555Z_y4NlBjl5FVSskNXf.json.gz",
+        "CallerRecordIndex": 0,
+        "CallerPairIndex": 0,
+        "CallerEventID": "0bcc1b4f-3f38-3f3c-b7a7-d8b6dc0294d2",
+        "CallerLookupEventSequences": [884, 1020]
+      }
+    },
+    {
+      "Label": "fresh foreign payment audit put_bucket_request_payment",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 843,
+      "Service": "s3",
+      "Actor": "paired-foreign",
+      "Operation": "PutBucketRequestPayment",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "Bucket": "logging-native-simple",
+        "RequestPaymentConfiguration": {
+          "Payer": "BucketOwner"
+        }
+      },
+      "Output": {},
+      "Raw": {
+        "Sequence": 843,
+        "Label": "fresh foreign payment audit put_bucket_request_payment",
+        "Operation": "PutBucketRequestPayment",
+        "Method": "PUT",
+        "Target": "/logging-native-simple?requestPayment",
+        "Body": "<RequestPaymentConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Payer>BucketOwner</Payer></RequestPaymentConfiguration>",
+        "Headers": {
+          "x-amz-checksum-crc32": "AL6pTQ==",
+          "x-amz-sdk-checksum-algorithm": "CRC32"
+        },
+        "Code": "AccessDenied",
+        "Status": 403
+      },
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AWSAccount",
+          "principalId": "${pairedPrincipalID}",
+          "accountId": "${otherAccount}"
+        },
+        "eventTime": "2026-09-20T15:49:43Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/e,a,D,b,U cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: ${pairedPrincipalARN} is not authorized to perform: s3:PutBucketRequestPayment on resource: \"arn:aws:s3:::logging-native-simple\" because no resource-based policy allows the s3:PutBucketRequestPayment action",
+        "requestParameters": {
+          "bucketName": "logging-native-simple",
+          "Host": "logging-native-simple.s3.amazonaws.com",
+          "requestPayment": "",
+          "RequestPaymentConfiguration": {
+            "Payer": "BucketOwner",
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 133,
+          "startTime": 1789919383005,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789919383010,
+          "x-amz-id-2": "U9C2ua9KEoN7cWXRWh4urJhi4cNLUkmoPGG3ysb9GDCc16OZg5QWsMw9D9FQlHW+WaT3VN/XIXQJyBD9YLCOpMA27s5w6ecP",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 542
+        },
+        "requestID": "7ASGB3NBVENFJWMG",
+        "eventID": "e47d006b-4625-375b-bdba-b1c3fdd56df7",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "${account}",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${account}",
+        "sharedEventID": "e15f7e8c-ff2a-4d1a-acc4-19ddf4839d1c",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "CallerRecord": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "AssumedRole",
+          "principalId": "${pairedPrincipalID}",
+          "arn": "${pairedPrincipalARN}",
+          "accountId": "${otherAccount}",
+          "accessKeyId": "${pairedAccessKey}",
+          "sessionContext": {
+            "sessionIssuer": {
+              "type": "Role",
+              "principalId": "${memberRoleID}",
+              "arn": "${memberRole}",
+              "accountId": "${otherAccount}",
+              "userName": "OrganizationAccountAccessRole"
+            },
+            "attributes": {
+              "creationDate": "${paired-foreignCreated}",
+              "mfaAuthenticated": "false"
+            }
+          }
+        },
+        "eventTime": "2026-09-20T15:49:43Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketRequestPayment",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/e,a,D,b,U cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: ${pairedPrincipalARN} is not authorized to perform: s3:PutBucketRequestPayment on resource: \"arn:aws:s3:::logging-native-simple\" because no resource-based policy allows the s3:PutBucketRequestPayment action",
+        "requestParameters": {
+          "bucketName": "logging-native-simple",
+          "Host": "logging-native-simple.s3.amazonaws.com",
+          "requestPayment": "",
+          "RequestPaymentConfiguration": {
+            "Payer": "BucketOwner",
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 133,
+          "startTime": 1789919383005,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789919383010,
+          "x-amz-id-2": "U9C2ua9KEoN7cWXRWh4urJhi4cNLUkmoPGG3ysb9GDCc16OZg5QWsMw9D9FQlHW+WaT3VN/XIXQJyBD9YLCOpMA27s5w6ecP",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 542
+        },
+        "requestID": "7ASGB3NBVENFJWMG",
+        "eventID": "601b2491-e76f-3ca3-a9fa-b975a1755cbe",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "HIDDEN_DUE_TO_SECURITY_REASONS",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::logging-native-simple"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "${otherAccount}",
+        "sharedEventID": "e15f7e8c-ff2a-4d1a-acc4-19ddf4839d1c",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "logging-native-simple.s3.amazonaws.com"
+        }
+      },
+      "NativeRecord": {
+        "EventSequence": 843,
+        "RequestID": "7ASGB3NBVENFJWMG",
+        "EventID": "e47d006b-4625-375b-bdba-b1c3fdd56df7",
+        "DeliveredObjectIndex": 123,
+        "RecordIndex": 13,
+        "ObjectKey": "AWSLogs/000000000000/CloudTrail/us-east-1/2026/09/20/000000000000_CloudTrail_us-east-1_20260920T1555Z_y4NlBjl5FVSskNXf.json.gz",
+        "CallerRecordIndex": 1,
+        "CallerPairIndex": 1,
+        "CallerEventID": "601b2491-e76f-3ca3-a9fa-b975a1755cbe",
+        "CallerLookupEventSequences": [885, 1021]
+      }
+    }
+  ],
+  "Verify": [
+    {
+      "Label": "missing checksum retained state",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 141,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "GetBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-simple"
+      },
+      "Output": {},
+      "Absent": [
+        "LoggingEnabled"
+      ]
+    },
+    {
+      "Label": "disable third source logging state after",
+      "Source": "access_logging_evidence.json.gz",
+      "Sequence": 644,
+      "Service": "s3",
+      "Actor": "caller",
+      "Operation": "GetBucketLogging",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "logging-native-delivery"
+      },
+      "Output": {},
+      "Absent": [
+        "LoggingEnabled"
+      ]
+    }
+  ]
+}

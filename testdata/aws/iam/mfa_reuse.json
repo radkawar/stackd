@@ -1,0 +1,286 @@
+{
+  "schema_version": 1,
+  "source": "Real AWS IAM and STS APIs, commercial partition",
+  "probe": "scripts/aws/iam_mfa_time_probe.py",
+  "aws_cli_version": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+  "started_at": "2026-09-11T20:21:48.622516+00:00",
+  "finished_at": "2026-09-11T20:23:33.495990+00:00",
+  "documentation": [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateVirtualMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_EnableMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeactivateMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ResyncMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListVirtualMFADevices.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetMFADevice.html"
+  ],
+  "model_source": "clones/aws-sdk-go-v2/codegen/sdk-codegen/aws-models/{iam,sts}.json",
+  "eligibility": {
+    "mode": "reuse"
+  },
+  "setup": [
+    {
+      "service": "iam",
+      "operation": "CreateUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse",
+        "Path": "/org-access/"
+      },
+      "output": {
+        "User": {
+          "Path": "/org-access/",
+          "UserName": "stackd-mfa-fixture-reuse",
+          "UserId": "<user-id:reuse>",
+          "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-mfa-fixture-reuse",
+          "CreateDate": "2026-09-11T20:21:50+00:00"
+        }
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "CreateAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse"
+      },
+      "output": {
+        "AccessKey": {
+          "UserName": "stackd-mfa-fixture-reuse",
+          "AccessKeyId": "<access-key:reuse>",
+          "Status": "Active",
+          "CreateDate": "2026-09-11T20:21:51+00:00"
+        }
+      }
+    }
+  ],
+  "observations": [
+    {
+      "case": "create",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:22:01.498767+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "enable",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:22:02.386119+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "reuse_0",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "DurationSeconds": 900,
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:08.284510+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638606
+    },
+    {
+      "case": "reuse_1",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "DurationSeconds": 900,
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:10.975299+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638607
+    },
+    {
+      "case": "reuse_2",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "DurationSeconds": 900,
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:13.638530+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638606
+    },
+    {
+      "case": "reuse_3",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "DurationSeconds": 900,
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:16.334564+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638608
+    },
+    {
+      "case": "reuse_4",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "DurationSeconds": 900,
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:19.190158+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638607
+    },
+    {
+      "case": "reuse_5",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "DurationSeconds": 900,
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:22.243216+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638608
+    },
+    {
+      "case": "resync_after_use_1",
+      "service": "iam",
+      "operation": "ResyncMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:25.391604+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step": 59638607
+    },
+    {
+      "case": "resync_after_use_2",
+      "service": "iam",
+      "operation": "ResyncMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:26.493963+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step": 59638608
+    },
+    {
+      "case": "resync_after_use_3",
+      "service": "iam",
+      "operation": "ResyncMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:27.676633+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step": 59638609
+    },
+    {
+      "case": "resync_after_use_4",
+      "service": "iam",
+      "operation": "ResyncMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "observed_at": "2026-09-11T20:23:28.695702+00:00",
+      "code": "InvalidAuthenticationCode",
+      "message": "Authentication code for device is not valid.",
+      "http_status": 403,
+      "second_step": 59638610
+    }
+  ],
+  "cleanup": [
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-reuse"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse",
+        "AccessKeyId": "<access-key:reuse>"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-reuse"
+      },
+      "code": "NoSuchEntity"
+    }
+  ],
+  "capture_complete": true,
+  "cleanup_verified": true,
+  "sanitization": "Owned names/IDs/account normalized; original caller identity redacted; no bearer tokens, credential secrets or debug logs retained.",
+  "limitations": [
+    "Only uniquely owned users, keys and virtual devices are changed. Root MFA and existing devices are unchanged.",
+    "Seeds, QR payloads, authentication codes and issued credentials remain in memory. List results retain only owned devices.",
+    "Hardware and FIDO registration are not covered. Time windows are observations, not undocumented latency guarantees."
+  ]
+}

@@ -1,0 +1,4585 @@
+{
+  "source": "Native AWS DynamoDB ExecuteStatement via scripts/aws/aws_cli.py; no DynamoDB Local observations included",
+  "retrieved_at": "2026-09-17T10:40:14.062171+00:00",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "table": "stackd-partiql-pages-4d4aa0eb2673",
+  "index": "by-gp-gs",
+  "sourceReferences": [
+    "https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html"
+  ],
+  "notes": [
+    "Requests and outputs are AWS CLI JSON, not raw HTTP bytes. Native errors retain modeled fields. CLI retries were bounded to two attempts and each CLI process to 45 seconds.",
+    "Call 91 is AWS CLI ParamValidation before transport, not a native AWS response. Call 25 is a PartiQL syntax rejection for unquoted missing, not evidence about projecting an absent attribute.",
+    "LastEvaluatedKey and NextToken absence is preserved verbatim; null placeholders were not added to captured outputs.",
+    "No production source, existing captures, builds, tests, linters or formatters were modified or run."
+  ],
+  "nativeFacts": [
+    {
+      "calls": [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33
+      ],
+      "fact": "Ascending single-partition pages returned physical pk and sk in LastEvaluatedKey independently of projection. Limit applied to evaluated items: filtered empty pages still returned both continuation fields. Observed final ascending A pages omitted both fields, including Limit equal to the four-item count."
+    },
+    {
+      "calls": [
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        46,
+        47
+      ],
+      "fact": "Continuation fields are not interchangeable. The exact pk+sk Limit=1 query returned LastEvaluatedKey but no NextToken. Descending A at its final item and fan-out B at its final item with Limit=1 still returned both fields, then an empty terminal page omitted both. Do not infer exhaustion solely from result count or universally require an extra empty page."
+    },
+    {
+      "calls": [
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59
+      ],
+      "fact": "Partition-key IN fan-out paged the A partition before B in these requests. At the observed A-to-B operation boundary, NextToken was present while LastEvaluatedKey was absent, including projected and fully filtered pages. Within a partition LastEvaluatedKey identified its physical table key. No claim is made that operand order determines every fan-out execution order."
+    },
+    {
+      "calls": [
+        60,
+        61,
+        62,
+        63,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76
+      ],
+      "fact": "Unkeyed table SELECT paging returned table pk/sk. GSI SELECT paging returned all four physical table/index key attributes pk, sk, gp and gs in LastEvaluatedKey even when none were projected, and on empty filtered pages. Terminal GSI pages omitted both continuation fields."
+    },
+    {
+      "calls": [
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89
+      ],
+      "fact": "Reusing a native token with the same request succeeded. Changed Limit, omitted Limit and changed ConsistentRead succeeded. Changed projection, whitespace, order, filter, table-to-index statement or partition parameter values failed ValidationException: NextToken does not match request. Reversing the IN parameter order also failed with that message."
+    },
+    {
+      "calls": [
+        90,
+        92,
+        93,
+        94,
+        95
+      ],
+      "fact": "Plain junk, base64 empty object, a locally shaped opIndexToExclusiveNextKey object, truncated native token and a mutated native token failed native ValidationException: Invalid NextToken. The locally shaped object is only malformed input sent to AWS, not output from a DynamoDB Local experiment."
+    },
+    {
+      "calls": [
+        96,
+        97,
+        98,
+        99
+      ],
+      "fact": "The unique owned table and its GSI were deleted. DescribeTable subsequently returned ResourceNotFoundException, verifying absence."
+    }
+  ],
+  "uncertainties": [
+    "No 1-MB boundary, large fan-out, token expiry, cross-account/cross-region token reuse, concurrent item mutation, throttling, LSI, binary/numeric key or GSI non-ALL projection experiment was performed.",
+    "Observed exhaustion and fan-out operation boundaries may depend on native execution/storage choices. This small capture supports field independence and physical-key provenance, not a universal deterministic last-page lookahead algorithm.",
+    "Only a fresh seven-item table with two partitions and one GSI was measured. No production resource was queried or changed.",
+    "Pinned DynamoDB Local 3.3.1 comparison was not run in this assignment; native observations must not be represented as local behavior."
+  ],
+  "calls": [
+    {
+      "sequence": 1,
+      "label": "caller_identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "code": "Success",
+      "output": {
+        "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+        "Account": "000000000000",
+        "Arn": "arn:aws:iam::000000000000:user/Delegated"
+      },
+      "input": {}
+    },
+    {
+      "sequence": 2,
+      "label": "create_owned_table",
+      "service": "dynamodb",
+      "operation": "create-table",
+      "code": "Success",
+      "output": {
+        "TableDescription": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "gp",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gs",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "sk",
+              "AttributeType": "S"
+            }
+          ],
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "sk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "TableStatus": "CREATING",
+          "CreationDateTime": "2026-09-17T11:40:15.373000+01:00",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-gp-gs",
+              "KeySchema": [
+                {
+                  "AttributeName": "gp",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "gs",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "IndexStatus": "CREATING",
+              "ProvisionedThroughput": {
+                "NumberOfDecreasesToday": 0,
+                "ReadCapacityUnits": 0,
+                "WriteCapacityUnits": 0
+              },
+              "IndexSizeBytes": 0,
+              "ItemCount": 0,
+              "IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673/index/by-gp-gs"
+            }
+          ],
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "sk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "gp",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "gs",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "by-gp-gs",
+            "KeySchema": [
+              {
+                "AttributeName": "gp",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "gs",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "label": "await_active_1",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "gp",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gs",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "sk",
+              "AttributeType": "S"
+            }
+          ],
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "sk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "TableStatus": "CREATING",
+          "CreationDateTime": "2026-09-17T11:40:15.373000+01:00",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-gp-gs",
+              "KeySchema": [
+                {
+                  "AttributeName": "gp",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "gs",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "IndexStatus": "CREATING",
+              "ProvisionedThroughput": {
+                "NumberOfDecreasesToday": 0,
+                "ReadCapacityUnits": 0,
+                "WriteCapacityUnits": 0
+              },
+              "IndexSizeBytes": 0,
+              "ItemCount": 0,
+              "IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673/index/by-gp-gs"
+            }
+          ],
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 4,
+      "label": "await_active_2",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "gp",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gs",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "sk",
+              "AttributeType": "S"
+            }
+          ],
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "sk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "TableStatus": "CREATING",
+          "CreationDateTime": "2026-09-17T11:40:15.373000+01:00",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-gp-gs",
+              "KeySchema": [
+                {
+                  "AttributeName": "gp",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "gs",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "IndexStatus": "CREATING",
+              "ProvisionedThroughput": {
+                "NumberOfDecreasesToday": 0,
+                "ReadCapacityUnits": 0,
+                "WriteCapacityUnits": 0
+              },
+              "IndexSizeBytes": 0,
+              "ItemCount": 0,
+              "IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673/index/by-gp-gs"
+            }
+          ],
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 5,
+      "label": "await_active_3",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "gp",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gs",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "sk",
+              "AttributeType": "S"
+            }
+          ],
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "sk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "TableStatus": "CREATING",
+          "CreationDateTime": "2026-09-17T11:40:15.373000+01:00",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-gp-gs",
+              "KeySchema": [
+                {
+                  "AttributeName": "gp",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "gs",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "IndexStatus": "CREATING",
+              "ProvisionedThroughput": {
+                "NumberOfDecreasesToday": 0,
+                "ReadCapacityUnits": 0,
+                "WriteCapacityUnits": 0
+              },
+              "IndexSizeBytes": 0,
+              "ItemCount": 0,
+              "IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673/index/by-gp-gs"
+            }
+          ],
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 6,
+      "label": "await_active_4",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "gp",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gs",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "sk",
+              "AttributeType": "S"
+            }
+          ],
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "sk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "TableStatus": "CREATING",
+          "CreationDateTime": "2026-09-17T11:40:15.373000+01:00",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-gp-gs",
+              "KeySchema": [
+                {
+                  "AttributeName": "gp",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "gs",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "IndexStatus": "CREATING",
+              "ProvisionedThroughput": {
+                "NumberOfDecreasesToday": 0,
+                "ReadCapacityUnits": 0,
+                "WriteCapacityUnits": 0
+              },
+              "IndexSizeBytes": 0,
+              "ItemCount": 0,
+              "IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673/index/by-gp-gs"
+            }
+          ],
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 7,
+      "label": "await_active_5",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "gp",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gs",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "sk",
+              "AttributeType": "S"
+            }
+          ],
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "sk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "TableStatus": "CREATING",
+          "CreationDateTime": "2026-09-17T11:40:15.373000+01:00",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-gp-gs",
+              "KeySchema": [
+                {
+                  "AttributeName": "gp",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "gs",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "IndexStatus": "CREATING",
+              "ProvisionedThroughput": {
+                "NumberOfDecreasesToday": 0,
+                "ReadCapacityUnits": 0,
+                "WriteCapacityUnits": 0
+              },
+              "IndexSizeBytes": 0,
+              "ItemCount": 0,
+              "IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673/index/by-gp-gs"
+            }
+          ],
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 8,
+      "label": "await_active_6",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "gp",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gs",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "sk",
+              "AttributeType": "S"
+            }
+          ],
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "sk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "TableStatus": "CREATING",
+          "CreationDateTime": "2026-09-17T11:40:15.373000+01:00",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-gp-gs",
+              "KeySchema": [
+                {
+                  "AttributeName": "gp",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "gs",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "IndexStatus": "CREATING",
+              "ProvisionedThroughput": {
+                "NumberOfDecreasesToday": 0,
+                "ReadCapacityUnits": 0,
+                "WriteCapacityUnits": 0
+              },
+              "IndexSizeBytes": 0,
+              "ItemCount": 0,
+              "IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673/index/by-gp-gs"
+            }
+          ],
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 9,
+      "label": "await_active_7",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "gp",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gs",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "sk",
+              "AttributeType": "S"
+            }
+          ],
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "sk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "TableStatus": "CREATING",
+          "CreationDateTime": "2026-09-17T11:40:15.373000+01:00",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-gp-gs",
+              "KeySchema": [
+                {
+                  "AttributeName": "gp",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "gs",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "IndexStatus": "CREATING",
+              "ProvisionedThroughput": {
+                "NumberOfDecreasesToday": 0,
+                "ReadCapacityUnits": 0,
+                "WriteCapacityUnits": 0
+              },
+              "IndexSizeBytes": 0,
+              "ItemCount": 0,
+              "IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673/index/by-gp-gs"
+            }
+          ],
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 10,
+      "label": "await_active_8",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "gp",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "gs",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            },
+            {
+              "AttributeName": "sk",
+              "AttributeType": "S"
+            }
+          ],
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "sk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "TableStatus": "ACTIVE",
+          "CreationDateTime": "2026-09-17T11:40:15.373000+01:00",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST",
+            "LastUpdateToPayPerRequestDateTime": "2026-09-17T11:40:15.373000+01:00"
+          },
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-gp-gs",
+              "KeySchema": [
+                {
+                  "AttributeName": "gp",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "gs",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "IndexStatus": "ACTIVE",
+              "ProvisionedThroughput": {
+                "NumberOfDecreasesToday": 0,
+                "ReadCapacityUnits": 0,
+                "WriteCapacityUnits": 0
+              },
+              "IndexSizeBytes": 0,
+              "ItemCount": 0,
+              "IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673/index/by-gp-gs",
+              "WarmThroughput": {
+                "ReadUnitsPerSecond": 12000,
+                "WriteUnitsPerSecond": 4000,
+                "Status": "ACTIVE"
+              }
+            }
+          ],
+          "DeletionProtectionEnabled": false,
+          "WarmThroughput": {
+            "ReadUnitsPerSecond": 12000,
+            "WriteUnitsPerSecond": 4000,
+            "Status": "ACTIVE"
+          }
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 11,
+      "label": "seed_seven_items",
+      "service": "dynamodb",
+      "operation": "batch-write-item",
+      "code": "Success",
+      "output": {
+        "UnprocessedItems": {}
+      },
+      "input": {
+        "RequestItems": {
+          "stackd-partiql-pages-4d4aa0eb2673": [
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "A"
+                  },
+                  "sk": {
+                    "S": "01"
+                  },
+                  "n": {
+                    "N": "1"
+                  },
+                  "gp": {
+                    "S": "shared"
+                  },
+                  "gs": {
+                    "S": "04-A"
+                  },
+                  "payload": {
+                    "S": "A-1"
+                  }
+                }
+              }
+            },
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "A"
+                  },
+                  "sk": {
+                    "S": "02"
+                  },
+                  "n": {
+                    "N": "2"
+                  },
+                  "gp": {
+                    "S": "shared"
+                  },
+                  "gs": {
+                    "S": "03-A"
+                  },
+                  "payload": {
+                    "S": "A-2"
+                  }
+                }
+              }
+            },
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "A"
+                  },
+                  "sk": {
+                    "S": "03"
+                  },
+                  "n": {
+                    "N": "3"
+                  },
+                  "gp": {
+                    "S": "shared"
+                  },
+                  "gs": {
+                    "S": "02-A"
+                  },
+                  "payload": {
+                    "S": "A-3"
+                  }
+                }
+              }
+            },
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "A"
+                  },
+                  "sk": {
+                    "S": "04"
+                  },
+                  "n": {
+                    "N": "4"
+                  },
+                  "gp": {
+                    "S": "shared"
+                  },
+                  "gs": {
+                    "S": "01-A"
+                  },
+                  "payload": {
+                    "S": "A-4"
+                  }
+                }
+              }
+            },
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "B"
+                  },
+                  "sk": {
+                    "S": "01"
+                  },
+                  "n": {
+                    "N": "1"
+                  },
+                  "gp": {
+                    "S": "shared"
+                  },
+                  "gs": {
+                    "S": "04-B"
+                  },
+                  "payload": {
+                    "S": "B-1"
+                  }
+                }
+              }
+            },
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "B"
+                  },
+                  "sk": {
+                    "S": "02"
+                  },
+                  "n": {
+                    "N": "2"
+                  },
+                  "gp": {
+                    "S": "shared"
+                  },
+                  "gs": {
+                    "S": "03-B"
+                  },
+                  "payload": {
+                    "S": "B-2"
+                  }
+                }
+              }
+            },
+            {
+              "PutRequest": {
+                "Item": {
+                  "pk": {
+                    "S": "B"
+                  },
+                  "sk": {
+                    "S": "03"
+                  },
+                  "n": {
+                    "N": "3"
+                  },
+                  "gp": {
+                    "S": "shared"
+                  },
+                  "gs": {
+                    "S": "02-B"
+                  },
+                  "payload": {
+                    "S": "B-3"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "sequence": 12,
+      "label": "partition_limit_one_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "01"
+            }
+          }
+        ],
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 13,
+      "label": "partition_limit_one_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          }
+        ],
+        "NextToken": "nz0Do3vDSMEKN2sAb/CODl5+WEhxMgwz9VZOhguv/0Klrh6iY2WpbYeCv5Pp2+xGWtYoD5YJrWlUa2r2NUZZDXHmzy225mROEGLvQgUKrcFajy8j01ksWyQCRGCtihukfuI7M+6d6N4rWKj4i5jZGnPT6/0WHpvl6izfbU2pOVR1TwK8QTKQkBiiFjMvcIpR4rBS6sHwdRc0zIEgE3DM3o+ifUukdUMA2ptjE2+rtpZ6GnALBHhZUR+3Dd/UG9wO9yULQdtv0/T+MsjERhCVGBKBXZDlFVEo793fWLxVkQsdgWOgaB5GOigi9+8JD6C400Drs4RA4FiPlaZdqG1LgDRwIHMERXPqV26a+MKf",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 14,
+      "label": "partition_limit_one_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          }
+        ],
+        "NextToken": "XM+buvQK3PPWKhgrx5m2567Q3JT9oWie2kjoV5Uv6keIIaMEL3RdIDNFgYIFgcaitbZgZ0XcaO+F8tU+6TN4DVHjWMyoemrwOhHVP+4Kj+eYj+Jsl9CHeGhYBSqqTiyQA6Cmen8i3NOU2pBm4Jvx7Rx1UaYatlAuiJp66Gp5VHYG8DQYq4cUSvRfX896hxYSU2yuN8YqoN2hEOxN7bkJtzoPi/GnJ71cbE8EqVnZ1J5jIje4Uz0gCE9DFGqzFurv80McyXtul2t2bbZuRbzRgYgN1hCGEXA3xCr3eqcOAIuB1+2A9FltX4X1S5j0XZv0GwPKreKS2G9E522C8GCXh9TC8xd42lnPhpvOC0tW",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "nz0Do3vDSMEKN2sAb/CODl5+WEhxMgwz9VZOhguv/0Klrh6iY2WpbYeCv5Pp2+xGWtYoD5YJrWlUa2r2NUZZDXHmzy225mROEGLvQgUKrcFajy8j01ksWyQCRGCtihukfuI7M+6d6N4rWKj4i5jZGnPT6/0WHpvl6izfbU2pOVR1TwK8QTKQkBiiFjMvcIpR4rBS6sHwdRc0zIEgE3DM3o+ifUukdUMA2ptjE2+rtpZ6GnALBHhZUR+3Dd/UG9wO9yULQdtv0/T+MsjERhCVGBKBXZDlFVEo793fWLxVkQsdgWOgaB5GOigi9+8JD6C400Drs4RA4FiPlaZdqG1LgDRwIHMERXPqV26a+MKf"
+      }
+    },
+    {
+      "sequence": 15,
+      "label": "partition_limit_one_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "04"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "XM+buvQK3PPWKhgrx5m2567Q3JT9oWie2kjoV5Uv6keIIaMEL3RdIDNFgYIFgcaitbZgZ0XcaO+F8tU+6TN4DVHjWMyoemrwOhHVP+4Kj+eYj+Jsl9CHeGhYBSqqTiyQA6Cmen8i3NOU2pBm4Jvx7Rx1UaYatlAuiJp66Gp5VHYG8DQYq4cUSvRfX896hxYSU2yuN8YqoN2hEOxN7bkJtzoPi/GnJ71cbE8EqVnZ1J5jIje4Uz0gCE9DFGqzFurv80McyXtul2t2bbZuRbzRgYgN1hCGEXA3xCr3eqcOAIuB1+2A9FltX4X1S5j0XZv0GwPKreKS2G9E522C8GCXh9TC8xd42lnPhpvOC0tW"
+      }
+    },
+    {
+      "sequence": 16,
+      "label": "partition_limit_two_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "01"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          }
+        ],
+        "NextToken": "BB6iIty/zdHcG5yszXnCfEQ7m5LdPtU88PRnlwt3SdhEhBPeggVzI0byus1Xs5Y3hFmW9+GFwZoQ7VxG3+f7fmlpUhLrQmRqMPBmkq4Uqv4MuK2Qbu3SrLioAJHQqnCcFbx74Kjsl7L2u8fZzQ8TiqXakVJ6R+P3K+GpdiOajAE90tJjytMnG1oCJbvKPaWUg+IbWKEoNIzlTE6cfxtftGlvNPYvjccIsPSfPs7MFOFXj/hbQEwFT59jLrLuOONKyJBthIUO/MpPEFfLW1AMOEI2nVYwNXrcGt6yrqlsthkQtfNsR9Gv39hPyJcfNUdsEWgrfpCyAlwxzZUZeZSQcUTC5AQcdqKObxXNLQwV",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 17,
+      "label": "partition_limit_two_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          },
+          {
+            "n": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "04"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "BB6iIty/zdHcG5yszXnCfEQ7m5LdPtU88PRnlwt3SdhEhBPeggVzI0byus1Xs5Y3hFmW9+GFwZoQ7VxG3+f7fmlpUhLrQmRqMPBmkq4Uqv4MuK2Qbu3SrLioAJHQqnCcFbx74Kjsl7L2u8fZzQ8TiqXakVJ6R+P3K+GpdiOajAE90tJjytMnG1oCJbvKPaWUg+IbWKEoNIzlTE6cfxtftGlvNPYvjccIsPSfPs7MFOFXj/hbQEwFT59jLrLuOONKyJBthIUO/MpPEFfLW1AMOEI2nVYwNXrcGt6yrqlsthkQtfNsR9Gv39hPyJcfNUdsEWgrfpCyAlwxzZUZeZSQcUTC5AQcdqKObxXNLQwV"
+      }
+    },
+    {
+      "sequence": 18,
+      "label": "partition_limit_equal_count_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "01"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          },
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          },
+          {
+            "n": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "04"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 4,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 19,
+      "label": "partition_limit_above_count_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "01"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          },
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          },
+          {
+            "n": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "04"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 5,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 20,
+      "label": "partition_absent_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": []
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "missing"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 21,
+      "label": "projection_excludes_keys_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "A-1"
+            }
+          }
+        ],
+        "NextToken": "Zvl9f0nH2KxNa6FVU5qciXVWnLGgYfqjASyYC2yD8BKBAsn/lwxLAIkXI0+nY+UjTl+w81pDtKipN5V23i7ZoCA+LrIe3IHR7WTVx0v2GjW0ovK8ExeYXvJqo/70SVdbXCa3GiXLMD3SiH2n36hg/tE8fEeRa8ecF/IUncNDc1bTMBlemySMOl657X1M+XvQu5rD4EtQbtE3DHPmYOtQdvHfIpONvpFxQlU6ZQod06RtZ4HSu1VrSI3Xn4dXDy08+L71+NbRGs/20ME6fcp3aMC0WCxiI2HShNH3aQSbiyOt+Kj41+jH/Sv5H7VxZm1zbAaPQSVN9hnEQNmSdfz/Je1VAqpBQiGLCHn/LQ==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 22,
+      "label": "projection_excludes_keys_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "A-2"
+            }
+          }
+        ],
+        "NextToken": "xstPiANsByY56rtdQKWNNlMoFqikcj4AD8r+5BeQaHqMdJ/7//K4byEr6TW5pEbUC0C4TN9D+ga+H3ieEIMp/52shP9jWfByKUPelNveRL8bQDpKpm95VFmrptAXakpIApPVNB2rNfm4ycj0G/KSe0PDpsBWUVIwdRaHTb2PEO53yB2Tw+mGGgCB0sNqE76QRLxxqvlu5e1j1qvcUpZA1AJ3Mztt+DtAcERtlIxRl5KZS4Wms4GUk7/EfCBqsy5wdXiBXkXB7YAlTLq51hXhB7Fh538bri2d1TLwHFtAdxrKjd5XgKowS6t5ZPF1CmeD9lE8k3YiJomyz61GwfgScCpNlahxDQChPbFqMA==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "Zvl9f0nH2KxNa6FVU5qciXVWnLGgYfqjASyYC2yD8BKBAsn/lwxLAIkXI0+nY+UjTl+w81pDtKipN5V23i7ZoCA+LrIe3IHR7WTVx0v2GjW0ovK8ExeYXvJqo/70SVdbXCa3GiXLMD3SiH2n36hg/tE8fEeRa8ecF/IUncNDc1bTMBlemySMOl657X1M+XvQu5rD4EtQbtE3DHPmYOtQdvHfIpONvpFxQlU6ZQod06RtZ4HSu1VrSI3Xn4dXDy08+L71+NbRGs/20ME6fcp3aMC0WCxiI2HShNH3aQSbiyOt+Kj41+jH/Sv5H7VxZm1zbAaPQSVN9hnEQNmSdfz/Je1VAqpBQiGLCHn/LQ=="
+      }
+    },
+    {
+      "sequence": 23,
+      "label": "projection_excludes_keys_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "payload": {
+              "S": "A-3"
+            }
+          }
+        ],
+        "NextToken": "yh4zuWo9D9X97F3wk5acKVDJnZ40ot+1pG5/klTL3HvcM2NacIDT/XJ1uzrNnUzAGBg5sHG0s6U/MJYyKlGOEMwJmEcAwnuTepLkQ2T82BunpQGToO0oVFo5qYkrJyd4UPcNugHrU7TCJ1I4BBv85af38phnB/LUrr/UBoAVJOTJicEwTYi+yoyzTaxzoLP6uL0mBk2xcunX/25ynqavvcu15+unYbxWpIDpLt/gpjRxL3lda8ROC26k/A3P3cGLDwrdsUpFD1h7kSXpuknan/oli4CEAu1kiglHLj55xNtHHHzIk9U3BawC9dfwXeC88jyVbKLd1wLjedHxsVeVtWDvjXQIkPFj4Vl7Cg==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "xstPiANsByY56rtdQKWNNlMoFqikcj4AD8r+5BeQaHqMdJ/7//K4byEr6TW5pEbUC0C4TN9D+ga+H3ieEIMp/52shP9jWfByKUPelNveRL8bQDpKpm95VFmrptAXakpIApPVNB2rNfm4ycj0G/KSe0PDpsBWUVIwdRaHTb2PEO53yB2Tw+mGGgCB0sNqE76QRLxxqvlu5e1j1qvcUpZA1AJ3Mztt+DtAcERtlIxRl5KZS4Wms4GUk7/EfCBqsy5wdXiBXkXB7YAlTLq51hXhB7Fh538bri2d1TLwHFtAdxrKjd5XgKowS6t5ZPF1CmeD9lE8k3YiJomyz61GwfgScCpNlahxDQChPbFqMA=="
+      }
+    },
+    {
+      "sequence": 24,
+      "label": "projection_excludes_keys_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "4"
+            },
+            "payload": {
+              "S": "A-4"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "yh4zuWo9D9X97F3wk5acKVDJnZ40ot+1pG5/klTL3HvcM2NacIDT/XJ1uzrNnUzAGBg5sHG0s6U/MJYyKlGOEMwJmEcAwnuTepLkQ2T82BunpQGToO0oVFo5qYkrJyd4UPcNugHrU7TCJ1I4BBv85af38phnB/LUrr/UBoAVJOTJicEwTYi+yoyzTaxzoLP6uL0mBk2xcunX/25ynqavvcu15+unYbxWpIDpLt/gpjRxL3lda8ROC26k/A3P3cGLDwrdsUpFD1h7kSXpuknan/oli4CEAu1kiglHLj55xNtHHHzIk9U3BawC9dfwXeC88jyVbKLd1wLjedHxsVeVtWDvjXQIkPFj4Vl7Cg=="
+      }
+    },
+    {
+      "sequence": 25,
+      "label": "projection_missing_attribute_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "Unexpected path component at 1:8:7",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT missing FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 26,
+      "label": "filter_some_empty_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "XTLExPLJU+JbE0DrUAAMadhztHzW+yUE0Z8Jb8RBtfys3+B1jLUx0tCLigiVrRh3J9d8awFLyy+H0YLYapvyM/PPj16L0vUhxD4cFKcnXYUBD23IW3xGlZjyimgEswHB+if+qmq8dmaXtVzTdeStUc14ZJ7cZVhB9F1B0H+OCRtwxawQYdb73ZP0utqXIZSF9BvS6L9qp7EbSHOBsWh1h6q2xKpjcmKD1NebpLeBFKpkSi56QswuEIwRyNDtraNhbFD3wZ18VG5z99O8zDeBKmRPAS067u4tCj5aboAsgmmvQTY5kz//PuF68TnMGeGwf9kmPm1oQBNQEd+MS1QtZiw=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND n >= ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "N": "3"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 27,
+      "label": "filter_some_empty_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "TkPY0iKzTIauMU+bQG4ksTXY4NZhwCMetCwL0gmGxarI6I3PEa4XyxgTWuYNESt89DdBQS0T7NKZ80pXn1VzwEI8m0Q+Q2Tr82DrirVuB+NgblNv3ZyOofeFJLOaaBVCv3bcuSYDKx/uVklC4l9UExSFyJl09dx+WZrXO1ZbscsOYrxRW1/ktb3BTnboaj3IilsQFGVvdu8c0bZ8OrvJZKfchXjUn/tho6aRfArYIFU+ZlAIi1+KnHH9YcflwVuAGso4rvLrf8smKJlN83dcpFXXkcNSE0NlnYhp50ELJR9aGcevLTjQUhB8RFDD1hM4f3BGcenPzUyMmN4gzgWIEWo=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND n >= ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "N": "3"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "XTLExPLJU+JbE0DrUAAMadhztHzW+yUE0Z8Jb8RBtfys3+B1jLUx0tCLigiVrRh3J9d8awFLyy+H0YLYapvyM/PPj16L0vUhxD4cFKcnXYUBD23IW3xGlZjyimgEswHB+if+qmq8dmaXtVzTdeStUc14ZJ7cZVhB9F1B0H+OCRtwxawQYdb73ZP0utqXIZSF9BvS6L9qp7EbSHOBsWh1h6q2xKpjcmKD1NebpLeBFKpkSi56QswuEIwRyNDtraNhbFD3wZ18VG5z99O8zDeBKmRPAS067u4tCj5aboAsgmmvQTY5kz//PuF68TnMGeGwf9kmPm1oQBNQEd+MS1QtZiw="
+      }
+    },
+    {
+      "sequence": 28,
+      "label": "filter_some_empty_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          }
+        ],
+        "NextToken": "gpLG4h7tv3MEaP8AhXnyO1yGfmOPX6dIoGLzKQDSyU/Ux2JCYFVYvMnFz865gVbRhElcLUTcgNlJJSliHhVxoEFz2BMs47Nm7XpSR/zF2+N/gVTjXzPa/RQv4kf3hCqTjuXB5MRSA/VyVxiqUNOUHqDGqrQ8F2fH2VOqEBBf+K6Ork3S0zmRYyXEVYJEx+YlOY8OjeVJ3irQf/i/vpgBfCuSKLXXYmFyB+mjOI5Ho+8zWFuW7pjkvuZ6k2kq5gEXcn+CUuoqr4Sf0FGd69QMzvd4J/eVWueG9ZdSMuTEfR54mt8Hdcvjm3sTPDOnSYVcT0D8I0olph0evOFozOL+gTE=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND n >= ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "N": "3"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "TkPY0iKzTIauMU+bQG4ksTXY4NZhwCMetCwL0gmGxarI6I3PEa4XyxgTWuYNESt89DdBQS0T7NKZ80pXn1VzwEI8m0Q+Q2Tr82DrirVuB+NgblNv3ZyOofeFJLOaaBVCv3bcuSYDKx/uVklC4l9UExSFyJl09dx+WZrXO1ZbscsOYrxRW1/ktb3BTnboaj3IilsQFGVvdu8c0bZ8OrvJZKfchXjUn/tho6aRfArYIFU+ZlAIi1+KnHH9YcflwVuAGso4rvLrf8smKJlN83dcpFXXkcNSE0NlnYhp50ELJR9aGcevLTjQUhB8RFDD1hM4f3BGcenPzUyMmN4gzgWIEWo="
+      }
+    },
+    {
+      "sequence": 29,
+      "label": "filter_some_empty_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "04"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND n >= ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "N": "3"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "gpLG4h7tv3MEaP8AhXnyO1yGfmOPX6dIoGLzKQDSyU/Ux2JCYFVYvMnFz865gVbRhElcLUTcgNlJJSliHhVxoEFz2BMs47Nm7XpSR/zF2+N/gVTjXzPa/RQv4kf3hCqTjuXB5MRSA/VyVxiqUNOUHqDGqrQ8F2fH2VOqEBBf+K6Ork3S0zmRYyXEVYJEx+YlOY8OjeVJ3irQf/i/vpgBfCuSKLXXYmFyB+mjOI5Ho+8zWFuW7pjkvuZ6k2kq5gEXcn+CUuoqr4Sf0FGd69QMzvd4J/eVWueG9ZdSMuTEfR54mt8Hdcvjm3sTPDOnSYVcT0D8I0olph0evOFozOL+gTE="
+      }
+    },
+    {
+      "sequence": 30,
+      "label": "filter_all_empty_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "qnqFb06rGYJ5uNkRhAQ5RVJ0AL031IxJQA9PteacNOIpBfJebGcWC/XIG91Pjk/ld5eAkmYamm883vBo/iesyTEtdvW3HNYwo2UhBPqlQ18jRD1gvAKctk1d1ui13qlgDCz3GDbPkV0DSlZErgECjQTfWAiEtkVz7UuW5MnO2Fd11H4Oqcw6H9gaTEoTqtmbDv5cpfMMS4OyTeaaBY/xXayLd8Az7wqMEmOVCVw+MQX4d5lH1BieHi10BwVymVE71+j0AGsn8XwZWLZ9XoXEjkgXyge1FPIlhEuot51WbecE1Ebg/9UzEq8p3cT4/srRzrSg88iBQEllfA3tLWQF6pL+cD/DIz4AvKOq",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND n > ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 31,
+      "label": "filter_all_empty_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "aNaFdrqX0U2CJIDspLc3xWq7MPK2XxGjRIebW3kQ25If5pFYvHQxmE+qqpBsiHKSzoSDH+tm39blXlUC2SmDkOvNkbPCiDWwivCfWARdVx4PSipZ+iFwx95XGSuDSwKsqI5IytxzSNMNSqBAKkX6m20IR7Rn7ykBFYgVY224Bow6hzsoGUr8NMOv/cJ+mPVriJgDfizQw6jrwio3BWaPn8hk621PSDq+FjvKDxM1GKBZ4CHdhwuCW7ATBd0NsUAADCIXmFGWmWoRr+HxnWo5eU1KTupWRw5PmMn0LY8NbCHU7Oq30LoQ7QIAIO4vdlEtu+Dj5G9YPq8m3JzaZauxYQq5ujwCBjA2heMu",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND n > ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "qnqFb06rGYJ5uNkRhAQ5RVJ0AL031IxJQA9PteacNOIpBfJebGcWC/XIG91Pjk/ld5eAkmYamm883vBo/iesyTEtdvW3HNYwo2UhBPqlQ18jRD1gvAKctk1d1ui13qlgDCz3GDbPkV0DSlZErgECjQTfWAiEtkVz7UuW5MnO2Fd11H4Oqcw6H9gaTEoTqtmbDv5cpfMMS4OyTeaaBY/xXayLd8Az7wqMEmOVCVw+MQX4d5lH1BieHi10BwVymVE71+j0AGsn8XwZWLZ9XoXEjkgXyge1FPIlhEuot51WbecE1Ebg/9UzEq8p3cT4/srRzrSg88iBQEllfA3tLWQF6pL+cD/DIz4AvKOq"
+      }
+    },
+    {
+      "sequence": 32,
+      "label": "filter_all_empty_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "cF2mj7hSFoeIUA/22fQ9mN0NLHRdUi5yLKTXsWKUECO8waVdz5a4eqIOpPgQLcTlAWnSR6mru5/k624gM9P0fA0FbF5ayddEtNaBUogUAYhylnNGIXKO7B+PBuo5Jm0ZIe/6ty0fPj/o/5jmoJPzLqI071AriPjOdYVB3OzodKxODwYukH0nnA2LkjTkWiYnp6MVarPqCqW/aKyxg4kE+EnRf1xyk0hrO9Yw+WQHuiWLyo+qIftsDvLEdXByz/fVl5KiMAybwwokrdb221g+U208ti2bomNRNzOiVLkH5cnThMIkiqFeiAXGWQ3xX6waag4U5WHmY1Hjtf7+30sp678IBhr7C6wFYfs9",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND n > ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "aNaFdrqX0U2CJIDspLc3xWq7MPK2XxGjRIebW3kQ25If5pFYvHQxmE+qqpBsiHKSzoSDH+tm39blXlUC2SmDkOvNkbPCiDWwivCfWARdVx4PSipZ+iFwx95XGSuDSwKsqI5IytxzSNMNSqBAKkX6m20IR7Rn7ykBFYgVY224Bow6hzsoGUr8NMOv/cJ+mPVriJgDfizQw6jrwio3BWaPn8hk621PSDq+FjvKDxM1GKBZ4CHdhwuCW7ATBd0NsUAADCIXmFGWmWoRr+HxnWo5eU1KTupWRw5PmMn0LY8NbCHU7Oq30LoQ7QIAIO4vdlEtu+Dj5G9YPq8m3JzaZauxYQq5ujwCBjA2heMu"
+      }
+    },
+    {
+      "sequence": 33,
+      "label": "filter_all_empty_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": []
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND n > ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "cF2mj7hSFoeIUA/22fQ9mN0NLHRdUi5yLKTXsWKUECO8waVdz5a4eqIOpPgQLcTlAWnSR6mru5/k624gM9P0fA0FbF5ayddEtNaBUogUAYhylnNGIXKO7B+PBuo5Jm0ZIe/6ty0fPj/o/5jmoJPzLqI071AriPjOdYVB3OzodKxODwYukH0nnA2LkjTkWiYnp6MVarPqCqW/aKyxg4kE+EnRf1xyk0hrO9Yw+WQHuiWLyo+qIftsDvLEdXByz/fVl5KiMAybwwokrdb221g+U208ti2bomNRNzOiVLkH5cnThMIkiqFeiAXGWQ3xX6waag4U5WHmY1Hjtf7+30sp678IBhr7C6wFYfs9"
+      }
+    },
+    {
+      "sequence": 34,
+      "label": "point_key_limit_one_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "01"
+            }
+          }
+        ],
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND sk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "01"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 35,
+      "label": "partition_descending_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "04"
+            }
+          }
+        ],
+        "NextToken": "MrO0ugzTNBL3uzTh6GiKX1pPY2razL0d+0hazNPjVNY7W2bUvP4HBRhhuJmscu3h1+yUFMeuNfkWD70NcTAw9ta1HodFZUNSZo2x2VQotUTn76NFPW0yyc3XtNEd8ku9SRhAt0MEPUizO5s9uLr84EvKcjR//X+wa01ugR7FRRmi7/4QpFvvSx1DYvDxhpRll7N5g/TFj78C1N76c2SRcN5x1MOBlk9zZA/tb2cvug7TsEH9j+W11HNAwSAONoMNi9FQFcj59S4hnsGGAiU9KxqyfRsaCAUvX3Yeae1Fowjx0CYzwQtITQQN1ewsKN++i/z6PIzPqllS+a7O8sRt4XV4V7LqiJZBPQ==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "04"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? ORDER BY sk DESC",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 36,
+      "label": "partition_descending_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          }
+        ],
+        "NextToken": "NO3RzN3Y+N6ZFHRppiklu7KKbrwuA+cQsq2e33n9I8ujdcTZPhseZBxl/sC5d5ZHmyrM9u3Q96SXT/Q3LQXMF88ingJmggRDULBI6URM1HMfidACqsqy7WbZV25Jjy8huAl/cXnVOUuECGuTHCEfMfmAaR7pmreVi2Mqz596SGekooVLwoQSjlU/9iuCa/oT8TwKmwofvplOcrDB2Bnq8Zj9j46mOW/ygu8cJZpwrqxm2k5hZjiDvNSnxc3PWqB2c+cBvD+5adnT+tzV9ebCynAykppHQ+75wpZJzOZmLiwxa+9mqhevbCzxKp3NxluhaBC31vlLlIEziwEYoyvHi9SadREkNZiOSA==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? ORDER BY sk DESC",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "MrO0ugzTNBL3uzTh6GiKX1pPY2razL0d+0hazNPjVNY7W2bUvP4HBRhhuJmscu3h1+yUFMeuNfkWD70NcTAw9ta1HodFZUNSZo2x2VQotUTn76NFPW0yyc3XtNEd8ku9SRhAt0MEPUizO5s9uLr84EvKcjR//X+wa01ugR7FRRmi7/4QpFvvSx1DYvDxhpRll7N5g/TFj78C1N76c2SRcN5x1MOBlk9zZA/tb2cvug7TsEH9j+W11HNAwSAONoMNi9FQFcj59S4hnsGGAiU9KxqyfRsaCAUvX3Yeae1Fowjx0CYzwQtITQQN1ewsKN++i/z6PIzPqllS+a7O8sRt4XV4V7LqiJZBPQ=="
+      }
+    },
+    {
+      "sequence": 37,
+      "label": "partition_descending_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          }
+        ],
+        "NextToken": "R4mPAuk3BPZ7rP/afmSjftCUUVERY6JYBxFeCuNA+C+DhQS8u59ARuF3+EqgB5qCdm7HYdv2LXNij4LJbps9YMhxTPlCxAwAYvQwPeYLxNwGKANDeVDo19UdPtvBGNChbR/XENhw1POeO4GNCWgpLGwv4xA6qclW/dcAlfH3vTIIEZseXGjUKAap7pT9sRufZWNR/2+hBNhAFYZAoBwLy9M/ZgRt3/C+bhOakoaLpwg8PqjkTGJ4Lywl8pv+6aagNSushAKKei9dqt2q2J9TX0OrLJYEYAhTQ6fJjNV35/gKYHhuf5CouBSOx/rG28g4oXROsYrxN7kE8YD5H0weUdP6w2+8zrX7oA==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? ORDER BY sk DESC",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "NO3RzN3Y+N6ZFHRppiklu7KKbrwuA+cQsq2e33n9I8ujdcTZPhseZBxl/sC5d5ZHmyrM9u3Q96SXT/Q3LQXMF88ingJmggRDULBI6URM1HMfidACqsqy7WbZV25Jjy8huAl/cXnVOUuECGuTHCEfMfmAaR7pmreVi2Mqz596SGekooVLwoQSjlU/9iuCa/oT8TwKmwofvplOcrDB2Bnq8Zj9j46mOW/ygu8cJZpwrqxm2k5hZjiDvNSnxc3PWqB2c+cBvD+5adnT+tzV9ebCynAykppHQ+75wpZJzOZmLiwxa+9mqhevbCzxKp3NxluhaBC31vlLlIEziwEYoyvHi9SadREkNZiOSA=="
+      }
+    },
+    {
+      "sequence": 38,
+      "label": "partition_descending_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "01"
+            }
+          }
+        ],
+        "NextToken": "VUH/1z4tdykKT06R5dz/gvwByX0nv+QLmHZ0REFsjLHy8VeoSaAMoWUwRJ+nNV5XHi5gynQzMKWDpHwdvo+evjH4KqpOYmdWJVNkgcuQhjC047hTBLBtFiY9QDWk0T/69puxmbYP6tZrkloIK0Ax9PUZyAlVyevP560X2R9+AU+gfnqZ41IkvT0Jm7MJ+/gFgR1GyzmN8pNn8bhyFwuDJWFQtVoyuWxuxqwWW6dBmBmH7LpSmY4cNv/HddrDTKY40pbGwj5SAgY4fngVDsQ/Yl4Ay95Sbtiw8sBUU9Aj1J13LtK1kYEIidt8GQcCv/OLTjFoYjXT12L+qtRLe0UWpUxwg7Ub4MQvDQ==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? ORDER BY sk DESC",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "R4mPAuk3BPZ7rP/afmSjftCUUVERY6JYBxFeCuNA+C+DhQS8u59ARuF3+EqgB5qCdm7HYdv2LXNij4LJbps9YMhxTPlCxAwAYvQwPeYLxNwGKANDeVDo19UdPtvBGNChbR/XENhw1POeO4GNCWgpLGwv4xA6qclW/dcAlfH3vTIIEZseXGjUKAap7pT9sRufZWNR/2+hBNhAFYZAoBwLy9M/ZgRt3/C+bhOakoaLpwg8PqjkTGJ4Lywl8pv+6aagNSushAKKei9dqt2q2J9TX0OrLJYEYAhTQ6fJjNV35/gKYHhuf5CouBSOx/rG28g4oXROsYrxN7kE8YD5H0weUdP6w2+8zrX7oA=="
+      }
+    },
+    {
+      "sequence": 39,
+      "label": "partition_descending_page_5",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": []
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? ORDER BY sk DESC",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "VUH/1z4tdykKT06R5dz/gvwByX0nv+QLmHZ0REFsjLHy8VeoSaAMoWUwRJ+nNV5XHi5gynQzMKWDpHwdvo+evjH4KqpOYmdWJVNkgcuQhjC047hTBLBtFiY9QDWk0T/69puxmbYP6tZrkloIK0Ax9PUZyAlVyevP560X2R9+AU+gfnqZ41IkvT0Jm7MJ+/gFgR1GyzmN8pNn8bhyFwuDJWFQtVoyuWxuxqwWW6dBmBmH7LpSmY4cNv/HddrDTKY40pbGwj5SAgY4fngVDsQ/Yl4Ay95Sbtiw8sBUU9Aj1J13LtK1kYEIidt8GQcCv/OLTjFoYjXT12L+qtRLe0UWpUxwg7Ub4MQvDQ=="
+      }
+    },
+    {
+      "sequence": 40,
+      "label": "fanout_limit_one_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "01"
+            }
+          }
+        ],
+        "NextToken": "kOMZnDVMHkXndyXXwObyr26MB/+RuSQNSly6WIxQiCyjvt+r9LKQykjtU8h/0jvmmEYi9u99KzKsVLc/rgeMzNgWFdOnkyy3DhbE2qLFR2CMt6+LnbyYqKm0VAXu2wAciADHrRaOKz7qQSU9peW1FGl+qkAx5pfMSZROc3fgrOM0MNx22FWof8zoBk7Cst8h822IRusf7tVRAgMnVm3AbSx0bb0Fm6iH73f2zI8KKTiIg+gx6sT8TZuXILJZW5EuFkxWu8l61dZgJR2psflnAmj60Yj7N3X1Tj8eJGm7RIz5u4K6notpm5N9Ff6rQ4MdwDlPORZwA/v1JbKNgyNR3qxHO/CAFjA=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 41,
+      "label": "fanout_limit_one_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          }
+        ],
+        "NextToken": "YV3K/WLfmwHTeVj4vIi9olRpIzj6n7NWcBEu3QNGosrCavbOqgW38g9AyiJ9RCKMJH3WDoEtEYFWxQzSpZj4fyvMOtsV+T7vJxbVwTEcL4r8A5aiHuGqvDauu+zuMvsW2jWOGy/wo52s0XMkuYXtTaa+UHuFNF3OZTFgz8YaJ04Jx4fGST52evHeIJBaVnK6XLxs3fWC/zLMjdKARgUfTM7SPC1RyTxpCidl+obY7UHqpZRsxrRcUHQOeoXbb196BXQTNnHaSZsfQU4KVl9A9dsRi8Yh0WAkqwQ2noDvrnQofv/oE3XENEARm81xLZMp4bWe5jsasTT+53dguBb08ilfOLzbuYg=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "kOMZnDVMHkXndyXXwObyr26MB/+RuSQNSly6WIxQiCyjvt+r9LKQykjtU8h/0jvmmEYi9u99KzKsVLc/rgeMzNgWFdOnkyy3DhbE2qLFR2CMt6+LnbyYqKm0VAXu2wAciADHrRaOKz7qQSU9peW1FGl+qkAx5pfMSZROc3fgrOM0MNx22FWof8zoBk7Cst8h822IRusf7tVRAgMnVm3AbSx0bb0Fm6iH73f2zI8KKTiIg+gx6sT8TZuXILJZW5EuFkxWu8l61dZgJR2psflnAmj60Yj7N3X1Tj8eJGm7RIz5u4K6notpm5N9Ff6rQ4MdwDlPORZwA/v1JbKNgyNR3qxHO/CAFjA="
+      }
+    },
+    {
+      "sequence": 42,
+      "label": "fanout_limit_one_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          }
+        ],
+        "NextToken": "sMS0q6pXZJ34VjGFqiZJWhwDze9p+0rvoX7oguxZY9ZXO4oRlIoobrM4ZwZpDEHENeZSWvxXTNv7H3MJgDtYJb5JvwAtNxWFhPgxIgpHjpiC86LAdJB7y1njisobsIVVUIZhyTYc9NBdGxFiI/JXekzR17/7O4euCl+dwiAzak/81sOjv9YpMA4JYqTzaBmunNJDAGx9lNQPIFiizkSXMgGxS/9Fi5xDg1P3uLZESlhTb6SC1kPRZQuwWVjH5u2lYHsztTLkKHJ73MTXEYkGgypFQMvpt/0aF3IC7QYSAL1j7vcWfLVTuA3ewMGCoUutkxt9Q0g7ROLFtH7T3932tp9EcC7SxMk=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "YV3K/WLfmwHTeVj4vIi9olRpIzj6n7NWcBEu3QNGosrCavbOqgW38g9AyiJ9RCKMJH3WDoEtEYFWxQzSpZj4fyvMOtsV+T7vJxbVwTEcL4r8A5aiHuGqvDauu+zuMvsW2jWOGy/wo52s0XMkuYXtTaa+UHuFNF3OZTFgz8YaJ04Jx4fGST52evHeIJBaVnK6XLxs3fWC/zLMjdKARgUfTM7SPC1RyTxpCidl+obY7UHqpZRsxrRcUHQOeoXbb196BXQTNnHaSZsfQU4KVl9A9dsRi8Yh0WAkqwQ2noDvrnQofv/oE3XENEARm81xLZMp4bWe5jsasTT+53dguBb08ilfOLzbuYg="
+      }
+    },
+    {
+      "sequence": 43,
+      "label": "fanout_limit_one_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "04"
+            }
+          }
+        ],
+        "NextToken": "Sxuwi+K1KS2AXG+oGxXooTmdmoQyxstm2fdnfnEyQWIeApT7VFtdjiHIdgyj4YKa9MKBDItHMjwBijJ0NtLZKjjoDmBNFfdxqTPK3wAF4iWtE/Glpg0dBzO0NbvAebvkfYM1CpSStWjxoLkM0ghrva4iUobtEUzjid6KdScgpwvb8IBw2WAyImn4KmjyaY1w+zagcH41aDi8GXCqqscs48BX46yyPXlj2alnY6jZ2g1Z4/N1kO9XK0zN9nNZpdX+TzfhSrJC7Sd7dLndyCra1KzrzdxigXwkdRLSUlap6fNkyg=="
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "sMS0q6pXZJ34VjGFqiZJWhwDze9p+0rvoX7oguxZY9ZXO4oRlIoobrM4ZwZpDEHENeZSWvxXTNv7H3MJgDtYJb5JvwAtNxWFhPgxIgpHjpiC86LAdJB7y1njisobsIVVUIZhyTYc9NBdGxFiI/JXekzR17/7O4euCl+dwiAzak/81sOjv9YpMA4JYqTzaBmunNJDAGx9lNQPIFiizkSXMgGxS/9Fi5xDg1P3uLZESlhTb6SC1kPRZQuwWVjH5u2lYHsztTLkKHJ73MTXEYkGgypFQMvpt/0aF3IC7QYSAL1j7vcWfLVTuA3ewMGCoUutkxt9Q0g7ROLFtH7T3932tp9EcC7SxMk="
+      }
+    },
+    {
+      "sequence": 44,
+      "label": "fanout_limit_one_page_5",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "B"
+            },
+            "sk": {
+              "S": "01"
+            }
+          }
+        ],
+        "NextToken": "zDKxrZmlGpEG/4C6x7bTtpx1MalfmGSVpvlAL7NjKlQrkYD/avuZCE+gYgrU/bA6Olsfx+rvxQohZ9IyvjQDHq3xRzu1cxYxCH4sBTpjYZOB5izSSLJELur4tPyiKQxBBKeMs+OnBsMAc+qQES3MMixWA9YhiSR9gA6lZN7MAwjyvQ/P3xC9KNoetn5FTNgKYoXKB4aaIS9CfoS8HdEymfyxvMMokU/npE4GU7jyf5Flg3r6tqrOuRGS5npfgiGHpZG2UbyrllC0z3tLmSAcNR/x0g/70GVFfc+IOM1tW226ps4ZFLSwQkkNMebAvoC0AxvtRlGbgjyUu9tNyDWhUw==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "pk": {
+            "S": "B"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "Sxuwi+K1KS2AXG+oGxXooTmdmoQyxstm2fdnfnEyQWIeApT7VFtdjiHIdgyj4YKa9MKBDItHMjwBijJ0NtLZKjjoDmBNFfdxqTPK3wAF4iWtE/Glpg0dBzO0NbvAebvkfYM1CpSStWjxoLkM0ghrva4iUobtEUzjid6KdScgpwvb8IBw2WAyImn4KmjyaY1w+zagcH41aDi8GXCqqscs48BX46yyPXlj2alnY6jZ2g1Z4/N1kO9XK0zN9nNZpdX+TzfhSrJC7Sd7dLndyCra1KzrzdxigXwkdRLSUlap6fNkyg=="
+      }
+    },
+    {
+      "sequence": 45,
+      "label": "fanout_limit_one_page_6",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "B"
+            },
+            "sk": {
+              "S": "02"
+            }
+          }
+        ],
+        "NextToken": "AFaI/zepTUSDgb9yXT9xLYb9BYsMEHlwmCwjs62ImKkq/bYXdXf+mOXgzIjTUtvEM/Cg7UxfYeRDkIkDBnBl312QsSCFuX8b1swPfenL9jI7ylJxCvtYc1zMAp5Bpyni6639AyqheP8H2bQJBBO6n5qfUrNfZum+qBt7G/fY2hN5c62QHlocc2KYppmNVsXzfYZszMqdJJphmk/FgewJiIE5nmhdiSHQHRO6OkgHTkb1SzvEBtaGYz8urlhwK+CUzLuFl7DdMEkqgFdYatN6l+dahfiy6EpMFyyomGqvOmlr7mM8lVjriP4mMqeyPmQgkKxlkKs3YyXp9cvWAqIdZw==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "B"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "zDKxrZmlGpEG/4C6x7bTtpx1MalfmGSVpvlAL7NjKlQrkYD/avuZCE+gYgrU/bA6Olsfx+rvxQohZ9IyvjQDHq3xRzu1cxYxCH4sBTpjYZOB5izSSLJELur4tPyiKQxBBKeMs+OnBsMAc+qQES3MMixWA9YhiSR9gA6lZN7MAwjyvQ/P3xC9KNoetn5FTNgKYoXKB4aaIS9CfoS8HdEymfyxvMMokU/npE4GU7jyf5Flg3r6tqrOuRGS5npfgiGHpZG2UbyrllC0z3tLmSAcNR/x0g/70GVFfc+IOM1tW226ps4ZFLSwQkkNMebAvoC0AxvtRlGbgjyUu9tNyDWhUw=="
+      }
+    },
+    {
+      "sequence": 46,
+      "label": "fanout_limit_one_page_7",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "B"
+            },
+            "sk": {
+              "S": "03"
+            }
+          }
+        ],
+        "NextToken": "pA6FVWgXeOUQ3i3NQ5MozAQCPqWUWvX0cCu69OnjPyE5g48V7asBVa3Zfihy6VbzJ7tpjsQRtq9af9PW/7kIYQCekr6X5p85ONLbr9X/L6ljYWHoLdCBOeVdLf8nIHy3QRI5LVGFPure3OhFfG2DYt/QJaafakaNlzjpfHokmol69GI4thFdxUWyq1u5rKyetE06RsHm+lNE6L7StYBYmDyUrLiz80bGMHMgIqAYISpO4OpY8A7sJ+tb+3yivc+F9z/+0IdiiiG2E8AqZXp3wlFEuo6HhQuBimn79Cx2C9dUvEYAhYBZLPXZpDy18s6ce8crfCRmSaBt0vcE0VBaSg==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "pk": {
+            "S": "B"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "AFaI/zepTUSDgb9yXT9xLYb9BYsMEHlwmCwjs62ImKkq/bYXdXf+mOXgzIjTUtvEM/Cg7UxfYeRDkIkDBnBl312QsSCFuX8b1swPfenL9jI7ylJxCvtYc1zMAp5Bpyni6639AyqheP8H2bQJBBO6n5qfUrNfZum+qBt7G/fY2hN5c62QHlocc2KYppmNVsXzfYZszMqdJJphmk/FgewJiIE5nmhdiSHQHRO6OkgHTkb1SzvEBtaGYz8urlhwK+CUzLuFl7DdMEkqgFdYatN6l+dahfiy6EpMFyyomGqvOmlr7mM8lVjriP4mMqeyPmQgkKxlkKs3YyXp9cvWAqIdZw=="
+      }
+    },
+    {
+      "sequence": 47,
+      "label": "fanout_limit_one_page_8",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": []
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "pA6FVWgXeOUQ3i3NQ5MozAQCPqWUWvX0cCu69OnjPyE5g48V7asBVa3Zfihy6VbzJ7tpjsQRtq9af9PW/7kIYQCekr6X5p85ONLbr9X/L6ljYWHoLdCBOeVdLf8nIHy3QRI5LVGFPure3OhFfG2DYt/QJaafakaNlzjpfHokmol69GI4thFdxUWyq1u5rKyetE06RsHm+lNE6L7StYBYmDyUrLiz80bGMHMgIqAYISpO4OpY8A7sJ+tb+3yivc+F9z/+0IdiiiG2E8AqZXp3wlFEuo6HhQuBimn79Cx2C9dUvEYAhYBZLPXZpDy18s6ce8crfCRmSaBt0vcE0VBaSg=="
+      }
+    },
+    {
+      "sequence": 48,
+      "label": "fanout_limit_two_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "01"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          }
+        ],
+        "NextToken": "NgGDR5sQ4Lnm6MjQ4SzBjcpyX1/x3AOFHRRimI8zK9JUTtMBdGWxXfC/quDGjmNCJf80XLXWERhqdhH+DNjnlWp18waWV+KHyppq2osYN3wUNFcjbJXWz4eByNCEQVQMMesK7SDA5ty3sHGLE9498ZiUTESdHXGnFxGHrjF/UebzjFc9zvR7r/tyQJFsTmabxGqFXaI7AgdnYISd4zn22Bwo7iaKykGmvOy+y0Ar9ZVw5rHTFUMyOLYpeV1vHjcEn77wsaa55+YRmZxGi5adXX5UweilhgEoW07TunrLdenv+8c1PUdZ6+Rk7HVlK2ObkK4SkpbVpb4GKkB6+p2dob80+vsfvfs=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 49,
+      "label": "fanout_limit_two_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          },
+          {
+            "n": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "04"
+            }
+          }
+        ],
+        "NextToken": "w8LM8uzD+nHE9H0RpMJfqrdCXpQ+rs5p6Z0bimFtaQYqRLEiW+Ll2oHG087zJWC+PGpXBMl/28GLaazIXGbaz5RknY/Qs2Pf4gGJgmufgXJuLqH5R2h+81MvI/pv9QqdToGvXDUF6k8o7EpEUiXkYYK/AqiNVbXRQWwiqe/mVxm4oVOAuDmRI+94T1Po00tCZ/PF2CJRNrRW5X45vTvLcsE8GLdkQZYN681Y5f5GY83btI/PoFzClZoc3F1zCXXXUNA9izLVbQoUudG2uH1DYZOR/8N+0YbNDVzReyzI8V6klA=="
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "NgGDR5sQ4Lnm6MjQ4SzBjcpyX1/x3AOFHRRimI8zK9JUTtMBdGWxXfC/quDGjmNCJf80XLXWERhqdhH+DNjnlWp18waWV+KHyppq2osYN3wUNFcjbJXWz4eByNCEQVQMMesK7SDA5ty3sHGLE9498ZiUTESdHXGnFxGHrjF/UebzjFc9zvR7r/tyQJFsTmabxGqFXaI7AgdnYISd4zn22Bwo7iaKykGmvOy+y0Ar9ZVw5rHTFUMyOLYpeV1vHjcEn77wsaa55+YRmZxGi5adXX5UweilhgEoW07TunrLdenv+8c1PUdZ6+Rk7HVlK2ObkK4SkpbVpb4GKkB6+p2dob80+vsfvfs="
+      }
+    },
+    {
+      "sequence": 50,
+      "label": "fanout_limit_two_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "B"
+            },
+            "sk": {
+              "S": "01"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "B"
+            },
+            "sk": {
+              "S": "02"
+            }
+          }
+        ],
+        "NextToken": "FjwcNs2E0dJ78oBxmZZEb/LJf4v0fzuDr6/ydyzaSvFvVOeBD7befPZ3nBBecrBpw7kZi9Wm20IaJ/j3bbRE+gE8AfvqfntwLGElREWJOjbDGi4A/TTsH6JN4kHaKv8J3kZnPvrGi6bOtMvDyl/m+GGqH8Wsaxq0+vXCo5JPNDWSVsORNQwMGUYjE1QXIfGskjEU3364zQtotuGbSPoxV0IJ/l8GZ4u8f8cZ2MXiJQ1iZq19rqeApo0vGwW3G8sPbGHx6QcwMLoKCsyx78XlWgTdI0xrvopmNLuJXb00ec7DfX9xRAvfpqpLxAyr6dyvy+g0XUfAahHunH9UGHBHqQ==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "B"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "w8LM8uzD+nHE9H0RpMJfqrdCXpQ+rs5p6Z0bimFtaQYqRLEiW+Ll2oHG087zJWC+PGpXBMl/28GLaazIXGbaz5RknY/Qs2Pf4gGJgmufgXJuLqH5R2h+81MvI/pv9QqdToGvXDUF6k8o7EpEUiXkYYK/AqiNVbXRQWwiqe/mVxm4oVOAuDmRI+94T1Po00tCZ/PF2CJRNrRW5X45vTvLcsE8GLdkQZYN681Y5f5GY83btI/PoFzClZoc3F1zCXXXUNA9izLVbQoUudG2uH1DYZOR/8N+0YbNDVzReyzI8V6klA=="
+      }
+    },
+    {
+      "sequence": 51,
+      "label": "fanout_limit_two_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "B"
+            },
+            "sk": {
+              "S": "03"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "FjwcNs2E0dJ78oBxmZZEb/LJf4v0fzuDr6/ydyzaSvFvVOeBD7befPZ3nBBecrBpw7kZi9Wm20IaJ/j3bbRE+gE8AfvqfntwLGElREWJOjbDGi4A/TTsH6JN4kHaKv8J3kZnPvrGi6bOtMvDyl/m+GGqH8Wsaxq0+vXCo5JPNDWSVsORNQwMGUYjE1QXIfGskjEU3364zQtotuGbSPoxV0IJ/l8GZ4u8f8cZ2MXiJQ1iZq19rqeApo0vGwW3G8sPbGHx6QcwMLoKCsyx78XlWgTdI0xrvopmNLuJXb00ec7DfX9xRAvfpqpLxAyr6dyvy+g0XUfAahHunH9UGHBHqQ=="
+      }
+    },
+    {
+      "sequence": 52,
+      "label": "fanout_excludes_keys_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "A-1"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "A-2"
+            }
+          }
+        ],
+        "NextToken": "PC2pSW9OZPQ/AzVkdR3FPQ66Onz6I42EUgMSSkrjlo6STBmYxd0/TqwRjjS86qfbOZfe36yPwc32X+z6rZpvZBmXOplfd1Xu146ibhvy1wpTDGERkM/d99pW1kpeKQKzf/j1sAr2oGaM5hcAAl9kkHZNudT0/z87gWzPnmWBqJ17KHhcl2xmvqnpolBvEAS3fYNjDvQVYVBcc7+tTJPhAqgEX+w1YAUsBDrAkNy5nx4aS5RaqqCpi+xZ32iKybOnCIHzE9lW2ZZ9qEw+Fkm5+TkKxjku5PZpKHVHC9D9PQnPAErPV8TNklQvLRFWX3qg4RBdnl6EpmKAOnkNLw37WMffu3WebkzBMpFLH5jK66OHFOmoAEXrVg==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 53,
+      "label": "fanout_excludes_keys_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "payload": {
+              "S": "A-3"
+            }
+          },
+          {
+            "n": {
+              "N": "4"
+            },
+            "payload": {
+              "S": "A-4"
+            }
+          }
+        ],
+        "NextToken": "5KSRTu7D8YJi9i32Gx6/rcBVXNhJMoTHSSJvJox8lesWgDbYgx/ML7IPKwSGkIH3x4lCIVvOgfzON8JwtT7rUbUB6tZ/pUjUX1rXnxSi8o0aRVOyLd3wYrxT5Y5ZuPve6Kd0+k1mp/7FcU+C+I8QB1HrFt4k86m7QcrqKH5NdUP7j4EaRD1LGVlypwoq48RaHrGkbXuzORsE0wXNP7koJ6MbzfaRzhVjvytD4nQK194GaSWwsM9O/I+594jVaZt22a9firdrztGf9ChUi7b4epMQAH9/jh/eo+Xdw0nFzIN0Zl7OkzdOhaPG+nFcT6uO34Ap"
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "PC2pSW9OZPQ/AzVkdR3FPQ66Onz6I42EUgMSSkrjlo6STBmYxd0/TqwRjjS86qfbOZfe36yPwc32X+z6rZpvZBmXOplfd1Xu146ibhvy1wpTDGERkM/d99pW1kpeKQKzf/j1sAr2oGaM5hcAAl9kkHZNudT0/z87gWzPnmWBqJ17KHhcl2xmvqnpolBvEAS3fYNjDvQVYVBcc7+tTJPhAqgEX+w1YAUsBDrAkNy5nx4aS5RaqqCpi+xZ32iKybOnCIHzE9lW2ZZ9qEw+Fkm5+TkKxjku5PZpKHVHC9D9PQnPAErPV8TNklQvLRFWX3qg4RBdnl6EpmKAOnkNLw37WMffu3WebkzBMpFLH5jK66OHFOmoAEXrVg=="
+      }
+    },
+    {
+      "sequence": 54,
+      "label": "fanout_excludes_keys_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "B-1"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "B-2"
+            }
+          }
+        ],
+        "NextToken": "7i3spz99V2zYTVph60uNY4noULeVFiwCnNTGr5waogcE2VDRRLtyYZxhsLLpXJNNwNSAGHCTWk102SKi9D01p0Va62PVTuA6Ke1e7/jCMfbmmplw6NYyuzE5wkciKRYRXKF5l6l6OVW1bmSo+DyzEva2QG0J8dBlNPtn+hFZuo4uCgL3E+QnqAgP/Purcef/XxbDLtu3H+J/xayUObVtV67FbzWssafgKxMLRhT0N0gisrLzH2aJucLNBxnvF+tbk6qmi8H5PWFfT956mMTFcgJ6o3ZHzEsUxNma7vQoIidP84F/shiDAYkns+QsJqk7tV0bdVRDbCIH5lnPNrrX6YBRc8qUASpdpX1p1i2MWTag",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "B"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "5KSRTu7D8YJi9i32Gx6/rcBVXNhJMoTHSSJvJox8lesWgDbYgx/ML7IPKwSGkIH3x4lCIVvOgfzON8JwtT7rUbUB6tZ/pUjUX1rXnxSi8o0aRVOyLd3wYrxT5Y5ZuPve6Kd0+k1mp/7FcU+C+I8QB1HrFt4k86m7QcrqKH5NdUP7j4EaRD1LGVlypwoq48RaHrGkbXuzORsE0wXNP7koJ6MbzfaRzhVjvytD4nQK194GaSWwsM9O/I+594jVaZt22a9firdrztGf9ChUi7b4epMQAH9/jh/eo+Xdw0nFzIN0Zl7OkzdOhaPG+nFcT6uO34Ap"
+      }
+    },
+    {
+      "sequence": 55,
+      "label": "fanout_excludes_keys_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "payload": {
+              "S": "B-3"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "7i3spz99V2zYTVph60uNY4noULeVFiwCnNTGr5waogcE2VDRRLtyYZxhsLLpXJNNwNSAGHCTWk102SKi9D01p0Va62PVTuA6Ke1e7/jCMfbmmplw6NYyuzE5wkciKRYRXKF5l6l6OVW1bmSo+DyzEva2QG0J8dBlNPtn+hFZuo4uCgL3E+QnqAgP/Purcef/XxbDLtu3H+J/xayUObVtV67FbzWssafgKxMLRhT0N0gisrLzH2aJucLNBxnvF+tbk6qmi8H5PWFfT956mMTFcgJ6o3ZHzEsUxNma7vQoIidP84F/shiDAYkns+QsJqk7tV0bdVRDbCIH5lnPNrrX6YBRc8qUASpdpX1p1i2MWTag"
+      }
+    },
+    {
+      "sequence": 56,
+      "label": "fanout_empty_filter_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "jmDCX1132epxyaiVGBa/3wnLhwyf09KUt7RcMkt7LRBgx64gbtXJT3fikXB4vrjB/BW9U5f+dHaScPHaihktVt+mVf3t7GcpBI/6J9vF8YSbwGO1KZCBvswIMjzPlr8nboyjY5l44VnpRciP9EuEbuPv3i/uFqTUAd/yhmMO8rue858xFKnX71CQNKbZ/V6lggRhd9jDtriN6YcnVZGuNu1VlTsOYr8VwbOvQNmqJ5Yn4rQkdfs92hI3a9JswG8r8BdrJG6nWdmtHa6SdE9AoaVuAQDZT585uwWtW5v9KDYl7vItrlCsLdaRf3Ctguzmqhi2o/x1H4vA7clIjYReDJCx3sI0lbUPrPjBMhKEXg==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?] AND n > ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 57,
+      "label": "fanout_empty_filter_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "mnHI2qmd9rK5u3a4GzmMUHBSsFd8cFg8Xv4E4bRC2jLgiKFWwM1525mo0Q1xuJPXuKy9NGBsZr969L4hZkcfkFLbCSzCpKg2rV8HEzmGvEV58spZ+0cT0RAyainO1wyh1Y8v2odN9gSPYaSBqKETf6/h/7rfzfJm/anNwlIDzifHGDn9Ex/Yh6kMpjvqIg3/M6sb3G9LTDbECbzPlWi11ugHZpzovtyiadghfPNUn6rYX1nxxTT1o0lPoKkUnf2ak98XCHH2G84Kp6gx4d1Gk2leUarFgEeatYjfvWTezEzKTvo8kekdEurg"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?] AND n > ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "jmDCX1132epxyaiVGBa/3wnLhwyf09KUt7RcMkt7LRBgx64gbtXJT3fikXB4vrjB/BW9U5f+dHaScPHaihktVt+mVf3t7GcpBI/6J9vF8YSbwGO1KZCBvswIMjzPlr8nboyjY5l44VnpRciP9EuEbuPv3i/uFqTUAd/yhmMO8rue858xFKnX71CQNKbZ/V6lggRhd9jDtriN6YcnVZGuNu1VlTsOYr8VwbOvQNmqJ5Yn4rQkdfs92hI3a9JswG8r8BdrJG6nWdmtHa6SdE9AoaVuAQDZT585uwWtW5v9KDYl7vItrlCsLdaRf3Ctguzmqhi2o/x1H4vA7clIjYReDJCx3sI0lbUPrPjBMhKEXg=="
+      }
+    },
+    {
+      "sequence": 58,
+      "label": "fanout_empty_filter_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "+KYMQKqF3nMG567G/cyILPpXHulpVFV/btpRFXZzTMPhN3mq3ZX0GaxROlhuxQwmHc0pu2UuPin+5hkUjcLTVZ9j5SlxpOPcEAprSzaRuJ3ykeLo4/IanKb0KuyaRJM4vjQ6isaPix6LndyAs5ix2j2DATbvvkpbQE9khexRpaxdCGS0oQ+tHznn2UCgQhAduRIYig3iyeNl2Dy0VrRUxfxgHZGFC9HYTqFhIZ8YJT92m0jqNp0g6qEVixJ7sHYQff5uIXcXg4MkdwuS0yTLJBYFDtU36d75mEymoiXYpybsWtXUeENtHTzL181ZT4klU1OpjMjeeqaE7v0Qy3ZhL6taHXh2velM",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "B"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?] AND n > ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "mnHI2qmd9rK5u3a4GzmMUHBSsFd8cFg8Xv4E4bRC2jLgiKFWwM1525mo0Q1xuJPXuKy9NGBsZr969L4hZkcfkFLbCSzCpKg2rV8HEzmGvEV58spZ+0cT0RAyainO1wyh1Y8v2odN9gSPYaSBqKETf6/h/7rfzfJm/anNwlIDzifHGDn9Ex/Yh6kMpjvqIg3/M6sb3G9LTDbECbzPlWi11ugHZpzovtyiadghfPNUn6rYX1nxxTT1o0lPoKkUnf2ak98XCHH2G84Kp6gx4d1Gk2leUarFgEeatYjfvWTezEzKTvo8kekdEurg"
+      }
+    },
+    {
+      "sequence": 59,
+      "label": "fanout_empty_filter_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": []
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?] AND n > ?",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "+KYMQKqF3nMG567G/cyILPpXHulpVFV/btpRFXZzTMPhN3mq3ZX0GaxROlhuxQwmHc0pu2UuPin+5hkUjcLTVZ9j5SlxpOPcEAprSzaRuJ3ykeLo4/IanKb0KuyaRJM4vjQ6isaPix6LndyAs5ix2j2DATbvvkpbQE9khexRpaxdCGS0oQ+tHznn2UCgQhAduRIYig3iyeNl2Dy0VrRUxfxgHZGFC9HYTqFhIZ8YJT92m0jqNp0g6qEVixJ7sHYQff5uIXcXg4MkdwuS0yTLJBYFDtU36d75mEymoiXYpybsWtXUeENtHTzL181ZT4klU1OpjMjeeqaE7v0Qy3ZhL6taHXh2velM"
+      }
+    },
+    {
+      "sequence": 60,
+      "label": "scan_limit_two_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "A-1"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "A-2"
+            }
+          }
+        ],
+        "NextToken": "P8pqfMBeKdRG5AzsxxJjg1ZpK/iXW1i1OcPQ5qDb0fjz3ZDFAWuI4w73iT2jdW9qdgGM+C75Lq+q27OJmcRTLcK1QhfzVPTNeQo0OGH+PpbqJenBRO3uYjqzW/WSG0FSed1wZ4Pcf0u6LkZ63buowzk5nik6X81uLcdgZpN/RAqsfhRu4OjWMHvQzyeHduDtyWC+r3FpLcxfClqsqY9y3ZgwdVDvZ4qjCnNryPa1OOHo3d2tV21Fvv2ZazTxuwLQUsu7YiFUXEH0Ysy1ntZWTPFDemAvwyAXOMrWK9anbLyaWAyQr0bJkIeAVPc031R4wESvNiwxLPFs",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\"",
+        "Limit": 2,
+        "ConsistentRead": true
+      }
+    },
+    {
+      "sequence": 61,
+      "label": "scan_limit_two_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "payload": {
+              "S": "A-3"
+            }
+          },
+          {
+            "n": {
+              "N": "4"
+            },
+            "payload": {
+              "S": "A-4"
+            }
+          }
+        ],
+        "NextToken": "Yz775zrM5jpFtuNAjpHIGeBfDGOJjuaUSdX4oJ8Id38dqWC+qJ20482ke8W6ui/Z5f5t//dnwEtpbs/SzUu8HwwFcwewvRBd+gKXmuh+eLHX0genKAAKwZ11OXiE9j2djLjWPMdi5S9wOdL6TYPfkAEg943dP0cirZ0UMrHBwwIhjajJ2wfZ3RBrzD9vPcyUn1JxwtKq27xrx7JiQ+voJmndm1MyshME1ppz5QCQ7pRwfjxUhbi2WM7l1+kUvGrlPZkjRT6iK3JBMmXZp9Jq6UnkwxTjmKp3EX6ya0bdn6fsLvkcqLweDHB5cRovc1dPZoXPhnx6GNv0",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "04"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\"",
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "P8pqfMBeKdRG5AzsxxJjg1ZpK/iXW1i1OcPQ5qDb0fjz3ZDFAWuI4w73iT2jdW9qdgGM+C75Lq+q27OJmcRTLcK1QhfzVPTNeQo0OGH+PpbqJenBRO3uYjqzW/WSG0FSed1wZ4Pcf0u6LkZ63buowzk5nik6X81uLcdgZpN/RAqsfhRu4OjWMHvQzyeHduDtyWC+r3FpLcxfClqsqY9y3ZgwdVDvZ4qjCnNryPa1OOHo3d2tV21Fvv2ZazTxuwLQUsu7YiFUXEH0Ysy1ntZWTPFDemAvwyAXOMrWK9anbLyaWAyQr0bJkIeAVPc031R4wESvNiwxLPFs"
+      }
+    },
+    {
+      "sequence": 62,
+      "label": "scan_limit_two_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "B-1"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "B-2"
+            }
+          }
+        ],
+        "NextToken": "W62SqDeXHZAuYhhg0Wu7IVW1VVOUAPmbesSgKVJaj98Yc04wB2IRKrscOmLsswz0FGZoyTvJQinat1863ia5sq6++Ctm/Ys3ZpYCsInOc5xKLHJRwDHAA9wpT1ZPI/Hn1n867fGSVO1lSJyBuRlFkyWuXea5aBH67ItgY9+A5NZTPdLnstchNgkjsTdhfj8HfCJhke+jewjI1H0wgrRctT4TDATqyiCmZVArc7bZ6n9+jSu5CLKc9QfefkHxtrrn+C4qGie1nDDfCzf0+uTbXmXO95HNZ+pCYVgkoTUSrw8JHpnZ6tP6VseKLFxUvZ0p2SHCKkhxl8NU",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "B"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\"",
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "Yz775zrM5jpFtuNAjpHIGeBfDGOJjuaUSdX4oJ8Id38dqWC+qJ20482ke8W6ui/Z5f5t//dnwEtpbs/SzUu8HwwFcwewvRBd+gKXmuh+eLHX0genKAAKwZ11OXiE9j2djLjWPMdi5S9wOdL6TYPfkAEg943dP0cirZ0UMrHBwwIhjajJ2wfZ3RBrzD9vPcyUn1JxwtKq27xrx7JiQ+voJmndm1MyshME1ppz5QCQ7pRwfjxUhbi2WM7l1+kUvGrlPZkjRT6iK3JBMmXZp9Jq6UnkwxTjmKp3EX6ya0bdn6fsLvkcqLweDHB5cRovc1dPZoXPhnx6GNv0"
+      }
+    },
+    {
+      "sequence": 63,
+      "label": "scan_limit_two_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "payload": {
+              "S": "B-3"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\"",
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "W62SqDeXHZAuYhhg0Wu7IVW1VVOUAPmbesSgKVJaj98Yc04wB2IRKrscOmLsswz0FGZoyTvJQinat1863ia5sq6++Ctm/Ys3ZpYCsInOc5xKLHJRwDHAA9wpT1ZPI/Hn1n867fGSVO1lSJyBuRlFkyWuXea5aBH67ItgY9+A5NZTPdLnstchNgkjsTdhfj8HfCJhke+jewjI1H0wgrRctT4TDATqyiCmZVArc7bZ6n9+jSu5CLKc9QfefkHxtrrn+C4qGie1nDDfCzf0+uTbXmXO95HNZ+pCYVgkoTUSrw8JHpnZ6tP6VseKLFxUvZ0p2SHCKkhxl8NU"
+      }
+    },
+    {
+      "sequence": 64,
+      "label": "await_gsi_seed_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "4"
+            },
+            "payload": {
+              "S": "A-4"
+            }
+          },
+          {
+            "n": {
+              "N": "3"
+            },
+            "payload": {
+              "S": "A-3"
+            }
+          },
+          {
+            "n": {
+              "N": "3"
+            },
+            "payload": {
+              "S": "B-3"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "A-2"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "B-2"
+            }
+          },
+          {
+            "n": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "A-1"
+            }
+          },
+          {
+            "n": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "B-1"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 20
+      }
+    },
+    {
+      "sequence": 65,
+      "label": "gsi_excludes_all_keys_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "4"
+            },
+            "payload": {
+              "S": "A-4"
+            }
+          },
+          {
+            "n": {
+              "N": "3"
+            },
+            "payload": {
+              "S": "A-3"
+            }
+          }
+        ],
+        "NextToken": "S4kBoqf1hDrIrUxKRrom5kUAXRPNQtsDTXwiZ5ZJW5DxGlEatUslc3b/cw1rVgH+Sb3i3GiK+b+zMq52YCkrVmMXwqUpyegmqltDRoNqYc/rVOJIqNKYeQMaKDyignoAf986L9PfS8PaW6NsjumOakdyGl49hW7QVqMW1KWUI+4NVRWy1dSyAccojbmSHlvSt7Wyu5gO3neK4ZsB/LEt4WXvVUEPhZSbHjl7YSL5TuQM+04g0dnlC7Z4dIfSKq3eNIlkCqmzB3RrjrewozLxnToTwMroZPfI3wlZIKulPjZqQmnEqPShR2Gb370Bw8wSdv9M7Egy11UtRQQPhGtU7p3u4//Ihtb4MYd8JGwBO02OM5ucA3xz48e/Ife0WuyiccjkVwPQ",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "gp": {
+            "S": "shared"
+          },
+          "pk": {
+            "S": "A"
+          },
+          "gs": {
+            "S": "02-A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 2
+      }
+    },
+    {
+      "sequence": 66,
+      "label": "gsi_excludes_all_keys_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "3"
+            },
+            "payload": {
+              "S": "B-3"
+            }
+          },
+          {
+            "n": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "A-2"
+            }
+          }
+        ],
+        "NextToken": "3QAXx2VFXgj1yCTz8EC3tuGt9zDc9N2AJOKQQNwQyHjnNjpeNK1imI43BiGTLUuTf4zxpAsKLhUj+dEwGwZmxsG7qLWjpi7dW3p7Ixf7pCl+mE3C9318Cz4lnOfqLKaiVN21+B2Stdiuy7t8RZU54xY8yvNLDhXNzw3u+CWIVUAxJ5l7kaBCPwB0C/L50A0TKy7arh91nIbQhJjRd6xb4Gq2tgFiu1rNlNC8uH15dh/aSquToATgwk0GLCJvZ1mZ5qbEtdN4ehtLDg1WDHcWdf4+puXr+INjnSwEIlHjSM0p2Imy6cWeA15H6A5WKqtqF0J7+nJjZ+YBh7cSDJZqvLkxZd4Ft5AZZ5VFkFfUKtOsSUfXI4rOsWSLjun69+gn+aF7CyS5",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "gp": {
+            "S": "shared"
+          },
+          "pk": {
+            "S": "A"
+          },
+          "gs": {
+            "S": "03-A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 2,
+        "NextToken": "S4kBoqf1hDrIrUxKRrom5kUAXRPNQtsDTXwiZ5ZJW5DxGlEatUslc3b/cw1rVgH+Sb3i3GiK+b+zMq52YCkrVmMXwqUpyegmqltDRoNqYc/rVOJIqNKYeQMaKDyignoAf986L9PfS8PaW6NsjumOakdyGl49hW7QVqMW1KWUI+4NVRWy1dSyAccojbmSHlvSt7Wyu5gO3neK4ZsB/LEt4WXvVUEPhZSbHjl7YSL5TuQM+04g0dnlC7Z4dIfSKq3eNIlkCqmzB3RrjrewozLxnToTwMroZPfI3wlZIKulPjZqQmnEqPShR2Gb370Bw8wSdv9M7Egy11UtRQQPhGtU7p3u4//Ihtb4MYd8JGwBO02OM5ucA3xz48e/Ife0WuyiccjkVwPQ"
+      }
+    },
+    {
+      "sequence": 67,
+      "label": "gsi_excludes_all_keys_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "payload": {
+              "S": "B-2"
+            }
+          },
+          {
+            "n": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "A-1"
+            }
+          }
+        ],
+        "NextToken": "MiqlDQYQbWckAWwFD40xvLBnRjqNiq+GCdTCFAqXLjlRFhHS0X9g9E5u3WvRvZJlbL493MMLKhSv0ObzeBQ3RQx6mJ/CQKdcVUTok0aQq8tGdU9LRHQ0y9hYdy98vtvizyms+xg529ai2JJT/oY6HOp3jwq3IFPH5B19A8f9tvIJlNSBkeqauMMEV8MSU64IVm9+YEfrSEr27Dxp+Nzs22o6dWRQhjWamSXnwKTAja2RFEvcyoDFY1doTGsPZoAB+LN13TYEDrcZZij7Pd45v2zgeHRT7OmZvLCluI5xCjbzrUhfsv77Tx8whZf+OrGbt8MhUFbXauVnDfTgerfd46qo+ATY0RLxC7eg5seJ73hIWoXJYMcQkPDxcdchQqyLMgtETbWj",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "gp": {
+            "S": "shared"
+          },
+          "pk": {
+            "S": "A"
+          },
+          "gs": {
+            "S": "04-A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 2,
+        "NextToken": "3QAXx2VFXgj1yCTz8EC3tuGt9zDc9N2AJOKQQNwQyHjnNjpeNK1imI43BiGTLUuTf4zxpAsKLhUj+dEwGwZmxsG7qLWjpi7dW3p7Ixf7pCl+mE3C9318Cz4lnOfqLKaiVN21+B2Stdiuy7t8RZU54xY8yvNLDhXNzw3u+CWIVUAxJ5l7kaBCPwB0C/L50A0TKy7arh91nIbQhJjRd6xb4Gq2tgFiu1rNlNC8uH15dh/aSquToATgwk0GLCJvZ1mZ5qbEtdN4ehtLDg1WDHcWdf4+puXr+INjnSwEIlHjSM0p2Imy6cWeA15H6A5WKqtqF0J7+nJjZ+YBh7cSDJZqvLkxZd4Ft5AZZ5VFkFfUKtOsSUfXI4rOsWSLjun69+gn+aF7CyS5"
+      }
+    },
+    {
+      "sequence": 68,
+      "label": "gsi_excludes_all_keys_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "1"
+            },
+            "payload": {
+              "S": "B-1"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 2,
+        "NextToken": "MiqlDQYQbWckAWwFD40xvLBnRjqNiq+GCdTCFAqXLjlRFhHS0X9g9E5u3WvRvZJlbL493MMLKhSv0ObzeBQ3RQx6mJ/CQKdcVUTok0aQq8tGdU9LRHQ0y9hYdy98vtvizyms+xg529ai2JJT/oY6HOp3jwq3IFPH5B19A8f9tvIJlNSBkeqauMMEV8MSU64IVm9+YEfrSEr27Dxp+Nzs22o6dWRQhjWamSXnwKTAja2RFEvcyoDFY1doTGsPZoAB+LN13TYEDrcZZij7Pd45v2zgeHRT7OmZvLCluI5xCjbzrUhfsv77Tx8whZf+OrGbt8MhUFbXauVnDfTgerfd46qo+ATY0RLxC7eg5seJ73hIWoXJYMcQkPDxcdchQqyLMgtETbWj"
+      }
+    },
+    {
+      "sequence": 69,
+      "label": "gsi_projects_index_keys_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "gs": {
+              "S": "01-A"
+            },
+            "gp": {
+              "S": "shared"
+            }
+          },
+          {
+            "gs": {
+              "S": "02-A"
+            },
+            "gp": {
+              "S": "shared"
+            }
+          }
+        ],
+        "NextToken": "p4Vhr5QCFB6cbIct6JqHljmOPIxUX0EDNUdluRxeOfXK45jTstdo7xeG/CfX2v2CKMr/NWtFirT7VBTHNnZmY7INl6MyEw6k+OZ6cwAaITl+G3u9oFQBJ4FWvDZyBGnkxpg6X9tvzVhbVGSz0JDzR1cyQS54VD3y45no25mb0BvFpvjKxLXKCI2Cf9R0/9TkkTiBG97EKSujYpiVUd1GlOVUcy3UAwuj+Q2ISK1EKA0BQFvnwgxllhm0SvIyk9RWj7kkJHdkDBsn2myWgpx4K2UU1y2IknC/V6bI+SbQiHLbEs4YqPUEBrPXhtMDFT+fZwx09hXc4PAOw2CI3ac6Os6TP8cKGSjcAM7Ha/AJ4ZfZtPvCumcVSuJnaV34HkGY2ukeznWzjkWN6dxZDbC0QX7KHomAcmI+2A==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "gp": {
+            "S": "shared"
+          },
+          "pk": {
+            "S": "A"
+          },
+          "gs": {
+            "S": "02-A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT gp, gs FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 2
+      }
+    },
+    {
+      "sequence": 70,
+      "label": "gsi_projects_index_keys_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "gs": {
+              "S": "02-B"
+            },
+            "gp": {
+              "S": "shared"
+            }
+          },
+          {
+            "gs": {
+              "S": "03-A"
+            },
+            "gp": {
+              "S": "shared"
+            }
+          }
+        ],
+        "NextToken": "kQE6sgFOEuqCUGLXd46O6uxYXeWdYMQGneNEkd9tIXGXwGA5lOIyraTcewPJ+KlQtOUUOSEQTa7QMgqxoogkWcttRTdX/XovXzpBvwlDk4vqMeUZwCvLHFDURagQu2UAm16B9n4SsHeS7cqsW9Osvu3BtWvRQ8e3Fo0O2ujgz+7+MWT5nW0NCX9ItaKcPH1olZo1h+s07XINwsXHFij9jJeUcAtoR0zTxJKD4h9F1gGGuD9YDYk1+80jNmJH68OojswlShtk15MTZv4fboJvr+OwvUtH7eE0mEMU3fd+7z15A7MxNHyXTj8+FRGEIbRxx7wTdzc8Zxhrn2QQtzaF6m0928cFku9VWHeEXvD6DvldnG1EkQFV17XUFSpT8TErp2mQ6tn4ErcwR/JDxZHnsVM/rJJu5ri7qA==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "gp": {
+            "S": "shared"
+          },
+          "pk": {
+            "S": "A"
+          },
+          "gs": {
+            "S": "03-A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT gp, gs FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 2,
+        "NextToken": "p4Vhr5QCFB6cbIct6JqHljmOPIxUX0EDNUdluRxeOfXK45jTstdo7xeG/CfX2v2CKMr/NWtFirT7VBTHNnZmY7INl6MyEw6k+OZ6cwAaITl+G3u9oFQBJ4FWvDZyBGnkxpg6X9tvzVhbVGSz0JDzR1cyQS54VD3y45no25mb0BvFpvjKxLXKCI2Cf9R0/9TkkTiBG97EKSujYpiVUd1GlOVUcy3UAwuj+Q2ISK1EKA0BQFvnwgxllhm0SvIyk9RWj7kkJHdkDBsn2myWgpx4K2UU1y2IknC/V6bI+SbQiHLbEs4YqPUEBrPXhtMDFT+fZwx09hXc4PAOw2CI3ac6Os6TP8cKGSjcAM7Ha/AJ4ZfZtPvCumcVSuJnaV34HkGY2ukeznWzjkWN6dxZDbC0QX7KHomAcmI+2A=="
+      }
+    },
+    {
+      "sequence": 71,
+      "label": "gsi_projects_index_keys_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "gs": {
+              "S": "03-B"
+            },
+            "gp": {
+              "S": "shared"
+            }
+          },
+          {
+            "gs": {
+              "S": "04-A"
+            },
+            "gp": {
+              "S": "shared"
+            }
+          }
+        ],
+        "NextToken": "5C4ZRNef3On3CgKbpeEEgOfEJFDNQ+SRzncWuue+lhhuSwG2wDf4tZMtsx3MEzPgFU9pN0tDgyQ5yyDwx+yrLRzBKlZYoRFf9mCZnK9Y94960fGQpa+rKKnC55yVHxAV0HBo9ibzaDD7lvcI7v3+Ppbw2zFLOgSkdCjRt0KnhdoC61uij6cWM4IcBf84xYa+AcvkY/h16B8mqHUEUwMoLkKAOZLVFAcooPOEZ/fFrD6s5g+jBfnMkaSSvZqteg7tL77EU4oHy7Xk1Zo0dNDvT90Gwmkyg+3bWkuMHyu/suw9D7PRC4chbY/EUYhz5M6vx4OwMjCQDG/V+qufm9nzac9ifo6Ny4mTgtQP0fJyp/WGY3BjXvQeGRgu+40DY85d1QMGq81K14AJ+l3Ki2oC64RCtxp/8C26ig==",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "gp": {
+            "S": "shared"
+          },
+          "pk": {
+            "S": "A"
+          },
+          "gs": {
+            "S": "04-A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT gp, gs FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 2,
+        "NextToken": "kQE6sgFOEuqCUGLXd46O6uxYXeWdYMQGneNEkd9tIXGXwGA5lOIyraTcewPJ+KlQtOUUOSEQTa7QMgqxoogkWcttRTdX/XovXzpBvwlDk4vqMeUZwCvLHFDURagQu2UAm16B9n4SsHeS7cqsW9Osvu3BtWvRQ8e3Fo0O2ujgz+7+MWT5nW0NCX9ItaKcPH1olZo1h+s07XINwsXHFij9jJeUcAtoR0zTxJKD4h9F1gGGuD9YDYk1+80jNmJH68OojswlShtk15MTZv4fboJvr+OwvUtH7eE0mEMU3fd+7z15A7MxNHyXTj8+FRGEIbRxx7wTdzc8Zxhrn2QQtzaF6m0928cFku9VWHeEXvD6DvldnG1EkQFV17XUFSpT8TErp2mQ6tn4ErcwR/JDxZHnsVM/rJJu5ri7qA=="
+      }
+    },
+    {
+      "sequence": 72,
+      "label": "gsi_projects_index_keys_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "gs": {
+              "S": "04-B"
+            },
+            "gp": {
+              "S": "shared"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT gp, gs FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 2,
+        "NextToken": "5C4ZRNef3On3CgKbpeEEgOfEJFDNQ+SRzncWuue+lhhuSwG2wDf4tZMtsx3MEzPgFU9pN0tDgyQ5yyDwx+yrLRzBKlZYoRFf9mCZnK9Y94960fGQpa+rKKnC55yVHxAV0HBo9ibzaDD7lvcI7v3+Ppbw2zFLOgSkdCjRt0KnhdoC61uij6cWM4IcBf84xYa+AcvkY/h16B8mqHUEUwMoLkKAOZLVFAcooPOEZ/fFrD6s5g+jBfnMkaSSvZqteg7tL77EU4oHy7Xk1Zo0dNDvT90Gwmkyg+3bWkuMHyu/suw9D7PRC4chbY/EUYhz5M6vx4OwMjCQDG/V+qufm9nzac9ifo6Ny4mTgtQP0fJyp/WGY3BjXvQeGRgu+40DY85d1QMGq81K14AJ+l3Ki2oC64RCtxp/8C26ig=="
+      }
+    },
+    {
+      "sequence": 73,
+      "label": "gsi_empty_filter_page_1",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "ZYyuMyWmYM1Ne3sM3QCc556G6m9RuEhK8hq6xuJ+tekJQjiq5A4cwlUnIumjOJ15fDhu58jv7rneROeuXl1QtnI07wHwiIH05y6llF3X2rPXcCqKzrcSSncSbqXmmFOiLY91LnlT0WvxRAlJTz6/F7pPcXKd22zMuQyhSeH93g1XFeyioLzl9H/CcXsLnGo1narj7c56Qa2NIG/kAd46zp2dhG1gcq0yuCZ0J4JLIKJKFgwLIq/9by2T38HdjkhHwzRWg212uL3HlMGdtcSXzwlgloU4Bws57bZ7ORPq6L9d2Q5KQz/nODA8+zoiUgW/puTutaZaglHLDD73sj3VILSFqOWJevDJ9KCpWy0J/EaXpDy1OwrGzJf71sRNlOogmLMDHrmFAEg=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "gp": {
+            "S": "shared"
+          },
+          "pk": {
+            "S": "A"
+          },
+          "gs": {
+            "S": "02-A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=? AND n > ?",
+        "Parameters": [
+          {
+            "S": "shared"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 2
+      }
+    },
+    {
+      "sequence": 74,
+      "label": "gsi_empty_filter_page_2",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "zpbt1+LsikyGWu8IOMYg3J3n+V5mEM4Szv+GsRWADAyxBQroJ5XMkmIZJgpk/9pHYRPUmdPrIlaT5G0pew32CyieFZEC1QfgCsY2FYuxGqU4WcJCWR5jxNqi0xQn5zQAxIRl0qLjZ0r7DJxP4R41lKyTnGaIeqzaa3kCdud0gRKo73HKrL/FyJlNc6s8UUNbOllj9U5PKU8kQNL8RpU4Lny5Xybrumgdhqb44ZcOd3siPDJ67JhM8nIMnQv6l/ohDs7IJGKSGB3/1aMI8laP9l9EeutoBS40jxiptGNFnIFySVj3HX8CXV2mxiv438QcCb8yD9Wxshu42PA/sjg1lkfy6hEzOngrQJaaG+GqGUtshz/IJOMFGmpjHi3G1S8G/vkHwF3EEFc=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "gp": {
+            "S": "shared"
+          },
+          "pk": {
+            "S": "A"
+          },
+          "gs": {
+            "S": "03-A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=? AND n > ?",
+        "Parameters": [
+          {
+            "S": "shared"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 2,
+        "NextToken": "ZYyuMyWmYM1Ne3sM3QCc556G6m9RuEhK8hq6xuJ+tekJQjiq5A4cwlUnIumjOJ15fDhu58jv7rneROeuXl1QtnI07wHwiIH05y6llF3X2rPXcCqKzrcSSncSbqXmmFOiLY91LnlT0WvxRAlJTz6/F7pPcXKd22zMuQyhSeH93g1XFeyioLzl9H/CcXsLnGo1narj7c56Qa2NIG/kAd46zp2dhG1gcq0yuCZ0J4JLIKJKFgwLIq/9by2T38HdjkhHwzRWg212uL3HlMGdtcSXzwlgloU4Bws57bZ7ORPq6L9d2Q5KQz/nODA8+zoiUgW/puTutaZaglHLDD73sj3VILSFqOWJevDJ9KCpWy0J/EaXpDy1OwrGzJf71sRNlOogmLMDHrmFAEg="
+      }
+    },
+    {
+      "sequence": 75,
+      "label": "gsi_empty_filter_page_3",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [],
+        "NextToken": "q+7wyv1HfSUu8YovmY9pq4L2Z0gwlasvfG5ZpGTySn75yVNKuIQc+VsBnJq26o9BxJe5217rYfPnmRt5TzBG9/Eh047rGNkHoVQuz5VL6ZY4qQ6nZks6LfiLEwQnTbHL2qN+AjrWfOiSIePCF3anmI852qIst6mlphb1fT7moHnNI5jdhtjGSRpnIYk3fLk0W8PzUn1LlJdQbv02VetgX5ocrUSzH1eSF6mkzF6ZI3R+ntXnLbyBB0AIkarp45znPg8Oq10hapiejg7bHxiwV+Vd6XpuCV4GwGKLdjbDUd3JLiOfq4X5TztCtMyLGChpTLaLgLmRHwEq8rmYU8hB/E+dL26bCIt4sfOnvbPYuyk4AXtyD8XksAtR+3xvyEnvurbrOsmsdzo=",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "01"
+          },
+          "gp": {
+            "S": "shared"
+          },
+          "pk": {
+            "S": "A"
+          },
+          "gs": {
+            "S": "04-A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=? AND n > ?",
+        "Parameters": [
+          {
+            "S": "shared"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 2,
+        "NextToken": "zpbt1+LsikyGWu8IOMYg3J3n+V5mEM4Szv+GsRWADAyxBQroJ5XMkmIZJgpk/9pHYRPUmdPrIlaT5G0pew32CyieFZEC1QfgCsY2FYuxGqU4WcJCWR5jxNqi0xQn5zQAxIRl0qLjZ0r7DJxP4R41lKyTnGaIeqzaa3kCdud0gRKo73HKrL/FyJlNc6s8UUNbOllj9U5PKU8kQNL8RpU4Lny5Xybrumgdhqb44ZcOd3siPDJ67JhM8nIMnQv6l/ohDs7IJGKSGB3/1aMI8laP9l9EeutoBS40jxiptGNFnIFySVj3HX8CXV2mxiv438QcCb8yD9Wxshu42PA/sjg1lkfy6hEzOngrQJaaG+GqGUtshz/IJOMFGmpjHi3G1S8G/vkHwF3EEFc="
+      }
+    },
+    {
+      "sequence": 76,
+      "label": "gsi_empty_filter_page_4",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": []
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=? AND n > ?",
+        "Parameters": [
+          {
+            "S": "shared"
+          },
+          {
+            "N": "100"
+          }
+        ],
+        "Limit": 2,
+        "NextToken": "q+7wyv1HfSUu8YovmY9pq4L2Z0gwlasvfG5ZpGTySn75yVNKuIQc+VsBnJq26o9BxJe5217rYfPnmRt5TzBG9/Eh047rGNkHoVQuz5VL6ZY4qQ6nZks6LfiLEwQnTbHL2qN+AjrWfOiSIePCF3anmI852qIst6mlphb1fT7moHnNI5jdhtjGSRpnIYk3fLk0W8PzUn1LlJdQbv02VetgX5ocrUSzH1eSF6mkzF6ZI3R+ntXnLbyBB0AIkarp45znPg8Oq10hapiejg7bHxiwV+Vd6XpuCV4GwGKLdjbDUd3JLiOfq4X5TztCtMyLGChpTLaLgLmRHwEq8rmYU8hB/E+dL26bCIt4sfOnvbPYuyk4AXtyD8XksAtR+3xvyEnvurbrOsmsdzo="
+      }
+    },
+    {
+      "sequence": 77,
+      "label": "reuse_token_same_request",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          }
+        ],
+        "NextToken": "3/GDCp8pcN6Qyw/GByv4wPg+0w/CZrqtwB8IEhh2C4z03BVLDVQzxZjqivGfYDd8ssgdEeUd6mj/WAsiIfQqhuzuHHkgRPcqhWwb0nc+wdq9brKqolVeR2CuByPKwH1jET9iRGqTl8bGrvOa59CRDXGMjuF+K6DKQUpE5MSn5aaLEXLpXoS4Z3TIZkN3nbtG/ohRjkOyB1IwRST5aSYAI8fXLOw/Z6GCZFboEL8E7bqPN0kcyMXMwV8Q0+irarPUsAwgmLCj9IfVy44MrxDAFXhweUpAvOgtSJN4NriKrCSanxMNOyAE6UjLyxClNOwREP6xQL3kpu/IFWM+QEEfXHY++ehc5y8pJ5NixW9/",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 78,
+      "label": "reuse_token_limit_two",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          },
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          }
+        ],
+        "NextToken": "0PzlJ7WnI19hk6LvRqFIY7r5a1Qpv3flYo3i1y2jsGlktKMwXNGtxyix88K55tjdUfGYE/QfMbnqmOxhRAkoP3VWaIw2AqOSbkaynrVw5fgAED1c8fqrD6Svpd7Ao56DX9KEZcDvtq7XXUpPRUg582U6GsPbJHryReC+HINHDiRMvJpHPNp3kXI7mkbe9vGh+jPzWQCx+HIEhZxAt+KTVArCAOTVaV6x1q49foQNPIT3k4Kh2pR6zjDhpBYtuizZgRZnrdjian7KUievZuWKqFijZ+8rWvYVwZVPJB4osYk+/dr93B2iJH/WPKU/znBKzpoGbINRpR660FTrvMq8vpdhc3wWhAs9h2GnTn7X",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "03"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 2,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 79,
+      "label": "reuse_token_limit_omitted",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          },
+          {
+            "n": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "03"
+            }
+          },
+          {
+            "n": {
+              "N": "4"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "04"
+            }
+          }
+        ]
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 80,
+      "label": "reuse_token_statement_projection",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "NextToken does not match request",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 81,
+      "label": "reuse_token_statement_whitespace",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "NextToken does not match request",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT  pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 82,
+      "label": "reuse_token_statement_descending",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "NextToken does not match request",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? ORDER BY sk DESC",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 83,
+      "label": "reuse_token_statement_filter",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "NextToken does not match request",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=? AND n > 2",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 84,
+      "label": "reuse_token_parameters_other_partition",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "NextToken does not match request",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 85,
+      "label": "reuse_token_parameters_absent_partition",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "NextToken does not match request",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "missing"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 86,
+      "label": "reuse_token_consistency_false",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "Success",
+      "output": {
+        "Items": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "A"
+            },
+            "sk": {
+              "S": "02"
+            }
+          }
+        ],
+        "NextToken": "KJyQS33PK+fOnBbxVoKx7w7lneNv/fX2HZJ4dku1dIqzXjT1boQbHL1CcO1Vs+QM7zbySzyDjU53vzmCjvvgef8HB60VNVkoZiMUgFj7/lSkSPRLE69W55K1gPUeo1HVj6V9QmhKfc2zbT8XJBxia67xRCVHAVR6vIyoAdjpqlf9Ij7TOXq/DYTahqmupEPEJPbWkAyDxpQ+8rvChIr0jN1QUn28v81d+jmAKGRIQRFi2PXydNGboC9AyM8ZVnNUivffI2Y6lU0+tM9hMA09mfg5PDOoMJwTsSbEwBja9yNfNI28VSX1dyV2TU4zqUXbJyR0nz+lWvOuZ4PmRv7EgkGLFH72Pwv2wjDP17M0",
+        "LastEvaluatedKey": {
+          "sk": {
+            "S": "02"
+          },
+          "pk": {
+            "S": "A"
+          }
+        }
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": false,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 87,
+      "label": "reuse_token_statement_fanout",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "NextToken does not match request",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "A"
+          },
+          {
+            "S": "B"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 88,
+      "label": "reuse_token_statement_index",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "NextToken does not match request",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT n, payload FROM \"stackd-partiql-pages-4d4aa0eb2673\".\"by-gp-gs\" WHERE gp=?",
+        "Parameters": [
+          {
+            "S": "shared"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": false,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 89,
+      "label": "reuse_fanout_token_reverse_parameters",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "NextToken does not match request",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk IN [?, ?]",
+        "Parameters": [
+          {
+            "S": "B"
+          },
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "kOMZnDVMHkXndyXXwObyr26MB/+RuSQNSly6WIxQiCyjvt+r9LKQykjtU8h/0jvmmEYi9u99KzKsVLc/rgeMzNgWFdOnkyy3DhbE2qLFR2CMt6+LnbyYqKm0VAXu2wAciADHrRaOKz7qQSU9peW1FGl+qkAx5pfMSZROc3fgrOM0MNx22FWof8zoBk7Cst8h822IRusf7tVRAgMnVm3AbSx0bb0Fm6iH73f2zI8KKTiIg+gx6sT8TZuXILJZW5EuFkxWu8l61dZgJR2psflnAmj60Yj7N3X1Tj8eJGm7RIz5u4K6notpm5N9Ff6rQ4MdwDlPORZwA/v1JbKNgyNR3qxHO/CAFjA="
+      }
+    },
+    {
+      "sequence": 90,
+      "label": "malformed_token_plain",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "Invalid NextToken",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "not-a-token"
+      }
+    },
+    {
+      "sequence": 91,
+      "label": "malformed_token_empty",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ParamValidation",
+      "error": {
+        "Code": "ParamValidation",
+        "Message": "Parameter validation failed:\nInvalid length for parameter NextToken, value: 0, valid min length: 1"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": ""
+      }
+    },
+    {
+      "sequence": 92,
+      "label": "malformed_token_base64_empty_object",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "Invalid NextToken",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "e30="
+      }
+    },
+    {
+      "sequence": 93,
+      "label": "malformed_token_local_shape",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "Invalid NextToken",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "eyJvcEluZGV4VG9FeGNsdXNpdmVOZXh0S2V5IjogeyIwIjogeyJwayI6IHsiUyI6ICJBIn0sICJzayI6IHsiUyI6ICIwMSJ9fX19"
+      }
+    },
+    {
+      "sequence": 94,
+      "label": "malformed_token_truncated_native",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "Invalid NextToken",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "mrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5"
+      }
+    },
+    {
+      "sequence": 95,
+      "label": "malformed_token_mutated_native",
+      "service": "dynamodb",
+      "operation": "execute-statement",
+      "code": "ValidationException",
+      "error": {
+        "Message": "Invalid NextToken",
+        "Code": "ValidationException"
+      },
+      "input": {
+        "Statement": "SELECT pk, sk, n FROM \"stackd-partiql-pages-4d4aa0eb2673\" WHERE pk=?",
+        "Parameters": [
+          {
+            "S": "A"
+          }
+        ],
+        "Limit": 1,
+        "ConsistentRead": true,
+        "NextToken": "BrvYDzMF5L2mbACQiJjCOdNG7Ld1wcO+ruM2JgSIJJ6AemG/esOr5gbtyX2xilzCC7wWBvrQuIDZvevrScOETJR6oY0Iv4l3gSSgfUR+QQ+XmMJK3J5tzW63IfVXeqZKQI+rijL3lyQqysQYMuLEduBjqhjgKywLJDyKAxN1V8vBQzikUKStyVcrsGwoKumQKuOjh/DZQ8naqYZsoO2ICNaIlXu1t/Wv6nFDK/PrwBQQksAmX+tS0+QUoyCsTTdRuWw2BIJds7J+jmfZwcrC3Zlc7lwDSiURWYkBgEXoHswfIR/RFayN5ZPneI0sNhrMWm7n3rPuK+PSuWWnW1Qou0lpKCo5YJ29AzipULsN"
+      }
+    },
+    {
+      "sequence": 96,
+      "label": "cleanup_delete_owned_table",
+      "service": "dynamodb",
+      "operation": "delete-table",
+      "code": "Success",
+      "output": {
+        "TableDescription": {
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "TableStatus": "DELETING",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST",
+            "LastUpdateToPayPerRequestDateTime": "2026-09-17T11:40:15.373000+01:00"
+          },
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 97,
+      "label": "cleanup_verify_absence_1",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "TableStatus": "DELETING",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST",
+            "LastUpdateToPayPerRequestDateTime": "2026-09-17T11:40:15.373000+01:00"
+          },
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 98,
+      "label": "cleanup_verify_absence_2",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "Success",
+      "output": {
+        "Table": {
+          "TableName": "stackd-partiql-pages-4d4aa0eb2673",
+          "TableStatus": "DELETING",
+          "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableSizeBytes": 0,
+          "ItemCount": 0,
+          "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+          "TableId": "c831d2cc-67ee-45ff-91d9-82c8f069f250",
+          "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST",
+            "LastUpdateToPayPerRequestDateTime": "2026-09-17T11:40:15.373000+01:00"
+          },
+          "DeletionProtectionEnabled": false
+        }
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    },
+    {
+      "sequence": 99,
+      "label": "cleanup_verify_absence_3",
+      "service": "dynamodb",
+      "operation": "describe-table",
+      "code": "ResourceNotFoundException",
+      "error": {
+        "Message": "Requested resource not found: Table: stackd-partiql-pages-4d4aa0eb2673 not found",
+        "Code": "ResourceNotFoundException",
+        "message": "Requested resource not found: Table: stackd-partiql-pages-4d4aa0eb2673 not found"
+      },
+      "input": {
+        "TableName": "stackd-partiql-pages-4d4aa0eb2673"
+      }
+    }
+  ],
+  "cleanup": {
+    "verified_absent": true,
+    "delete_code": "Success",
+    "evidence_sequence": 99
+  },
+  "scope": {
+    "max_execute_statement_pages_per_case": 16,
+    "cli_timeout_seconds": 45,
+    "local_comparison": "Not run; this fixture contains native AWS only."
+  },
+  "identity": {
+    "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/Delegated"
+  },
+  "resource_arn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-partiql-pages-4d4aa0eb2673",
+  "seed_items": [
+    {
+      "pk": {
+        "S": "A"
+      },
+      "sk": {
+        "S": "01"
+      },
+      "n": {
+        "N": "1"
+      },
+      "gp": {
+        "S": "shared"
+      },
+      "gs": {
+        "S": "04-A"
+      },
+      "payload": {
+        "S": "A-1"
+      }
+    },
+    {
+      "pk": {
+        "S": "A"
+      },
+      "sk": {
+        "S": "02"
+      },
+      "n": {
+        "N": "2"
+      },
+      "gp": {
+        "S": "shared"
+      },
+      "gs": {
+        "S": "03-A"
+      },
+      "payload": {
+        "S": "A-2"
+      }
+    },
+    {
+      "pk": {
+        "S": "A"
+      },
+      "sk": {
+        "S": "03"
+      },
+      "n": {
+        "N": "3"
+      },
+      "gp": {
+        "S": "shared"
+      },
+      "gs": {
+        "S": "02-A"
+      },
+      "payload": {
+        "S": "A-3"
+      }
+    },
+    {
+      "pk": {
+        "S": "A"
+      },
+      "sk": {
+        "S": "04"
+      },
+      "n": {
+        "N": "4"
+      },
+      "gp": {
+        "S": "shared"
+      },
+      "gs": {
+        "S": "01-A"
+      },
+      "payload": {
+        "S": "A-4"
+      }
+    },
+    {
+      "pk": {
+        "S": "B"
+      },
+      "sk": {
+        "S": "01"
+      },
+      "n": {
+        "N": "1"
+      },
+      "gp": {
+        "S": "shared"
+      },
+      "gs": {
+        "S": "04-B"
+      },
+      "payload": {
+        "S": "B-1"
+      }
+    },
+    {
+      "pk": {
+        "S": "B"
+      },
+      "sk": {
+        "S": "02"
+      },
+      "n": {
+        "N": "2"
+      },
+      "gp": {
+        "S": "shared"
+      },
+      "gs": {
+        "S": "03-B"
+      },
+      "payload": {
+        "S": "B-2"
+      }
+    },
+    {
+      "pk": {
+        "S": "B"
+      },
+      "sk": {
+        "S": "03"
+      },
+      "n": {
+        "N": "3"
+      },
+      "gp": {
+        "S": "shared"
+      },
+      "gs": {
+        "S": "02-B"
+      },
+      "payload": {
+        "S": "B-3"
+      }
+    }
+  ],
+  "completed_at": "2026-09-17T10:41:43.367742+00:00"
+}

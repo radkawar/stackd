@@ -1,0 +1,3362 @@
+{
+  "source": "Selected observable contracts from testdata/aws/dynamodb/backups.json; nativeSequence/nativeSupplementalSequence retain provenance.",
+  "account": "000000000000",
+  "start": "2026-09-18T09:26:40Z",
+  "assumptions": [
+    "Native times and resource IDs are rebound; initial RestoreSummary uses backup-origin time, not restore admission time. Settled RestoreSummary is absent.",
+    "Polling repeats only DescribeBackup/DescribeTable readiness. Source mutations are deliberately issued after backup admission but before backup polling.",
+    "Local lifecycle extensions advance 25h past source deletion, verify stream expiry, reopen both stores, and restore from the surviving duplicate backup after deleting its sibling.",
+    "Default restore omits both index override fields; excluded restore preserves explicit empty arrays. Tags, enabled TTL and streams remain source features, not restored settings.",
+    "Complete typed item outputs are native canonical numeric lexemes; only sets and Scan item order are normalized. Query item/list order remains significant.",
+    "Pagination checks exact ARN order and cursor exhaustion. Native backup_list_time_precision captures inclusive time bounds and range validation after millisecond rounding. Warm capacity and asynchronous item/size statistics are not pinned.",
+    "backup_on_demand_restore.json supplies omitted provisioned override failures, default inherited maximums, pending/settled counter presence, and the accepted renamed GSI. Its empty-table experiment is extended locally with a copied item queried through the renamed index.",
+    "backup_index_overrides.json rejects changed GSI key schemas and projections without creating a target; a rename alone remains accepted.",
+    "Restore history cases use backup_restore_bootstrap.indexExperiment calls 14/58 and 17/62: base 2/20 with index 4/2, and base 4/2 with index 3/20. Each resource independently reports an increase at the observed read-capacity boundary; its increase and decrease timestamps agree.",
+    "Request admission uses documented nominal operation rates and service-time refill. Native single-connection and pipeline captures establish ListBackups burst/recovery, filter sharing and throttle precedence over Limit=0 validation. Scoped region/operation isolation is a local invariant, not a claim to reproduce native multi-connection fleet allocation. Throttled audit fields come from backup_request_admission_audit source sequence 19."
+  ],
+  "steps": [
+    {
+      "name": "missing-source-create-backup",
+      "nativeSequence": 2,
+      "operation": "CreateBackup",
+      "input": {
+        "TableName": "stackd-backup-missing",
+        "BackupName": "stackd-backup-missing"
+      },
+      "want": {},
+      "code": "TableNotFoundException",
+      "audit": "CreateBackup TableNotFoundException"
+    },
+    {
+      "name": "missing-source-list-backups",
+      "nativeSequence": 3,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-missing"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [],
+      "audit": "ListBackups missing table still Table resource"
+    },
+    {
+      "name": "create-source",
+      "nativeSequence": 4,
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "BillingMode": "PROVISIONED",
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 2,
+          "WriteCapacityUnits": 2
+        },
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "sk",
+            "AttributeType": "N"
+          },
+          {
+            "AttributeName": "gpk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "rank",
+            "AttributeType": "N"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "by-group",
+            "KeySchema": [
+              {
+                "AttributeName": "gpk",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "sk",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            },
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          }
+        ],
+        "LocalSecondaryIndexes": [
+          {
+            "IndexName": "by-rank",
+            "KeySchema": [
+              {
+                "AttributeName": "pk",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "rank",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ],
+        "StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        },
+        "Tags": [
+          {
+            "Key": "stackd-probe",
+            "Value": "backup"
+          }
+        ]
+      },
+      "want": {
+        "TableDescription.TableName": "stackd-backup-source",
+        "TableDescription.TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source",
+        "TableDescription.AttributeDefinitions": [
+          {
+            "AttributeName": "gpk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "rank",
+            "AttributeType": "N"
+          },
+          {
+            "AttributeName": "sk",
+            "AttributeType": "N"
+          }
+        ],
+        "TableDescription.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.GlobalSecondaryIndexes.0.IndexName": "by-group",
+        "TableDescription.GlobalSecondaryIndexes.0.IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source/index/by-group",
+        "TableDescription.GlobalSecondaryIndexes.0.KeySchema": [
+          {
+            "AttributeName": "gpk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "TableDescription.GlobalSecondaryIndexes.0.Projection": {
+          "ProjectionType": "ALL"
+        },
+        "TableDescription.GlobalSecondaryIndexes.1": null,
+        "TableDescription.LocalSecondaryIndexes.0.IndexName": "by-rank",
+        "TableDescription.LocalSecondaryIndexes.0.IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source/index/by-rank",
+        "TableDescription.LocalSecondaryIndexes.0.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "rank",
+            "KeyType": "RANGE"
+          }
+        ],
+        "TableDescription.LocalSecondaryIndexes.0.Projection": {
+          "ProjectionType": "ALL"
+        },
+        "TableDescription.LocalSecondaryIndexes.1": null,
+        "TableDescription.StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "bind": {
+        "$source-id": "TableDescription.TableId",
+        "$source-created": "TableDescription.CreationDateTime",
+        "$source-stream": "TableDescription.LatestStreamArn"
+      }
+    },
+    {
+      "name": "source-enable-ttl",
+      "nativeSequence": 14,
+      "operation": "UpdateTimeToLive",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "TimeToLiveSpecification": {
+          "Enabled": true,
+          "AttributeName": "expires"
+        }
+      },
+      "want": {
+        "TimeToLiveSpecification": {
+          "AttributeName": "expires",
+          "Enabled": true
+        }
+      }
+    },
+    {
+      "name": "seed-0",
+      "nativeSequence": 15,
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "Item": {
+          "pk": {
+            "S": "partition"
+          },
+          "sk": {
+            "N": "1"
+          },
+          "gpk": {
+            "S": "group"
+          },
+          "rank": {
+            "N": "10"
+          },
+          "version": {
+            "S": "before"
+          },
+          "expires": {
+            "N": "1792315639"
+          },
+          "blob": {
+            "B": "AAEC/w=="
+          },
+          "number": {
+            "N": "-12.5"
+          },
+          "strings": {
+            "SS": [
+              "alpha",
+              "beta"
+            ]
+          },
+          "numbers": {
+            "NS": [
+              "1",
+              "2.5"
+            ]
+          },
+          "binaries": {
+            "BS": [
+              "AAE=",
+              "AgM="
+            ]
+          },
+          "flag": {
+            "BOOL": true
+          },
+          "nothing": {
+            "NULL": true
+          },
+          "nested": {
+            "M": {
+              "list": {
+                "L": [
+                  {
+                    "S": "value"
+                  },
+                  {
+                    "N": "7"
+                  },
+                  {
+                    "BOOL": false
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "seed-1",
+      "nativeSequence": 16,
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "Item": {
+          "pk": {
+            "S": "partition"
+          },
+          "sk": {
+            "N": "2"
+          },
+          "gpk": {
+            "S": "group"
+          },
+          "rank": {
+            "N": "20"
+          },
+          "version": {
+            "S": "before"
+          },
+          "expires": {
+            "N": "1792315639"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "seed-2",
+      "nativeSequence": 17,
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "Item": {
+          "pk": {
+            "S": "partition"
+          },
+          "sk": {
+            "N": "3"
+          },
+          "gpk": {
+            "S": "group"
+          },
+          "rank": {
+            "N": "30"
+          },
+          "version": {
+            "S": "before"
+          },
+          "expires": {
+            "N": "1792315639"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "source-seeded-scan",
+      "nativeSequence": 18,
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "ScannedCount": 3,
+        "Items": [
+          {
+            "nothing": {
+              "NULL": true
+            },
+            "version": {
+              "S": "before"
+            },
+            "blob": {
+              "B": "AAEC/w=="
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "binaries": {
+              "BS": [
+                "AAE=",
+                "AgM="
+              ]
+            },
+            "numbers": {
+              "NS": [
+                "2.5",
+                "1"
+              ]
+            },
+            "rank": {
+              "N": "10"
+            },
+            "flag": {
+              "BOOL": true
+            },
+            "number": {
+              "N": "-12.5"
+            },
+            "strings": {
+              "SS": [
+                "alpha",
+                "beta"
+              ]
+            },
+            "nested": {
+              "M": {
+                "list": {
+                  "L": [
+                    {
+                      "S": "value"
+                    },
+                    {
+                      "N": "7"
+                    },
+                    {
+                      "BOOL": false
+                    }
+                  ]
+                }
+              }
+            },
+            "sk": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "partition"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "2"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "rank": {
+              "N": "20"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "3"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "rank": {
+              "N": "30"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "source-before-backup-tags",
+      "nativeSequence": 22,
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source"
+      },
+      "want": {
+        "Tags": [
+          {
+            "Key": "stackd-probe",
+            "Value": "backup"
+          }
+        ]
+      }
+    },
+    {
+      "name": "source-before-backup-ttl",
+      "nativeSequence": 23,
+      "operation": "DescribeTimeToLive",
+      "input": {
+        "TableName": "stackd-backup-source"
+      },
+      "want": {
+        "TimeToLiveDescription": {
+          "AttributeName": "expires",
+          "TimeToLiveStatus": "ENABLED"
+        }
+      }
+    },
+    {
+      "name": "reject-nonnative-backup-identity-widths",
+      "nativeSource": "backup_arn_grammar",
+      "nativeSequence": 5,
+      "operation": "DescribeBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source/backup/00001789732865749-d3df7150d3df7150d3df7150d3df7150"
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "reject-nonhex-backup-identity",
+      "nativeSource": "backup_arn_grammar",
+      "nativeSequence": 9,
+      "operation": "DescribeBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source/backup/01789732865749-zzzzzzzz"
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "valid-zero-time-backup-identity-is-missing",
+      "nativeSource": "backup_arn_grammar",
+      "nativeSequence": 7,
+      "operation": "DescribeBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source/backup/00000000000000-d3df7150"
+      },
+      "want": {},
+      "code": "BackupNotFoundException"
+    },
+    {
+      "name": "reject-unknown-backup-region",
+      "nativeSource": "backup_arn_grammar",
+      "nativeSequence": 12,
+      "operation": "DescribeBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:us-test-1:000000000000:table/stackd-backup-source/backup/01789732865749-d3df7150"
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "known-backup-region-is-case-insensitive",
+      "nativeSource": "backup_arn_grammar",
+      "nativeSequence": 21,
+      "operation": "DescribeBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:Us-EaSt-1:000000000000:table/stackd-backup-source/backup/01789732865749-d3df7150"
+      },
+      "want": {},
+      "code": "BackupNotFoundException"
+    },
+    {
+      "name": "restore-region-comparison-preserves-case",
+      "nativeSource": "backup_arn_grammar",
+      "nativeSequence": 22,
+      "operation": "RestoreTableFromBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:US-WEST-2:000000000000:table/stackd-backup-source/backup/01789734026361-3d5ff54b",
+        "TargetTableName": "stackd-backup-region-case"
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "reject-invalid-backup-table-name",
+      "nativeSource": "backup_arn_grammar",
+      "nativeSequence": 24,
+      "operation": "DescribeBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:us-east-1:000000000000:table/x/backup/01789732865749-d3df7150"
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "foreign-backup-account-precedes-identity-validation",
+      "nativeSource": "backup_arn_grammar",
+      "nativeSequence": 32,
+      "operation": "DescribeBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:us-east-1:999000999000:table/stackd-backup-source/backup/01789732865749-zzzzzzzz"
+      },
+      "want": {},
+      "code": "AccessDeniedException"
+    },
+    {
+      "name": "foreign-backup-account-precedes-service-validation",
+      "nativeSource": "backup_arn_grammar",
+      "nativeSequence": 35,
+      "operation": "DescribeBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "arn:aws:s3:us-east-1:999000999000:table/stackd-backup-source/backup/01789732865749-d3df7150"
+      },
+      "want": {},
+      "code": "AccessDeniedException"
+    },
+    {
+      "name": "create-backup",
+      "nativeSequence": 24,
+      "operation": "CreateBackup",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "BackupName": "stackd-backup-snapshot"
+      },
+      "want": {
+        "BackupDetails.BackupArn": "$backup-one",
+        "BackupDetails.BackupName": "stackd-backup-snapshot",
+        "BackupDetails.BackupStatus": "CREATING",
+        "BackupDetails.BackupType": "USER"
+      },
+      "bind": {
+        "$backup-one": "BackupDetails.BackupArn",
+        "$backup-one-time": "BackupDetails.BackupCreationDateTime"
+      },
+      "audit": "CreateBackup success first snapshot 360a7830"
+    },
+    {
+      "name": "duplicate-backup-name",
+      "nativeSequence": 26,
+      "operation": "CreateBackup",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "BackupName": "stackd-backup-snapshot"
+      },
+      "want": {
+        "BackupDetails.BackupArn": "$backup-two",
+        "BackupDetails.BackupName": "stackd-backup-snapshot",
+        "BackupDetails.BackupStatus": "CREATING",
+        "BackupDetails.BackupType": "USER"
+      },
+      "bind": {
+        "$backup-two": "BackupDetails.BackupArn",
+        "$backup-two-time": "BackupDetails.BackupCreationDateTime"
+      },
+      "audit": "CreateBackup success duplicate name d49180de"
+    },
+    {
+      "name": "source-change-item",
+      "nativeSequence": 36,
+      "operation": "UpdateItem",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "Key": {
+          "pk": {
+            "S": "partition"
+          },
+          "sk": {
+            "N": "1"
+          }
+        },
+        "UpdateExpression": "SET #v = :v",
+        "ExpressionAttributeNames": {
+          "#v": "version"
+        },
+        "ExpressionAttributeValues": {
+          ":v": {
+            "S": "after"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "source-delete-item",
+      "nativeSequence": 37,
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "Key": {
+          "pk": {
+            "S": "partition"
+          },
+          "sk": {
+            "N": "2"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "source-late-item",
+      "nativeSequence": 38,
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "Item": {
+          "pk": {
+            "S": "partition"
+          },
+          "sk": {
+            "N": "4"
+          },
+          "gpk": {
+            "S": "group"
+          },
+          "rank": {
+            "N": "40"
+          },
+          "version": {
+            "S": "late"
+          },
+          "expires": {
+            "N": "1792315639"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "source-mutated-scan",
+      "nativeSequence": 39,
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "ScannedCount": 3,
+        "Items": [
+          {
+            "nothing": {
+              "NULL": true
+            },
+            "version": {
+              "S": "after"
+            },
+            "blob": {
+              "B": "AAEC/w=="
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "binaries": {
+              "BS": [
+                "AAE=",
+                "AgM="
+              ]
+            },
+            "numbers": {
+              "NS": [
+                "2.5",
+                "1"
+              ]
+            },
+            "rank": {
+              "N": "10"
+            },
+            "flag": {
+              "BOOL": true
+            },
+            "number": {
+              "N": "-12.5"
+            },
+            "strings": {
+              "SS": [
+                "alpha",
+                "beta"
+              ]
+            },
+            "nested": {
+              "M": {
+                "list": {
+                  "L": [
+                    {
+                      "S": "value"
+                    },
+                    {
+                      "N": "7"
+                    },
+                    {
+                      "BOOL": false
+                    }
+                  ]
+                }
+              }
+            },
+            "sk": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "partition"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "3"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "rank": {
+              "N": "30"
+            }
+          },
+          {
+            "version": {
+              "S": "late"
+            },
+            "sk": {
+              "N": "4"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "40"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "backup-ready-0",
+      "nativeSequence": 25,
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "$backup-one"
+      },
+      "want": {
+        "BackupDescription.BackupDetails.BackupArn": "$backup-one",
+        "BackupDescription.BackupDetails.BackupName": "stackd-backup-snapshot",
+        "BackupDescription.BackupDetails.BackupStatus": "AVAILABLE",
+        "BackupDescription.BackupDetails.BackupType": "USER",
+        "BackupDescription.SourceTableDetails.TableName": "stackd-backup-source",
+        "BackupDescription.SourceTableDetails.TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source",
+        "BackupDescription.SourceTableDetails.TableId": "$source-id",
+        "BackupDescription.SourceTableDetails.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "BackupDescription.SourceTableFeatureDetails": {
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-group",
+              "KeySchema": [
+                {
+                  "AttributeName": "gpk",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "sk",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 2,
+                "WriteCapacityUnits": 2
+              }
+            }
+          ],
+          "LocalSecondaryIndexes": [
+            {
+              "IndexName": "by-rank",
+              "KeySchema": [
+                {
+                  "AttributeName": "pk",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "rank",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              }
+            }
+          ],
+          "StreamDescription": {
+            "StreamEnabled": true,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          },
+          "TimeToLiveDescription": {
+            "AttributeName": "expires",
+            "TimeToLiveStatus": "ENABLED"
+          }
+        },
+        "BackupDescription.BackupDetails.BackupCreationDateTime": "$backup-one-time",
+        "BackupDescription.SourceTableDetails.TableCreationDateTime": "$source-created"
+      },
+      "waitBackup": true,
+      "audit": "DescribeBackup success 360a7830"
+    },
+    {
+      "name": "other-endpoint-cannot-delete-source-backup",
+      "nativeSource": "backup_delete_regions",
+      "nativeSequence": 26,
+      "operation": "DeleteBackup",
+      "region": "us-west-2",
+      "input": {
+        "BackupArn": "$backup-one"
+      },
+      "want": {},
+      "code": "BackupNotFoundException"
+    },
+    {
+      "name": "source-backup-survives-other-endpoint-delete",
+      "nativeSource": "backup_delete_regions",
+      "nativeSequence": 27,
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "$backup-one"
+      },
+      "want": {
+        "BackupDescription.BackupDetails.BackupArn": "$backup-one",
+        "BackupDescription.BackupDetails.BackupStatus": "AVAILABLE"
+      }
+    },
+    {
+      "name": "duplicate-backup-ready-0",
+      "nativeSequence": 27,
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "$backup-two"
+      },
+      "want": {
+        "BackupDescription.BackupDetails.BackupArn": "$backup-two",
+        "BackupDescription.BackupDetails.BackupName": "stackd-backup-snapshot",
+        "BackupDescription.BackupDetails.BackupStatus": "AVAILABLE",
+        "BackupDescription.BackupDetails.BackupType": "USER",
+        "BackupDescription.SourceTableDetails.TableName": "stackd-backup-source",
+        "BackupDescription.SourceTableDetails.TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source",
+        "BackupDescription.SourceTableDetails.TableId": "$source-id",
+        "BackupDescription.SourceTableDetails.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "BackupDescription.SourceTableFeatureDetails": {
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-group",
+              "KeySchema": [
+                {
+                  "AttributeName": "gpk",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "sk",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 2,
+                "WriteCapacityUnits": 2
+              }
+            }
+          ],
+          "LocalSecondaryIndexes": [
+            {
+              "IndexName": "by-rank",
+              "KeySchema": [
+                {
+                  "AttributeName": "pk",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "rank",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              }
+            }
+          ],
+          "StreamDescription": {
+            "StreamEnabled": true,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          },
+          "TimeToLiveDescription": {
+            "AttributeName": "expires",
+            "TimeToLiveStatus": "ENABLED"
+          }
+        },
+        "BackupDescription.BackupDetails.BackupCreationDateTime": "$backup-two-time",
+        "BackupDescription.SourceTableDetails.TableCreationDateTime": "$source-created"
+      },
+      "waitBackup": true
+    },
+    {
+      "name": "list-filter-USER",
+      "nativeSequence": 28,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "BackupType": "USER"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "$backup-one",
+        "$backup-two"
+      ]
+    },
+    {
+      "name": "list-filter-SYSTEM",
+      "nativeSequence": 29,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "BackupType": "SYSTEM"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "list-filter-ALL",
+      "nativeSequence": 30,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "BackupType": "ALL"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "$backup-one",
+        "$backup-two"
+      ]
+    },
+    {
+      "name": "list-page-0",
+      "nativeSequence": 31,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "BackupType": "USER",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": "$backup-one"
+      },
+      "backups": [
+        "$backup-one"
+      ]
+    },
+    {
+      "name": "list-page-1",
+      "nativeSequence": 32,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "BackupType": "USER",
+        "Limit": 1,
+        "ExclusiveStartBackupArn": "$backup-one"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "$backup-two"
+      ],
+      "audit": "ListBackups success pagination USER limit exclusiveStartBackupArn"
+    },
+    {
+      "name": "list-inclusive-lower",
+      "nativeSequence": 33,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "TimeRangeLowerBound": "$backup-one-time"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "$backup-one",
+        "$backup-two"
+      ]
+    },
+    {
+      "name": "upper-bound-includes-equal-backup-time",
+      "nativeSource": "backup_list_time_precision",
+      "nativeSequence": 5,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "TimeRangeUpperBound": "$backup-one-time"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "$backup-one"
+      ]
+    },
+    {
+      "name": "equal-time-window-selects-backup",
+      "nativeSource": "backup_list_time_precision",
+      "nativeSequence": 10,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "TimeRangeLowerBound": "$backup-one-time",
+        "TimeRangeUpperBound": "$backup-one-time"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "$backup-one"
+      ]
+    },
+    {
+      "name": "reject-reversed-backup-time-window",
+      "nativeSource": "backup_list_time_precision",
+      "nativeSequence": 13,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "TimeRangeLowerBound": "$backup-two-time",
+        "TimeRangeUpperBound": "$backup-one-time"
+      },
+      "code": "ValidationException"
+    },
+    {
+      "name": "validate-time-window-before-empty-backup-type",
+      "nativeSource": "backup_list_time_precision",
+      "nativeSequence": 20,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "BackupType": "SYSTEM",
+        "TimeRangeLowerBound": "$backup-two-time",
+        "TimeRangeUpperBound": "$backup-one-time"
+      },
+      "code": "ValidationException"
+    },
+    {
+      "name": "lower-bound-selects-second",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "TimeRangeLowerBound": "$backup-two-time"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "$backup-two"
+      ]
+    },
+    {
+      "name": "upper-bound-before-both",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "TimeRangeUpperBound": 1789723600
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "wide-time-window",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source",
+        "TimeRangeLowerBound": 1789723600,
+        "TimeRangeUpperBound": 1789727200
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "$backup-one",
+        "$backup-two"
+      ]
+    },
+    {
+      "name": "different-account-describe-backup",
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:us-east-1:999000999000:table/stackd-backup-source/backup/01789723711221-360a7830"
+      },
+      "want": {},
+      "code": "AccessDeniedException",
+      "nativeSupplementalSequence": 2
+    },
+    {
+      "name": "different-account-restore-backup",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:us-east-1:999000999000:table/stackd-backup-source/backup/01789723711221-360a7830",
+        "TargetTableName": "stackd-backup-excluded"
+      },
+      "want": {},
+      "code": "AccessDeniedException",
+      "nativeSupplementalSequence": 3
+    },
+    {
+      "name": "invalid-billing-mode",
+      "nativeSequence": 40,
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "TargetTableName": "stackd-backup-default",
+        "BackupArn": "$backup-one",
+        "BillingModeOverride": "INVALID"
+      },
+      "want": {},
+      "code": "ValidationException",
+      "audit": "RestoreTableFromBackup ValidationException INVALID billingModeOverride"
+    },
+    {
+      "name": "invalid-throughput",
+      "nativeSequence": 41,
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "TargetTableName": "stackd-backup-default",
+        "BackupArn": "$backup-one",
+        "ProvisionedThroughputOverride": {
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 2
+        }
+      },
+      "want": {},
+      "code": "ValidationException",
+      "audit": "RestoreTableFromBackup ValidationException RCU 0"
+    },
+    {
+      "name": "pause-native-engine-before-restore",
+      "enginePaused": true,
+      "advance": "0s"
+    },
+    {
+      "name": "restore-default",
+      "nativeSequence": 42,
+      "advance": "0s",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "TargetTableName": "stackd-backup-default",
+        "BackupArn": "$backup-one"
+      },
+      "want": {
+        "TableDescription.TableName": "stackd-backup-default",
+        "TableDescription.TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-default",
+        "TableDescription.AttributeDefinitions": [
+          {
+            "AttributeName": "gpk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "rank",
+            "AttributeType": "N"
+          },
+          {
+            "AttributeName": "sk",
+            "AttributeType": "N"
+          }
+        ],
+        "TableDescription.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.GlobalSecondaryIndexes.0.IndexName": "by-group",
+        "TableDescription.GlobalSecondaryIndexes.0.IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-default/index/by-group",
+        "TableDescription.GlobalSecondaryIndexes.0.KeySchema": [
+          {
+            "AttributeName": "gpk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "TableDescription.GlobalSecondaryIndexes.0.Projection": {
+          "ProjectionType": "ALL"
+        },
+        "TableDescription.GlobalSecondaryIndexes.1": null,
+        "TableDescription.LocalSecondaryIndexes.0.IndexName": "by-rank",
+        "TableDescription.LocalSecondaryIndexes.0.IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-default/index/by-rank",
+        "TableDescription.LocalSecondaryIndexes.0.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "rank",
+            "KeyType": "RANGE"
+          }
+        ],
+        "TableDescription.LocalSecondaryIndexes.0.Projection": {
+          "ProjectionType": "ALL"
+        },
+        "TableDescription.LocalSecondaryIndexes.1": null,
+        "TableDescription.RestoreSummary": {
+          "RestoreDateTime": "$backup-one-time",
+          "RestoreInProgress": true,
+          "SourceBackupArn": "$backup-one",
+          "SourceTableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source"
+        },
+        "TableDescription.ProvisionedThroughput.ReadCapacityUnits": 2,
+        "TableDescription.ProvisionedThroughput.WriteCapacityUnits": 2
+      },
+      "bind": {
+        "$default-id": "TableDescription.TableId"
+      },
+      "audit": "RestoreTableFromBackup success default"
+    },
+    {
+      "name": "reject-second-target-from-restoring-backup",
+      "nativeSource": "backup_restore_bootstrap",
+      "nativeSequence": 31,
+      "operation": "RestoreTableFromBackup",
+      "advance": "0s",
+      "input": {
+        "BackupArn": "$backup-one",
+        "TargetTableName": "stackd-backup-after-release"
+      },
+      "code": "BackupInUseException"
+    },
+    {
+      "name": "pending-target-precedes-source-conflict",
+      "nativeSource": "backup_restore_bootstrap",
+      "nativeSequence": 30,
+      "operation": "RestoreTableFromBackup",
+      "advance": "0s",
+      "input": {
+        "BackupArn": "$backup-one",
+        "TargetTableName": "stackd-backup-default"
+      },
+      "code": "TableInUseException"
+    },
+    {
+      "name": "busy-source-does-not-create-target",
+      "operation": "DescribeTable",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-after-release"
+      },
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "reopen-with-source-held-by-restore",
+      "reopen": true,
+      "advance": "0s"
+    },
+    {
+      "name": "retained-source-rejects-another-restore",
+      "operation": "RestoreTableFromBackup",
+      "advance": "0s",
+      "input": {
+        "BackupArn": "$backup-one",
+        "TargetTableName": "stackd-backup-after-release"
+      },
+      "code": "BackupInUseException"
+    },
+    {
+      "name": "retained-source-rejects-backup-deletion",
+      "operation": "DeleteBackup",
+      "advance": "0s",
+      "input": {
+        "BackupArn": "$backup-one"
+      },
+      "code": "BackupInUseException"
+    },
+    {
+      "name": "resume-native-engine-for-restore",
+      "enginePaused": false
+    },
+    {
+      "name": "restored-default-active-describe-74",
+      "nativeSequence": 117,
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-default"
+      },
+      "want": {
+        "Table.TableName": "stackd-backup-default",
+        "Table.TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-default",
+        "Table.AttributeDefinitions": [
+          {
+            "AttributeName": "gpk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "rank",
+            "AttributeType": "N"
+          },
+          {
+            "AttributeName": "sk",
+            "AttributeType": "N"
+          }
+        ],
+        "Table.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalSecondaryIndexes.0.IndexName": "by-group",
+        "Table.GlobalSecondaryIndexes.0.IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-default/index/by-group",
+        "Table.GlobalSecondaryIndexes.0.KeySchema": [
+          {
+            "AttributeName": "gpk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "Table.GlobalSecondaryIndexes.0.Projection": {
+          "ProjectionType": "ALL"
+        },
+        "Table.GlobalSecondaryIndexes.1": null,
+        "Table.LocalSecondaryIndexes.0.IndexName": "by-rank",
+        "Table.LocalSecondaryIndexes.0.IndexArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-default/index/by-rank",
+        "Table.LocalSecondaryIndexes.0.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "rank",
+            "KeyType": "RANGE"
+          }
+        ],
+        "Table.LocalSecondaryIndexes.0.Projection": {
+          "ProjectionType": "ALL"
+        },
+        "Table.LocalSecondaryIndexes.1": null,
+        "Table.TableId": "$default-id",
+        "Table.RestoreSummary": null,
+        "Table.StreamSpecification": null,
+        "Table.LatestStreamArn": null,
+        "Table.LatestStreamLabel": null
+      }
+    },
+    {
+      "name": "completed-restore-releases-its-source",
+      "nativeSource": "backup_restore_bootstrap",
+      "nativeSequence": 144,
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "$backup-one",
+        "TargetTableName": "stackd-backup-after-release"
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.RestoreSummary.SourceBackupArn": "$backup-one"
+      }
+    },
+    {
+      "name": "released-source-target-becomes-active",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-after-release"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.RestoreSummary": null
+      }
+    },
+    {
+      "name": "delete-release-proof-target",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-backup-after-release"
+      },
+      "want": {
+        "TableDescription.TableStatus": "DELETING"
+      }
+    },
+    {
+      "name": "restore-low-base-high-index-history",
+      "nativeSource": "backup_restore_bootstrap",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "$backup-one",
+        "TargetTableName": "stackd-backup-history-a",
+        "ProvisionedThroughputOverride": {
+          "ReadCapacityUnits": 2,
+          "WriteCapacityUnits": 20
+        },
+        "GlobalSecondaryIndexOverride": [
+          {
+            "IndexName": "by-group",
+            "KeySchema": [
+              {
+                "AttributeName": "gpk",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "sk",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            },
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 4,
+              "WriteCapacityUnits": 2
+            }
+          }
+        ]
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.ProvisionedThroughput": {
+          "ReadCapacityUnits": 2,
+          "WriteCapacityUnits": 20,
+          "NumberOfDecreasesToday": 0
+        },
+        "TableDescription.GlobalSecondaryIndexes.0.IndexStatus": null,
+        "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput": {
+          "ReadCapacityUnits": 4,
+          "WriteCapacityUnits": 2,
+          "NumberOfDecreasesToday": 0
+        }
+      }
+    },
+    {
+      "name": "low-base-high-index-history-settles",
+      "nativeSource": "backup_restore_bootstrap",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-history-a"
+      },
+      "bind": {
+        "$history-a-base": "Table.ProvisionedThroughput.LastDecreaseDateTime",
+        "$history-a-index": "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.LastDecreaseDateTime"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.ProvisionedThroughput.NumberOfDecreasesToday": 1,
+        "Table.ProvisionedThroughput.LastIncreaseDateTime": null,
+        "Table.GlobalSecondaryIndexes.0.IndexStatus": "ACTIVE",
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 1,
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.LastIncreaseDateTime": "$history-a-index",
+        "Table.RestoreSummary": null
+      }
+    },
+    {
+      "name": "delete-history-a-target",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-backup-history-a"
+      },
+      "want": {
+        "TableDescription.TableStatus": "DELETING"
+      }
+    },
+    {
+      "name": "restore-high-base-low-index-history",
+      "nativeSource": "backup_restore_bootstrap",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "$backup-one",
+        "TargetTableName": "stackd-backup-history-b",
+        "ProvisionedThroughputOverride": {
+          "ReadCapacityUnits": 4,
+          "WriteCapacityUnits": 2
+        },
+        "GlobalSecondaryIndexOverride": [
+          {
+            "IndexName": "by-group",
+            "KeySchema": [
+              {
+                "AttributeName": "gpk",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "sk",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            },
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 3,
+              "WriteCapacityUnits": 20
+            }
+          }
+        ]
+      },
+      "want": {
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.ProvisionedThroughput": {
+          "ReadCapacityUnits": 4,
+          "WriteCapacityUnits": 2,
+          "NumberOfDecreasesToday": 0
+        },
+        "TableDescription.GlobalSecondaryIndexes.0.IndexStatus": null,
+        "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput": {
+          "ReadCapacityUnits": 3,
+          "WriteCapacityUnits": 20,
+          "NumberOfDecreasesToday": 0
+        }
+      }
+    },
+    {
+      "name": "high-base-low-index-history-settles",
+      "nativeSource": "backup_restore_bootstrap",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-history-b"
+      },
+      "bind": {
+        "$history-b-base": "Table.ProvisionedThroughput.LastDecreaseDateTime",
+        "$history-b-index": "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.LastDecreaseDateTime"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.ProvisionedThroughput.NumberOfDecreasesToday": 1,
+        "Table.ProvisionedThroughput.LastIncreaseDateTime": "$history-b-base",
+        "Table.GlobalSecondaryIndexes.0.IndexStatus": "ACTIVE",
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 1,
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.LastIncreaseDateTime": null,
+        "Table.RestoreSummary": null
+      }
+    },
+    {
+      "name": "delete-history-b-target",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-backup-history-b"
+      },
+      "want": {
+        "TableDescription.TableStatus": "DELETING"
+      }
+    },
+    {
+      "name": "restored-default-tags",
+      "nativeSequence": 118,
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-default"
+      },
+      "want": {
+        "Tags": []
+      }
+    },
+    {
+      "name": "restored-default-ttl",
+      "nativeSequence": 119,
+      "operation": "DescribeTimeToLive",
+      "input": {
+        "TableName": "stackd-backup-default"
+      },
+      "want": {
+        "TimeToLiveDescription": {
+          "TimeToLiveStatus": "DISABLED"
+        }
+      }
+    },
+    {
+      "name": "restored-default-scan",
+      "nativeSequence": 120,
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-backup-default",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "ScannedCount": 3,
+        "Items": [
+          {
+            "nothing": {
+              "NULL": true
+            },
+            "version": {
+              "S": "before"
+            },
+            "blob": {
+              "B": "AAEC/w=="
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "binaries": {
+              "BS": [
+                "AAE=",
+                "AgM="
+              ]
+            },
+            "numbers": {
+              "NS": [
+                "2.5",
+                "1"
+              ]
+            },
+            "rank": {
+              "N": "10"
+            },
+            "flag": {
+              "BOOL": true
+            },
+            "number": {
+              "N": "-12.5"
+            },
+            "strings": {
+              "SS": [
+                "alpha",
+                "beta"
+              ]
+            },
+            "nested": {
+              "M": {
+                "list": {
+                  "L": [
+                    {
+                      "S": "value"
+                    },
+                    {
+                      "N": "7"
+                    },
+                    {
+                      "BOOL": false
+                    }
+                  ]
+                }
+              }
+            },
+            "sk": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "partition"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "2"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "20"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "3"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "30"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "restored-default-by-group-0",
+      "nativeSequence": 121,
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-backup-default",
+        "IndexName": "by-group",
+        "KeyConditionExpression": "#key = :value",
+        "ExpressionAttributeNames": {
+          "#key": "gpk"
+        },
+        "ExpressionAttributeValues": {
+          ":value": {
+            "S": "group"
+          }
+        },
+        "ConsistentRead": false
+      },
+      "want": {
+        "Count": 3,
+        "ScannedCount": 3,
+        "Items": [
+          {
+            "binaries": {
+              "BS": [
+                "AAE=",
+                "AgM="
+              ]
+            },
+            "number": {
+              "N": "-12.5"
+            },
+            "strings": {
+              "SS": [
+                "alpha",
+                "beta"
+              ]
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "nothing": {
+              "NULL": true
+            },
+            "numbers": {
+              "NS": [
+                "1",
+                "2.5"
+              ]
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "flag": {
+              "BOOL": true
+            },
+            "nested": {
+              "M": {
+                "list": {
+                  "L": [
+                    {
+                      "S": "value"
+                    },
+                    {
+                      "N": "7"
+                    },
+                    {
+                      "BOOL": false
+                    }
+                  ]
+                }
+              }
+            },
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "1"
+            },
+            "rank": {
+              "N": "10"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "blob": {
+              "B": "AAEC/w=="
+            }
+          },
+          {
+            "expires": {
+              "N": "1792315639"
+            },
+            "version": {
+              "S": "before"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "rank": {
+              "N": "20"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "sk": {
+              "N": "2"
+            }
+          },
+          {
+            "expires": {
+              "N": "1792315639"
+            },
+            "version": {
+              "S": "before"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "rank": {
+              "N": "30"
+            },
+            "sk": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "partition"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "restored-default-by-rank-0",
+      "nativeSequence": 122,
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-backup-default",
+        "IndexName": "by-rank",
+        "KeyConditionExpression": "#key = :value",
+        "ExpressionAttributeNames": {
+          "#key": "pk"
+        },
+        "ExpressionAttributeValues": {
+          ":value": {
+            "S": "partition"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "ScannedCount": 3,
+        "Items": [
+          {
+            "nothing": {
+              "NULL": true
+            },
+            "version": {
+              "S": "before"
+            },
+            "blob": {
+              "B": "AAEC/w=="
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "binaries": {
+              "BS": [
+                "AAE=",
+                "AgM="
+              ]
+            },
+            "numbers": {
+              "NS": [
+                "1",
+                "2.5"
+              ]
+            },
+            "flag": {
+              "BOOL": true
+            },
+            "number": {
+              "N": "-12.5"
+            },
+            "strings": {
+              "SS": [
+                "alpha",
+                "beta"
+              ]
+            },
+            "nested": {
+              "M": {
+                "list": {
+                  "L": [
+                    {
+                      "S": "value"
+                    },
+                    {
+                      "N": "7"
+                    },
+                    {
+                      "BOOL": false
+                    }
+                  ]
+                }
+              }
+            },
+            "sk": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "10"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "sk": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "20"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "sk": {
+              "N": "3"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "30"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "restore-existing-target",
+      "nativeSequence": 123,
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "TargetTableName": "stackd-backup-default",
+        "BackupArn": "$backup-one"
+      },
+      "want": {},
+      "code": "TableAlreadyExistsException",
+      "audit": "RestoreTableFromBackup TableAlreadyExistsException"
+    },
+    {
+      "name": "mutate-restored-copy",
+      "operation": "UpdateItem",
+      "input": {
+        "TableName": "stackd-backup-default",
+        "Key": {
+          "pk": {
+            "S": "partition"
+          },
+          "sk": {
+            "N": "1"
+          }
+        },
+        "UpdateExpression": "SET #v = :v",
+        "ExpressionAttributeNames": {
+          "#v": "version"
+        },
+        "ExpressionAttributeValues": {
+          ":v": {
+            "S": "after"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "delete-owned",
+      "nativeSequence": 124,
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-backup-source"
+      },
+      "want": {}
+    },
+    {
+      "name": "expire-source-stream-and-reopen",
+      "operation": "",
+      "input": {},
+      "want": {},
+      "advance": "25h",
+      "reopen": true
+    },
+    {
+      "name": "expired-source-stream-is-absent",
+      "operation": "DescribeStream",
+      "input": {
+        "StreamArn": "$source-stream"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "backup-after-source-deletion",
+      "nativeSequence": 130,
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "$backup-one"
+      },
+      "want": {
+        "BackupDescription.BackupDetails.BackupArn": "$backup-one",
+        "BackupDescription.BackupDetails.BackupName": "stackd-backup-snapshot",
+        "BackupDescription.BackupDetails.BackupStatus": "AVAILABLE",
+        "BackupDescription.BackupDetails.BackupType": "USER",
+        "BackupDescription.SourceTableDetails.TableId": "$source-id",
+        "BackupDescription.SourceTableFeatureDetails": {
+          "GlobalSecondaryIndexes": [
+            {
+              "IndexName": "by-group",
+              "KeySchema": [
+                {
+                  "AttributeName": "gpk",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "sk",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              },
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 2,
+                "WriteCapacityUnits": 2
+              }
+            }
+          ],
+          "LocalSecondaryIndexes": [
+            {
+              "IndexName": "by-rank",
+              "KeySchema": [
+                {
+                  "AttributeName": "pk",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "rank",
+                  "KeyType": "RANGE"
+                }
+              ],
+              "Projection": {
+                "ProjectionType": "ALL"
+              }
+            }
+          ],
+          "StreamDescription": {
+            "StreamEnabled": true,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          },
+          "TimeToLiveDescription": {
+            "AttributeName": "expires",
+            "TimeToLiveStatus": "ENABLED"
+          }
+        },
+        "BackupDescription.BackupDetails.BackupCreationDateTime": "$backup-one-time"
+      },
+      "audit": "DescribeBackup success after source deletion"
+    },
+    {
+      "name": "list-after-source-deletion",
+      "nativeSequence": 131,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": [
+        "$backup-one",
+        "$backup-two"
+      ]
+    },
+    {
+      "name": "delete-owned-backup-0",
+      "nativeSequence": 206,
+      "operation": "DeleteBackup",
+      "input": {
+        "BackupArn": "$backup-one"
+      },
+      "want": {
+        "BackupDescription.BackupDetails.BackupArn": "$backup-one",
+        "BackupDescription.BackupDetails.BackupName": "stackd-backup-snapshot",
+        "BackupDescription.BackupDetails.BackupStatus": "DELETED",
+        "BackupDescription.BackupDetails.BackupType": "USER"
+      },
+      "audit": "DeleteBackup success 360a7830"
+    },
+    {
+      "name": "verify-backup-absent-0",
+      "nativeSequence": 207,
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "$backup-one"
+      },
+      "want": {},
+      "code": "BackupNotFoundException",
+      "audit": "DescribeBackup BackupNotFoundException"
+    },
+    {
+      "name": "delete-missing-backup",
+      "nativeSequence": 210,
+      "operation": "DeleteBackup",
+      "input": {
+        "BackupArn": "$backup-one"
+      },
+      "want": {},
+      "code": "BackupNotFoundException",
+      "audit": "DeleteBackup BackupNotFoundException"
+    },
+    {
+      "name": "reopen-with-only-second-backup",
+      "operation": "",
+      "input": {},
+      "want": {},
+      "reopen": true
+    },
+    {
+      "name": "restore-excluding-indexes-after-source-deletion",
+      "nativeSequence": 132,
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "TargetTableName": "stackd-backup-excluded",
+        "BackupArn": "$backup-two",
+        "BillingModeOverride": "PAY_PER_REQUEST",
+        "GlobalSecondaryIndexOverride": [],
+        "LocalSecondaryIndexOverride": [],
+        "OnDemandThroughputOverride": {
+          "MaxReadRequestUnits": 10,
+          "MaxWriteRequestUnits": 10
+        }
+      },
+      "want": {
+        "TableDescription.TableName": "stackd-backup-excluded",
+        "TableDescription.TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-excluded",
+        "TableDescription.AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "sk",
+            "AttributeType": "N"
+          }
+        ],
+        "TableDescription.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "TableDescription.TableStatus": "CREATING",
+        "TableDescription.GlobalSecondaryIndexes": null,
+        "TableDescription.LocalSecondaryIndexes": null,
+        "TableDescription.RestoreSummary": {
+          "RestoreDateTime": "$backup-two-time",
+          "RestoreInProgress": true,
+          "SourceBackupArn": "$backup-two",
+          "SourceTableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-source"
+        },
+        "TableDescription.BillingModeSummary.BillingMode": "PAY_PER_REQUEST",
+        "TableDescription.OnDemandThroughput": {
+          "MaxReadRequestUnits": 10,
+          "MaxWriteRequestUnits": 10
+        }
+      },
+      "bind": {
+        "$excluded-id": "TableDescription.TableId"
+      }
+    },
+    {
+      "name": "restored-excluded-active-describe-68",
+      "nativeSequence": 201,
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-excluded"
+      },
+      "want": {
+        "Table.TableName": "stackd-backup-excluded",
+        "Table.TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-excluded",
+        "Table.AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "sk",
+            "AttributeType": "N"
+          }
+        ],
+        "Table.KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
+        ],
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalSecondaryIndexes": null,
+        "Table.LocalSecondaryIndexes": null,
+        "Table.TableId": "$excluded-id",
+        "Table.RestoreSummary": null,
+        "Table.StreamSpecification": null,
+        "Table.LatestStreamArn": null,
+        "Table.LatestStreamLabel": null
+      }
+    },
+    {
+      "name": "restored-excluded-tags",
+      "nativeSequence": 202,
+      "operation": "ListTagsOfResource",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-excluded"
+      },
+      "want": {
+        "Tags": []
+      }
+    },
+    {
+      "name": "restored-excluded-ttl",
+      "nativeSequence": 203,
+      "operation": "DescribeTimeToLive",
+      "input": {
+        "TableName": "stackd-backup-excluded"
+      },
+      "want": {
+        "TimeToLiveDescription": {
+          "TimeToLiveStatus": "DISABLED"
+        }
+      }
+    },
+    {
+      "name": "restored-excluded-scan",
+      "nativeSequence": 204,
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-backup-excluded",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "ScannedCount": 3,
+        "Items": [
+          {
+            "nothing": {
+              "NULL": true
+            },
+            "version": {
+              "S": "before"
+            },
+            "blob": {
+              "B": "AAEC/w=="
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "binaries": {
+              "BS": [
+                "AAE=",
+                "AgM="
+              ]
+            },
+            "numbers": {
+              "NS": [
+                "2.5",
+                "1"
+              ]
+            },
+            "rank": {
+              "N": "10"
+            },
+            "flag": {
+              "BOOL": true
+            },
+            "number": {
+              "N": "-12.5"
+            },
+            "strings": {
+              "SS": [
+                "alpha",
+                "beta"
+              ]
+            },
+            "nested": {
+              "M": {
+                "list": {
+                  "L": [
+                    {
+                      "S": "value"
+                    },
+                    {
+                      "N": "7"
+                    },
+                    {
+                      "BOOL": false
+                    }
+                  ]
+                }
+              }
+            },
+            "sk": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "partition"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "2"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "20"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "3"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "30"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "excluded-index-query",
+      "nativeSequence": 205,
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-backup-excluded",
+        "IndexName": "by-group",
+        "KeyConditionExpression": "gpk = :g",
+        "ExpressionAttributeValues": {
+          ":g": {
+            "S": "group"
+          }
+        }
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "excluded-lsi-query",
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-backup-excluded",
+        "IndexName": "by-rank",
+        "KeyConditionExpression": "pk = :p",
+        "ExpressionAttributeValues": {
+          ":p": {
+            "S": "partition"
+          }
+        }
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "delete-owned-backup-0",
+      "nativeSequence": 208,
+      "operation": "DeleteBackup",
+      "input": {
+        "BackupArn": "$backup-two"
+      },
+      "want": {
+        "BackupDescription.BackupDetails.BackupArn": "$backup-two",
+        "BackupDescription.BackupDetails.BackupName": "stackd-backup-snapshot",
+        "BackupDescription.BackupDetails.BackupStatus": "DELETED",
+        "BackupDescription.BackupDetails.BackupType": "USER"
+      }
+    },
+    {
+      "name": "verify-backup-absent-0",
+      "nativeSequence": 209,
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "$backup-two"
+      },
+      "want": {},
+      "code": "BackupNotFoundException"
+    },
+    {
+      "name": "repeated-second-backup-delete",
+      "operation": "DeleteBackup",
+      "input": {
+        "BackupArn": "$backup-two"
+      },
+      "want": {},
+      "code": "BackupNotFoundException"
+    },
+    {
+      "name": "delete-owned",
+      "nativeSequence": 211,
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-backup-excluded"
+      },
+      "want": {}
+    },
+    {
+      "name": "restore-missing-backup",
+      "nativeSequence": 216,
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "TargetTableName": "stackd-backup-excluded",
+        "BackupArn": "$backup-one"
+      },
+      "want": {},
+      "code": "BackupNotFoundException",
+      "audit": "RestoreTableFromBackup BackupNotFoundException"
+    },
+    {
+      "name": "list-after-backup-deletion",
+      "nativeSequence": 217,
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "reopen-after-backup-deletions",
+      "operation": "",
+      "input": {},
+      "want": {},
+      "reopen": true
+    },
+    {
+      "name": "restored-copy-survives-backup-deletion",
+      "nativeSequence": 120,
+      "operation": "Scan",
+      "input": {
+        "TableName": "stackd-backup-default",
+        "ConsistentRead": true
+      },
+      "want": {
+        "Count": 3,
+        "ScannedCount": 3,
+        "Items": [
+          {
+            "nothing": {
+              "NULL": true
+            },
+            "version": {
+              "S": "after"
+            },
+            "blob": {
+              "B": "AAEC/w=="
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "binaries": {
+              "BS": [
+                "AAE=",
+                "AgM="
+              ]
+            },
+            "numbers": {
+              "NS": [
+                "2.5",
+                "1"
+              ]
+            },
+            "rank": {
+              "N": "10"
+            },
+            "flag": {
+              "BOOL": true
+            },
+            "number": {
+              "N": "-12.5"
+            },
+            "strings": {
+              "SS": [
+                "alpha",
+                "beta"
+              ]
+            },
+            "nested": {
+              "M": {
+                "list": {
+                  "L": [
+                    {
+                      "S": "value"
+                    },
+                    {
+                      "N": "7"
+                    },
+                    {
+                      "BOOL": false
+                    }
+                  ]
+                }
+              }
+            },
+            "sk": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "partition"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "2"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "20"
+            }
+          },
+          {
+            "version": {
+              "S": "before"
+            },
+            "sk": {
+              "N": "3"
+            },
+            "gpk": {
+              "S": "group"
+            },
+            "expires": {
+              "N": "1792315639"
+            },
+            "pk": {
+              "S": "partition"
+            },
+            "rank": {
+              "N": "30"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "deleted-backup-stays-absent-after-reopen",
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "$backup-two"
+      },
+      "want": {},
+      "code": "BackupNotFoundException"
+    },
+    {
+      "name": "list-stays-empty-after-reopen",
+      "operation": "ListBackups",
+      "input": {
+        "TableName": "stackd-backup-source"
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "create-on-demand-backup-source",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-backup-demand-source",
+        "BillingMode": "PAY_PER_REQUEST",
+        "OnDemandThroughput": {
+          "MaxReadRequestUnits": 17,
+          "MaxWriteRequestUnits": 23
+        },
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "gpk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "ByGroup",
+            "KeySchema": [
+              {
+                "AttributeName": "gpk",
+                "KeyType": "HASH"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            },
+            "OnDemandThroughput": {
+              "MaxReadRequestUnits": 11,
+              "MaxWriteRequestUnits": 13
+            }
+          }
+        ]
+      },
+      "want": {},
+      "nativeSource": "backup_on_demand_restore",
+      "nativeSequence": 3
+    },
+    {
+      "name": "seed-renamed-index-data",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-backup-demand-source",
+        "Item": {
+          "pk": {
+            "S": "restored-key"
+          },
+          "gpk": {
+            "S": "restored-group"
+          },
+          "enabled": {
+            "BOOL": true
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "capture-on-demand-backup",
+      "operation": "CreateBackup",
+      "input": {
+        "TableName": "stackd-backup-demand-source",
+        "BackupName": "stackd-backup-demand"
+      },
+      "want": {},
+      "nativeSource": "backup_on_demand_restore",
+      "nativeSequence": 12,
+      "bind": {
+        "$demand-backup": "BackupDetails.BackupArn",
+        "$demand-backup-time": "BackupDetails.BackupCreationDateTime"
+      }
+    },
+    {
+      "name": "on-demand-backup-ready",
+      "operation": "DescribeBackup",
+      "input": {
+        "BackupArn": "$demand-backup"
+      },
+      "want": {
+        "BackupDescription.BackupDetails.BackupStatus": "AVAILABLE",
+        "BackupDescription.SourceTableDetails.BillingMode": "PAY_PER_REQUEST",
+        "BackupDescription.SourceTableDetails.OnDemandThroughput": {
+          "MaxReadRequestUnits": 17,
+          "MaxWriteRequestUnits": 23
+        }
+      },
+      "nativeSource": "backup_on_demand_restore",
+      "nativeSequence": 13,
+      "waitBackup": true
+    },
+    {
+      "name": "restore-rejects-changed-index-schema",
+      "nativeSource": "backup_index_overrides",
+      "nativeSequence": 13,
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "$demand-backup",
+        "TargetTableName": "stackd-backup-invalid-index-schema",
+        "GlobalSecondaryIndexOverride": [
+          {
+            "IndexName": "ByGroup",
+            "KeySchema": [
+              {
+                "AttributeName": "pk",
+                "KeyType": "HASH"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "rejected-schema-target-remains-absent",
+      "nativeSource": "backup_index_overrides",
+      "nativeSequence": 21,
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-invalid-index-schema"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "restore-rejects-changed-index-projection",
+      "nativeSource": "backup_index_overrides",
+      "nativeSequence": 14,
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "$demand-backup",
+        "TargetTableName": "stackd-backup-invalid-index-projection",
+        "GlobalSecondaryIndexOverride": [
+          {
+            "IndexName": "ByGroup",
+            "KeySchema": [
+              {
+                "AttributeName": "gpk",
+                "KeyType": "HASH"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "KEYS_ONLY"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "ValidationException"
+    },
+    {
+      "name": "rejected-projection-target-remains-absent",
+      "nativeSource": "backup_index_overrides",
+      "nativeSequence": 18,
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-invalid-index-projection"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "restore-default-on-demand-maximums",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "$demand-backup",
+        "TargetTableName": "stackd-backup-demand-default"
+      },
+      "want": {
+        "TableDescription.BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST"
+        },
+        "TableDescription.ProvisionedThroughput": {
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "TableDescription.GlobalSecondaryIndexes.0.ProvisionedThroughput": {
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "TableDescription.GlobalSecondaryIndexes.0.IndexStatus": null,
+        "TableDescription.RestoreSummary.RestoreDateTime": "$demand-backup-time"
+      },
+      "nativeSource": "backup_on_demand_restore",
+      "nativeSequence": 15
+    },
+    {
+      "name": "settled-on-demand-restore-history",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-demand-default"
+      },
+      "want": {
+        "Table.BillingModeSummary.BillingMode": "PAY_PER_REQUEST",
+        "Table.ProvisionedThroughput": {
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0,
+          "NumberOfDecreasesToday": 0
+        },
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 17,
+          "MaxWriteRequestUnits": 23
+        },
+        "Table.GlobalSecondaryIndexes.0.IndexName": "ByGroup",
+        "Table.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+          "MaxReadRequestUnits": 11,
+          "MaxWriteRequestUnits": 13
+        },
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 1,
+        "Table.RestoreSummary": null
+      },
+      "nativeSource": "backup_on_demand_restore",
+      "nativeSequence": 173
+    },
+    {
+      "name": "provisioned-restore-requires-base-override",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "$demand-backup",
+        "TargetTableName": "stackd-backup-demand-renamed",
+        "BillingModeOverride": "PROVISIONED"
+      },
+      "want": {},
+      "nativeSource": "backup_on_demand_restore",
+      "nativeSequence": 175,
+      "code": "ValidationException"
+    },
+    {
+      "name": "provisioned-restore-requires-index-override",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "BackupArn": "$demand-backup",
+        "TargetTableName": "stackd-backup-demand-renamed",
+        "BillingModeOverride": "PROVISIONED",
+        "ProvisionedThroughputOverride": {
+          "ReadCapacityUnits": 2,
+          "WriteCapacityUnits": 2
+        }
+      },
+      "want": {},
+      "nativeSource": "backup_on_demand_restore",
+      "nativeSequence": 177,
+      "code": "ValidationException"
+    },
+    {
+      "name": "restore-renames-global-index",
+      "operation": "RestoreTableFromBackup",
+      "input": {
+        "TargetTableName": "stackd-backup-demand-renamed",
+        "BackupArn": "$demand-backup",
+        "BillingModeOverride": "PROVISIONED",
+        "ProvisionedThroughputOverride": {
+          "ReadCapacityUnits": 2,
+          "WriteCapacityUnits": 2
+        },
+        "GlobalSecondaryIndexOverride": [
+          {
+            "IndexName": "RenamedGroup",
+            "KeySchema": [
+              {
+                "AttributeName": "gpk",
+                "KeyType": "HASH"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            },
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 2,
+              "WriteCapacityUnits": 2
+            }
+          }
+        ]
+      },
+      "want": {
+        "TableDescription.BillingModeSummary": {
+          "BillingMode": "PROVISIONED"
+        },
+        "TableDescription.GlobalSecondaryIndexes.0.IndexName": "RenamedGroup",
+        "TableDescription.GlobalSecondaryIndexes.0.IndexStatus": null,
+        "TableDescription.OnDemandThroughput": null
+      },
+      "nativeSource": "backup_on_demand_restore",
+      "nativeSequence": 179
+    },
+    {
+      "name": "settled-renamed-index-history",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-demand-renamed"
+      },
+      "want": {
+        "Table.BillingModeSummary": null,
+        "Table.ProvisionedThroughput.NumberOfDecreasesToday": 1,
+        "Table.GlobalSecondaryIndexes.0.IndexName": "RenamedGroup",
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 1,
+        "Table.GlobalSecondaryIndexes.0.OnDemandThroughput": null,
+        "Table.GlobalSecondaryIndexes.1": null,
+        "Table.RestoreSummary": null
+      },
+      "nativeSource": "backup_on_demand_restore",
+      "nativeSequence": 252
+    },
+    {
+      "name": "renamed-index-queries-restored-data",
+      "operation": "Query",
+      "input": {
+        "TableName": "stackd-backup-demand-renamed",
+        "IndexName": "RenamedGroup",
+        "KeyConditionExpression": "gpk = :group",
+        "ExpressionAttributeValues": {
+          ":group": {
+            "S": "restored-group"
+          }
+        }
+      },
+      "want": {
+        "Count": 1,
+        "Items": [
+          {
+            "pk": {
+              "S": "restored-key"
+            },
+            "gpk": {
+              "S": "restored-group"
+            },
+            "enabled": {
+              "BOOL": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "reopen-restored-throughput-history",
+      "reopen": true
+    },
+    {
+      "name": "retained-on-demand-restore-history",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-backup-demand-default"
+      },
+      "want": {
+        "Table.BillingModeSummary.BillingMode": "PAY_PER_REQUEST",
+        "Table.ProvisionedThroughput": {
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0,
+          "NumberOfDecreasesToday": 0
+        },
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 17,
+          "MaxWriteRequestUnits": 23
+        },
+        "Table.GlobalSecondaryIndexes.0.IndexName": "ByGroup",
+        "Table.GlobalSecondaryIndexes.0.OnDemandThroughput": {
+          "MaxReadRequestUnits": 11,
+          "MaxWriteRequestUnits": 13
+        },
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.NumberOfDecreasesToday": 1,
+        "Table.RestoreSummary": null
+      }
+    },
+    {
+      "name": "remove-demand-backup",
+      "operation": "DeleteBackup",
+      "input": {
+        "BackupArn": "$demand-backup"
+      },
+      "want": {
+        "BackupDescription.BackupDetails.BackupStatus": "DELETED"
+      }
+    },
+    {
+      "name": "fill-list-request-allowance-1",
+      "nativeSource": "backup_request_admission_pipeline",
+      "operation": "ListBackups",
+      "advance": "1s",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "fill-list-request-allowance-2",
+      "nativeSource": "backup_request_admission_pipeline",
+      "operation": "ListBackups",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "fill-list-request-allowance-3",
+      "nativeSource": "backup_request_admission_pipeline",
+      "operation": "ListBackups",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "fill-list-request-allowance-4",
+      "nativeSource": "backup_request_admission_pipeline",
+      "operation": "ListBackups",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-rate-b",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "fill-list-request-allowance-5",
+      "nativeSource": "backup_request_admission_pipeline",
+      "operation": "ListBackups",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-rate-b",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "shared-filter-budget-throttles-before-command",
+      "operation": "ListBackups",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-rate-b",
+        "Limit": 1
+      },
+      "code": "ThrottlingException",
+      "audit": "ListBackups ThrottlingException"
+    },
+    {
+      "name": "request-throttle-precedes-generated-range-validation",
+      "operation": "ListBackups",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 0
+      },
+      "code": "ThrottlingException"
+    },
+    {
+      "name": "fractional-request-slot-remains-throttled",
+      "operation": "ListBackups",
+      "advance": "199ms",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 1
+      },
+      "code": "ThrottlingException"
+    },
+    {
+      "name": "refilled-slot-reaches-generated-validation",
+      "operation": "ListBackups",
+      "advance": "1ms",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 0
+      },
+      "code": "ValidationException"
+    },
+    {
+      "name": "invalid-request-consumes-its-admission-slot",
+      "operation": "ListBackups",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 1
+      },
+      "code": "ThrottlingException"
+    },
+    {
+      "name": "other-backup-operation-keeps-independent-allowance",
+      "operation": "DescribeBackup",
+      "advance": "0s",
+      "input": {
+        "BackupArn": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-backup-missing/backup/01789723711221-00000000"
+      },
+      "code": "BackupNotFoundException"
+    },
+    {
+      "name": "other-region-keeps-independent-request-allowance",
+      "operation": "ListBackups",
+      "region": "us-west-2",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    },
+    {
+      "name": "other-region-does-not-refill-original-allowance",
+      "operation": "ListBackups",
+      "advance": "0s",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 1
+      },
+      "code": "ThrottlingException"
+    },
+    {
+      "name": "request-allowance-recovers-in-service-time",
+      "operation": "ListBackups",
+      "advance": "200ms",
+      "input": {
+        "TableName": "stackd-backup-rate-a",
+        "Limit": 1
+      },
+      "want": {
+        "LastEvaluatedBackupArn": null
+      },
+      "backups": []
+    }
+  ],
+  "auditBindings": {
+    "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-backup-15bdb51a4c99-source/backup/01789723711221-360a7830": "$backup-one",
+    "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-ddb-backup-15bdb51a4c99-source/backup/01789723712117-d49180de": "$backup-two",
+    "stackd-ddb-backup-15bdb51a4c99": "stackd-backup"
+  }
+}

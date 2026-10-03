@@ -1,0 +1,2086 @@
+{
+  "source": "Native AWS CLI; actual CloudWatch Logs and CloudWatch responses, no mocks",
+  "captured_at": "2026-09-14T02:39:54.055610+00:00",
+  "region": "us-east-1",
+  "account": "000000000000",
+  "group": "/stackd/native-metric-filters-owned",
+  "namespace": "Stackd/NativeMetricFilters/owned",
+  "substitutions": "Owned resource suffix normalized to owned; caller account normalized to 000000000000. Deliberately wrong account 999999999999 remains distinct; native timestamps, metric values and field presence are retained.",
+  "references": [
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutMetricFilter.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DescribeMetricFilters.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DeleteMetricFilter.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_MetricTransformation.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_TestMetricFilter.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutLogEvents.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/MonitoringLogData.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntaxForMetricFilters.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntax.html#regex-expressions"
+  ],
+  "bounds": {
+    "max_cli_commands": 40,
+    "max_work_seconds": 780,
+    "max_elapsed_seconds_including_cleanup": 900,
+    "max_possible_metric_series": 6,
+    "automatic_retries": false,
+    "poll_interval_seconds": 60
+  },
+  "request_counts": {
+    "total": 35,
+    "aws_http_responses": 35,
+    "cli_side_errors": 0,
+    "sts": 1,
+    "logs": 21,
+    "cloudwatch": 13
+  },
+  "observations": [
+    {
+      "label": "verify-caller",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1789353594055,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Account": "000000000000"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353594737
+    },
+    {
+      "label": "create-group",
+      "service": "logs",
+      "operation": "create-log-group",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned"
+      },
+      "request_started_ms": 1789353594737,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353595494
+    },
+    {
+      "label": "create-extractor-stream",
+      "service": "logs",
+      "operation": "create-log-stream",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "logStreamName": "basic"
+      },
+      "request_started_ms": 1789353595494,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353596259
+    },
+    {
+      "label": "wildcard-value-admission",
+      "service": "logs",
+      "operation": "put-metric-filter",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "filterName": "a-wildcard-value",
+        "filterPattern": "{ $.kind = \"wildcard\" && $.items[*].value = * }",
+        "metricTransformations": [
+          {
+            "metricNamespace": "Stackd/NativeMetricFilters/owned",
+            "metricName": "WildcardValue",
+            "metricValue": "$.items[*].value"
+          }
+        ]
+      },
+      "request_started_ms": 1789353596259,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Invalid metric transformation: metric value $.items[*].value must be a valid number",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789353597103
+    },
+    {
+      "label": "wildcard-dimension-admission",
+      "service": "logs",
+      "operation": "put-metric-filter",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "filterName": "b-wildcard-dimension",
+        "filterPattern": "{ $.kind = \"wildcard\" && $.items[*].bucket = * }",
+        "metricTransformations": [
+          {
+            "metricNamespace": "Stackd/NativeMetricFilters/owned",
+            "metricName": "WildcardDimension",
+            "metricValue": "1",
+            "dimensions": {
+              "Bucket": "$.items[*].bucket"
+            }
+          }
+        ]
+      },
+      "request_started_ms": 1789353597104,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Invalid metric transformation: dimension value must be valid selector",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789353597916
+    },
+    {
+      "label": "undefined-space-selector-admission",
+      "service": "logs",
+      "operation": "put-metric-filter",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "filterName": "c-space-missing",
+        "filterPattern": "[kind,value]",
+        "metricTransformations": [
+          {
+            "metricNamespace": "Stackd/NativeMetricFilters/owned",
+            "metricName": "SpaceMissing",
+            "metricValue": "$missing"
+          }
+        ]
+      },
+      "request_started_ms": 1789353597916,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353598724
+    },
+    {
+      "label": "source-log-dimension-admission",
+      "service": "logs",
+      "operation": "put-metric-filter",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "filterName": "d-source-log",
+        "filterPattern": "SOURCE_LOG",
+        "metricTransformations": [
+          {
+            "metricNamespace": "Stackd/NativeMetricFilters/owned",
+            "metricName": "SourceLog",
+            "metricValue": "29"
+          }
+        ],
+        "emitSystemFieldDimensions": [
+          "@source.log"
+        ]
+      },
+      "request_started_ms": 1789353598724,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353599506
+    },
+    {
+      "label": "baseline-admission",
+      "service": "logs",
+      "operation": "put-metric-filter",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "filterName": "e-baseline",
+        "filterPattern": "{ $.kind = \"wildcard\" && $.value = * }",
+        "metricTransformations": [
+          {
+            "metricNamespace": "Stackd/NativeMetricFilters/owned",
+            "metricName": "Baseline",
+            "metricValue": "$.value"
+          }
+        ]
+      },
+      "request_started_ms": 1789353599506,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353600348
+    },
+    {
+      "label": "extractor-control-roundtrip",
+      "service": "logs",
+      "operation": "describe-metric-filters",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned"
+      },
+      "request_started_ms": 1789353600349,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "metricFilters": [
+            {
+              "filterName": "c-space-missing",
+              "filterPattern": "[kind,value]",
+              "metricTransformations": [
+                {
+                  "metricName": "SpaceMissing",
+                  "metricNamespace": "Stackd/NativeMetricFilters/owned",
+                  "metricValue": "$missing"
+                }
+              ],
+              "creationTime": 1789353598600,
+              "logGroupName": "/stackd/native-metric-filters-owned",
+              "applyOnTransformedLogs": false
+            },
+            {
+              "filterName": "d-source-log",
+              "filterPattern": "SOURCE_LOG",
+              "metricTransformations": [
+                {
+                  "metricName": "SourceLog",
+                  "metricNamespace": "Stackd/NativeMetricFilters/owned",
+                  "metricValue": "29"
+                }
+              ],
+              "creationTime": 1789353599382,
+              "logGroupName": "/stackd/native-metric-filters-owned",
+              "applyOnTransformedLogs": false,
+              "emitSystemFieldDimensions": [
+                "@source.log"
+              ]
+            },
+            {
+              "filterName": "e-baseline",
+              "filterPattern": "{ $.kind = \"wildcard\" && $.value = * }",
+              "metricTransformations": [
+                {
+                  "metricName": "Baseline",
+                  "metricNamespace": "Stackd/NativeMetricFilters/owned",
+                  "metricValue": "$.value"
+                }
+              ],
+              "creationTime": 1789353600211,
+              "logGroupName": "/stackd/native-metric-filters-owned",
+              "applyOnTransformedLogs": false
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353601101
+    },
+    {
+      "label": "matcher-wildcard-value",
+      "service": "logs",
+      "operation": "test-metric-filter",
+      "input": {
+        "filterPattern": "{ $.kind = \"wildcard\" && $.items[*].value = * }",
+        "logEventMessages": [
+          "{\"kind\":\"wildcard\",\"value\":19,\"items\":[{\"value\":7,\"bucket\":\"A\"}]}",
+          "{\"kind\":\"wildcard\",\"value\":23,\"items\":[{\"value\":11,\"bucket\":\"A\"},{\"value\":13,\"bucket\":\"B\"}]}"
+        ]
+      },
+      "request_started_ms": 1789353601101,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "matches": [
+            {
+              "eventNumber": 1,
+              "eventMessage": "{\"kind\":\"wildcard\",\"value\":19,\"items\":[{\"value\":7,\"bucket\":\"A\"}]}",
+              "extractedValues": {}
+            },
+            {
+              "eventNumber": 2,
+              "eventMessage": "{\"kind\":\"wildcard\",\"value\":23,\"items\":[{\"value\":11,\"bucket\":\"A\"},{\"value\":13,\"bucket\":\"B\"}]}",
+              "extractedValues": {}
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353601912
+    },
+    {
+      "label": "matcher-wildcard-dimension",
+      "service": "logs",
+      "operation": "test-metric-filter",
+      "input": {
+        "filterPattern": "{ $.kind = \"wildcard\" && $.items[*].bucket = * }",
+        "logEventMessages": [
+          "{\"kind\":\"wildcard\",\"value\":19,\"items\":[{\"value\":7,\"bucket\":\"A\"}]}",
+          "{\"kind\":\"wildcard\",\"value\":23,\"items\":[{\"value\":11,\"bucket\":\"A\"},{\"value\":13,\"bucket\":\"B\"}]}"
+        ]
+      },
+      "request_started_ms": 1789353601912,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "matches": [
+            {
+              "eventNumber": 1,
+              "eventMessage": "{\"kind\":\"wildcard\",\"value\":19,\"items\":[{\"value\":7,\"bucket\":\"A\"}]}",
+              "extractedValues": {}
+            },
+            {
+              "eventNumber": 2,
+              "eventMessage": "{\"kind\":\"wildcard\",\"value\":23,\"items\":[{\"value\":11,\"bucket\":\"A\"},{\"value\":13,\"bucket\":\"B\"}]}",
+              "extractedValues": {}
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353602763
+    },
+    {
+      "label": "matcher-space",
+      "service": "logs",
+      "operation": "test-metric-filter",
+      "input": {
+        "filterPattern": "[kind,value]",
+        "logEventMessages": [
+          "SPACE 17",
+          "SPACE 31"
+        ]
+      },
+      "request_started_ms": 1789353602764,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "matches": [
+            {
+              "eventNumber": 1,
+              "eventMessage": "SPACE 17",
+              "extractedValues": {
+                "$kind": "SPACE",
+                "$value": "17"
+              }
+            },
+            {
+              "eventNumber": 2,
+              "eventMessage": "SPACE 31",
+              "extractedValues": {
+                "$kind": "SPACE",
+                "$value": "31"
+              }
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353603593
+    },
+    {
+      "label": "publish-single-candidates",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "logStreamName": "basic",
+        "logEvents": [
+          {
+            "timestamp": 1789353615594,
+            "message": "{\"kind\":\"wildcard\",\"value\":19,\"items\":[{\"value\":7,\"bucket\":\"A\"}]}"
+          },
+          {
+            "timestamp": 1789353615595,
+            "message": "SPACE 17"
+          },
+          {
+            "timestamp": 1789353615596,
+            "message": "SOURCE_LOG"
+          }
+        ]
+      },
+      "request_started_ms": 1789353615594,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49678107705010267224716913163071850773777635047997702706"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353616364
+    },
+    {
+      "label": "publish-multiple-candidates",
+      "service": "logs",
+      "operation": "put-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "logStreamName": "basic",
+        "logEvents": [
+          {
+            "timestamp": 1789353675594,
+            "message": "{\"kind\":\"wildcard\",\"value\":23,\"items\":[{\"value\":11,\"bucket\":\"A\"},{\"value\":13,\"bucket\":\"B\"}]}"
+          },
+          {
+            "timestamp": 1789353675595,
+            "message": "SPACE 31"
+          }
+        ]
+      },
+      "request_started_ms": 1789353616364,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "nextSequenceToken": "49677605666709426748391060816435421891104161719581148466"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353617145
+    },
+    {
+      "label": "read-extractor-events",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "logStreamName": "basic",
+        "startFromHead": true
+      },
+      "request_started_ms": 1789353617146,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789353615594,
+              "message": "{\"kind\":\"wildcard\",\"value\":19,\"items\":[{\"value\":7,\"bucket\":\"A\"}]}",
+              "ingestionTime": 1789353616236
+            },
+            {
+              "timestamp": 1789353615595,
+              "message": "SPACE 17",
+              "ingestionTime": 1789353616236
+            },
+            {
+              "timestamp": 1789353615596,
+              "message": "SOURCE_LOG",
+              "ingestionTime": 1789353616236
+            },
+            {
+              "timestamp": 1789353675594,
+              "message": "{\"kind\":\"wildcard\",\"value\":23,\"items\":[{\"value\":11,\"bucket\":\"A\"},{\"value\":13,\"bucket\":\"B\"}]}",
+              "ingestionTime": 1789353617010
+            },
+            {
+              "timestamp": 1789353675595,
+              "message": "SPACE 31",
+              "ingestionTime": 1789353617010
+            }
+          ],
+          "nextForwardToken": "f/39903920389498318513635899192166180418484398754608971777/s",
+          "nextBackwardToken": "b/39903919051431305856599980075945669548336230011051966464/s"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353618020
+    },
+    {
+      "label": "list-extractor-metrics-0",
+      "service": "cloudwatch",
+      "operation": "list-metrics",
+      "input": {
+        "Namespace": "Stackd/NativeMetricFilters/owned"
+      },
+      "request_started_ms": 1789353678020,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Metrics": [
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "SourceLog",
+              "Dimensions": [
+                {
+                  "Name": "@source.log",
+                  "Value": "/stackd/native-metric-filters-owned"
+                }
+              ]
+            },
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "Baseline",
+              "Dimensions": []
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353678782
+    },
+    {
+      "label": "extractor-data-0",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "MetricDataQueries": [
+          {
+            "Id": "m0",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardValue"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SpaceMissing"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m2",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "Baseline"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m3",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "A"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m4",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "B"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m5",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SourceLog",
+                "Dimensions": [
+                  {
+                    "Name": "@source.log",
+                    "Value": "/stackd/native-metric-filters-owned"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          }
+        ],
+        "StartTime": "2026-09-14T02:35:15.594000+00:00",
+        "EndTime": "2026-09-14T02:50:15.594000+00:00",
+        "ScanBy": "TimestampAscending",
+        "MaxDatapoints": 100800
+      },
+      "request_started_ms": 1789353678783,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "m0",
+              "Label": "WildcardValue",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m1",
+              "Label": "SpaceMissing",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m2",
+              "Label": "Baseline",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00",
+                "2026-09-14T03:41:00+01:00"
+              ],
+              "Values": [
+                19.0,
+                23.0
+              ],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m3",
+              "Label": "A WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m4",
+              "Label": "B WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m5",
+              "Label": "/stackd/native-metric-filters-owned SourceLog",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00"
+              ],
+              "Values": [
+                29.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353679479
+    },
+    {
+      "label": "list-extractor-metrics-1",
+      "service": "cloudwatch",
+      "operation": "list-metrics",
+      "input": {
+        "Namespace": "Stackd/NativeMetricFilters/owned"
+      },
+      "request_started_ms": 1789353739481,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Metrics": [
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "SourceLog",
+              "Dimensions": [
+                {
+                  "Name": "@source.log",
+                  "Value": "/stackd/native-metric-filters-owned"
+                }
+              ]
+            },
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "Baseline",
+              "Dimensions": []
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353740234
+    },
+    {
+      "label": "extractor-data-1",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "MetricDataQueries": [
+          {
+            "Id": "m0",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardValue"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SpaceMissing"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m2",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "Baseline"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m3",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "A"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m4",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "B"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m5",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SourceLog",
+                "Dimensions": [
+                  {
+                    "Name": "@source.log",
+                    "Value": "/stackd/native-metric-filters-owned"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          }
+        ],
+        "StartTime": "2026-09-14T02:35:15.594000+00:00",
+        "EndTime": "2026-09-14T02:50:15.594000+00:00",
+        "ScanBy": "TimestampAscending",
+        "MaxDatapoints": 100800
+      },
+      "request_started_ms": 1789353740235,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "m0",
+              "Label": "WildcardValue",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m1",
+              "Label": "SpaceMissing",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m2",
+              "Label": "Baseline",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00",
+                "2026-09-14T03:41:00+01:00"
+              ],
+              "Values": [
+                19.0,
+                23.0
+              ],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m3",
+              "Label": "A WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m4",
+              "Label": "B WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m5",
+              "Label": "/stackd/native-metric-filters-owned SourceLog",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00"
+              ],
+              "Values": [
+                29.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353740978
+    },
+    {
+      "label": "list-extractor-metrics-2",
+      "service": "cloudwatch",
+      "operation": "list-metrics",
+      "input": {
+        "Namespace": "Stackd/NativeMetricFilters/owned"
+      },
+      "request_started_ms": 1789353800980,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Metrics": [
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "SourceLog",
+              "Dimensions": [
+                {
+                  "Name": "@source.log",
+                  "Value": "/stackd/native-metric-filters-owned"
+                }
+              ]
+            },
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "Baseline",
+              "Dimensions": []
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353801767
+    },
+    {
+      "label": "extractor-data-2",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "MetricDataQueries": [
+          {
+            "Id": "m0",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardValue"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SpaceMissing"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m2",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "Baseline"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m3",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "A"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m4",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "B"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m5",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SourceLog",
+                "Dimensions": [
+                  {
+                    "Name": "@source.log",
+                    "Value": "/stackd/native-metric-filters-owned"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          }
+        ],
+        "StartTime": "2026-09-14T02:35:15.594000+00:00",
+        "EndTime": "2026-09-14T02:50:15.594000+00:00",
+        "ScanBy": "TimestampAscending",
+        "MaxDatapoints": 100800
+      },
+      "request_started_ms": 1789353801768,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "m0",
+              "Label": "WildcardValue",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m1",
+              "Label": "SpaceMissing",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m2",
+              "Label": "Baseline",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00",
+                "2026-09-14T03:41:00+01:00"
+              ],
+              "Values": [
+                19.0,
+                23.0
+              ],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m3",
+              "Label": "A WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m4",
+              "Label": "B WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m5",
+              "Label": "/stackd/native-metric-filters-owned SourceLog",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00"
+              ],
+              "Values": [
+                29.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353802508
+    },
+    {
+      "label": "list-extractor-metrics-3",
+      "service": "cloudwatch",
+      "operation": "list-metrics",
+      "input": {
+        "Namespace": "Stackd/NativeMetricFilters/owned"
+      },
+      "request_started_ms": 1789353862510,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Metrics": [
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "SourceLog",
+              "Dimensions": [
+                {
+                  "Name": "@source.log",
+                  "Value": "/stackd/native-metric-filters-owned"
+                }
+              ]
+            },
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "Baseline",
+              "Dimensions": []
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353863293
+    },
+    {
+      "label": "extractor-data-3",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "MetricDataQueries": [
+          {
+            "Id": "m0",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardValue"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SpaceMissing"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m2",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "Baseline"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m3",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "A"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m4",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "B"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m5",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SourceLog",
+                "Dimensions": [
+                  {
+                    "Name": "@source.log",
+                    "Value": "/stackd/native-metric-filters-owned"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          }
+        ],
+        "StartTime": "2026-09-14T02:35:15.594000+00:00",
+        "EndTime": "2026-09-14T02:50:15.594000+00:00",
+        "ScanBy": "TimestampAscending",
+        "MaxDatapoints": 100800
+      },
+      "request_started_ms": 1789353863294,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "m0",
+              "Label": "WildcardValue",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m1",
+              "Label": "SpaceMissing",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m2",
+              "Label": "Baseline",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00",
+                "2026-09-14T03:41:00+01:00"
+              ],
+              "Values": [
+                19.0,
+                23.0
+              ],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m3",
+              "Label": "A WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m4",
+              "Label": "B WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m5",
+              "Label": "/stackd/native-metric-filters-owned SourceLog",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00"
+              ],
+              "Values": [
+                29.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353864073
+    },
+    {
+      "label": "list-extractor-metrics-4",
+      "service": "cloudwatch",
+      "operation": "list-metrics",
+      "input": {
+        "Namespace": "Stackd/NativeMetricFilters/owned"
+      },
+      "request_started_ms": 1789353924075,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Metrics": [
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "SourceLog",
+              "Dimensions": [
+                {
+                  "Name": "@source.log",
+                  "Value": "/stackd/native-metric-filters-owned"
+                }
+              ]
+            },
+            {
+              "Namespace": "Stackd/NativeMetricFilters/owned",
+              "MetricName": "Baseline",
+              "Dimensions": []
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353924831
+    },
+    {
+      "label": "extractor-data-4",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "MetricDataQueries": [
+          {
+            "Id": "m0",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardValue"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m1",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SpaceMissing"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m2",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "Baseline"
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m3",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "A"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m4",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "WildcardDimension",
+                "Dimensions": [
+                  {
+                    "Name": "Bucket",
+                    "Value": "B"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          },
+          {
+            "Id": "m5",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "Stackd/NativeMetricFilters/owned",
+                "MetricName": "SourceLog",
+                "Dimensions": [
+                  {
+                    "Name": "@source.log",
+                    "Value": "/stackd/native-metric-filters-owned"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            },
+            "ReturnData": true
+          }
+        ],
+        "StartTime": "2026-09-14T02:35:15.594000+00:00",
+        "EndTime": "2026-09-14T02:50:15.594000+00:00",
+        "ScanBy": "TimestampAscending",
+        "MaxDatapoints": 100800
+      },
+      "request_started_ms": 1789353924833,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "m0",
+              "Label": "WildcardValue",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m1",
+              "Label": "SpaceMissing",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m2",
+              "Label": "Baseline",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00",
+                "2026-09-14T03:41:00+01:00"
+              ],
+              "Values": [
+                19.0,
+                23.0
+              ],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m3",
+              "Label": "A WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m4",
+              "Label": "B WildcardDimension",
+              "Timestamps": [],
+              "Values": [],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "m5",
+              "Label": "/stackd/native-metric-filters-owned SourceLog",
+              "Timestamps": [
+                "2026-09-14T03:40:00+01:00"
+              ],
+              "Values": [
+                29.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353925622
+    },
+    {
+      "label": "extractor-statistics-WildcardValue",
+      "service": "cloudwatch",
+      "operation": "get-metric-statistics",
+      "input": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "WildcardValue",
+        "StartTime": "2026-09-14T02:35:15.594000+00:00",
+        "EndTime": "2026-09-14T02:50:15.594000+00:00",
+        "Period": 60,
+        "Statistics": [
+          "Sum",
+          "SampleCount",
+          "Minimum",
+          "Maximum",
+          "Average"
+        ]
+      },
+      "request_started_ms": 1789353925624,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Label": "WildcardValue",
+          "Datapoints": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353926350
+    },
+    {
+      "label": "extractor-statistics-SpaceMissing",
+      "service": "cloudwatch",
+      "operation": "get-metric-statistics",
+      "input": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "SpaceMissing",
+        "StartTime": "2026-09-14T02:35:15.594000+00:00",
+        "EndTime": "2026-09-14T02:50:15.594000+00:00",
+        "Period": 60,
+        "Statistics": [
+          "Sum",
+          "SampleCount",
+          "Minimum",
+          "Maximum",
+          "Average"
+        ]
+      },
+      "request_started_ms": 1789353926351,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Label": "SpaceMissing",
+          "Datapoints": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353927081
+    },
+    {
+      "label": "extractor-statistics-SourceLog",
+      "service": "cloudwatch",
+      "operation": "get-metric-statistics",
+      "input": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "SourceLog",
+        "Dimensions": [
+          {
+            "Name": "@source.log",
+            "Value": "/stackd/native-metric-filters-owned"
+          }
+        ],
+        "StartTime": "2026-09-14T02:35:15.594000+00:00",
+        "EndTime": "2026-09-14T02:50:15.594000+00:00",
+        "Period": 60,
+        "Statistics": [
+          "Sum",
+          "SampleCount",
+          "Minimum",
+          "Maximum",
+          "Average"
+        ]
+      },
+      "request_started_ms": 1789353927083,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "Label": "SourceLog",
+          "Datapoints": [
+            {
+              "Timestamp": "2026-09-14T03:40:00+01:00",
+              "SampleCount": 1.0,
+              "Average": 29.0,
+              "Sum": 29.0,
+              "Minimum": 29.0,
+              "Maximum": 29.0,
+              "Unit": "None"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353927784
+    },
+    {
+      "label": "cleanup-filter-c-space-missing",
+      "service": "logs",
+      "operation": "delete-metric-filter",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "filterName": "c-space-missing"
+      },
+      "request_started_ms": 1789353927786,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353928547
+    },
+    {
+      "label": "cleanup-filter-d-source-log",
+      "service": "logs",
+      "operation": "delete-metric-filter",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "filterName": "d-source-log"
+      },
+      "request_started_ms": 1789353928548,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353929266
+    },
+    {
+      "label": "cleanup-filter-e-baseline",
+      "service": "logs",
+      "operation": "delete-metric-filter",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned",
+        "filterName": "e-baseline"
+      },
+      "request_started_ms": 1789353929267,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353930011
+    },
+    {
+      "label": "cleanup-filters-empty",
+      "service": "logs",
+      "operation": "describe-metric-filters",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned"
+      },
+      "request_started_ms": 1789353930012,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "metricFilters": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353930734
+    },
+    {
+      "label": "cleanup-group",
+      "service": "logs",
+      "operation": "delete-log-group",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned"
+      },
+      "request_started_ms": 1789353930736,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353931488
+    },
+    {
+      "label": "cleanup-group-absent",
+      "service": "logs",
+      "operation": "describe-log-groups",
+      "input": {
+        "logGroupNamePrefix": "/stackd/native-metric-filters-owned"
+      },
+      "request_started_ms": 1789353931490,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "Success",
+        "output": {
+          "logGroups": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789353932197
+    },
+    {
+      "label": "cleanup-filter-group-missing",
+      "service": "logs",
+      "operation": "describe-metric-filters",
+      "input": {
+        "logGroupName": "/stackd/native-metric-filters-owned"
+      },
+      "request_started_ms": 1789353932198,
+      "evidence_kind": "AWS service response",
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "The specified log group does not exist.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789353932922
+    }
+  ],
+  "windows": [
+    {
+      "label": "publish-single-candidates",
+      "ingestion_request_started_ms": 1789353615594,
+      "ingestion_request_finished_ms": 1789353616364,
+      "event_timestamps_ms": [
+        1789353615594,
+        1789353615595,
+        1789353615596
+      ]
+    },
+    {
+      "label": "publish-multiple-candidates",
+      "ingestion_request_started_ms": 1789353616364,
+      "ingestion_request_finished_ms": 1789353617145,
+      "event_timestamps_ms": [
+        1789353675594,
+        1789353675595
+      ]
+    }
+  ],
+  "series": [
+    {
+      "Namespace": "Stackd/NativeMetricFilters/owned",
+      "MetricName": "WildcardValue"
+    },
+    {
+      "Namespace": "Stackd/NativeMetricFilters/owned",
+      "MetricName": "SpaceMissing"
+    },
+    {
+      "Namespace": "Stackd/NativeMetricFilters/owned",
+      "MetricName": "Baseline"
+    },
+    {
+      "Namespace": "Stackd/NativeMetricFilters/owned",
+      "MetricName": "WildcardDimension",
+      "Dimensions": [
+        {
+          "Name": "Bucket",
+          "Value": "A"
+        }
+      ]
+    },
+    {
+      "Namespace": "Stackd/NativeMetricFilters/owned",
+      "MetricName": "WildcardDimension",
+      "Dimensions": [
+        {
+          "Name": "Bucket",
+          "Value": "B"
+        }
+      ]
+    },
+    {
+      "Namespace": "Stackd/NativeMetricFilters/owned",
+      "MetricName": "SourceLog",
+      "Dimensions": [
+        {
+          "Name": "@source.log",
+          "Value": "/stackd/native-metric-filters-owned"
+        }
+      ]
+    }
+  ],
+  "positive_points": [
+    {
+      "query_label": "extractor-data-0",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 19.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-0",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:41:00+01:00",
+      "value": 23.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-0",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "SourceLog",
+        "Dimensions": [
+          {
+            "Name": "@source.log",
+            "Value": "/stackd/native-metric-filters-owned"
+          }
+        ]
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 29.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-1",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 19.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-1",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:41:00+01:00",
+      "value": 23.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-1",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "SourceLog",
+        "Dimensions": [
+          {
+            "Name": "@source.log",
+            "Value": "/stackd/native-metric-filters-owned"
+          }
+        ]
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 29.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-2",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 19.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-2",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:41:00+01:00",
+      "value": 23.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-2",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "SourceLog",
+        "Dimensions": [
+          {
+            "Name": "@source.log",
+            "Value": "/stackd/native-metric-filters-owned"
+          }
+        ]
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 29.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-3",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 19.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-3",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:41:00+01:00",
+      "value": 23.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-3",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "SourceLog",
+        "Dimensions": [
+          {
+            "Name": "@source.log",
+            "Value": "/stackd/native-metric-filters-owned"
+          }
+        ]
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 29.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-4",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 19.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-4",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "Baseline"
+      },
+      "timestamp": "2026-09-14T03:41:00+01:00",
+      "value": 23.0,
+      "stat": "Sum"
+    },
+    {
+      "query_label": "extractor-data-4",
+      "metric": {
+        "Namespace": "Stackd/NativeMetricFilters/owned",
+        "MetricName": "SourceLog",
+        "Dimensions": [
+          {
+            "Name": "@source.log",
+            "Value": "/stackd/native-metric-filters-owned"
+          }
+        ]
+      },
+      "timestamp": "2026-09-14T03:40:00+01:00",
+      "value": 29.0,
+      "stat": "Sum"
+    }
+  ],
+  "limitations": [
+    "Bounded absent data is unresolved, never evidence of permanent loss.",
+    "One owned group, fixed streams, one region/account; no transformer or centralized source is installed.",
+    "Cross-subscription/metric regex quota is unmeasured: no owned subscription destination is provisioned.",
+    "Metric publication is at least once per AWS documentation; observed values do not establish exactly-once guarantees.",
+    "Partial ingestion admission/rejection is not metric publication evidence; only returned metric points prove production.",
+    "No DeleteMetric API exists. Published custom metrics age out under CloudWatch retention after publishers are removed."
+  ],
+  "cleanup": {
+    "verified": true,
+    "checks": {
+      "filter-c-space-missing": true,
+      "filter-d-source-log": true,
+      "filter-e-baseline": true,
+      "filters_empty": true,
+      "group_absent": true,
+      "filter_group_missing": true
+    },
+    "errors": [],
+    "publisher_state": "No continuing publisher: owned metric filters and group removed when checks pass; no external publisher or worker was created. Previously accepted asynchronous data may still arrive.",
+    "residual": "Custom metric data has no DeleteMetric API and expires according to CloudWatch retention; no ongoing publication or deletable resources remain when verified.",
+    "residual_metric_identity_count_observed": 2
+  },
+  "scope": "One fresh group/stream; wildcard metric value/dimensions, undefined space selector and @source.log.",
+  "clock_anchor_ms": 1789353615594,
+  "candidate_design": {
+    "single": {
+      "event_minute_ms": 1789353600000,
+      "values": [
+        7
+      ],
+      "buckets": [
+        "A"
+      ],
+      "baseline": 19
+    },
+    "multiple": {
+      "event_minute_ms": 1789353660000,
+      "values": [
+        11,
+        13
+      ],
+      "buckets": [
+        "A",
+        "B"
+      ],
+      "baseline": 23
+    },
+    "source_log_value": 29,
+    "undefined_space_values": [
+      17,
+      31
+    ]
+  },
+  "elapsed_seconds": 338.869,
+  "correlations": {
+    "wildcard_metric_value": {
+      "input_selector": "$.items[*].value",
+      "admission": "InvalidParameterException",
+      "message": "Invalid metric transformation: metric value $.items[*].value must be a valid number",
+      "matcher": "Both single and multiple candidate JSON events match the wildcard filter pattern; transformation admission is independently rejected."
+    },
+    "wildcard_dimension": {
+      "input_selector": "$.items[*].bucket",
+      "admission": "InvalidParameterException",
+      "message": "Invalid metric transformation: dimension value must be valid selector",
+      "matcher": "Both single and multiple candidate JSON events match the wildcard filter pattern; wildcard dimension extractor is rejected."
+    },
+    "undefined_space_selector": {
+      "pattern": "[kind,value]",
+      "metric_value": "$missing",
+      "admission": "Success",
+      "native_matching": "SPACE 17 and SPACE 31 match, extracting $kind and $value, not $missing. Both events positively readable in owned stream.",
+      "metric_query": "Five complete GetMetricData polls and final GetMetricStatistics return no SpaceMissing point; bounded non-observation only."
+    },
+    "source_log_dimension": {
+      "admission": "Success",
+      "dimension_name": "@source.log",
+      "dimension_value": "/stackd/native-metric-filters-owned",
+      "metric_value": 29.0,
+      "interpretation": "Direct owned-group ingestion emits the exact log group name, not ARN or stream name. Positive ListMetrics identity, GetMetricData Sum29, and GetMetricStatistics SampleCount1 corroborate."
+    },
+    "baseline": {
+      "single_candidate_event_value": 19.0,
+      "multiple_candidate_event_value": 23.0,
+      "interpretation": "Both baseline values positively published at their respective event timestamp minutes, confirming ingested single/multiple candidate corpus reached publication."
+    }
+  },
+  "observed_metric_series_count": 2,
+  "residual_metric_identities": [
+    {
+      "Namespace": "Stackd/NativeMetricFilters/owned",
+      "MetricName": "SourceLog",
+      "Dimensions": [
+        {
+          "Name": "@source.log",
+          "Value": "/stackd/native-metric-filters-owned"
+        }
+      ]
+    },
+    {
+      "Namespace": "Stackd/NativeMetricFilters/owned",
+      "MetricName": "Baseline",
+      "Dimensions": []
+    }
+  ],
+  "unresolved": [
+    "Undefined $missing space extraction was admitted but no metric point was returned during this338.96-second run. This is bounded non-observation, not evidence of permanent delivery loss.",
+    "Wildcard metricValue and dimension transformations were rejected before publication; no runtime candidate-selection or fan-out behavior is inferred from matcher success.",
+    "@source.log behavior is observed for direct ingestion into one owned group only, not centralized or transformed logs."
+  ],
+  "execution_command": "python3 -B scripts/aws/logs_metric_filters_probe.py --extractors local://logs_metric_filter_extractors.json"
+}

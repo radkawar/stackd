@@ -1,0 +1,100 @@
+{
+  "account": "000000000000",
+  "region": "us-east-1",
+  "actor": "arn:aws:iam::000000000000:user/Delegated",
+  "ethics_review": {
+    "allowed": true,
+    "decision": "allow",
+    "reason": "permitted",
+    "scope": "Only exact-owned SG self-referencing ingress, no CIDR/public/shared source; deletes with owned SG; all prior bounds unchanged"
+  },
+  "source": "https://docs.aws.amazon.com/lambda/latest/dg/with-msk-cluster-network.md",
+  "calls": [
+    {
+      "label": "verify-exact-owned-sg",
+      "operation": "describe-security-groups",
+      "request": {
+        "GroupIds": [
+          "sg-01c7d0120fdf15b2c"
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-01c7d0120fdf15b2c",
+              "IpPermissionsEgress": [
+                {
+                  "IpProtocol": "-1",
+                  "UserIdGroupPairs": [],
+                  "IpRanges": [
+                    {
+                      "CidrIp": "0.0.0.0/0"
+                    }
+                  ],
+                  "Ipv6Ranges": [],
+                  "PrefixListIds": []
+                }
+              ],
+              "Tags": [
+                {
+                  "Key": "stackd-probe",
+                  "Value": "stackd-cfn-msk-3203a26e67cb"
+                }
+              ],
+              "VpcId": "vpc-05ec70abf34fd397d",
+              "SecurityGroupArn": "arn:aws:ec2:us-east-1:000000000000:security-group/sg-01c7d0120fdf15b2c",
+              "OwnerId": "000000000000",
+              "GroupName": "stackd-cfn-msk-3203a26e67cb",
+              "Description": "Exact-owned no-ingress disabled MSK calibration",
+              "IpPermissions": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "allow-only-exact-sg-self-traffic",
+      "operation": "authorize-security-group-ingress",
+      "request": {
+        "GroupId": "sg-01c7d0120fdf15b2c",
+        "IpPermissions": [
+          {
+            "IpProtocol": "-1",
+            "UserIdGroupPairs": [
+              {
+                "GroupId": "sg-01c7d0120fdf15b2c",
+                "UserId": "000000000000",
+                "Description": "Exact-owned private MSK self communication"
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "Return": true,
+          "SecurityGroupRules": [
+            {
+              "SecurityGroupRuleId": "sgr-047ff10e26bc1c790",
+              "GroupId": "sg-01c7d0120fdf15b2c",
+              "GroupOwnerId": "000000000000",
+              "IsEgress": false,
+              "IpProtocol": "-1",
+              "FromPort": -1,
+              "ToPort": -1,
+              "ReferencedGroupInfo": {
+                "GroupId": "sg-01c7d0120fdf15b2c",
+                "UserId": "000000000000"
+              },
+              "Description": "Exact-owned private MSK self communication",
+              "SecurityGroupRuleArn": "arn:aws:ec2:us-east-1:000000000000:security-group-rule/sgr-047ff10e26bc1c790"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

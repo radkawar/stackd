@@ -1,0 +1,1352 @@
+{
+  "source": "native AWS",
+  "retrieved_at": "2026-09-26T14:48:24.620162+00:00",
+  "region": "us-east-1",
+  "run_suffix": "96e2419d6c554819",
+  "source_revisions": {
+    "aws_sdk_go_v2": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "primary_references": [
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateRegistry.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CreateSchema.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_RegisterSchemaVersion.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_CheckSchemaVersionValidity.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_GetSchemaByDefinition.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_UpdateSchema.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_PutSchemaVersionMetadata.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_QuerySchemaVersionMetadata.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_GetSchemaVersionsDiff.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_DeleteSchemaVersions.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_DeleteSchema.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_DeleteRegistry.html"
+  ],
+  "bounds": {
+    "max_calls": 100,
+    "wall_seconds": 480,
+    "cli_timeout_seconds": 30,
+    "max_registries": 1,
+    "max_schemas": 4,
+    "max_versions_per_schema": 5,
+    "cost_usd_upper_estimate": 0.001,
+    "cost_basis": "Glue Schema Registry is offered at no additional charge; no data plane."
+  },
+  "normalization": "Owned names, account/caller/role/query/run IDs and pagination tokens replaced consistently; timestamps, field presence, list order, errors and data bytes retained. Credentials/debug output never persisted.",
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "started_ms": 1790434104620,
+      "finished_ms": 1790434105347,
+      "result": {
+        "code": "Success",
+        "output": {
+          "UserId": "OWNEDCALLERID",
+          "Account": "123456789012",
+          "Arn": "arn:aws:iam::123456789012:user/owned-caller"
+        }
+      }
+    },
+    {
+      "label": "create-registry",
+      "service": "glue",
+      "operation": "create-registry",
+      "input": {
+        "RegistryName": "stackd-schema-owned",
+        "Description": "owned"
+      },
+      "started_ms": 1790434105347,
+      "finished_ms": 1790434106229,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+          "RegistryName": "stackd-schema-owned",
+          "Description": "owned"
+        }
+      }
+    },
+    {
+      "label": "duplicate-registry",
+      "service": "glue",
+      "operation": "create-registry",
+      "input": {
+        "RegistryName": "stackd-schema-owned"
+      },
+      "started_ms": 1790434106229,
+      "finished_ms": 1790434107008,
+      "result": {
+        "code": "AlreadyExistsException",
+        "error": {
+          "Message": "Registry already exists. RegistryName: stackd-schema-owned",
+          "Code": "AlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "get-registry",
+      "service": "glue",
+      "operation": "get-registry",
+      "input": {
+        "RegistryId": {
+          "RegistryName": "stackd-schema-owned"
+        }
+      },
+      "started_ms": 1790434107008,
+      "finished_ms": 1790434107765,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RegistryName": "stackd-schema-owned",
+          "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+          "Description": "owned",
+          "Status": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:26.065Z",
+          "UpdatedTime": "2026-09-26T14:48:26.065Z"
+        }
+      }
+    },
+    {
+      "label": "validate-AVRO",
+      "service": "glue",
+      "operation": "check-schema-version-validity",
+      "input": {
+        "DataFormat": "AVRO",
+        "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"int\"}]}"
+      },
+      "started_ms": 1790434107765,
+      "finished_ms": 1790434108499,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Valid": true
+        }
+      }
+    },
+    {
+      "label": "validate-invalid-AVRO",
+      "service": "glue",
+      "operation": "check-schema-version-validity",
+      "input": {
+        "DataFormat": "AVRO",
+        "SchemaDefinition": "not a schema"
+      },
+      "started_ms": 1790434108499,
+      "finished_ms": 1790434109240,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Valid": false,
+          "Error": "Unrecognized token 'not': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 4]"
+        }
+      }
+    },
+    {
+      "label": "create-schema-omitted-compatibility-AVRO",
+      "service": "glue",
+      "operation": "create-schema",
+      "input": {
+        "RegistryId": {
+          "RegistryName": "stackd-schema-owned"
+        },
+        "SchemaName": "avro",
+        "DataFormat": "AVRO",
+        "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"int\"}]}"
+      },
+      "started_ms": 1790434109241,
+      "finished_ms": 1790434109984,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "Compatibility is not valid.",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "create-schema-AVRO",
+      "service": "glue",
+      "operation": "create-schema",
+      "input": {
+        "RegistryId": {
+          "RegistryName": "stackd-schema-owned"
+        },
+        "SchemaName": "avro",
+        "DataFormat": "AVRO",
+        "Compatibility": "BACKWARD",
+        "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"int\"}]}"
+      },
+      "started_ms": 1790434109984,
+      "finished_ms": 1790434110833,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RegistryName": "stackd-schema-owned",
+          "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+          "SchemaName": "avro",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+          "DataFormat": "AVRO",
+          "Compatibility": "BACKWARD",
+          "SchemaCheckpoint": 1,
+          "LatestSchemaVersion": 1,
+          "NextSchemaVersion": 2,
+          "SchemaStatus": "AVAILABLE",
+          "SchemaVersionId": "SCHEMA_VERSION_1",
+          "SchemaVersionStatus": "AVAILABLE"
+        }
+      }
+    },
+    {
+      "label": "initial-version-AVRO-0",
+      "service": "glue",
+      "operation": "get-schema-version",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_1"
+      },
+      "started_ms": 1790434110843,
+      "finished_ms": 1790434111594,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_1",
+          "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"int\"}]}",
+          "DataFormat": "AVRO",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+          "VersionNumber": 1,
+          "Status": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:30.670Z"
+        }
+      }
+    },
+    {
+      "label": "get-schema-AVRO",
+      "service": "glue",
+      "operation": "get-schema",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        }
+      },
+      "started_ms": 1790434111594,
+      "finished_ms": 1790434112320,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RegistryName": "stackd-schema-owned",
+          "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+          "SchemaName": "avro",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+          "DataFormat": "AVRO",
+          "Compatibility": "BACKWARD",
+          "SchemaCheckpoint": 1,
+          "LatestSchemaVersion": 1,
+          "NextSchemaVersion": 2,
+          "SchemaStatus": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:30.671Z",
+          "UpdatedTime": "2026-09-26T14:48:30.671Z"
+        }
+      }
+    },
+    {
+      "label": "validate-JSON",
+      "service": "glue",
+      "operation": "check-schema-version-validity",
+      "input": {
+        "DataFormat": "JSON",
+        "SchemaDefinition": "{\"$schema\": \"http://json-schema.org/draft-07/schema#\", \"type\": \"object\", \"properties\": {\"value\": {\"type\": \"integer\"}}, \"additionalProperties\": false}"
+      },
+      "started_ms": 1790434112320,
+      "finished_ms": 1790434113221,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Valid": true
+        }
+      }
+    },
+    {
+      "label": "validate-invalid-JSON",
+      "service": "glue",
+      "operation": "check-schema-version-validity",
+      "input": {
+        "DataFormat": "JSON",
+        "SchemaDefinition": "not a schema"
+      },
+      "started_ms": 1790434113222,
+      "finished_ms": 1790434113933,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Valid": false,
+          "Error": "Unrecognized token 'not': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 4]"
+        }
+      }
+    },
+    {
+      "label": "create-schema-omitted-compatibility-JSON",
+      "service": "glue",
+      "operation": "create-schema",
+      "input": {
+        "RegistryId": {
+          "RegistryName": "stackd-schema-owned"
+        },
+        "SchemaName": "json",
+        "DataFormat": "JSON",
+        "SchemaDefinition": "{\"$schema\": \"http://json-schema.org/draft-07/schema#\", \"type\": \"object\", \"properties\": {\"value\": {\"type\": \"integer\"}}, \"additionalProperties\": false}"
+      },
+      "started_ms": 1790434113933,
+      "finished_ms": 1790434114720,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "Compatibility is not valid.",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "create-schema-JSON",
+      "service": "glue",
+      "operation": "create-schema",
+      "input": {
+        "RegistryId": {
+          "RegistryName": "stackd-schema-owned"
+        },
+        "SchemaName": "json",
+        "DataFormat": "JSON",
+        "Compatibility": "BACKWARD",
+        "SchemaDefinition": "{\"$schema\": \"http://json-schema.org/draft-07/schema#\", \"type\": \"object\", \"properties\": {\"value\": {\"type\": \"integer\"}}, \"additionalProperties\": false}"
+      },
+      "started_ms": 1790434114721,
+      "finished_ms": 1790434115579,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RegistryName": "stackd-schema-owned",
+          "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+          "SchemaName": "json",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/json",
+          "DataFormat": "JSON",
+          "Compatibility": "BACKWARD",
+          "SchemaCheckpoint": 1,
+          "LatestSchemaVersion": 1,
+          "NextSchemaVersion": 2,
+          "SchemaStatus": "AVAILABLE",
+          "SchemaVersionId": "SCHEMA_VERSION_2",
+          "SchemaVersionStatus": "AVAILABLE"
+        }
+      }
+    },
+    {
+      "label": "initial-version-JSON-0",
+      "service": "glue",
+      "operation": "get-schema-version",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_2"
+      },
+      "started_ms": 1790434115589,
+      "finished_ms": 1790434116324,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_2",
+          "SchemaDefinition": "{\"$schema\": \"http://json-schema.org/draft-07/schema#\", \"type\": \"object\", \"properties\": {\"value\": {\"type\": \"integer\"}}, \"additionalProperties\": false}",
+          "DataFormat": "JSON",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/json",
+          "VersionNumber": 1,
+          "Status": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:35.403Z"
+        }
+      }
+    },
+    {
+      "label": "get-schema-JSON",
+      "service": "glue",
+      "operation": "get-schema",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "json"
+        }
+      },
+      "started_ms": 1790434116324,
+      "finished_ms": 1790434117048,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RegistryName": "stackd-schema-owned",
+          "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+          "SchemaName": "json",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/json",
+          "DataFormat": "JSON",
+          "Compatibility": "BACKWARD",
+          "SchemaCheckpoint": 1,
+          "LatestSchemaVersion": 1,
+          "NextSchemaVersion": 2,
+          "SchemaStatus": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:35.404Z",
+          "UpdatedTime": "2026-09-26T14:48:35.404Z"
+        }
+      }
+    },
+    {
+      "label": "validate-PROTOBUF",
+      "service": "glue",
+      "operation": "check-schema-version-validity",
+      "input": {
+        "DataFormat": "PROTOBUF",
+        "SchemaDefinition": "syntax = \"proto3\"; message Item { string value = 1; }"
+      },
+      "started_ms": 1790434117049,
+      "finished_ms": 1790434118603,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Valid": true
+        }
+      }
+    },
+    {
+      "label": "validate-invalid-PROTOBUF",
+      "service": "glue",
+      "operation": "check-schema-version-validity",
+      "input": {
+        "DataFormat": "PROTOBUF",
+        "SchemaDefinition": "not a schema"
+      },
+      "started_ms": 1790434118604,
+      "finished_ms": 1790434119378,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Valid": false,
+          "Error": "Syntax error in :1:1: unexpected label: not"
+        }
+      }
+    },
+    {
+      "label": "create-schema-omitted-compatibility-PROTOBUF",
+      "service": "glue",
+      "operation": "create-schema",
+      "input": {
+        "RegistryId": {
+          "RegistryName": "stackd-schema-owned"
+        },
+        "SchemaName": "protobuf",
+        "DataFormat": "PROTOBUF",
+        "SchemaDefinition": "syntax = \"proto3\"; message Item { string value = 1; }"
+      },
+      "started_ms": 1790434119379,
+      "finished_ms": 1790434120161,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "Compatibility is not valid.",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "create-schema-PROTOBUF",
+      "service": "glue",
+      "operation": "create-schema",
+      "input": {
+        "RegistryId": {
+          "RegistryName": "stackd-schema-owned"
+        },
+        "SchemaName": "protobuf",
+        "DataFormat": "PROTOBUF",
+        "Compatibility": "BACKWARD",
+        "SchemaDefinition": "syntax = \"proto3\"; message Item { string value = 1; }"
+      },
+      "started_ms": 1790434120162,
+      "finished_ms": 1790434121029,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RegistryName": "stackd-schema-owned",
+          "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+          "SchemaName": "protobuf",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/protobuf",
+          "DataFormat": "PROTOBUF",
+          "Compatibility": "BACKWARD",
+          "SchemaCheckpoint": 1,
+          "LatestSchemaVersion": 1,
+          "NextSchemaVersion": 2,
+          "SchemaStatus": "AVAILABLE",
+          "SchemaVersionId": "SCHEMA_VERSION_3",
+          "SchemaVersionStatus": "AVAILABLE"
+        }
+      }
+    },
+    {
+      "label": "initial-version-PROTOBUF-0",
+      "service": "glue",
+      "operation": "get-schema-version",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_3"
+      },
+      "started_ms": 1790434121039,
+      "finished_ms": 1790434121791,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_3",
+          "SchemaDefinition": "syntax = \"proto3\"; message Item { string value = 1; }",
+          "DataFormat": "PROTOBUF",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/protobuf",
+          "VersionNumber": 1,
+          "Status": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:40.874Z"
+        }
+      }
+    },
+    {
+      "label": "get-schema-PROTOBUF",
+      "service": "glue",
+      "operation": "get-schema",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "protobuf"
+        }
+      },
+      "started_ms": 1790434121793,
+      "finished_ms": 1790434122540,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RegistryName": "stackd-schema-owned",
+          "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+          "SchemaName": "protobuf",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/protobuf",
+          "DataFormat": "PROTOBUF",
+          "Compatibility": "BACKWARD",
+          "SchemaCheckpoint": 1,
+          "LatestSchemaVersion": 1,
+          "NextSchemaVersion": 2,
+          "SchemaStatus": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:40.874Z",
+          "UpdatedTime": "2026-09-26T14:48:40.874Z"
+        }
+      }
+    },
+    {
+      "label": "create-schema-without-definition",
+      "service": "glue",
+      "operation": "create-schema",
+      "input": {
+        "RegistryId": {
+          "RegistryName": "stackd-schema-owned"
+        },
+        "SchemaName": "empty",
+        "DataFormat": "AVRO",
+        "Compatibility": "BACKWARD"
+      },
+      "started_ms": 1790434122541,
+      "finished_ms": 1790434123294,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "The resource name contains too many or too few characters. Parameter Name: schemaDefinition",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "get-empty-schema",
+      "service": "glue",
+      "operation": "get-schema",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "empty"
+        }
+      },
+      "started_ms": 1790434123295,
+      "finished_ms": 1790434124049,
+      "result": {
+        "code": "EntityNotFoundException",
+        "error": {
+          "Message": "Schema is not found. RegistryName: stackd-schema-owned, SchemaName: empty, SchemaArn: null",
+          "Code": "EntityNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "duplicate-schema",
+      "service": "glue",
+      "operation": "create-schema",
+      "input": {
+        "RegistryId": {
+          "RegistryName": "stackd-schema-owned"
+        },
+        "SchemaName": "avro",
+        "DataFormat": "AVRO",
+        "Compatibility": "BACKWARD",
+        "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"int\"}]}"
+      },
+      "started_ms": 1790434124050,
+      "finished_ms": 1790434124839,
+      "result": {
+        "code": "AlreadyExistsException",
+        "error": {
+          "Message": "Schema already exists. SchemaName: avro",
+          "Code": "AlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "get-avro-version-one",
+      "service": "glue",
+      "operation": "get-schema-version",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "SchemaVersionNumber": {
+          "VersionNumber": 1
+        }
+      },
+      "started_ms": 1790434124840,
+      "finished_ms": 1790434125611,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_1",
+          "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"int\"}]}",
+          "DataFormat": "AVRO",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+          "VersionNumber": 1,
+          "Status": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:30.670Z"
+        }
+      }
+    },
+    {
+      "label": "register-avro-exact-duplicate",
+      "service": "glue",
+      "operation": "register-schema-version",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"int\"}]}"
+      },
+      "started_ms": 1790434125612,
+      "finished_ms": 1790434126472,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_1",
+          "VersionNumber": 1,
+          "Status": "AVAILABLE"
+        }
+      }
+    },
+    {
+      "label": "register-avro-whitespace-duplicate",
+      "service": "glue",
+      "operation": "register-schema-version",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "SchemaDefinition": "{\n  \"fields\": [\n    {\n      \"name\": \"value\",\n      \"type\": \"int\"\n    }\n  ],\n  \"name\": \"Item\",\n  \"type\": \"record\"\n}"
+      },
+      "started_ms": 1790434126473,
+      "finished_ms": 1790434127315,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_1",
+          "VersionNumber": 1,
+          "Status": "AVAILABLE"
+        }
+      }
+    },
+    {
+      "label": "lookup-avro-whitespace",
+      "service": "glue",
+      "operation": "get-schema-by-definition",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "SchemaDefinition": "{\n  \"fields\": [\n    {\n      \"name\": \"value\",\n      \"type\": \"int\"\n    }\n  ],\n  \"name\": \"Item\",\n  \"type\": \"record\"\n}"
+      },
+      "started_ms": 1790434127315,
+      "finished_ms": 1790434128075,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_1",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+          "DataFormat": "AVRO",
+          "Status": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:30.671Z"
+        }
+      }
+    },
+    {
+      "label": "register-avro-compatible",
+      "service": "glue",
+      "operation": "register-schema-version",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"int\"}, {\"name\": \"note\", \"type\": [\"null\", \"string\"], \"default\": null}]}"
+      },
+      "started_ms": 1790434128076,
+      "finished_ms": 1790434128987,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_4",
+          "VersionNumber": 2,
+          "Status": "AVAILABLE"
+        }
+      }
+    },
+    {
+      "label": "compatible-version-0",
+      "service": "glue",
+      "operation": "get-schema-version",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_4"
+      },
+      "started_ms": 1790434128997,
+      "finished_ms": 1790434129726,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_4",
+          "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"int\"}, {\"name\": \"note\", \"type\": [\"null\", \"string\"], \"default\": null}]}",
+          "DataFormat": "AVRO",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+          "VersionNumber": 2,
+          "Status": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:48.800Z"
+        }
+      }
+    },
+    {
+      "label": "register-avro-incompatible",
+      "service": "glue",
+      "operation": "register-schema-version",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"string\"}]}"
+      },
+      "started_ms": 1790434129727,
+      "finished_ms": 1790434130610,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_5",
+          "VersionNumber": 3,
+          "Status": "FAILURE"
+        }
+      }
+    },
+    {
+      "label": "incompatible-version-0",
+      "service": "glue",
+      "operation": "get-schema-version",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_5"
+      },
+      "started_ms": 1790434130620,
+      "finished_ms": 1790434131363,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_5",
+          "SchemaDefinition": "{\"type\": \"record\", \"name\": \"Item\", \"fields\": [{\"name\": \"value\", \"type\": \"string\"}]}",
+          "DataFormat": "AVRO",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+          "VersionNumber": 3,
+          "Status": "FAILURE",
+          "CreatedTime": "2026-09-26T14:48:50.408Z"
+        }
+      }
+    },
+    {
+      "label": "versions-after-evolution",
+      "service": "glue",
+      "operation": "list-schema-versions",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "MaxResults": 10
+      },
+      "started_ms": 1790434131364,
+      "finished_ms": 1790434132111,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Schemas": [
+            {
+              "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+              "SchemaVersionId": "SCHEMA_VERSION_4",
+              "VersionNumber": 2,
+              "Status": "AVAILABLE",
+              "CreatedTime": "2026-09-26T14:48:48.800Z"
+            },
+            {
+              "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+              "SchemaVersionId": "SCHEMA_VERSION_1",
+              "VersionNumber": 1,
+              "Status": "AVAILABLE",
+              "CreatedTime": "2026-09-26T14:48:30.671Z"
+            },
+            {
+              "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+              "SchemaVersionId": "SCHEMA_VERSION_5",
+              "VersionNumber": 3,
+              "Status": "FAILURE",
+              "CreatedTime": "2026-09-26T14:48:50.408Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "schema-diff",
+      "service": "glue",
+      "operation": "get-schema-versions-diff",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "FirstSchemaVersionNumber": {
+          "VersionNumber": 1
+        },
+        "SecondSchemaVersionNumber": {
+          "VersionNumber": 2
+        },
+        "SchemaDiffType": "SYNTAX_DIFF"
+      },
+      "started_ms": 1790434132112,
+      "finished_ms": 1790434132871,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Diff": "[{\"op\":\"add\",\"path\":\"/fields/1\",\"value\":{\"name\":\"note\",\"type\":[\"null\",\"string\"],\"default\":null}}]"
+        }
+      }
+    },
+    {
+      "label": "put-metadata",
+      "service": "glue",
+      "operation": "put-schema-version-metadata",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_1",
+        "MetadataKeyValue": {
+          "MetadataKey": "owner",
+          "MetadataValue": "one"
+        }
+      },
+      "started_ms": 1790434132872,
+      "finished_ms": 1790434133667,
+      "result": {
+        "code": "Success",
+        "output": {
+          "LatestVersion": false,
+          "VersionNumber": 0,
+          "SchemaVersionId": "SCHEMA_VERSION_1",
+          "MetadataKey": "owner",
+          "MetadataValue": "one"
+        }
+      }
+    },
+    {
+      "label": "put-metadata-duplicate",
+      "service": "glue",
+      "operation": "put-schema-version-metadata",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_1",
+        "MetadataKeyValue": {
+          "MetadataKey": "owner",
+          "MetadataValue": "one"
+        }
+      },
+      "started_ms": 1790434133668,
+      "finished_ms": 1790434134498,
+      "result": {
+        "code": "AlreadyExistsException",
+        "error": {
+          "Message": "Resource already exist for schema version id: SCHEMA_VERSION_1, metadata key: owner, metadata value: one",
+          "Code": "AlreadyExistsException"
+        }
+      }
+    },
+    {
+      "label": "put-metadata-same-key",
+      "service": "glue",
+      "operation": "put-schema-version-metadata",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_1",
+        "MetadataKeyValue": {
+          "MetadataKey": "owner",
+          "MetadataValue": "two"
+        }
+      },
+      "started_ms": 1790434134498,
+      "finished_ms": 1790434135275,
+      "result": {
+        "code": "Success",
+        "output": {
+          "LatestVersion": false,
+          "VersionNumber": 0,
+          "SchemaVersionId": "SCHEMA_VERSION_1",
+          "MetadataKey": "owner",
+          "MetadataValue": "two"
+        }
+      }
+    },
+    {
+      "label": "get-metadata",
+      "service": "glue",
+      "operation": "query-schema-version-metadata",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_1"
+      },
+      "started_ms": 1790434135275,
+      "finished_ms": 1790434136051,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetadataInfoMap": {
+            "owner": {
+              "MetadataValue": "two",
+              "CreatedTime": "2026-09-26T14:48:55.153Z",
+              "OtherMetadataValueList": [
+                {
+                  "MetadataValue": "one",
+                  "CreatedTime": "2026-09-26T14:48:53.527Z"
+                }
+              ]
+            }
+          },
+          "SchemaVersionId": "SCHEMA_VERSION_1"
+        }
+      }
+    },
+    {
+      "label": "remove-metadata-missing-value",
+      "service": "glue",
+      "operation": "remove-schema-version-metadata",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_1",
+        "MetadataKeyValue": {
+          "MetadataKey": "owner",
+          "MetadataValue": "missing"
+        }
+      },
+      "started_ms": 1790434136052,
+      "finished_ms": 1790434136834,
+      "result": {
+        "code": "EntityNotFoundException",
+        "error": {
+          "Message": "Metadata is not found for the schema version. SchemaVersionId: SCHEMA_VERSION_1 ",
+          "Code": "EntityNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "remove-metadata-value",
+      "service": "glue",
+      "operation": "remove-schema-version-metadata",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_1",
+        "MetadataKeyValue": {
+          "MetadataKey": "owner",
+          "MetadataValue": "one"
+        }
+      },
+      "started_ms": 1790434136835,
+      "finished_ms": 1790434137615,
+      "result": {
+        "code": "Success",
+        "output": {
+          "LatestVersion": false,
+          "VersionNumber": 0,
+          "SchemaVersionId": "SCHEMA_VERSION_1",
+          "MetadataKey": "owner",
+          "MetadataValue": "one"
+        }
+      }
+    },
+    {
+      "label": "get-metadata-after-remove",
+      "service": "glue",
+      "operation": "query-schema-version-metadata",
+      "input": {
+        "SchemaVersionId": "SCHEMA_VERSION_1"
+      },
+      "started_ms": 1790434137616,
+      "finished_ms": 1790434138361,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetadataInfoMap": {
+            "owner": {
+              "MetadataValue": "two",
+              "CreatedTime": "2026-09-26T14:48:55.153Z",
+              "OtherMetadataValueList": []
+            }
+          },
+          "SchemaVersionId": "SCHEMA_VERSION_1"
+        }
+      }
+    },
+    {
+      "label": "update-compatibility-without-checkpoint",
+      "service": "glue",
+      "operation": "update-schema",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "Compatibility": "NONE"
+      },
+      "started_ms": 1790434138362,
+      "finished_ms": 1790434139141,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "Schema version checkpoint is missing.",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "get-schema-after-compatibility-update",
+      "service": "glue",
+      "operation": "get-schema",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        }
+      },
+      "started_ms": 1790434139142,
+      "finished_ms": 1790434139924,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RegistryName": "stackd-schema-owned",
+          "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+          "SchemaName": "avro",
+          "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+          "DataFormat": "AVRO",
+          "Compatibility": "BACKWARD",
+          "SchemaCheckpoint": 1,
+          "LatestSchemaVersion": 3,
+          "NextSchemaVersion": 4,
+          "SchemaStatus": "AVAILABLE",
+          "CreatedTime": "2026-09-26T14:48:30.671Z",
+          "UpdatedTime": "2026-09-26T14:48:50.435Z"
+        }
+      }
+    },
+    {
+      "label": "delete-version-one",
+      "service": "glue",
+      "operation": "delete-schema-versions",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "Versions": "1"
+      },
+      "started_ms": 1790434139926,
+      "finished_ms": 1790434140710,
+      "result": {
+        "code": "InvalidInputException",
+        "error": {
+          "Message": "Cannot delete checkpoint version.",
+          "Code": "InvalidInputException"
+        }
+      }
+    },
+    {
+      "label": "delete-version-missing",
+      "service": "glue",
+      "operation": "delete-schema-versions",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "Versions": "999"
+      },
+      "started_ms": 1790434140711,
+      "finished_ms": 1790434141507,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionErrors": [
+            {
+              "VersionNumber": 999,
+              "ErrorDetails": {
+                "ErrorCode": "ResourceNotFoundException",
+                "ErrorMessage": "Version number not found"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "delete-version-two",
+      "service": "glue",
+      "operation": "delete-schema-versions",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "Versions": "2"
+      },
+      "started_ms": 1790434141508,
+      "finished_ms": 1790434142337,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionErrors": []
+        }
+      }
+    },
+    {
+      "label": "versions-after-delete",
+      "service": "glue",
+      "operation": "list-schema-versions",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "avro"
+        },
+        "MaxResults": 10
+      },
+      "started_ms": 1790434142338,
+      "finished_ms": 1790434143103,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Schemas": [
+            {
+              "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+              "SchemaVersionId": "SCHEMA_VERSION_1",
+              "VersionNumber": 1,
+              "Status": "AVAILABLE",
+              "CreatedTime": "2026-09-26T14:48:30.671Z"
+            },
+            {
+              "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+              "SchemaVersionId": "SCHEMA_VERSION_5",
+              "VersionNumber": 3,
+              "Status": "FAILURE",
+              "CreatedTime": "2026-09-26T14:48:50.408Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "schema-other-registry",
+      "service": "glue",
+      "operation": "get-schema",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned-missing",
+          "SchemaName": "avro"
+        }
+      },
+      "started_ms": 1790434143105,
+      "finished_ms": 1790434143844,
+      "result": {
+        "code": "EntityNotFoundException",
+        "error": {
+          "Message": "Registry is not found. RegistryName: stackd-schema-owned-missing",
+          "Code": "EntityNotFoundException"
+        }
+      }
+    },
+    {
+      "label": "register-json-reordered",
+      "service": "glue",
+      "operation": "register-schema-version",
+      "input": {
+        "SchemaId": {
+          "RegistryName": "stackd-schema-owned",
+          "SchemaName": "json"
+        },
+        "SchemaDefinition": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"value\": {\n      \"type\": \"integer\"\n    }\n  },\n  \"type\": \"object\"\n}"
+      },
+      "started_ms": 1790434143845,
+      "finished_ms": 1790434144696,
+      "result": {
+        "code": "Success",
+        "output": {
+          "SchemaVersionId": "SCHEMA_VERSION_2",
+          "VersionNumber": 1,
+          "Status": "AVAILABLE"
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "cleanup-schema-empty",
+        "service": "glue",
+        "operation": "delete-schema",
+        "input": {
+          "SchemaId": {
+            "RegistryName": "stackd-schema-owned",
+            "SchemaName": "empty"
+          }
+        },
+        "started_ms": 1790434144697,
+        "finished_ms": 1790434145441,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Schema is not found. RegistryName: stackd-schema-owned, SchemaName: empty, SchemaArn: null",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      },
+      {
+        "label": "cleanup-schema-protobuf",
+        "service": "glue",
+        "operation": "delete-schema",
+        "input": {
+          "SchemaId": {
+            "RegistryName": "stackd-schema-owned",
+            "SchemaName": "protobuf"
+          }
+        },
+        "started_ms": 1790434145442,
+        "finished_ms": 1790434146277,
+        "result": {
+          "code": "Success",
+          "output": {
+            "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/protobuf",
+            "SchemaName": "protobuf",
+            "Status": "DELETING"
+          }
+        }
+      },
+      {
+        "label": "cleanup-schema-json",
+        "service": "glue",
+        "operation": "delete-schema",
+        "input": {
+          "SchemaId": {
+            "RegistryName": "stackd-schema-owned",
+            "SchemaName": "json"
+          }
+        },
+        "started_ms": 1790434146278,
+        "finished_ms": 1790434147093,
+        "result": {
+          "code": "Success",
+          "output": {
+            "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/json",
+            "SchemaName": "json",
+            "Status": "DELETING"
+          }
+        }
+      },
+      {
+        "label": "cleanup-schema-avro",
+        "service": "glue",
+        "operation": "delete-schema",
+        "input": {
+          "SchemaId": {
+            "RegistryName": "stackd-schema-owned",
+            "SchemaName": "avro"
+          }
+        },
+        "started_ms": 1790434147094,
+        "finished_ms": 1790434147922,
+        "result": {
+          "code": "Success",
+          "output": {
+            "SchemaArn": "arn:aws:glue:us-east-1:123456789012:schema/stackd-schema-owned/avro",
+            "SchemaName": "avro",
+            "Status": "DELETING"
+          }
+        }
+      },
+      {
+        "label": "cleanup-registry",
+        "service": "glue",
+        "operation": "delete-registry",
+        "input": {
+          "RegistryId": {
+            "RegistryName": "stackd-schema-owned"
+          }
+        },
+        "started_ms": 1790434147924,
+        "finished_ms": 1790434148715,
+        "result": {
+          "code": "Success",
+          "output": {
+            "RegistryName": "stackd-schema-owned",
+            "RegistryArn": "arn:aws:glue:us-east-1:123456789012:registry/stackd-schema-owned",
+            "Status": "DELETING"
+          }
+        }
+      },
+      {
+        "label": "verify-registry-absent-0",
+        "service": "glue",
+        "operation": "get-registry",
+        "input": {
+          "RegistryId": {
+            "RegistryName": "stackd-schema-owned"
+          }
+        },
+        "started_ms": 1790434148717,
+        "finished_ms": 1790434149460,
+        "result": {
+          "code": "EntityNotFoundException",
+          "error": {
+            "Message": "Registry is not found. RegistryName: stackd-schema-owned, RegistryArn: null",
+            "Code": "EntityNotFoundException"
+          }
+        }
+      }
+    ],
+    "remaining_owned": []
+  },
+  "completed": true,
+  "cli_calls": 56,
+  "elapsed_seconds": 44.842,
+  "account": "123456789012",
+  "uncertainty": [
+    "Small schemas and one ordinary registry; not exhaustive AVRO/JSON/PROTOBUF compatibility validation.",
+    "No unscoped ListRegistries/ListSchemas scan; version order retained but not a universal ordering claim."
+  ]
+}

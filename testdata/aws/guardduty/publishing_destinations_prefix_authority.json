@@ -1,0 +1,1972 @@
+{
+  "captured_at": "2026-09-30T05:25:06.156400+00:00",
+  "sources": [
+    "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_exportfindings.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_CreatePublishingDestination.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_DescribePublishingDestination.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListPublishingDestinations.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdatePublishingDestination.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_DeletePublishingDestination.html"
+  ],
+  "sdk": {
+    "boto3": "1.43.98",
+    "botocore": "1.43.98",
+    "api_version": "2017-11-28",
+    "go_model_sha256": "4675cc38456fc0bdb85bd612cae1c7e3a24feed05ca19ecdb8eb71d35312270b",
+    "go_model_revision": "113bc91bf12edc3af1d3aba1c70be28494d54c2a"
+  },
+  "scope": "Exact-owned enabled detector, private S3 bucket and KMS key; all optional features disabled; at most one explicit AWS sample type; no synthetic traffic; no explicit IAM changes.",
+  "sanitization": "Account and caller identity replaced consistently. AWS-provided fictional sample threat details, IDs, timestamps, and request IDs retained. No credentials or authorization headers captured.",
+  "observations": [
+    {
+      "case": "authorized-identity",
+      "service": "sts",
+      "region": "us-east-1",
+      "operation": "get_caller_identity",
+      "input": {},
+      "at": "2026-09-30T05:25:06.178627+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "00350019-1237-4ab0-905f-c0eaacb71e8c",
+      "output": {
+        "UserId": "NATIVEPROBEIDENTITY",
+        "Account": "123456789012",
+        "Arn": "arn:aws:iam::123456789012:user/native-probe"
+      }
+    },
+    {
+      "case": "service-role-before",
+      "service": "iam",
+      "region": "us-east-1",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "AWSServiceRoleForAmazonGuardDuty"
+      },
+      "at": "2026-09-30T05:25:06.739391+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "3f03e9aa-8e00-4d9e-8259-3fda339ee171",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/guardduty.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForAmazonGuardDuty",
+          "RoleId": "AROAQAAAAAAAO7HY7DXBH",
+          "Arn": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+          "CreateDate": "2026-09-29 10:17:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "A service-linked role required for Amazon GuardDuty to access your resources. ",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {
+            "LastUsedDate": "2026-09-29 16:44:57+00:00",
+            "Region": "us-west-2"
+          }
+        }
+      }
+    },
+    {
+      "case": "detectors-before-us-west-2",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_detectors",
+      "input": {},
+      "at": "2026-09-30T05:25:07.254825+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ebe632d9-37e2-4215-8e24-a1b59dbedac1",
+      "output": {
+        "DetectorIds": []
+      },
+      "wire_output": {
+        "detectorIds": []
+      }
+    },
+    {
+      "case": "event-rules-before-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "list_rules",
+      "input": {
+        "Limit": 100
+      },
+      "at": "2026-09-30T05:25:07.878524+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "08976d86-6105-425e-9661-8e6c63e832f6",
+      "output": {
+        "Rules": [
+          {
+            "Name": "5z6z7q-local-eb-rule-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/5z6z7q-local-eb-rule-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "ForwardToCustomBus",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/ForwardToCustomBus",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "Description": "Forward all CloudTrail events to the primary event bus",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "deceptiq-cloned-forward-to-primary",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/deceptiq-cloned-forward-to-primary",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED",
+            "Description": "Forward breach events from default bus to primary bus",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "ecr",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/ecr",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "Description": "Capture events on default bus in us-west-2",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "ml3c1d-bedrock-eb-rule-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/ml3c1d-bedrock-eb-rule-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "qop95h-ebkit-eb-rule-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/qop95h-ebkit-eb-rule-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          },
+          {
+            "Name": "zluz073m-regional-us-west-2",
+            "Arn": "arn:aws:events:us-west-2:123456789012:rule/zluz073m-regional-us-west-2",
+            "EventPattern": "<omitted: unrelated existing rule pattern>",
+            "State": "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS",
+            "EventBusName": "default"
+          }
+        ]
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-5z6z7q-local-eb-rule-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"15208cbb-82e4-4073-bcb2-a08b76d83a97\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-30T05:25:08Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-30T05:25:08.659215+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "528e0de7-adfd-457b-b49f-1dd4142c2ab1",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-ForwardToCustomBus",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"15208cbb-82e4-4073-bcb2-a08b76d83a97\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-30T05:25:08Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-30T05:25:08.839149+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "41da9530-fc08-47ed-b073-5b7557ad2bdb",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-deceptiq-cloned-forward-to-primary",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"15208cbb-82e4-4073-bcb2-a08b76d83a97\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-30T05:25:08Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-30T05:25:09.014713+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "3c6466bf-e428-44b4-93e0-9222df03d3d0",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-ecr",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"15208cbb-82e4-4073-bcb2-a08b76d83a97\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-30T05:25:08Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-30T05:25:09.192487+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "45bd7d9f-8209-46cf-a67a-cc3b4e5df844",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-ml3c1d-bedrock-eb-rule-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"15208cbb-82e4-4073-bcb2-a08b76d83a97\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-30T05:25:08Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-30T05:25:09.369432+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "723e7c91-2a5e-4588-93ca-ba4188766828",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-qop95h-ebkit-eb-rule-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"15208cbb-82e4-4073-bcb2-a08b76d83a97\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-30T05:25:08Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-30T05:25:09.543928+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "8268eb7c-2f97-4639-a873-11c3ec1d9a0f",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "sample-rule-exclusion-zluz073m-regional-us-west-2",
+      "service": "events",
+      "region": "us-west-2",
+      "operation": "test_event_pattern",
+      "input": {
+        "EventPattern": "<omitted: unrelated existing rule pattern>",
+        "Event": "{\"id\": \"15208cbb-82e4-4073-bcb2-a08b76d83a97\", \"account\": \"123456789012\", \"source\": \"aws.guardduty\", \"detail-type\": \"GuardDuty Finding\", \"time\": \"2026-09-30T05:25:08Z\", \"region\": \"us-west-2\", \"resources\": [], \"detail\": {}}"
+      },
+      "at": "2026-09-30T05:25:09.735004+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9dd26b0b-bacb-4e16-b153-2a8fa56cbc81",
+      "output": {
+        "Result": false
+      }
+    },
+    {
+      "case": "empty-boundary-recheck",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_detectors",
+      "input": {},
+      "at": "2026-09-30T05:25:09.910481+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ea0ef24e-4844-40dd-805f-8b1472fc96ea",
+      "output": {
+        "DetectorIds": []
+      },
+      "wire_output": {
+        "detectorIds": []
+      }
+    },
+    {
+      "case": "service-role-immediate-before",
+      "service": "iam",
+      "region": "us-west-2",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "AWSServiceRoleForAmazonGuardDuty"
+      },
+      "at": "2026-09-30T05:25:10.111779+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "44b458e6-e7e5-44e2-bf30-b583fcb83a85",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/guardduty.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForAmazonGuardDuty",
+          "RoleId": "AROAQAAAAAAAO7HY7DXBH",
+          "Arn": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+          "CreateDate": "2026-09-29 10:17:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "A service-linked role required for Amazon GuardDuty to access your resources. ",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {
+            "LastUsedDate": "2026-09-29 16:44:57+00:00",
+            "Region": "us-west-2"
+          }
+        }
+      }
+    },
+    {
+      "case": "create-enabled-detector",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_detector",
+      "input": {
+        "Enable": true,
+        "ClientToken": "3ceb81f7a9fd4ecf899cc43cf9eb8805",
+        "Features": [
+          {
+            "Name": "S3_DATA_EVENTS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "EKS_AUDIT_LOGS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "EBS_MALWARE_PROTECTION",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "RDS_LOGIN_EVENTS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "LAMBDA_NETWORK_LOGS",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "AI_PROTECTION",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "AI_ANALYST",
+            "Status": "DISABLED"
+          },
+          {
+            "Name": "RUNTIME_MONITORING",
+            "Status": "DISABLED",
+            "AdditionalConfiguration": [
+              {
+                "Name": "EKS_ADDON_MANAGEMENT",
+                "Status": "DISABLED"
+              },
+              {
+                "Name": "ECS_FARGATE_AGENT_MANAGEMENT",
+                "Status": "DISABLED"
+              },
+              {
+                "Name": "EC2_AGENT_MANAGEMENT",
+                "Status": "DISABLED"
+              }
+            ]
+          }
+        ],
+        "Tags": {
+          "stackd-probe": "3ceb81f7a9fd4ecf899cc43cf9eb8805"
+        }
+      },
+      "at": "2026-09-30T05:25:10.564360+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9a81f0e4-9454-4e03-8ef1-be2cfa802d5c",
+      "output": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138"
+      },
+      "wire_output": {
+        "detectorId": "68773b2a587c4e1c9a5df554d5221138"
+      }
+    },
+    {
+      "case": "service-role-after-create",
+      "service": "iam",
+      "region": "us-west-2",
+      "operation": "get_role",
+      "input": {
+        "RoleName": "AWSServiceRoleForAmazonGuardDuty"
+      },
+      "at": "2026-09-30T05:25:10.987343+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "030dc656-9d25-483a-b595-cfbc4a6d5d27",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/guardduty.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForAmazonGuardDuty",
+          "RoleId": "AROAQAAAAAAAO7HY7DXBH",
+          "Arn": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+          "CreateDate": "2026-09-29 10:17:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "A service-linked role required for Amazon GuardDuty to access your resources. ",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {
+            "LastUsedDate": "2026-09-29 16:44:57+00:00",
+            "Region": "us-west-2"
+          }
+        }
+      }
+    },
+    {
+      "case": "detector-created",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "get_detector",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138"
+      },
+      "at": "2026-09-30T05:25:11.129146+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "a09c2feb-3b66-4922-80c2-e427e9eeab32",
+      "output": {
+        "CreatedAt": "2026-09-30T05:25:10.822Z",
+        "FindingPublishingFrequency": "SIX_HOURS",
+        "ServiceRole": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+        "Status": "ENABLED",
+        "UpdatedAt": "2026-09-30T05:25:10.822Z",
+        "DataSources": {
+          "CloudTrail": {
+            "Status": "ENABLED"
+          },
+          "DNSLogs": {
+            "Status": "ENABLED"
+          },
+          "FlowLogs": {
+            "Status": "ENABLED"
+          },
+          "S3Logs": {
+            "Status": "DISABLED"
+          },
+          "Kubernetes": {
+            "AuditLogs": {
+              "Status": "DISABLED"
+            }
+          },
+          "MalwareProtection": {
+            "ScanEc2InstanceWithFindings": {
+              "EbsVolumes": {
+                "Status": "DISABLED"
+              }
+            }
+          }
+        },
+        "Tags": {
+          "stackd-probe": "3ceb81f7a9fd4ecf899cc43cf9eb8805"
+        },
+        "Features": [
+          {
+            "Name": "CLOUD_TRAIL",
+            "Status": "ENABLED",
+            "UpdatedAt": "2026-09-30 06:25:11+01:00"
+          },
+          {
+            "Name": "DNS_LOGS",
+            "Status": "ENABLED",
+            "UpdatedAt": "2026-09-30 06:25:11+01:00"
+          },
+          {
+            "Name": "FLOW_LOGS",
+            "Status": "ENABLED",
+            "UpdatedAt": "2026-09-30 06:25:11+01:00"
+          },
+          {
+            "Name": "S3_DATA_EVENTS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-30 06:25:10+01:00"
+          },
+          {
+            "Name": "EKS_AUDIT_LOGS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-30 06:25:10+01:00"
+          },
+          {
+            "Name": "EBS_MALWARE_PROTECTION",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-30 06:25:10+01:00"
+          },
+          {
+            "Name": "RDS_LOGIN_EVENTS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-30 06:25:10+01:00",
+            "AdditionalConfiguration": []
+          },
+          {
+            "Name": "AI_PROTECTION",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-30 06:25:10+01:00"
+          },
+          {
+            "Name": "AI_ANALYST",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-30 06:25:10+01:00"
+          },
+          {
+            "Name": "EKS_RUNTIME_MONITORING",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-30 06:25:10+01:00",
+            "AdditionalConfiguration": [
+              {
+                "Name": "EKS_ADDON_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-30 06:25:10+01:00"
+              }
+            ]
+          },
+          {
+            "Name": "LAMBDA_NETWORK_LOGS",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-30 06:25:10+01:00"
+          },
+          {
+            "Name": "RUNTIME_MONITORING",
+            "Status": "DISABLED",
+            "UpdatedAt": "2026-09-30 06:25:10+01:00",
+            "AdditionalConfiguration": [
+              {
+                "Name": "EKS_ADDON_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-30 06:25:10+01:00"
+              },
+              {
+                "Name": "ECS_FARGATE_AGENT_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-30 06:25:10+01:00"
+              },
+              {
+                "Name": "EC2_AGENT_MANAGEMENT",
+                "Status": "DISABLED",
+                "UpdatedAt": "2026-09-30 06:25:10+01:00"
+              }
+            ]
+          }
+        ]
+      },
+      "wire_output": {
+        "status": "ENABLED",
+        "createdAt": "2026-09-30T05:25:10.822Z",
+        "updatedAt": "2026-09-30T05:25:10.822Z",
+        "findingPublishingFrequency": "SIX_HOURS",
+        "dataSources": {
+          "cloudTrail": {
+            "status": "ENABLED",
+            "updatedAt": "2026-09-30T05:25:11.283Z"
+          },
+          "dnsLogs": {
+            "status": "ENABLED",
+            "updatedAt": "2026-09-30T05:25:11.285Z"
+          },
+          "flowLogs": {
+            "status": "ENABLED",
+            "updatedAt": "2026-09-30T05:25:11.287Z"
+          },
+          "s3Logs": {
+            "status": "DISABLED",
+            "updatedAt": "2026-09-30T05:25:10.830Z"
+          },
+          "kubernetes": {
+            "auditLogs": {
+              "status": "DISABLED",
+              "updatedAt": "2026-09-30T05:25:10.834Z"
+            }
+          },
+          "malwareProtection": {
+            "scanEc2InstanceWithFindings": {
+              "ebsVolumes": {
+                "status": "DISABLED",
+                "updatedAt": "2026-09-30T05:25:10.838Z"
+              }
+            }
+          },
+          "database": {
+            "rds": {
+              "databaseEvents": {
+                "status": "DISABLED",
+                "updatedAt": "2026-09-30T05:25:10.842Z"
+              }
+            }
+          }
+        },
+        "features": [
+          {
+            "name": "CLOUD_TRAIL",
+            "status": "ENABLED",
+            "updatedAt": 1790745911,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "DNS_LOGS",
+            "status": "ENABLED",
+            "updatedAt": 1790745911,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "FLOW_LOGS",
+            "status": "ENABLED",
+            "updatedAt": 1790745911,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "S3_DATA_EVENTS",
+            "status": "DISABLED",
+            "updatedAt": 1790745910,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "EKS_AUDIT_LOGS",
+            "status": "DISABLED",
+            "updatedAt": 1790745910,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "EBS_MALWARE_PROTECTION",
+            "status": "DISABLED",
+            "updatedAt": 1790745910,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "RDS_LOGIN_EVENTS",
+            "status": "DISABLED",
+            "updatedAt": 1790745910,
+            "additionalConfiguration": []
+          },
+          {
+            "name": "AI_PROTECTION",
+            "status": "DISABLED",
+            "updatedAt": 1790745910,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "AI_ANALYST",
+            "status": "DISABLED",
+            "updatedAt": 1790745910,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "EKS_RUNTIME_MONITORING",
+            "status": "DISABLED",
+            "updatedAt": 1790745910,
+            "additionalConfiguration": [
+              {
+                "name": "EKS_ADDON_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790745910
+              }
+            ]
+          },
+          {
+            "name": "LAMBDA_NETWORK_LOGS",
+            "status": "DISABLED",
+            "updatedAt": 1790745910,
+            "additionalConfiguration": null
+          },
+          {
+            "name": "RUNTIME_MONITORING",
+            "status": "DISABLED",
+            "updatedAt": 1790745910,
+            "additionalConfiguration": [
+              {
+                "name": "EKS_ADDON_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790745910
+              },
+              {
+                "name": "ECS_FARGATE_AGENT_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790745910
+              },
+              {
+                "name": "EC2_AGENT_MANAGEMENT",
+                "status": "DISABLED",
+                "updatedAt": 1790745910
+              }
+            ]
+          }
+        ],
+        "tags": {
+          "stackd-probe": "3ceb81f7a9fd4ecf899cc43cf9eb8805"
+        },
+        "serviceRole": "arn:aws:iam::123456789012:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty"
+      }
+    },
+    {
+      "case": "bucket-create",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "create_bucket",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "CreateBucketConfiguration": {
+          "LocationConstraint": "us-west-2"
+        }
+      },
+      "at": "2026-09-30T05:25:11.479901+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "Z4BZ8Q19V69C7XB5",
+      "output": {
+        "Location": "http://stackd-gd-dest-04a9d21445ed4fb2.s3.amazonaws.com/",
+        "BucketArn": "arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2"
+      }
+    },
+    {
+      "case": "bucket-private",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_public_access_block",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        }
+      },
+      "at": "2026-09-30T05:25:12.560452+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "Z4BY0WVN9BYGH7EJ",
+      "output": {}
+    },
+    {
+      "case": "bucket-tag",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_bucket_tagging",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Tagging": {
+          "TagSet": [
+            {
+              "Key": "stackd-probe",
+              "Value": "stackd-gd-dest-04a9d21445ed4fb2"
+            }
+          ]
+        }
+      },
+      "at": "2026-09-30T05:25:12.809727+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "Z4BTGBDQQ678X2QY",
+      "output": {}
+    },
+    {
+      "case": "key-create",
+      "service": "kms",
+      "region": "us-west-2",
+      "operation": "create_key",
+      "input": {
+        "Description": "stackd-gd-dest-04a9d21445ed4fb2",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "Tags": [
+          {
+            "TagKey": "stackd-probe",
+            "TagValue": "stackd-gd-dest-04a9d21445ed4fb2"
+          }
+        ]
+      },
+      "at": "2026-09-30T05:25:13.394441+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "2f7d5b57-db71-48b7-af71-a36bf3e82e3a",
+      "output": {
+        "KeyMetadata": {
+          "AWSAccountId": "123456789012",
+          "KeyId": "90f540ec-41c2-4d41-abbe-32a14cd1898b",
+          "Arn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b",
+          "CreationDate": "2026-09-30 06:25:13.911000+01:00",
+          "Enabled": true,
+          "Description": "stackd-gd-dest-04a9d21445ed4fb2",
+          "KeyUsage": "ENCRYPT_DECRYPT",
+          "KeyState": "Enabled",
+          "Origin": "AWS_KMS",
+          "KeyManager": "CUSTOMER",
+          "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+          "KeySpec": "SYMMETRIC_DEFAULT",
+          "EncryptionAlgorithms": [
+            "SYMMETRIC_DEFAULT"
+          ],
+          "MultiRegion": false,
+          "CurrentKeyMaterialId": "231fa138c6ca0e842c8d4e2575768080b79b567158f1328865ac46d4280cdc0f"
+        }
+      }
+    },
+    {
+      "case": "key-policy",
+      "service": "kms",
+      "region": "us-west-2",
+      "operation": "put_key_policy",
+      "input": {
+        "KeyId": "90f540ec-41c2-4d41-abbe-32a14cd1898b",
+        "PolicyName": "default",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"EnableOwnedAccountPermissions\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"kms:*\", \"Resource\": \"*\"}, {\"Sid\": \"AllowGuardDutyKey\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"kms:GenerateDataKey\", \"Resource\": \"arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b\", \"Condition\": {\"StringEquals\": {\"aws:SourceAccount\": \"123456789012\", \"aws:SourceArn\": \"arn:aws:guardduty:us-west-2:123456789012:detector/68773b2a587c4e1c9a5df554d5221138\"}}}]}"
+      },
+      "at": "2026-09-30T05:25:14.138530+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "61029d21-c922-4bdd-987e-252d76e69039",
+      "output": {}
+    },
+    {
+      "case": "bucket-policy",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_bucket_policy",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AllowGetBucketLocation\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"s3:GetBucketLocation\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2\", \"Condition\": {\"StringEquals\": {\"aws:SourceAccount\": \"123456789012\", \"aws:SourceArn\": \"arn:aws:guardduty:us-west-2:123456789012:detector/68773b2a587c4e1c9a5df554d5221138\"}}}, {\"Sid\": \"AllowPutObject\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceAccount\": \"123456789012\", \"aws:SourceArn\": \"arn:aws:guardduty:us-west-2:123456789012:detector/68773b2a587c4e1c9a5df554d5221138\"}}}, {\"Sid\": \"DenyUnencryptedUploads\", \"Effect\": \"Deny\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2/*\", \"Condition\": {\"StringNotEquals\": {\"s3:x-amz-server-side-encryption\": \"aws:kms\"}}}, {\"Sid\": \"DenyIncorrectKey\", \"Effect\": \"Deny\", \"Principal\": {\"Service\": \"guardduty.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2/*\", \"Condition\": {\"StringNotEquals\": {\"s3:x-amz-server-side-encryption-aws-kms-key-id\": \"arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b\"}}}, {\"Sid\": \"DenyInsecureTransport\", \"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:*\", \"Resource\": \"arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2/*\", \"Condition\": {\"Bool\": {\"aws:SecureTransport\": \"false\"}}}]}",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:14.329926+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "T6JCW9ZJKN9145XP",
+      "output": {}
+    },
+    {
+      "case": "owned-folder-explicit-prefix/",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Key": "explicit-prefix/",
+        "Body": "b''",
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:15.464534+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9P45KVJB2QJ4RPDH",
+      "output": {
+        "ETag": "\"6a843ed489a70349cd8a34c0f7ab9a69\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      }
+    },
+    {
+      "case": "owned-folder-explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "put_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+        "Body": "b''",
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:15.844269+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9P4DXTZD6KGZ47ZM",
+      "output": {
+        "ETag": "\"afb0578e4ed4f6e421fcfcc191a222ac\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      }
+    },
+    {
+      "case": "admin-existing-prefix",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2/explicit-prefix",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+        },
+        "ClientToken": "0d00d92cf9d640f884d8bef407869ada",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-04a9d21445ed4fb2"
+        }
+      },
+      "at": "2026-09-30T05:25:16.202968+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "316c9280-426e-4697-bad1-5cd594c2f2e8",
+      "output": {
+        "DestinationId": "50ce3268c84d4effa41315189b1ac2af"
+      },
+      "wire_output": {
+        "destinationId": "50ce3268c84d4effa41315189b1ac2af"
+      }
+    },
+    {
+      "case": "admin-delete-baseline",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationId": "50ce3268c84d4effa41315189b1ac2af"
+      },
+      "at": "2026-09-30T05:25:16.750126+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f8552a92-0f28-4ed4-aeb1-e218c6b10a31",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "restricted-list-prefix",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Prefix": "explicit-prefix/"
+      },
+      "at": "2026-09-30T05:25:17.068966+00:00",
+      "code": "AccessDenied",
+      "http_status": 403,
+      "request_id": "NJ54A3EAE36M8AN4",
+      "output": {
+        "Error": {
+          "Code": "AccessDenied",
+          "Message": "User: arn:aws:sts::123456789012:federated-user/stackd-gd-dest-04a9d21445ed4fb2 is not authorized to perform: s3:ListBucket on resource: \"arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2\" with an explicit deny in a session policy"
+        }
+      }
+    },
+    {
+      "case": "restricted-head-prefix",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "head_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Key": "explicit-prefix/"
+      },
+      "at": "2026-09-30T05:25:17.632884+00:00",
+      "code": "403",
+      "http_status": 403,
+      "request_id": "NJ578Z981AR8MV18",
+      "output": {
+        "Error": {
+          "Code": "403",
+          "Message": "Forbidden"
+        }
+      }
+    },
+    {
+      "case": "restricted-describe-key",
+      "service": "kms",
+      "region": "us-west-2",
+      "operation": "describe_key",
+      "input": {
+        "KeyId": "90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      },
+      "at": "2026-09-30T05:25:17.817892+00:00",
+      "code": "AccessDeniedException",
+      "http_status": 400,
+      "request_id": "aa7589a8-bc8a-4561-8f34-bbb06c0cd0d0",
+      "output": {
+        "Error": {
+          "Message": "User: arn:aws:sts::123456789012:federated-user/stackd-gd-dest-04a9d21445ed4fb2 is not authorized to perform: kms:DescribeKey on resource: arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b with an explicit deny in a session policy",
+          "Code": "AccessDeniedException"
+        }
+      }
+    },
+    {
+      "case": "restricted-create-existing-prefix",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2/explicit-prefix",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+        },
+        "ClientToken": "4a6e85e072b24574bcfe2ea1b93bd80f",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-04a9d21445ed4fb2"
+        }
+      },
+      "at": "2026-09-30T05:25:18.354600+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "d0424cad-d322-4c09-916e-f6b1b484dc61",
+      "output": {
+        "Error": {
+          "Message": "The request failed because you do not have the required permissions for the s3:GetObject or s3:ListBucket actions.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because you do not have the required permissions for the s3:GetObject or s3:ListBucket actions.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because you do not have the required permissions for the s3:GetObject or s3:ListBucket actions.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "restricted-create-missing-prefix",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2/missing-prefix",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+        },
+        "ClientToken": "9c5b7851bb3b458882f7045140bebc06",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-04a9d21445ed4fb2"
+        }
+      },
+      "at": "2026-09-30T05:25:19.125187+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "010b4b0e-71de-40f3-a31c-7f9953f0497d",
+      "output": {
+        "Error": {
+          "Message": "The request failed because you do not have the required permissions for the s3:GetObject or s3:ListBucket actions.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because you do not have the required permissions for the s3:GetObject or s3:ListBucket actions.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because you do not have the required permissions for the s3:GetObject or s3:ListBucket actions.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "restricted-create-root",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "create_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationType": "S3",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+        },
+        "ClientToken": "d17c79f270f343078b164747f3b56a1b",
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-04a9d21445ed4fb2"
+        }
+      },
+      "at": "2026-09-30T05:25:19.460605+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "c722270e-66c4-4e73-ab1b-23a6b3fcd927",
+      "output": {
+        "DestinationId": "f561a2d59e17444a9850ea195a25632f"
+      },
+      "wire_output": {
+        "destinationId": "f561a2d59e17444a9850ea195a25632f"
+      }
+    },
+    {
+      "case": "restricted-describe-root",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "describe_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationId": "f561a2d59e17444a9850ea195a25632f"
+      },
+      "at": "2026-09-30T05:25:19.977550+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "09f3533c-5285-4dd8-acca-58323890ffbe",
+      "output": {
+        "DestinationId": "f561a2d59e17444a9850ea195a25632f",
+        "DestinationType": "S3",
+        "Status": "PUBLISHING",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+        },
+        "Tags": {
+          "stackd-probe": "stackd-gd-dest-04a9d21445ed4fb2"
+        }
+      },
+      "wire_output": {
+        "destinationId": "f561a2d59e17444a9850ea195a25632f",
+        "destinationType": "S3",
+        "status": "PUBLISHING",
+        "publishingFailureStartTimestamp": null,
+        "destinationProperties": {
+          "destinationArn": "arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2",
+          "kmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b",
+          "expectedBucketOwner": null
+        },
+        "tags": {
+          "stackd-probe": "stackd-gd-dest-04a9d21445ed4fb2"
+        }
+      }
+    },
+    {
+      "case": "restricted-update-existing-prefix-root",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationProperties": {
+          "DestinationArn": "arn:aws:s3:::stackd-gd-dest-04a9d21445ed4fb2/explicit-prefix",
+          "KmsKeyArn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+        },
+        "DestinationId": "f561a2d59e17444a9850ea195a25632f"
+      },
+      "at": "2026-09-30T05:25:20.236570+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "2298e869-e315-4df8-97f6-3cf5c645a025",
+      "output": {
+        "Error": {
+          "Message": "The request failed because you do not have the required permissions for the s3:GetObject or s3:ListBucket actions.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request failed because you do not have the required permissions for the s3:GetObject or s3:ListBucket actions.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request failed because you do not have the required permissions for the s3:GetObject or s3:ListBucket actions.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "restricted-delete-root",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationId": "f561a2d59e17444a9850ea195a25632f"
+      },
+      "at": "2026-09-30T05:25:20.670764+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "ed028a5a-2239-4a2f-b06c-a714a16333d2",
+      "output": {},
+      "wire_output": null
+    }
+  ],
+  "cleanup": [
+    {
+      "case": "cleanup-destination",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationId": "50ce3268c84d4effa41315189b1ac2af"
+      },
+      "at": "2026-09-30T05:25:21.003599+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "fad56a97-fb26-4837-be04-72e5bcf67ffa",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the one or more input parameters have invalid values.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the one or more input parameters have invalid values.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the one or more input parameters have invalid values.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "cleanup-destination",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_publishing_destination",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "DestinationId": "f561a2d59e17444a9850ea195a25632f"
+      },
+      "at": "2026-09-30T05:25:21.370887+00:00",
+      "code": "BadRequestException",
+      "http_status": 400,
+      "request_id": "a3409d1c-43f0-4eb4-b7ef-de7781e9bc34",
+      "output": {
+        "Error": {
+          "Message": "The request is rejected because the one or more input parameters have invalid values.",
+          "Code": "BadRequestException"
+        },
+        "Message": "The request is rejected because the one or more input parameters have invalid values.",
+        "Type": "InvalidInputException"
+      },
+      "wire_output": {
+        "message": "The request is rejected because the one or more input parameters have invalid values.",
+        "__type": "InvalidInputException",
+        "type": "InvalidInputException"
+      }
+    },
+    {
+      "case": "cleanup-destinations-list",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_publishing_destinations",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138"
+      },
+      "at": "2026-09-30T05:25:21.648597+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f7de14e7-a0c1-4ba1-bfb2-314440dc60ef",
+      "output": {
+        "Destinations": []
+      },
+      "wire_output": {
+        "destinations": [],
+        "nextToken": null
+      }
+    },
+    {
+      "case": "cleanup-detector-suspend",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "update_detector",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138",
+        "Enable": false
+      },
+      "at": "2026-09-30T05:25:21.889353+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "4477623e-dced-49fc-99a7-e84a82669d5f",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "cleanup-detector-delete",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "delete_detector",
+      "input": {
+        "DetectorId": "68773b2a587c4e1c9a5df554d5221138"
+      },
+      "at": "2026-09-30T05:25:22.298139+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "f9ac4aaa-4d20-49bd-930e-d123cdd45146",
+      "output": {},
+      "wire_output": null
+    },
+    {
+      "case": "cleanup-detectors-list",
+      "service": "guardduty",
+      "region": "us-west-2",
+      "operation": "list_detectors",
+      "input": {},
+      "at": "2026-09-30T05:25:22.839395+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "80cdb168-5fdb-4fb2-9898-ebf981f50055",
+      "output": {
+        "DetectorIds": []
+      },
+      "wire_output": {
+        "detectorIds": []
+      }
+    },
+    {
+      "case": "objects-cleanup-final",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:23.036497+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "H9QPVBJ5SSBNNVH4",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "AWSLogs/",
+            "LastModified": "2026-09-30 05:25:20+00:00",
+            "ETag": "\"5d99142fab09a223fb0437a9e37e9f15\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/",
+            "LastModified": "2026-09-30 05:25:16+00:00",
+            "ETag": "\"6a843ed489a70349cd8a34c0f7ab9a69\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/",
+            "LastModified": "2026-09-30 05:25:17+00:00",
+            "ETag": "\"69f340626b13d7b92eb7b3ab770103e1\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+            "LastModified": "2026-09-30 05:25:16+00:00",
+            "ETag": "\"afb0578e4ed4f6e421fcfcc191a222ac\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 4
+      }
+    },
+    {
+      "case": "object-fetch-cleanup-final",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "get_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Key": "AWSLogs/",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:23.646751+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "H9QZ4S1801B0R24Z",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-30 05:25:20+00:00",
+        "ContentLength": 0,
+        "ETag": "\"5d99142fab09a223fb0437a9e37e9f15\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      }
+    },
+    {
+      "case": "object-fetch-cleanup-final",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "get_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Key": "explicit-prefix/",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:23.846932+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "H9QPMNCC8G7RWA84",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-30 05:25:16+00:00",
+        "ContentLength": 0,
+        "ETag": "\"6a843ed489a70349cd8a34c0f7ab9a69\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      }
+    },
+    {
+      "case": "object-fetch-cleanup-final",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "get_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Key": "explicit-prefix/AWSLogs/",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:24.038152+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9M4019ENZJPGTAZD",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-30 05:25:17+00:00",
+        "ContentLength": 0,
+        "ETag": "\"69f340626b13d7b92eb7b3ab770103e1\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      }
+    },
+    {
+      "case": "object-fetch-cleanup-final",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "get_object",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:24.223943+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9M48MTAM0J1SQMTP",
+      "output": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-30 05:25:16+00:00",
+        "ContentLength": 0,
+        "ETag": "\"afb0578e4ed4f6e421fcfcc191a222ac\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      }
+    },
+    {
+      "case": "cleanup-objects-list",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:24.424627+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9M48K05NWSH84R09",
+      "output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "AWSLogs/",
+            "LastModified": "2026-09-30 05:25:20+00:00",
+            "ETag": "\"5d99142fab09a223fb0437a9e37e9f15\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/",
+            "LastModified": "2026-09-30 05:25:16+00:00",
+            "ETag": "\"6a843ed489a70349cd8a34c0f7ab9a69\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/",
+            "LastModified": "2026-09-30 05:25:17+00:00",
+            "ETag": "\"69f340626b13d7b92eb7b3ab770103e1\"",
+            "ChecksumAlgorithm": [
+              "CRC64NVME"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+            "LastModified": "2026-09-30 05:25:16+00:00",
+            "ETag": "\"afb0578e4ed4f6e421fcfcc191a222ac\"",
+            "ChecksumAlgorithm": [
+              "CRC32"
+            ],
+            "ChecksumType": "FULL_OBJECT",
+            "Size": 0,
+            "StorageClass": "STANDARD"
+          }
+        ],
+        "Name": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 4
+      }
+    },
+    {
+      "case": "cleanup-objects-delete",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "delete_objects",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Delete": {
+          "Objects": [
+            {
+              "Key": "AWSLogs/"
+            },
+            {
+              "Key": "explicit-prefix/"
+            },
+            {
+              "Key": "explicit-prefix/AWSLogs/"
+            },
+            {
+              "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/"
+            }
+          ]
+        },
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:24.630644+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "9M44MJ372RY5S23K",
+      "output": {
+        "Deleted": [
+          {
+            "Key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/"
+          },
+          {
+            "Key": "explicit-prefix/AWSLogs/"
+          },
+          {
+            "Key": "explicit-prefix/"
+          },
+          {
+            "Key": "AWSLogs/"
+          }
+        ]
+      }
+    },
+    {
+      "case": "cleanup-objects-list",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "list_objects_v2",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:24.929771+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "77E9B1E7A4Z06S79",
+      "output": {
+        "IsTruncated": false,
+        "Name": "stackd-gd-dest-04a9d21445ed4fb2",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 0
+      }
+    },
+    {
+      "case": "cleanup-bucket-delete",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "delete_bucket",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:25.534707+00:00",
+      "code": "Success",
+      "http_status": 204,
+      "request_id": "77EC7FWX3AVBNMGV",
+      "output": {}
+    },
+    {
+      "case": "cleanup-bucket-absence",
+      "service": "s3",
+      "region": "us-west-2",
+      "operation": "head_bucket",
+      "input": {
+        "Bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+        "ExpectedBucketOwner": "123456789012"
+      },
+      "at": "2026-09-30T05:25:25.997120+00:00",
+      "code": "404",
+      "http_status": 404,
+      "request_id": "MH023YXHYQ3RCT40",
+      "output": {
+        "Error": {
+          "Code": "404",
+          "Message": "Not Found"
+        }
+      }
+    },
+    {
+      "case": "cleanup-key-schedule",
+      "service": "kms",
+      "region": "us-west-2",
+      "operation": "schedule_key_deletion",
+      "input": {
+        "KeyId": "90f540ec-41c2-4d41-abbe-32a14cd1898b",
+        "PendingWindowInDays": 7
+      },
+      "at": "2026-09-30T05:25:26.195312+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "e64b5853-142d-47af-a700-2be8ac488ab0",
+      "output": {
+        "KeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b",
+        "DeletionDate": "2026-10-07 06:25:26.696000+01:00",
+        "KeyState": "PendingDeletion",
+        "PendingWindowInDays": 7
+      }
+    },
+    {
+      "case": "cleanup-key-status",
+      "service": "kms",
+      "region": "us-west-2",
+      "operation": "describe_key",
+      "input": {
+        "KeyId": "90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      },
+      "at": "2026-09-30T05:25:26.790997+00:00",
+      "code": "Success",
+      "http_status": 200,
+      "request_id": "10fe5a90-ef65-478f-ad1a-037f9305781b",
+      "output": {
+        "KeyMetadata": {
+          "AWSAccountId": "123456789012",
+          "KeyId": "90f540ec-41c2-4d41-abbe-32a14cd1898b",
+          "Arn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b",
+          "CreationDate": "2026-09-30 06:25:13.911000+01:00",
+          "Enabled": false,
+          "Description": "stackd-gd-dest-04a9d21445ed4fb2",
+          "KeyUsage": "ENCRYPT_DECRYPT",
+          "KeyState": "PendingDeletion",
+          "DeletionDate": "2026-10-07 06:25:26.696000+01:00",
+          "Origin": "AWS_KMS",
+          "KeyManager": "CUSTOMER",
+          "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+          "KeySpec": "SYMMETRIC_DEFAULT",
+          "EncryptionAlgorithms": [
+            "SYMMETRIC_DEFAULT"
+          ],
+          "MultiRegion": false,
+          "CurrentKeyMaterialId": "231fa138c6ca0e842c8d4e2575768080b79b567158f1328865ac46d4280cdc0f"
+        }
+      }
+    }
+  ],
+  "owned": {
+    "prefix": "stackd-gd-dest-04a9d21445ed4fb2",
+    "destination_ids": [
+      "50ce3268c84d4effa41315189b1ac2af",
+      "f561a2d59e17444a9850ea195a25632f"
+    ],
+    "object_keys": [
+      "explicit-prefix/",
+      "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/"
+    ],
+    "detector_id": "68773b2a587c4e1c9a5df554d5221138",
+    "client_token": "3ceb81f7a9fd4ecf899cc43cf9eb8805",
+    "bucket": "stackd-gd-dest-04a9d21445ed4fb2",
+    "kms_key": {
+      "AWSAccountId": "123456789012",
+      "KeyId": "90f540ec-41c2-4d41-abbe-32a14cd1898b",
+      "Arn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b",
+      "CreationDate": "2026-09-30 06:25:13.911000+01:00",
+      "Enabled": true,
+      "Description": "stackd-gd-dest-04a9d21445ed4fb2",
+      "KeyUsage": "ENCRYPT_DECRYPT",
+      "KeyState": "Enabled",
+      "Origin": "AWS_KMS",
+      "KeyManager": "CUSTOMER",
+      "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+      "KeySpec": "SYMMETRIC_DEFAULT",
+      "EncryptionAlgorithms": [
+        "SYMMETRIC_DEFAULT"
+      ],
+      "MultiRegion": false,
+      "CurrentKeyMaterialId": "231fa138c6ca0e842c8d4e2575768080b79b567158f1328865ac46d4280cdc0f"
+    },
+    "detector_arn": "arn:aws:guardduty:us-west-2:123456789012:detector/68773b2a587c4e1c9a5df554d5221138"
+  },
+  "limitations": [
+    "Lifecycle admission and validation markers do not establish finding export format or timing.",
+    "Zero findings exports in the bounded window is inconclusive; documented initial delivery is about five minutes.",
+    "Existing service-linked role is never explicitly changed or deleted, including prior cleanup blockers.",
+    "Decoded text is account-sanitized; byte lengths and SHA256 describe actual fetched bytes. Binary bodies are retained only for non-finding markers."
+  ],
+  "bounds": {
+    "observation_seconds": 0,
+    "poll_seconds": 10,
+    "sdk_total_max_attempts": 1,
+    "object_capture_max_bytes": 2097152
+  },
+  "execution": {
+    "python": "/home/r/dev/minor/tools/rusty/.venv/bin/python",
+    "profile": "default"
+  },
+  "objects": [
+    {
+      "key": "AWSLogs/",
+      "case": "cleanup-final",
+      "metadata": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-30 05:25:20+00:00",
+        "ContentLength": 0,
+        "ETag": "\"5d99142fab09a223fb0437a9e37e9f15\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      },
+      "fetched_bytes": 0,
+      "owned_folder": false,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip": false,
+      "decoded_utf8": ""
+    },
+    {
+      "key": "explicit-prefix/",
+      "case": "cleanup-final",
+      "metadata": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-30 05:25:16+00:00",
+        "ContentLength": 0,
+        "ETag": "\"6a843ed489a70349cd8a34c0f7ab9a69\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      },
+      "fetched_bytes": 0,
+      "owned_folder": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip": false,
+      "decoded_utf8": ""
+    },
+    {
+      "key": "explicit-prefix/AWSLogs/",
+      "case": "cleanup-final",
+      "metadata": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-30 05:25:17+00:00",
+        "ContentLength": 0,
+        "ETag": "\"69f340626b13d7b92eb7b3ab770103e1\"",
+        "ChecksumCRC64NVME": "AAAAAAAAAAA=",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "application/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      },
+      "fetched_bytes": 0,
+      "owned_folder": false,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip": false,
+      "decoded_utf8": ""
+    },
+    {
+      "key": "explicit-prefix/AWSLogs/123456789012/GuardDuty/us-west-2/",
+      "case": "cleanup-final",
+      "metadata": {
+        "AcceptRanges": "bytes",
+        "LastModified": "2026-09-30 05:25:16+00:00",
+        "ContentLength": 0,
+        "ETag": "\"afb0578e4ed4f6e421fcfcc191a222ac\"",
+        "ChecksumCRC32": "AAAAAA==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "aws:kms",
+        "Metadata": {},
+        "SSEKMSKeyId": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b"
+      },
+      "fetched_bytes": 0,
+      "owned_folder": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip": false,
+      "decoded_utf8": ""
+    }
+  ],
+  "service_role_preexisting": true,
+  "region": "us-west-2",
+  "empty_boundary_verified": true,
+  "enabled_at": "2026-09-30T05:25:10.564360+00:00",
+  "requested_features": [
+    {
+      "Name": "S3_DATA_EVENTS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "EKS_AUDIT_LOGS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "EBS_MALWARE_PROTECTION",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "RDS_LOGIN_EVENTS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "LAMBDA_NETWORK_LOGS",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "AI_PROTECTION",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "AI_ANALYST",
+      "Status": "DISABLED"
+    },
+    {
+      "Name": "RUNTIME_MONITORING",
+      "Status": "DISABLED",
+      "AdditionalConfiguration": [
+        {
+          "Name": "EKS_ADDON_MANAGEMENT",
+          "Status": "DISABLED"
+        },
+        {
+          "Name": "ECS_FARGATE_AGENT_MANAGEMENT",
+          "Status": "DISABLED"
+        },
+        {
+          "Name": "EC2_AGENT_MANAGEMENT",
+          "Status": "DISABLED"
+        }
+      ]
+    }
+  ],
+  "create_tags_supported": true,
+  "restricted_caller": {
+    "arn": "arn:aws:sts::123456789012:federated-user/stackd-gd-dest-04a9d21445ed4fb2",
+    "policy": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "guardduty:*",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Deny",
+          "Action": [
+            "s3:*",
+            "kms:*"
+          ],
+          "Resource": "*"
+        }
+      ]
+    },
+    "expiration": "2026-09-30 05:40:15+00:00"
+  },
+  "prefix_authority_complete": true,
+  "destinations_cleanup_verified": true,
+  "detector_cleanup_verified": true,
+  "bucket_cleanup_verified": true,
+  "kms_deletion_scheduled_verified": true,
+  "remaining_kms_key": {
+    "AWSAccountId": "123456789012",
+    "KeyId": "90f540ec-41c2-4d41-abbe-32a14cd1898b",
+    "Arn": "arn:aws:kms:us-west-2:123456789012:key/90f540ec-41c2-4d41-abbe-32a14cd1898b",
+    "CreationDate": "2026-09-30 06:25:13.911000+01:00",
+    "Enabled": false,
+    "Description": "stackd-gd-dest-04a9d21445ed4fb2",
+    "KeyUsage": "ENCRYPT_DECRYPT",
+    "KeyState": "PendingDeletion",
+    "DeletionDate": "2026-10-07 06:25:26.696000+01:00",
+    "Origin": "AWS_KMS",
+    "KeyManager": "CUSTOMER",
+    "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+    "KeySpec": "SYMMETRIC_DEFAULT",
+    "EncryptionAlgorithms": [
+      "SYMMETRIC_DEFAULT"
+    ],
+    "MultiRegion": false,
+    "CurrentKeyMaterialId": "231fa138c6ca0e842c8d4e2575768080b79b567158f1328865ac46d4280cdc0f"
+  },
+  "preexisting_service_role_not_explicitly_changed": true,
+  "cleanup_problems": [],
+  "finished_at": "2026-09-30T05:25:26.958555+00:00"
+}

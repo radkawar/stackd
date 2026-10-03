@@ -1,0 +1,1187 @@
+{
+  "authorized_account_prefix_matches": true,
+  "caller_identity": {
+    "Account": "000000000000",
+    "Arn": "arn:aws:iam::000000000000:user/probe-caller",
+    "UserId": "<UserId>"
+  },
+  "captured_at": "2026-09-13T14:10:25.858974+00:00",
+  "cleanup": {
+    "delete_function": {
+      "ResponseMetadata": {
+        "HTTPHeaders": {
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 14:10:56 GMT",
+          "x-amzn-requestid": "<request-id>"
+        },
+        "HTTPStatusCode": 204,
+        "RequestId": "<request-id>",
+        "RetryAttempts": 0
+      },
+      "StatusCode": 204
+    },
+    "delete_role": {
+      "ResponseMetadata": {
+        "HTTPHeaders": {
+          "content-length": "200",
+          "content-type": "text/xml",
+          "date": "Sun, 13 Sep 2026 14:10:56 GMT",
+          "x-amzn-requestid": "<request-id>"
+        },
+        "HTTPStatusCode": 200,
+        "RequestId": "<request-id>",
+        "RetryAttempts": 0
+      }
+    },
+    "function_absence": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Function not found: arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example"
+      },
+      "Message": "Function not found: arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+      "ResponseMetadata": {
+        "HTTPHeaders": {
+          "connection": "keep-alive",
+          "content-length": "127",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 14:10:56 GMT",
+          "x-amzn-errortype": "ResourceNotFoundException",
+          "x-amzn-requestid": "<request-id>"
+        },
+        "HTTPStatusCode": 404,
+        "RequestId": "<request-id>",
+        "RetryAttempts": 0
+      },
+      "Type": "User"
+    },
+    "role_absence": {
+      "Error": {
+        "Code": "NoSuchEntity",
+        "Message": "The role with name stackd-probe-lambda-example cannot be found.",
+        "Type": "Sender"
+      },
+      "ResponseMetadata": {
+        "HTTPHeaders": {
+          "content-length": "312",
+          "content-type": "text/xml",
+          "date": "Sun, 13 Sep 2026 14:10:56 GMT",
+          "x-amzn-requestid": "<request-id>"
+        },
+        "HTTPStatusCode": 404,
+        "RequestId": "<request-id>",
+        "RetryAttempts": 0
+      }
+    },
+    "temporary_probe_removed": true,
+    "temporary_sdk_directory_removed": true
+  },
+  "handler_sources": {
+    "v1": "import json\nimport os\nimport time\ncounter = 0\nVERSION = 'v1'\nPATH = \"/tmp/stackd-probe-counter\"\ndef handler(event, context):\n    global counter\n    counter += 1\n    previous = int(open(PATH).read()) if os.path.exists(PATH) else 0\n    with open(PATH, \"w\") as target:\n        target.write(str(previous + 1))\n    if event.get(\"action\") == \"raise\":\n        raise ValueError(\"stackd probe deliberate handler exception\")\n    if event.get(\"action\") == \"timeout\":\n        time.sleep(4)\n    return {\"event\": event, \"global_counter\": counter, \"tmp_counter\": previous + 1,\n            \"code_version\": VERSION, \"environment\": os.environ.get(\"PROBE_VERSION\"),\n            \"function_name\": context.function_name, \"function_version\": context.function_version,\n            \"memory_limit_in_mb\": context.memory_limit_in_mb, \"aws_request_id\": context.aws_request_id,\n            \"invoked_function_arn\": context.invoked_function_arn}\n",
+    "v2": "import json\nimport os\nimport time\ncounter = 0\nVERSION = 'v2'\nPATH = \"/tmp/stackd-probe-counter\"\ndef handler(event, context):\n    global counter\n    counter += 1\n    previous = int(open(PATH).read()) if os.path.exists(PATH) else 0\n    with open(PATH, \"w\") as target:\n        target.write(str(previous + 1))\n    if event.get(\"action\") == \"raise\":\n        raise ValueError(\"stackd probe deliberate handler exception\")\n    if event.get(\"action\") == \"timeout\":\n        time.sleep(4)\n    return {\"event\": event, \"global_counter\": counter, \"tmp_counter\": previous + 1,\n            \"code_version\": VERSION, \"environment\": os.environ.get(\"PROBE_VERSION\"),\n            \"function_name\": context.function_name, \"function_version\": context.function_version,\n            \"memory_limit_in_mb\": context.memory_limit_in_mb, \"aws_request_id\": context.aws_request_id,\n            \"invoked_function_arn\": context.invoked_function_arn}\n"
+  },
+  "limitations": [
+    "Sequential warm reuse is observed, not guaranteed by AWS.",
+    "No external service calls, attached policies, log permissions, or log reads.",
+    "Native function_active_v2 waiter succeeded; its internal GetFunction responses were not intercepted. GetFunctionConfiguration captures immediately before/after show Pending/Active.",
+    "Only x86_64 Python 3.12, $LATEST, synchronous sequential requests were exercised; no concurrency, async delivery, aliases, versions, VPC, or external service access.",
+    "Caller account matched the authorized 05 prefix; the account owner email was not independently queried.",
+    "Native content-length headers describe original responses before identifier normalization."
+  ],
+  "observation_order": [
+    "create_role",
+    "role_exists_waiter",
+    "create_function_attempts",
+    "get_configuration_before_active_waiter",
+    "function_active_v2_waiter",
+    "get_configuration_active",
+    "invoke_first",
+    "invoke_warm",
+    "invoke_dry_run",
+    "invoke_malformed_json",
+    "invoke_handler_exception",
+    "invoke_after_exception",
+    "reserved_environment_key",
+    "update_configuration",
+    "get_configuration_after_update",
+    "invoke_after_configuration_update",
+    "invoke_warm_after_configuration_update",
+    "update_code",
+    "get_configuration_after_code_update",
+    "invoke_after_code_update",
+    "invoke_warm_after_code_update",
+    "invoke_timeout",
+    "invoke_after_timeout"
+  ],
+  "observations": {
+    "create_function_attempts": {
+      "request": {
+        "Architectures": [
+          "x86_64"
+        ],
+        "Description": "Owned temporary stackd native behavior probe",
+        "Environment": {
+          "Variables": {
+            "PROBE_VERSION": "v1"
+          }
+        },
+        "FunctionName": "stackd-probe-lambda-example",
+        "Handler": "handler.handler",
+        "MemorySize": 128,
+        "Role": "arn:aws:iam::000000000000:role/stackd-probe-lambda-example",
+        "Runtime": "python3.12",
+        "Timeout": 2
+      },
+      "responses": [
+        {
+          "Error": {
+            "Code": "InvalidParameterValueException",
+            "Message": "The role defined for the function cannot be assumed by Lambda."
+          },
+          "ResponseMetadata": {
+            "HTTPHeaders": {
+              "connection": "keep-alive",
+              "content-length": "90",
+              "content-type": "application/json",
+              "date": "Sun, 13 Sep 2026 14:10:32 GMT",
+              "x-amzn-errortype": "InvalidParameterValueException",
+              "x-amzn-requestid": "<request-id>"
+            },
+            "HTTPStatusCode": 400,
+            "RequestId": "<request-id>",
+            "RetryAttempts": 0
+          },
+          "Type": "User",
+          "message": "The role defined for the function cannot be assumed by Lambda."
+        },
+        {
+          "Error": {
+            "Code": "InvalidParameterValueException",
+            "Message": "The role defined for the function cannot be assumed by Lambda."
+          },
+          "ResponseMetadata": {
+            "HTTPHeaders": {
+              "connection": "keep-alive",
+              "content-length": "90",
+              "content-type": "application/json",
+              "date": "Sun, 13 Sep 2026 14:10:35 GMT",
+              "x-amzn-errortype": "InvalidParameterValueException",
+              "x-amzn-requestid": "<request-id>"
+            },
+            "HTTPStatusCode": 400,
+            "RequestId": "<request-id>",
+            "RetryAttempts": 0
+          },
+          "Type": "User",
+          "message": "The role defined for the function cannot be assumed by Lambda."
+        },
+        {
+          "Error": {
+            "Code": "InvalidParameterValueException",
+            "Message": "The role defined for the function cannot be assumed by Lambda."
+          },
+          "ResponseMetadata": {
+            "HTTPHeaders": {
+              "connection": "keep-alive",
+              "content-length": "90",
+              "content-type": "application/json",
+              "date": "Sun, 13 Sep 2026 14:10:38 GMT",
+              "x-amzn-errortype": "InvalidParameterValueException",
+              "x-amzn-requestid": "<request-id>"
+            },
+            "HTTPStatusCode": 400,
+            "RequestId": "<request-id>",
+            "RetryAttempts": 0
+          },
+          "Type": "User",
+          "message": "The role defined for the function cannot be assumed by Lambda."
+        },
+        {
+          "Architectures": [
+            "x86_64"
+          ],
+          "CodeSha256": "Cb7WX+PvAXznvzut/HfrC1sOtZx8QRbuc18fxd1+5DE=",
+          "CodeSize": 549,
+          "Description": "Owned temporary stackd native behavior probe",
+          "Environment": {
+            "Variables": {
+              "PROBE_VERSION": "v1"
+            }
+          },
+          "EphemeralStorage": {
+            "Size": 512
+          },
+          "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+          "FunctionName": "stackd-probe-lambda-example",
+          "Handler": "handler.handler",
+          "LastModified": "2026-09-13T14:10:42.251+0000",
+          "LoggingConfig": {
+            "LogFormat": "Text",
+            "LogGroup": "/aws/lambda/stackd-probe-lambda-example"
+          },
+          "MemorySize": 128,
+          "PackageType": "Zip",
+          "ResponseMetadata": {
+            "HTTPHeaders": {
+              "connection": "keep-alive",
+              "content-length": "1540",
+              "content-type": "application/json",
+              "date": "Sun, 13 Sep 2026 14:10:42 GMT",
+              "x-amzn-requestid": "<request-id>"
+            },
+            "HTTPStatusCode": 201,
+            "RequestId": "<request-id>",
+            "RetryAttempts": 0
+          },
+          "RevisionId": "<RevisionId>",
+          "Role": "arn:aws:iam::000000000000:role/stackd-probe-lambda-example",
+          "Runtime": "python3.12",
+          "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780"
+          },
+          "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+          },
+          "State": "Pending",
+          "StateReason": "The function is being created.",
+          "StateReasonCode": "Creating",
+          "Timeout": 2,
+          "TracingConfig": {
+            "Mode": "PassThrough"
+          },
+          "Version": "$LATEST"
+        }
+      ],
+      "waiter": {
+        "Delay": 3,
+        "MaxAttempts": 10,
+        "retry_error": "InvalidParameterValueException"
+      }
+    },
+    "create_role": {
+      "request": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "RoleName": "stackd-probe-lambda-example"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "content-length": "818",
+            "content-type": "text/xml",
+            "date": "Sun, 13 Sep 2026 14:10:31 GMT",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "Role": {
+          "Arn": "arn:aws:iam::000000000000:role/stackd-probe-lambda-example",
+          "AssumeRolePolicyDocument": {
+            "Statement": [
+              {
+                "Action": "sts:AssumeRole",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "lambda.amazonaws.com"
+                }
+              }
+            ],
+            "Version": "2012-10-17"
+          },
+          "CreateDate": "2026-09-13T14:10:31+00:00",
+          "Path": "/",
+          "RoleId": "<RoleId>",
+          "RoleName": "stackd-probe-lambda-example"
+        }
+      }
+    },
+    "function_active_v2_waiter": {
+      "Delay": 2,
+      "MaxAttempts": 30,
+      "lifecycle_evidence": [
+        "get_configuration_before_active_waiter",
+        "get_configuration_active"
+      ],
+      "outcome": "success"
+    },
+    "get_configuration_active": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example"
+      },
+      "response": {
+        "Architectures": [
+          "x86_64"
+        ],
+        "CodeSha256": "Cb7WX+PvAXznvzut/HfrC1sOtZx8QRbuc18fxd1+5DE=",
+        "CodeSize": 549,
+        "Description": "Owned temporary stackd native behavior probe",
+        "Environment": {
+          "Variables": {
+            "PROBE_VERSION": "v1"
+          }
+        },
+        "EphemeralStorage": {
+          "Size": 512
+        },
+        "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+        "FunctionName": "stackd-probe-lambda-example",
+        "Handler": "handler.handler",
+        "LastModified": "2026-09-13T14:10:42.251+0000",
+        "LastUpdateStatus": "Successful",
+        "LoggingConfig": {
+          "LogFormat": "Text",
+          "LogGroup": "/aws/lambda/stackd-probe-lambda-example"
+        },
+        "MemorySize": 128,
+        "PackageType": "Zip",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "1513",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:45 GMT",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "RevisionId": "<RevisionId>",
+        "Role": "arn:aws:iam::000000000000:role/stackd-probe-lambda-example",
+        "Runtime": "python3.12",
+        "RuntimeVersionConfig": {
+          "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780"
+        },
+        "SnapStart": {
+          "ApplyOn": "None",
+          "OptimizationStatus": "Off"
+        },
+        "State": "Active",
+        "Timeout": 2,
+        "TracingConfig": {
+          "Mode": "PassThrough"
+        },
+        "Version": "$LATEST"
+      }
+    },
+    "get_configuration_after_code_update": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example"
+      },
+      "response": {
+        "Architectures": [
+          "x86_64"
+        ],
+        "CodeSha256": "BthjveXC6nNej/a/x4tdltzlF+EaiJtoh0Xd4E5VG8A=",
+        "CodeSize": 550,
+        "Description": "Owned temporary stackd native behavior probe",
+        "Environment": {
+          "Variables": {
+            "PROBE_VERSION": "v2"
+          }
+        },
+        "EphemeralStorage": {
+          "Size": 512
+        },
+        "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+        "FunctionName": "stackd-probe-lambda-example",
+        "Handler": "handler.handler",
+        "LastModified": "2026-09-13T14:10:50.000+0000",
+        "LastUpdateStatus": "Successful",
+        "LoggingConfig": {
+          "LogFormat": "Text",
+          "LogGroup": "/aws/lambda/stackd-probe-lambda-example"
+        },
+        "MemorySize": 128,
+        "PackageType": "Zip",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "1513",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:53 GMT",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "RevisionId": "<RevisionId>",
+        "Role": "arn:aws:iam::000000000000:role/stackd-probe-lambda-example",
+        "Runtime": "python3.12",
+        "RuntimeVersionConfig": {
+          "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780"
+        },
+        "SnapStart": {
+          "ApplyOn": "None",
+          "OptimizationStatus": "Off"
+        },
+        "State": "Active",
+        "Timeout": 2,
+        "TracingConfig": {
+          "Mode": "PassThrough"
+        },
+        "Version": "$LATEST"
+      }
+    },
+    "get_configuration_after_update": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example"
+      },
+      "response": {
+        "Architectures": [
+          "x86_64"
+        ],
+        "CodeSha256": "Cb7WX+PvAXznvzut/HfrC1sOtZx8QRbuc18fxd1+5DE=",
+        "CodeSize": 549,
+        "Description": "Owned temporary stackd native behavior probe",
+        "Environment": {
+          "Variables": {
+            "PROBE_VERSION": "v2"
+          }
+        },
+        "EphemeralStorage": {
+          "Size": 512
+        },
+        "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+        "FunctionName": "stackd-probe-lambda-example",
+        "Handler": "handler.handler",
+        "LastModified": "2026-09-13T14:10:46.000+0000",
+        "LastUpdateStatus": "Successful",
+        "LoggingConfig": {
+          "LogFormat": "Text",
+          "LogGroup": "/aws/lambda/stackd-probe-lambda-example"
+        },
+        "MemorySize": 128,
+        "PackageType": "Zip",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "1513",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:49 GMT",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "RevisionId": "<RevisionId>",
+        "Role": "arn:aws:iam::000000000000:role/stackd-probe-lambda-example",
+        "Runtime": "python3.12",
+        "RuntimeVersionConfig": {
+          "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780"
+        },
+        "SnapStart": {
+          "ApplyOn": "None",
+          "OptimizationStatus": "Off"
+        },
+        "State": "Active",
+        "Timeout": 2,
+        "TracingConfig": {
+          "Mode": "PassThrough"
+        },
+        "Version": "$LATEST"
+      }
+    },
+    "get_configuration_before_active_waiter": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example"
+      },
+      "response": {
+        "Architectures": [
+          "x86_64"
+        ],
+        "CodeSha256": "Cb7WX+PvAXznvzut/HfrC1sOtZx8QRbuc18fxd1+5DE=",
+        "CodeSize": 549,
+        "Description": "Owned temporary stackd native behavior probe",
+        "Environment": {
+          "Variables": {
+            "PROBE_VERSION": "v1"
+          }
+        },
+        "EphemeralStorage": {
+          "Size": 512
+        },
+        "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+        "FunctionName": "stackd-probe-lambda-example",
+        "Handler": "handler.handler",
+        "LastModified": "2026-09-13T14:10:42.251+0000",
+        "LoggingConfig": {
+          "LogFormat": "Text",
+          "LogGroup": "/aws/lambda/stackd-probe-lambda-example"
+        },
+        "MemorySize": 128,
+        "PackageType": "Zip",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "1540",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:42 GMT",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "RevisionId": "<RevisionId>",
+        "Role": "arn:aws:iam::000000000000:role/stackd-probe-lambda-example",
+        "Runtime": "python3.12",
+        "RuntimeVersionConfig": {
+          "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780"
+        },
+        "SnapStart": {
+          "ApplyOn": "None",
+          "OptimizationStatus": "Off"
+        },
+        "State": "Pending",
+        "StateReason": "The function is being created.",
+        "StateReasonCode": "Creating",
+        "Timeout": 2,
+        "TracingConfig": {
+          "Mode": "PassThrough"
+        },
+        "Version": "$LATEST"
+      }
+    },
+    "invoke_after_code_update": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"message\":\"code update\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "PayloadJSON": {
+          "aws_request_id": "<request-id>",
+          "code_version": "v2",
+          "environment": "v2",
+          "event": {
+            "message": "code update"
+          },
+          "function_name": "stackd-probe-lambda-example",
+          "function_version": "$LATEST",
+          "global_counter": 1,
+          "invoked_function_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+          "memory_limit_in_mb": "128",
+          "tmp_counter": 1
+        },
+        "PayloadText": "{\"event\": {\"message\": \"code update\"}, \"global_counter\": 1, \"tmp_counter\": 1, \"code_version\": \"v2\", \"environment\": \"v2\", \"function_name\": \"stackd-probe-lambda-example\", \"function_version\": \"$LATEST\", \"memory_limit_in_mb\": \"128\", \"aws_request_id\": \"<uuid>\", \"invoked_function_arn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example\"}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "397",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:53 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "invoke_after_configuration_update": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"message\":\"configuration update\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "PayloadJSON": {
+          "aws_request_id": "<request-id>",
+          "code_version": "v1",
+          "environment": "v2",
+          "event": {
+            "message": "configuration update"
+          },
+          "function_name": "stackd-probe-lambda-example",
+          "function_version": "$LATEST",
+          "global_counter": 1,
+          "invoked_function_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+          "memory_limit_in_mb": "128",
+          "tmp_counter": 1
+        },
+        "PayloadText": "{\"event\": {\"message\": \"configuration update\"}, \"global_counter\": 1, \"tmp_counter\": 1, \"code_version\": \"v1\", \"environment\": \"v2\", \"function_name\": \"stackd-probe-lambda-example\", \"function_version\": \"$LATEST\", \"memory_limit_in_mb\": \"128\", \"aws_request_id\": \"<uuid>\", \"invoked_function_arn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example\"}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "406",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:49 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "invoke_after_exception": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"message\":\"after exception\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "PayloadJSON": {
+          "aws_request_id": "<request-id>",
+          "code_version": "v1",
+          "environment": "v1",
+          "event": {
+            "message": "after exception"
+          },
+          "function_name": "stackd-probe-lambda-example",
+          "function_version": "$LATEST",
+          "global_counter": 4,
+          "invoked_function_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+          "memory_limit_in_mb": "128",
+          "tmp_counter": 4
+        },
+        "PayloadText": "{\"event\": {\"message\": \"after exception\"}, \"global_counter\": 4, \"tmp_counter\": 4, \"code_version\": \"v1\", \"environment\": \"v1\", \"function_name\": \"stackd-probe-lambda-example\", \"function_version\": \"$LATEST\", \"memory_limit_in_mb\": \"128\", \"aws_request_id\": \"<uuid>\", \"invoked_function_arn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example\"}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "401",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:46 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "invoke_after_timeout": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"message\":\"after timeout\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "PayloadJSON": {
+          "aws_request_id": "<request-id>",
+          "code_version": "v2",
+          "environment": "v2",
+          "event": {
+            "message": "after timeout"
+          },
+          "function_name": "stackd-probe-lambda-example",
+          "function_version": "$LATEST",
+          "global_counter": 1,
+          "invoked_function_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+          "memory_limit_in_mb": "128",
+          "tmp_counter": 4
+        },
+        "PayloadText": "{\"event\": {\"message\": \"after timeout\"}, \"global_counter\": 1, \"tmp_counter\": 4, \"code_version\": \"v2\", \"environment\": \"v2\", \"function_name\": \"stackd-probe-lambda-example\", \"function_version\": \"$LATEST\", \"memory_limit_in_mb\": \"128\", \"aws_request_id\": \"<uuid>\", \"invoked_function_arn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example\"}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "399",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:55 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "invoke_dry_run": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "DryRun",
+        "Payload": "{\"message\":\"dry\"}"
+      },
+      "response": {
+        "PayloadText": "",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "date": "Sun, 13 Sep 2026 14:10:45 GMT",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 204,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 204
+      }
+    },
+    "invoke_first": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"message\":\"hello\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "PayloadJSON": {
+          "aws_request_id": "<request-id>",
+          "code_version": "v1",
+          "environment": "v1",
+          "event": {
+            "message": "hello"
+          },
+          "function_name": "stackd-probe-lambda-example",
+          "function_version": "$LATEST",
+          "global_counter": 1,
+          "invoked_function_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+          "memory_limit_in_mb": "128",
+          "tmp_counter": 1
+        },
+        "PayloadText": "{\"event\": {\"message\": \"hello\"}, \"global_counter\": 1, \"tmp_counter\": 1, \"code_version\": \"v1\", \"environment\": \"v1\", \"function_name\": \"stackd-probe-lambda-example\", \"function_version\": \"$LATEST\", \"memory_limit_in_mb\": \"128\", \"aws_request_id\": \"<uuid>\", \"invoked_function_arn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example\"}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "391",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:45 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "invoke_handler_exception": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"action\":\"raise\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "FunctionError": "Unhandled",
+        "PayloadJSON": {
+          "errorMessage": "stackd probe deliberate handler exception",
+          "errorType": "ValueError",
+          "requestId": "<request-id>",
+          "stackTrace": [
+            "  File \"/var/task/handler.py\", line 14, in handler\n    raise ValueError(\"stackd probe deliberate handler exception\")\n"
+          ]
+        },
+        "PayloadText": "{\"errorMessage\": \"stackd probe deliberate handler exception\", \"errorType\": \"ValueError\", \"requestId\": \"<uuid>\", \"stackTrace\": [\"  File \\\"/var/task/handler.py\\\", line 14, in handler\\n    raise ValueError(\\\"stackd probe deliberate handler exception\\\")\\n\"]}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "284",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:46 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amz-function-error": "Unhandled",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "invoke_malformed_json": {
+      "error": {
+        "Error": {
+          "Code": "InvalidRequestContentException",
+          "Message": "Could not parse request body into json: Could not parse payload into json: Unexpected end-of-input within/between Object entries\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 11]"
+        },
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "259",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:46 GMT",
+            "x-amzn-errortype": "InvalidRequestContentException",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 400,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "Type": "User",
+        "message": "Could not parse request body into json: Could not parse payload into json: Unexpected end-of-input within/between Object entries\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 11]"
+      },
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"broken\":"
+      }
+    },
+    "invoke_timeout": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"action\":\"timeout\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "FunctionError": "Unhandled",
+        "PayloadJSON": {
+          "errorMessage": "RequestId: <uuid> Error: Task timed out after 2.00 seconds",
+          "errorType": "Sandbox.Timedout"
+        },
+        "PayloadText": "{\"errorType\":\"Sandbox.Timedout\",\"errorMessage\":\"RequestId: <uuid> Error: Task timed out after 2.00 seconds\"}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:55 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amz-function-error": "Unhandled",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "invoke_warm": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"message\":\"warm\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "PayloadJSON": {
+          "aws_request_id": "<request-id>",
+          "code_version": "v1",
+          "environment": "v1",
+          "event": {
+            "message": "warm"
+          },
+          "function_name": "stackd-probe-lambda-example",
+          "function_version": "$LATEST",
+          "global_counter": 2,
+          "invoked_function_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+          "memory_limit_in_mb": "128",
+          "tmp_counter": 2
+        },
+        "PayloadText": "{\"event\": {\"message\": \"warm\"}, \"global_counter\": 2, \"tmp_counter\": 2, \"code_version\": \"v1\", \"environment\": \"v1\", \"function_name\": \"stackd-probe-lambda-example\", \"function_version\": \"$LATEST\", \"memory_limit_in_mb\": \"128\", \"aws_request_id\": \"<uuid>\", \"invoked_function_arn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example\"}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "390",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:45 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "invoke_warm_after_code_update": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"message\":\"code warm\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "PayloadJSON": {
+          "aws_request_id": "<request-id>",
+          "code_version": "v2",
+          "environment": "v2",
+          "event": {
+            "message": "code warm"
+          },
+          "function_name": "stackd-probe-lambda-example",
+          "function_version": "$LATEST",
+          "global_counter": 2,
+          "invoked_function_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+          "memory_limit_in_mb": "128",
+          "tmp_counter": 2
+        },
+        "PayloadText": "{\"event\": {\"message\": \"code warm\"}, \"global_counter\": 2, \"tmp_counter\": 2, \"code_version\": \"v2\", \"environment\": \"v2\", \"function_name\": \"stackd-probe-lambda-example\", \"function_version\": \"$LATEST\", \"memory_limit_in_mb\": \"128\", \"aws_request_id\": \"<uuid>\", \"invoked_function_arn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example\"}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "395",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:53 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "invoke_warm_after_configuration_update": {
+      "request": {
+        "FunctionName": "stackd-probe-lambda-example",
+        "InvocationType": "RequestResponse",
+        "Payload": "{\"message\":\"configuration warm\"}"
+      },
+      "response": {
+        "ExecutedVersion": "$LATEST",
+        "PayloadJSON": {
+          "aws_request_id": "<request-id>",
+          "code_version": "v1",
+          "environment": "v2",
+          "event": {
+            "message": "configuration warm"
+          },
+          "function_name": "stackd-probe-lambda-example",
+          "function_version": "$LATEST",
+          "global_counter": 2,
+          "invoked_function_arn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+          "memory_limit_in_mb": "128",
+          "tmp_counter": 2
+        },
+        "PayloadText": "{\"event\": {\"message\": \"configuration warm\"}, \"global_counter\": 2, \"tmp_counter\": 2, \"code_version\": \"v1\", \"environment\": \"v2\", \"function_name\": \"stackd-probe-lambda-example\", \"function_version\": \"$LATEST\", \"memory_limit_in_mb\": \"128\", \"aws_request_id\": \"<uuid>\", \"invoked_function_arn\": \"arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example\"}",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "404",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:50 GMT",
+            "x-amz-executed-version": "$LATEST",
+            "x-amzn-remapped-content-length": "0",
+            "x-amzn-requestid": "<request-id>",
+            "x-amzn-trace-id": "<trace-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "StatusCode": 200
+      }
+    },
+    "reserved_environment_key": {
+      "error": {
+        "Error": {
+          "Code": "InvalidParameterValueException",
+          "Message": "Lambda was unable to configure your environment variables because the environment variables you have provided contains reserved keys that are currently not supported for modification. Reserved keys used in this request: AWS_REGION"
+        },
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "258",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:46 GMT",
+            "x-amzn-errortype": "InvalidParameterValueException",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 400,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "Type": "User",
+        "message": "Lambda was unable to configure your environment variables because the environment variables you have provided contains reserved keys that are currently not supported for modification. Reserved keys used in this request: AWS_REGION"
+      },
+      "request": {
+        "Environment": {
+          "Variables": {
+            "AWS_REGION": "forbidden"
+          }
+        },
+        "FunctionName": "stackd-probe-lambda-example"
+      }
+    },
+    "role_exists_waiter": {
+      "Delay": 2,
+      "MaxAttempts": 10,
+      "outcome": "success"
+    },
+    "update_code": {
+      "request": {
+        "CodeVersion": "v2",
+        "FunctionName": "stackd-probe-lambda-example"
+      },
+      "response": {
+        "Architectures": [
+          "x86_64"
+        ],
+        "CodeSha256": "BthjveXC6nNej/a/x4tdltzlF+EaiJtoh0Xd4E5VG8A=",
+        "CodeSize": 550,
+        "Description": "Owned temporary stackd native behavior probe",
+        "Environment": {
+          "Variables": {
+            "PROBE_VERSION": "v2"
+          }
+        },
+        "EphemeralStorage": {
+          "Size": 512
+        },
+        "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+        "FunctionName": "stackd-probe-lambda-example",
+        "Handler": "handler.handler",
+        "LastModified": "2026-09-13T14:10:50.000+0000",
+        "LastUpdateStatus": "InProgress",
+        "LastUpdateStatusReason": "The function is being created.",
+        "LastUpdateStatusReasonCode": "Creating",
+        "LoggingConfig": {
+          "LogFormat": "Text",
+          "LogGroup": "/aws/lambda/stackd-probe-lambda-example"
+        },
+        "MemorySize": 128,
+        "PackageType": "Zip",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "1547",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:50 GMT",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "RevisionId": "<RevisionId>",
+        "Role": "arn:aws:iam::000000000000:role/stackd-probe-lambda-example",
+        "Runtime": "python3.12",
+        "RuntimeVersionConfig": {
+          "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780"
+        },
+        "SnapStart": {
+          "ApplyOn": "None",
+          "OptimizationStatus": "Off"
+        },
+        "State": "Active",
+        "Timeout": 2,
+        "TracingConfig": {
+          "Mode": "PassThrough"
+        },
+        "Version": "$LATEST"
+      }
+    },
+    "update_configuration": {
+      "request": {
+        "Environment": {
+          "Variables": {
+            "PROBE_VERSION": "v2"
+          }
+        },
+        "FunctionName": "stackd-probe-lambda-example"
+      },
+      "response": {
+        "Architectures": [
+          "x86_64"
+        ],
+        "CodeSha256": "Cb7WX+PvAXznvzut/HfrC1sOtZx8QRbuc18fxd1+5DE=",
+        "CodeSize": 549,
+        "Description": "Owned temporary stackd native behavior probe",
+        "Environment": {
+          "Variables": {
+            "PROBE_VERSION": "v2"
+          }
+        },
+        "EphemeralStorage": {
+          "Size": 512
+        },
+        "FunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:stackd-probe-lambda-example",
+        "FunctionName": "stackd-probe-lambda-example",
+        "Handler": "handler.handler",
+        "LastModified": "2026-09-13T14:10:46.000+0000",
+        "LastUpdateStatus": "InProgress",
+        "LastUpdateStatusReason": "The function is being created.",
+        "LastUpdateStatusReasonCode": "Creating",
+        "LoggingConfig": {
+          "LogFormat": "Text",
+          "LogGroup": "/aws/lambda/stackd-probe-lambda-example"
+        },
+        "MemorySize": 128,
+        "PackageType": "Zip",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "connection": "keep-alive",
+            "content-length": "1547",
+            "content-type": "application/json",
+            "date": "Sun, 13 Sep 2026 14:10:46 GMT",
+            "x-amzn-requestid": "<request-id>"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "<request-id>",
+          "RetryAttempts": 0
+        },
+        "RevisionId": "<RevisionId>",
+        "Role": "arn:aws:iam::000000000000:role/stackd-probe-lambda-example",
+        "Runtime": "python3.12",
+        "RuntimeVersionConfig": {
+          "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:ad4efce6fbf941f38cb9a561b741d82d70def111a72f1997379a68a175d1a780"
+        },
+        "SnapStart": {
+          "ApplyOn": "None",
+          "OptimizationStatus": "Off"
+        },
+        "State": "Active",
+        "Timeout": 2,
+        "TracingConfig": {
+          "Mode": "PassThrough"
+        },
+        "Version": "$LATEST"
+      }
+    }
+  },
+  "sanitization": {
+    "account_id": "000000000000",
+    "caller_user": "probe-caller",
+    "native_dates_and_runtime_arns": "retained",
+    "request_ids": "<request-id> in parsed fields; <uuid> in native payload text",
+    "resource_name": "stackd-probe-lambda-example",
+    "revision_ids": "<RevisionId>",
+    "role_and_user_ids": "<RoleId>, <UserId>",
+    "trace_ids": "<trace-id>"
+  },
+  "source": "AWS Lambda us-east-1, Python 3.12 ZIP"
+}

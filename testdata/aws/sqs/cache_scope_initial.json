@@ -1,0 +1,562 @@
+{
+  "observed_at": "2026-09-12T14:00:17.565493+00:00",
+  "region": "us-east-1",
+  "source": "Owned native AWS IAM role, session policies, KMS key and SQS queues",
+  "comparison": "Warm versus fresh queue data-key permissions across role-session names, policy scope, tags and source identity",
+  "limitations": "Finite commercial public-endpoint observations; cache placement and policy propagation are not exact timing guarantees",
+  "sessions": {
+    "unscoped": {
+      "name": "shared",
+      "scope": {},
+      "arn": "arn:aws:sts::111111111111:assumed-role/cache-worker/shared"
+    },
+    "inline_allowed": {
+      "name": "shared",
+      "scope": {
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"sqs:SendMessage\", \"sqs:ReceiveMessage\"], \"Resource\": [\"arn:aws:sqs:us-east-1:111111111111:cache-worker-warm\", \"arn:aws:sqs:us-east-1:111111111111:cache-worker-fresh\"]}, {\"Effect\": \"Allow\", \"Action\": [\"kms:GenerateDataKey\", \"kms:Decrypt\"], \"Resource\": \"arn:aws:kms:us-east-1:111111111111:key/<key>\"}]}"
+      },
+      "arn": "arn:aws:sts::111111111111:assumed-role/cache-worker/shared"
+    },
+    "inline_limited": {
+      "name": "shared",
+      "scope": {
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"sqs:SendMessage\", \"sqs:ReceiveMessage\"], \"Resource\": [\"arn:aws:sqs:us-east-1:111111111111:cache-worker-warm\", \"arn:aws:sqs:us-east-1:111111111111:cache-worker-fresh\"]}]}"
+      },
+      "arn": "arn:aws:sts::111111111111:assumed-role/cache-worker/shared"
+    },
+    "inline_reordered": {
+      "name": "other",
+      "scope": {
+        "Policy": "{\n  \"Statement\": [\n    {\n      \"Effect\": \"Allow\",\n      \"Action\": [\n        \"kms:GenerateDataKey\",\n        \"kms:Decrypt\"\n      ],\n      \"Resource\": \"arn:aws:kms:us-east-1:111111111111:key/<key>\"\n    },\n    {\n      \"Effect\": \"Allow\",\n      \"Action\": [\n        \"sqs:SendMessage\",\n        \"sqs:ReceiveMessage\"\n      ],\n      \"Resource\": [\n        \"arn:aws:sqs:us-east-1:111111111111:cache-worker-warm\",\n        \"arn:aws:sqs:us-east-1:111111111111:cache-worker-fresh\"\n      ]\n    }\n  ],\n  \"Version\": \"2012-10-17\"\n}"
+      },
+      "arn": "arn:aws:sts::111111111111:assumed-role/cache-worker/other"
+    },
+    "managed_allowed": {
+      "name": "shared",
+      "scope": {
+        "PolicyArns": [
+          {
+            "arn": "arn:aws:iam::111111111111:policy/cache-worker-allowed"
+          }
+        ]
+      },
+      "arn": "arn:aws:sts::111111111111:assumed-role/cache-worker/shared"
+    },
+    "managed_limited": {
+      "name": "shared",
+      "scope": {
+        "PolicyArns": [
+          {
+            "arn": "arn:aws:iam::111111111111:policy/cache-worker-limited"
+          }
+        ]
+      },
+      "arn": "arn:aws:sts::111111111111:assumed-role/cache-worker/shared"
+    },
+    "name_denied": {
+      "name": "name-denied",
+      "scope": {},
+      "arn": "arn:aws:sts::111111111111:assumed-role/cache-worker/name-denied"
+    },
+    "tag_denied": {
+      "name": "shared",
+      "scope": {
+        "Tags": [
+          {
+            "Key": "kms",
+            "Value": "denied"
+          }
+        ]
+      },
+      "arn": "arn:aws:sts::111111111111:assumed-role/cache-worker/shared"
+    },
+    "source_denied": {
+      "name": "shared",
+      "scope": {
+        "SourceIdentity": "denied"
+      },
+      "arn": "arn:aws:sts::111111111111:assumed-role/cache-worker/shared"
+    }
+  },
+  "observations": [
+    {
+      "case": "unscoped_direct_key",
+      "caller": "unscoped",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "output": {
+        "KeyId": "arn:aws:kms:us-east-1:111111111111:key/<key>",
+        "KeyMaterialId": "f8b029cef2c17f74d1c352eb31b6813d2c03cc0bf539ba8098c0fcca4026da56"
+      }
+    },
+    {
+      "case": "inline_allowed_direct_key",
+      "caller": "inline_allowed",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "output": {
+        "KeyId": "arn:aws:kms:us-east-1:111111111111:key/<key>",
+        "KeyMaterialId": "f8b029cef2c17f74d1c352eb31b6813d2c03cc0bf539ba8098c0fcca4026da56"
+      }
+    },
+    {
+      "case": "inline_limited_direct_key",
+      "caller": "inline_limited",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:GenerateDataKey action",
+        "Code": "AccessDeniedException"
+      }
+    },
+    {
+      "case": "inline_reordered_direct_key",
+      "caller": "inline_reordered",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "output": {
+        "KeyId": "arn:aws:kms:us-east-1:111111111111:key/<key>",
+        "KeyMaterialId": "f8b029cef2c17f74d1c352eb31b6813d2c03cc0bf539ba8098c0fcca4026da56"
+      }
+    },
+    {
+      "case": "managed_allowed_direct_key",
+      "caller": "managed_allowed",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "output": {
+        "KeyId": "arn:aws:kms:us-east-1:111111111111:key/<key>",
+        "KeyMaterialId": "f8b029cef2c17f74d1c352eb31b6813d2c03cc0bf539ba8098c0fcca4026da56"
+      }
+    },
+    {
+      "case": "managed_limited_direct_key",
+      "caller": "managed_limited",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:GenerateDataKey action",
+        "Code": "AccessDeniedException"
+      }
+    },
+    {
+      "case": "name_denied_direct_key",
+      "caller": "name_denied",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/name-denied is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> with an explicit deny in an identity-based policy",
+        "Code": "AccessDeniedException"
+      }
+    },
+    {
+      "case": "tag_denied_direct_key",
+      "caller": "tag_denied",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> with an explicit deny in an identity-based policy",
+        "Code": "AccessDeniedException"
+      }
+    },
+    {
+      "case": "source_denied_direct_key",
+      "caller": "source_denied",
+      "service": "kms",
+      "operation": "generate-data-key",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> with an explicit deny in an identity-based policy",
+        "Code": "AccessDeniedException"
+      }
+    },
+    {
+      "case": "name_denied_fresh_send",
+      "caller": "name_denied",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/name-denied is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> with an explicit deny in an identity-based policy (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 31eec4ad-642e-4bc5-b08e-00d00086f50d; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "name_denied_fresh_receive",
+      "caller": "name_denied",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {}
+    },
+    {
+      "case": "tag_denied_fresh_send",
+      "caller": "tag_denied",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> with an explicit deny in an identity-based policy (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 64cd3d7f-5830-4524-a0d4-6da994d57342; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "tag_denied_fresh_receive",
+      "caller": "tag_denied",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {}
+    },
+    {
+      "case": "source_denied_fresh_send",
+      "caller": "source_denied",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> with an explicit deny in an identity-based policy (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 1f3d3498-e8e8-4e59-8d8d-74b8637a7612; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "source_denied_fresh_receive",
+      "caller": "source_denied",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {}
+    },
+    {
+      "case": "inline_limited_fresh_send",
+      "caller": "inline_limited",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:GenerateDataKey action (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 7a8f831b-8c0d-43b3-acaf-6e2c74993edb; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "inline_limited_fresh_receive",
+      "caller": "inline_limited",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {}
+    },
+    {
+      "case": "managed_limited_fresh_send",
+      "caller": "managed_limited",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:GenerateDataKey action (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 532d6aba-c05b-4b43-a74e-46b0e672b4f4; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "managed_limited_fresh_receive",
+      "caller": "managed_limited",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {}
+    },
+    {
+      "case": "name_denied_fresh_seeded_receive",
+      "caller": "name_denied",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/name-denied is not authorized to perform: kms:Decrypt on resource: arn:aws:kms:us-east-1:111111111111:key/<key> with an explicit deny in an identity-based policy (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 224868b7-e21f-4bf1-8471-e8903d089b4d; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "tag_denied_fresh_seeded_receive",
+      "caller": "tag_denied",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/name-denied is not authorized to perform: kms:Decrypt on resource: arn:aws:kms:us-east-1:111111111111:key/<key> with an explicit deny in an identity-based policy (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 224868b7-e21f-4bf1-8471-e8903d089b4d; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "source_denied_fresh_seeded_receive",
+      "caller": "source_denied",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:Decrypt on resource: arn:aws:kms:us-east-1:111111111111:key/<key> with an explicit deny in an identity-based policy (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 0dbb11cf-9c92-4c56-904d-65dfdb57eedb; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "inline_limited_fresh_seeded_receive",
+      "caller": "inline_limited",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:Decrypt on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:Decrypt action (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: bd676ebb-0ff3-4e21-8295-604e283ea50f; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "managed_limited_fresh_seeded_receive",
+      "caller": "managed_limited",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:Decrypt on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:Decrypt action (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 0a063555-6032-47c0-afc3-ea4ce15d98eb; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "unscoped_send",
+      "caller": "unscoped",
+      "service": "sqs",
+      "operation": "send-message",
+      "output": {
+        "MD5OfMessageBody": "dc7a4a76f6693a3967d3d0788c1441f6",
+        "MessageId": "5e8eb446-b774-49ed-a895-8e9498120133"
+      }
+    },
+    {
+      "case": "unscoped_receive",
+      "caller": "unscoped",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "5e8eb446-b774-49ed-a895-8e9498120133",
+            "MD5OfBody": "dc7a4a76f6693a3967d3d0788c1441f6",
+            "Body": "unscoped"
+          }
+        ]
+      }
+    },
+    {
+      "case": "inline_allowed_send",
+      "caller": "inline_allowed",
+      "service": "sqs",
+      "operation": "send-message",
+      "output": {
+        "MD5OfMessageBody": "d4f4aad747855878b2c52510cde27658",
+        "MessageId": "996b9ba8-bd47-4e2b-a422-17ae105e5ae2"
+      }
+    },
+    {
+      "case": "inline_allowed_receive",
+      "caller": "inline_allowed",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "5e8eb446-b774-49ed-a895-8e9498120133",
+            "MD5OfBody": "dc7a4a76f6693a3967d3d0788c1441f6",
+            "Body": "unscoped"
+          }
+        ]
+      }
+    },
+    {
+      "case": "inline_limited_send",
+      "caller": "inline_limited",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:GenerateDataKey action (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 316448dc-871e-41b2-bd90-78be927ba10c; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "inline_limited_receive",
+      "caller": "inline_limited",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:Decrypt on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:Decrypt action (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: c6246143-96ee-46e5-a0b4-af8b30437c4c; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "inline_reordered_send",
+      "caller": "inline_reordered",
+      "service": "sqs",
+      "operation": "send-message",
+      "output": {
+        "MD5OfMessageBody": "0079d42a017f54691949ed36ad6493cd",
+        "MessageId": "6f511a26-0cc3-4dcb-a592-eecdb261fa25"
+      }
+    },
+    {
+      "case": "inline_reordered_receive",
+      "caller": "inline_reordered",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "996b9ba8-bd47-4e2b-a422-17ae105e5ae2",
+            "MD5OfBody": "d4f4aad747855878b2c52510cde27658",
+            "Body": "inline_allowed"
+          }
+        ]
+      }
+    },
+    {
+      "case": "managed_allowed_send",
+      "caller": "managed_allowed",
+      "service": "sqs",
+      "operation": "send-message",
+      "output": {
+        "MD5OfMessageBody": "f3229cc737293c0ee0b67d1ef72ae61d",
+        "MessageId": "006d1733-93d3-4aed-b6e2-f729df6be7e6"
+      }
+    },
+    {
+      "case": "managed_allowed_receive",
+      "caller": "managed_allowed",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "5e8eb446-b774-49ed-a895-8e9498120133",
+            "MD5OfBody": "dc7a4a76f6693a3967d3d0788c1441f6",
+            "Body": "unscoped"
+          }
+        ]
+      }
+    },
+    {
+      "case": "managed_limited_send",
+      "caller": "managed_limited",
+      "service": "sqs",
+      "operation": "send-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:GenerateDataKey action (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: 09aa4f6c-ff18-4bc1-b50a-7919c6a4255a; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "managed_limited_receive",
+      "caller": "managed_limited",
+      "service": "sqs",
+      "operation": "receive-message",
+      "error": {
+        "Message": "User: arn:aws:sts::111111111111:assumed-role/cache-worker/shared is not authorized to perform: kms:Decrypt on resource: arn:aws:kms:us-east-1:111111111111:key/<key> because no session policy allows the kms:Decrypt action (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: ec031851-1479-4866-bcae-8297db43963e; Proxy: null)",
+        "Code": "KMS.AccessDeniedException"
+      }
+    },
+    {
+      "case": "name_denied_send",
+      "caller": "name_denied",
+      "service": "sqs",
+      "operation": "send-message",
+      "output": {
+        "MD5OfMessageBody": "9d504f445d6039f8054d70229b566447",
+        "MessageId": "c01e2cde-6efb-49be-9ee6-ed64d15a2533"
+      }
+    },
+    {
+      "case": "name_denied_receive",
+      "caller": "name_denied",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "6f511a26-0cc3-4dcb-a592-eecdb261fa25",
+            "MD5OfBody": "0079d42a017f54691949ed36ad6493cd",
+            "Body": "inline_reordered"
+          }
+        ]
+      }
+    },
+    {
+      "case": "tag_denied_send",
+      "caller": "tag_denied",
+      "service": "sqs",
+      "operation": "send-message",
+      "output": {
+        "MD5OfMessageBody": "3b69723812e9add057cbc034b1486342",
+        "MessageId": "1c0de93e-2914-461d-9925-5a36d20295ba"
+      }
+    },
+    {
+      "case": "tag_denied_receive",
+      "caller": "tag_denied",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "006d1733-93d3-4aed-b6e2-f729df6be7e6",
+            "MD5OfBody": "f3229cc737293c0ee0b67d1ef72ae61d",
+            "Body": "managed_allowed"
+          }
+        ]
+      }
+    },
+    {
+      "case": "source_denied_send",
+      "caller": "source_denied",
+      "service": "sqs",
+      "operation": "send-message",
+      "output": {
+        "MD5OfMessageBody": "76d9254f7fb041420f50a1ca36a99718",
+        "MessageId": "852b22c1-ac8b-4f0f-813d-3c6aa3ea1eb7"
+      }
+    },
+    {
+      "case": "source_denied_receive",
+      "caller": "source_denied",
+      "service": "sqs",
+      "operation": "receive-message",
+      "output": {
+        "Messages": [
+          {
+            "MessageId": "c01e2cde-6efb-49be-9ee6-ed64d15a2533",
+            "MD5OfBody": "9d504f445d6039f8054d70229b566447",
+            "Body": "name_denied"
+          }
+        ]
+      }
+    }
+  ],
+  "owned": {
+    "queues": {
+      "warm": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-cache-14f162f65a-warm",
+      "fresh": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-cache-14f162f65a-fresh"
+    },
+    "policies": [
+      "arn:aws:iam::000000000000:policy/stackd-cache-14f162f65a-allowed",
+      "arn:aws:iam::000000000000:policy/stackd-cache-14f162f65a-limited"
+    ],
+    "key": {
+      "KeyId": "e47e4ed5-df4a-4ddb-b98d-1286e93dc3f4",
+      "Arn": "arn:aws:kms:us-east-1:000000000000:key/e47e4ed5-df4a-4ddb-b98d-1286e93dc3f4"
+    },
+    "role": {
+      "RoleName": "stackd-cache-14f162f65a",
+      "Arn": "arn:aws:iam::000000000000:role/stackd-cache-14f162f65a",
+      "RoleId": "AROAQAAAAAAALWY5OBJVT"
+    }
+  },
+  "cleanup": {
+    "queue_warm": {
+      "Message": "The specified queue does not exist.",
+      "Code": "AWS.SimpleQueueService.NonExistentQueue"
+    },
+    "queue_fresh": {
+      "Message": "The specified queue does not exist.",
+      "Code": "AWS.SimpleQueueService.NonExistentQueue"
+    },
+    "role": "Deleted",
+    "arn:aws:iam::000000000000:policy/stackd-cache-14f162f65a-allowed": "Deleted",
+    "arn:aws:iam::000000000000:policy/stackd-cache-14f162f65a-limited": "Deleted",
+    "key": {
+      "KeyId": "arn:aws:kms:us-east-1:000000000000:key/e47e4ed5-df4a-4ddb-b98d-1286e93dc3f4",
+      "DeletionDate": "2026-09-19T15:01:36.606000+01:00",
+      "KeyState": "PendingDeletion",
+      "PendingWindowInDays": 7
+    }
+  },
+  "completed": true
+}

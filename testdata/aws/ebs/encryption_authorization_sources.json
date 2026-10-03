@@ -1,0 +1,65 @@
+{
+  "retrieved_date_utc": "2026-09-25",
+  "classification": "primary-documentation-only; these excerpts are not native observations",
+  "sources": [
+    {
+      "url": "https://servicereference.us-east-1.amazonaws.com/v1/ebs/ebs.json",
+      "snapshot_arn_format": "arn:${Partition}:ec2:${Region}::snapshot/${SnapshotId}",
+      "operation_authorized_actions": {
+        "StartSnapshot": ["ebs:StartSnapshot", "ec2:CreateTags"],
+        "PutSnapshotBlock": ["ebs:PutSnapshotBlock"],
+        "CompleteSnapshot": ["ebs:CompleteSnapshot"],
+        "ListSnapshotBlocks": ["ebs:ListSnapshotBlocks"],
+        "GetSnapshotBlock": ["ebs:GetSnapshotBlock"],
+        "ListChangedBlocks": ["ebs:ListChangedBlocks"]
+      },
+      "StartSnapshot_action_condition_keys": ["aws:RequestTag/${TagKey}", "aws:ResourceTag/${TagKey}", "aws:TagKeys", "ebs:Description", "ebs:ParentSnapshot", "ebs:VolumeSize"],
+      "other_five_action_condition_keys": ["aws:ResourceTag/${TagKey}"]
+    },
+    {
+      "url": "https://docs.aws.amazon.com/ebs/latest/userguide/ebsapi-permissions.html",
+      "claims": [
+        "EBS direct permissions may grant snapshot access to a caller denied EC2 CopySnapshot or CreateVolume access.",
+        "Tagging through StartSnapshot uses ec2:CreateTags authorization as well as EBS permissions.",
+        "Customer-managed KMS keys require permission through key policies/IAM; the guide recommends conditioning CreateGrant with kms:GrantIsForAWSResource. This recommendation alone is not proof that each EBS direct operation invokes CreateGrant."
+      ]
+    },
+    {
+      "url": "https://docs.aws.amazon.com/ebs/latest/userguide/ebsapis-using-encryption.html",
+      "claims": [
+        "ParentSnapshotId with any explicit Encrypted or KmsKeyArn rejects with ValidationException.",
+        "With encryption fields omitted, encrypted children inherit the encrypted parent's KMS key.",
+        "With encryption-by-default disabled, an unencrypted parent produces an unencrypted child; encryption-by-default enabled rejects an unencrypted parent. The enabled-default case is not probed because account defaults must remain unchanged."
+      ]
+    },
+    {
+      "url": "https://docs.aws.amazon.com/ebs/latest/APIReference/API_StartSnapshot.html",
+      "claims": ["An encrypted parent requires permission to use its KMS key.", "StartSnapshot creates a pending snapshot; PutSnapshotBlock supplies data."]
+    },
+    {
+      "url": "https://docs.aws.amazon.com/ebs/latest/APIReference/API_GetSnapshotBlock.html",
+      "claims": ["Reading an encrypted snapshot block requires permission to use its KMS key."]
+    },
+    {
+      "url": "https://docs.aws.amazon.com/kms/latest/developerguide/conditions-kms.html#conditions-kms-via-service",
+      "claims": [
+        "The ViaService support table lists Amazon EBS as ec2.${AWS_region}.amazonaws.com (EBS only), and the AWS-managed EBS key example uses ec2.us-west-2.amazonaws.com. Native EBS direct API ViaService values are established separately by conditioned calls, not inferred from this example or event invokedBy.",
+        "kms:EncryptionContext:context-key can constrain symmetric cryptographic requests by context key and value; it is a single-valued condition key."
+      ]
+    },
+    {
+      "url": "https://docs.aws.amazon.com/kms/latest/developerguide/unusable-kms-keys.html",
+      "claims": [
+        "Disabling a KMS key prevents cryptographic operations subject to eventual consistency; data-key use can continue until the KMS key is needed again. The page's EC2 volume attachment example does not establish EBS direct API caching or lifetime."
+      ]
+    },
+    {
+      "url": "https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html",
+      "claims": [
+        "Customer-managed key deletion requires a 7–30 day waiting period; PendingDeletion is not immediate physical deletion."
+      ]
+    }
+  ],
+  "native_evidence": "encryption_authorization.json",
+  "baseline_evidence_not_repeated": ["encryption_readiness.json", "encryption_contract.json"]
+}

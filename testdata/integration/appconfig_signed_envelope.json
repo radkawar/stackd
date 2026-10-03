@@ -1,0 +1,129 @@
+{
+  "observations": {
+    "before_required_signing_context": {
+      "Message": "User: arn:aws:iam::000000000000:root is not authorized to perform: kms:GenerateDataKey on resource: arn:aws:kms:us-east-1:000000000000:key/a9825049-040d-4916-a3d7-84ca4d633418. A resource policy explicitly denies this operation. (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException)",
+      "Code": "BadRequestException"
+    },
+    "unsigned_storage_recovery": true,
+    "required_signing_context_create_read": true,
+    "hosted_official_sdk_read": {
+      "algorithm": "0x578",
+      "plaintext_sha256": "f3c03877e8aa51e0e2dd2b85a948b1eceeedfeb94e98337d88a95880891556fd",
+      "context": {
+        "aws-crypto-public-key": "AqqfjonGhH4GtBhJWw0zfeeOZ3NSJSQtNUCAGgF2L0tZIXB3TuMQmJsHkHqWsEjQWA==",
+        "aws:appconfig:hostedconfigurationversion:arn": "arn:aws:appconfig:us-east-1:000000000000:application/086d61b/configurationprofile/0e82087/hostedconfigurationversion/2"
+      }
+    },
+    "deployment_official_sdk_read": {
+      "algorithm": "0x578",
+      "plaintext_sha256": "f3c03877e8aa51e0e2dd2b85a948b1eceeedfeb94e98337d88a95880891556fd",
+      "context": {
+        "aws-crypto-public-key": "A99IQjFETCF8CojLiXZILtZBh5DpQJJ3LSlkLAIl7R79cZAxAHrT99a8mWt+Q173qg==",
+        "aws:appconfig:deployment:arn": "arn:aws:appconfig:us-east-1:000000000000:application/086d61b/environment/0ea31cf/deployment/1"
+      }
+    },
+    "official_reader_frame_boundaries": [
+      1,
+      4095,
+      4096,
+      4097,
+      8192
+    ],
+    "official_sdk_write_go_read_after_restart": true,
+    "deployed_application_bytes_after_restart": true,
+    "current_key_disabled": {
+      "Message": "arn:aws:kms:us-east-1:000000000000:key/a9825049-040d-4916-a3d7-84ca4d633418 is disabled. (Service: AWSKMS; Status Code: 400; Error Code: DisabledException)",
+      "Code": "BadRequestException"
+    },
+    "current_key_reenabled": true
+  },
+  "controllers": [
+    {
+      "start": 1,
+      "command": [
+        "/home/r/dev/minor/stackd/bin/stackd",
+        "-listen",
+        "127.0.0.1:59507",
+        "-public-endpoint",
+        "http://127.0.0.1:59507",
+        "-database",
+        "/tmp/stackd-appconfig-signing-20261001/state.sqlite",
+        "-clock-start",
+        "2026-10-01T12:00:00Z"
+      ],
+      "log": "/tmp/stackd-appconfig-signing-20261001/controller-1.log",
+      "pid": 2893572,
+      "exit": 0
+    },
+    {
+      "start": 1,
+      "command": [
+        "/home/r/dev/minor/stackd/bin/stackd",
+        "-listen",
+        "127.0.0.1:59943",
+        "-public-endpoint",
+        "http://127.0.0.1:59943",
+        "-database",
+        "/tmp/stackd-appconfig-signing-20261001/state.sqlite",
+        "-clock-start",
+        "2026-10-01T12:00:00Z"
+      ],
+      "log": "/tmp/stackd-appconfig-signing-20261001/after/controller-1.log",
+      "pid": 2914941,
+      "exit": 0
+    },
+    {
+      "start": 2,
+      "command": [
+        "/home/r/dev/minor/stackd/bin/stackd",
+        "-listen",
+        "127.0.0.1:59943",
+        "-public-endpoint",
+        "http://127.0.0.1:59943",
+        "-database",
+        "/tmp/stackd-appconfig-signing-20261001/state.sqlite",
+        "-clock-start",
+        "2026-10-01T12:00:00Z"
+      ],
+      "log": "/tmp/stackd-appconfig-signing-20261001/after/controller-2.log",
+      "pid": 2915057,
+      "exit": 0
+    }
+  ],
+  "binary_before_sha256": "2f465e34996ce95948c8154f566075641a54679b24907e63857b9734ff5592df",
+  "key": "arn:aws:kms:us-east-1:000000000000:key/a9825049-040d-4916-a3d7-84ca4d633418",
+  "application": "086d61b",
+  "environment": "0ea31cf",
+  "profile": "0e82087",
+  "legacy_version": 1,
+  "binary_after_sha256": "aa9569fe0384a6c05b6bb22dad231045c1392b5f4fa23fa8a1355f02ab441d25",
+  "signed_version": 2,
+  "official_encryption_sdk_version": "4.0.3",
+  "status": "passed",
+  "evidence_scope": "Local executable, real KMS owner, signed boto3 requests and official AWS Encryption SDK 4.0.3. No native AWS calls in this workflow.",
+  "sources": [
+    "testdata/aws/appconfig/kms_context_native.json",
+    "https://github.com/awslabs/aws-encryption-sdk-specification/blob/master/framework/algorithm-suites.md",
+    "https://github.com/awslabs/aws-encryption-sdk-specification/blob/master/data-format/message-footer.md"
+  ],
+  "procedure": [
+    "Before binary: explicit key-policy deny on missing aws-crypto-public-key rejected hosted write; relaxed policy then created persisted unsigned version 1.",
+    "After binary: read unsigned version; restore required-public-key policy; create/read signed hosted version and signed deployment; consume exact 9041-byte configuration through AppConfig Data.",
+    "Official AWS Encryption SDK decrypts actual stored hosted/deployment envelopes through local KMS; frame-boundary messages also decrypt.",
+    "Official SDK encrypts same hosted plaintext/resource context; with controller stopped, replace only exact-owned hosted version ciphertext in SQLite with SDK-produced envelope and wrapped key. Restart and read hosted bytes; separately consume untouched stackd-produced deployment.",
+    "Disable/re-enable current KMS key: hosted read denied/restored. All three controllers exited zero."
+  ],
+  "verification": [
+    "go test ./internal/awsenvelope ./internal/integrations ./internal/services/eventbridge",
+    "go test ./integration -run ^TestAppConfig -count=1",
+    "go vet ./internal/awsenvelope ./internal/integrations",
+    "go tool staticcheck ./internal/awsenvelope ./internal/integrations",
+    "go build -trimpath -o bin/stackd ./cmd/stackd"
+  ],
+  "limitations": [
+    "Native capture establishes AppConfig signing context, not downloadable native AppConfig ciphertext; suite interoperability is independently established against official ESDK.",
+    "Parser deliberately supports only one KMS data key, resource context plus optional public key, version 2 committing suites and 4096-byte frames.",
+    "No new native AWS resources or containers were created; exact-owned local SQLite state is retained under the reported path for diagnosis.",
+    "No concurrency boundaries changed; no race or repository-wide integration run."
+  ]
+}

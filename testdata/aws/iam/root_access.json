@@ -1,0 +1,992 @@
+{
+  "schema_version": 1,
+  "source": "Real AWS IAM/Organizations/STS APIs, commercial partition",
+  "probe": "scripts/aws/iam_root_access_probe.py",
+  "aws_cli_version": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+  "started_at": "2026-09-11T16:36:09.904613+00:00",
+  "finished_at": "2026-09-11T16:39:08.605794+00:00",
+  "documentation": [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_EnableOrganizationsRootCredentialsManagement.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_DisableOrganizationsRootCredentialsManagement.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_EnableOrganizationsRootSessions.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_DisableOrganizationsRootSessions.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListOrganizationsFeatures.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetAccountProperties.html",
+    "https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoot.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-enable-root-access.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user-privileged-task.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/security-iam-awsmanpol.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/cloudtrail-track-privileged-tasks.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-assumedroot",
+    "https://docs.aws.amazon.com/organizations/latest/userguide/services-that-can-integrate-iam.html"
+  ],
+  "model_source": "clones/aws-sdk-go-v2/service/{iam,sts}/api_op_*.go and generated internal/awsapi contracts",
+  "eligibility": {
+    "caller_is_root": false,
+    "organization_read_code": "Success",
+    "management_account": true,
+    "feature_set": "ALL",
+    "trusted_services_read_code": "Success",
+    "iam_trusted_access": false
+  },
+  "setup": [],
+  "observations": [
+    {
+      "case": "features_original_before",
+      "service": "iam",
+      "operation": "ListOrganizationsFeatures",
+      "input": {},
+      "credential": "original",
+      "observed_at": "2026-09-11T16:36:13.170582+00:00",
+      "code": "ServiceAccessNotEnabledException",
+      "message": "Trusted Access for IAM not enabled by organization of input account 123456789012.",
+      "http_status": 400
+    },
+    {
+      "case": "properties_original",
+      "service": "iam",
+      "operation": "GetAccountProperties",
+      "input": {},
+      "credential": "original",
+      "observed_at": "2026-09-11T16:36:13.865417+00:00",
+      "code": "Success",
+      "output": {
+        "Properties": {
+          "RoleManager/Enabled": "false"
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "features_explicit_deny_observer",
+      "service": "iam",
+      "operation": "ListOrganizationsFeatures",
+      "input": {},
+      "credential": "explicit_deny_observer",
+      "observed_at": "2026-09-11T16:36:25.822978+00:00",
+      "code": "ServiceAccessNotEnabledException",
+      "message": "Trusted Access for IAM not enabled by organization of input account 123456789012.",
+      "http_status": 400,
+      "state_changes_before": [
+        {
+          "service": "iam",
+          "operation": "CreateUser",
+          "input": {
+            "UserName": "stackd-root-access-fixture-explicit_deny_observer",
+            "Path": "/org-access/"
+          },
+          "output": {
+            "User": {
+              "Path": "/org-access/",
+              "UserName": "stackd-root-access-fixture-explicit_deny_observer",
+              "UserId": "<user-id:explicit_deny_observer>",
+              "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-explicit_deny_observer",
+              "CreateDate": "2026-09-11T16:36:14+00:00"
+            }
+          }
+        },
+        {
+          "service": "iam",
+          "operation": "PutUserPolicy",
+          "input": {
+            "UserName": "stackd-root-access-fixture-explicit_deny_observer",
+            "PolicyName": "ReportPermissions",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"iam:ListOrganizationsFeatures\",\"iam:GetAccountProperties\"],\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":[\"iam:EnableOrganizationsRootCredentialsManagement\",\"iam:DisableOrganizationsRootCredentialsManagement\",\"iam:EnableOrganizationsRootSessions\",\"iam:DisableOrganizationsRootSessions\",\"organizations:*\",\"sts:AssumeRoot\"],\"Resource\":\"*\"}]}"
+          },
+          "output": {}
+        },
+        {
+          "service": "iam",
+          "operation": "CreateAccessKey",
+          "input": {
+            "UserName": "stackd-root-access-fixture-explicit_deny_observer"
+          },
+          "output": {
+            "AccessKey": {
+              "UserName": "stackd-root-access-fixture-explicit_deny_observer",
+              "AccessKeyId": "<access-key:explicit_deny_observer>",
+              "Status": "Active",
+              "CreateDate": "2026-09-11T16:36:15+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "properties_explicit_deny_observer",
+      "service": "iam",
+      "operation": "GetAccountProperties",
+      "input": {},
+      "credential": "explicit_deny_observer",
+      "observed_at": "2026-09-11T16:36:26.521811+00:00",
+      "code": "Success",
+      "output": {
+        "Properties": {
+          "RoleManager/Enabled": "false"
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "features_no_grants",
+      "service": "iam",
+      "operation": "ListOrganizationsFeatures",
+      "input": {},
+      "credential": "no_grants",
+      "observed_at": "2026-09-11T16:36:38.400199+00:00",
+      "code": "AccessDenied",
+      "message": "User: arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-no_grants is not authorized to perform: iam:ListOrganizationsFeatures on resource: * because no identity-based policy allows the iam:ListOrganizationsFeatures action",
+      "http_status": 403,
+      "state_changes_before": [
+        {
+          "service": "iam",
+          "operation": "CreateUser",
+          "input": {
+            "UserName": "stackd-root-access-fixture-no_grants",
+            "Path": "/org-access/"
+          },
+          "output": {
+            "User": {
+              "Path": "/org-access/",
+              "UserName": "stackd-root-access-fixture-no_grants",
+              "UserId": "<user-id:no_grants>",
+              "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-no_grants",
+              "CreateDate": "2026-09-11T16:36:27+00:00"
+            }
+          }
+        },
+        {
+          "service": "iam",
+          "operation": "PutUserPolicy",
+          "input": {
+            "UserName": "stackd-root-access-fixture-no_grants",
+            "PolicyName": "ReportPermissions",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"organizations:*\",\"Resource\":\"*\"}]}"
+          },
+          "output": {}
+        },
+        {
+          "service": "iam",
+          "operation": "CreateAccessKey",
+          "input": {
+            "UserName": "stackd-root-access-fixture-no_grants"
+          },
+          "output": {
+            "AccessKey": {
+              "UserName": "stackd-root-access-fixture-no_grants",
+              "AccessKeyId": "<access-key:no_grants>",
+              "Status": "Active",
+              "CreateDate": "2026-09-11T16:36:28+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "properties_no_grants",
+      "service": "iam",
+      "operation": "GetAccountProperties",
+      "input": {},
+      "credential": "no_grants",
+      "observed_at": "2026-09-11T16:36:39.093647+00:00",
+      "code": "AccessDenied",
+      "message": "User: arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-no_grants is not authorized to perform: iam:GetAccountProperties on resource: * because no identity-based policy allows the iam:GetAccountProperties action. Go to https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/authorization-details/<authorization-id> for complete details, or call the GetRequestAuthorizationDetails API with the following authorization id: <authorization-id>",
+      "http_status": 403
+    },
+    {
+      "case": "features_scoped_reads",
+      "service": "iam",
+      "operation": "ListOrganizationsFeatures",
+      "input": {},
+      "credential": "scoped_reads",
+      "observed_at": "2026-09-11T16:36:51.295194+00:00",
+      "code": "AccessDenied",
+      "message": "User: arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-scoped_reads is not authorized to perform: iam:ListOrganizationsFeatures on resource: * because no identity-based policy allows the iam:ListOrganizationsFeatures action",
+      "http_status": 403,
+      "state_changes_before": [
+        {
+          "service": "iam",
+          "operation": "CreateUser",
+          "input": {
+            "UserName": "stackd-root-access-fixture-scoped_reads",
+            "Path": "/org-access/"
+          },
+          "output": {
+            "User": {
+              "Path": "/org-access/",
+              "UserName": "stackd-root-access-fixture-scoped_reads",
+              "UserId": "<user-id:scoped_reads>",
+              "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-scoped_reads",
+              "CreateDate": "2026-09-11T16:36:39+00:00"
+            }
+          }
+        },
+        {
+          "service": "iam",
+          "operation": "PutUserPolicy",
+          "input": {
+            "UserName": "stackd-root-access-fixture-scoped_reads",
+            "PolicyName": "ReportPermissions",
+            "PolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"iam:ListOrganizationsFeatures\",\"iam:GetAccountProperties\"],\"Resource\":\"arn:aws:iam::123456789012:root\"}]}"
+          },
+          "output": {}
+        },
+        {
+          "service": "iam",
+          "operation": "CreateAccessKey",
+          "input": {
+            "UserName": "stackd-root-access-fixture-scoped_reads"
+          },
+          "output": {
+            "AccessKey": {
+              "UserName": "stackd-root-access-fixture-scoped_reads",
+              "AccessKeyId": "<access-key:scoped_reads>",
+              "Status": "Active",
+              "CreateDate": "2026-09-11T16:36:41+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "properties_scoped_reads",
+      "service": "iam",
+      "operation": "GetAccountProperties",
+      "input": {},
+      "credential": "scoped_reads",
+      "observed_at": "2026-09-11T16:36:51.985461+00:00",
+      "code": "AccessDenied",
+      "message": "User: arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-scoped_reads is not authorized to perform: iam:GetAccountProperties on resource: * because no identity-based policy allows the iam:GetAccountProperties action. Go to https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/authorization-details/<authorization-id> for complete details, or call the GetRequestAuthorizationDetails API with the following authorization id: <authorization-id>",
+      "http_status": 403
+    },
+    {
+      "case": "denied_enable_organizations_root_credentials_management",
+      "service": "iam",
+      "operation": "EnableOrganizationsRootCredentialsManagement",
+      "input": {},
+      "credential": "explicit_deny_observer",
+      "observed_at": "2026-09-11T16:36:52.671084+00:00",
+      "code": "AccessDenied",
+      "message": "User: arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-explicit_deny_observer is not authorized to perform: iam:EnableOrganizationsRootCredentialsManagement on resource: * with an explicit deny in an identity-based policy",
+      "http_status": 403
+    },
+    {
+      "case": "denied_disable_organizations_root_credentials_management",
+      "service": "iam",
+      "operation": "DisableOrganizationsRootCredentialsManagement",
+      "input": {},
+      "credential": "explicit_deny_observer",
+      "observed_at": "2026-09-11T16:36:53.349327+00:00",
+      "code": "AccessDenied",
+      "message": "User: arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-explicit_deny_observer is not authorized to perform: iam:DisableOrganizationsRootCredentialsManagement on resource: * with an explicit deny in an identity-based policy",
+      "http_status": 403
+    },
+    {
+      "case": "denied_enable_organizations_root_sessions",
+      "service": "iam",
+      "operation": "EnableOrganizationsRootSessions",
+      "input": {},
+      "credential": "explicit_deny_observer",
+      "observed_at": "2026-09-11T16:36:54.021244+00:00",
+      "code": "AccessDenied",
+      "message": "User: arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-explicit_deny_observer is not authorized to perform: iam:EnableOrganizationsRootSessions on resource: * with an explicit deny in an identity-based policy",
+      "http_status": 403
+    },
+    {
+      "case": "denied_disable_organizations_root_sessions",
+      "service": "iam",
+      "operation": "DisableOrganizationsRootSessions",
+      "input": {},
+      "credential": "explicit_deny_observer",
+      "observed_at": "2026-09-11T16:36:54.701870+00:00",
+      "code": "AccessDenied",
+      "message": "User: arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-explicit_deny_observer is not authorized to perform: iam:DisableOrganizationsRootSessions on resource: * with an explicit deny in an identity-based policy",
+      "http_status": 403
+    },
+    {
+      "case": "assume_root_observer_denied",
+      "service": "sts",
+      "operation": "AssumeRoot",
+      "input": {
+        "TargetPrincipal": "123456789012",
+        "TaskPolicyArn": {
+          "arn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials"
+        }
+      },
+      "credential": "explicit_deny_observer",
+      "observed_at": "2026-09-11T16:36:55.412558+00:00",
+      "code": "AccessDenied",
+      "message": "User: arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-explicit_deny_observer is not authorized to perform: sts:AssumeRoot on resource: arn:aws:iam::123456789012:root",
+      "http_status": 403
+    },
+    {
+      "case": "assume_root_management_id",
+      "service": "sts",
+      "operation": "AssumeRoot",
+      "input": {
+        "TargetPrincipal": "123456789012",
+        "TaskPolicyArn": {
+          "arn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials"
+        }
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:36:56.094160+00:00",
+      "code": "AccessDenied",
+      "message": "User: <original-caller-arn> is not authorized to perform: sts:AssumeRoot on resource: arn:aws:iam::123456789012:root",
+      "http_status": 403
+    },
+    {
+      "case": "assume_root_management_root_arn",
+      "service": "sts",
+      "operation": "AssumeRoot",
+      "input": {
+        "TargetPrincipal": "arn:aws:iam::123456789012:root",
+        "TaskPolicyArn": {
+          "arn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials"
+        }
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:36:56.770305+00:00",
+      "code": "AccessDenied",
+      "message": "User: <original-caller-arn> is not authorized to perform: sts:AssumeRoot on resource: arn:aws:iam::123456789012:root",
+      "http_status": 403
+    },
+    {
+      "case": "assume_root_owned_user_arn",
+      "service": "sts",
+      "operation": "AssumeRoot",
+      "input": {
+        "TargetPrincipal": "arn:aws:iam::123456789012:user/org-access/stackd-root-access-fixture-explicit_deny_observer",
+        "TaskPolicyArn": {
+          "arn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials"
+        }
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:36:57.441281+00:00",
+      "code": "ValidationError",
+      "message": "Request must contain a valid target principal",
+      "http_status": 400
+    },
+    {
+      "case": "assume_root_duration_zero",
+      "service": "sts",
+      "operation": "AssumeRoot",
+      "input": {
+        "TargetPrincipal": "123456789012",
+        "TaskPolicyArn": {
+          "arn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials"
+        },
+        "DurationSeconds": 0
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:36:58.102086+00:00",
+      "code": "AccessDenied",
+      "message": "User: <original-caller-arn> is not authorized to perform: sts:AssumeRoot on resource: arn:aws:iam::123456789012:root",
+      "http_status": 403
+    },
+    {
+      "case": "assume_root_duration_over_limit",
+      "service": "sts",
+      "operation": "AssumeRoot",
+      "input": {
+        "TargetPrincipal": "123456789012",
+        "TaskPolicyArn": {
+          "arn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials"
+        },
+        "DurationSeconds": 901
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:36:58.772948+00:00",
+      "code": "ValidationError",
+      "message": "1 validation error detected: Value '901' at 'durationSeconds' failed to satisfy constraint: Member must have value less than or equal to 900",
+      "http_status": 400
+    },
+    {
+      "case": "assume_root_invalid_task_policy",
+      "service": "sts",
+      "operation": "AssumeRoot",
+      "input": {
+        "TargetPrincipal": "123456789012",
+        "TaskPolicyArn": {
+          "arn": "arn:aws:iam::aws:policy/ReadOnlyAccess"
+        }
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:36:59.434738+00:00",
+      "code": "ValidationError",
+      "message": "Request must contain valid AWS managed task policy ARN",
+      "http_status": 400
+    },
+    {
+      "case": "assume_root_task_policy_missing_arn",
+      "service": "sts",
+      "operation": "AssumeRoot",
+      "input": {
+        "TargetPrincipal": "123456789012",
+        "TaskPolicyArn": {}
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:37:00.086206+00:00",
+      "code": "ValidationError",
+      "message": "1 validation error detected: Value null at 'taskPolicyArn' failed to satisfy constraint: Member must not be null",
+      "http_status": 400
+    },
+    {
+      "case": "assume_root_global_endpoint",
+      "service": "sts",
+      "operation": "AssumeRoot",
+      "input": {
+        "TargetPrincipal": "123456789012",
+        "TaskPolicyArn": {
+          "arn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials"
+        }
+      },
+      "endpoint": "https://sts.amazonaws.com",
+      "region": "us-east-1",
+      "credential": "original",
+      "observed_at": "2026-09-11T16:37:00.835581+00:00",
+      "code": "InvalidAction",
+      "message": "Unknown Operation",
+      "http_status": 400
+    },
+    {
+      "case": "features_original_after",
+      "service": "iam",
+      "operation": "ListOrganizationsFeatures",
+      "input": {},
+      "credential": "original",
+      "observed_at": "2026-09-11T16:37:01.569424+00:00",
+      "code": "ServiceAccessNotEnabledException",
+      "message": "Trusted Access for IAM not enabled by organization of input account 123456789012.",
+      "http_status": 400
+    },
+    {
+      "case": "public_policy_IAMAuditRootUserCredentials",
+      "service": "iam",
+      "operation": "GetPolicy",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:02.100963+00:00",
+      "code": "Success",
+      "output": {
+        "Policy": {
+          "PolicyName": "IAMAuditRootUserCredentials",
+          "PolicyId": "ANPAZKAPJZG4BDSCREYVS",
+          "Arn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials",
+          "Path": "/root-task/",
+          "DefaultVersionId": "v1",
+          "AttachmentCount": 0,
+          "PermissionsBoundaryUsageCount": 0,
+          "IsAttachable": true,
+          "Description": "Provides access required to check the presence of root user credentials such as root user password and root user access keys using the Security Token Service (STS) AssumeRoot API. Use this managed policy only with the STS AssumeRoot action.",
+          "CreateDate": "2024-11-06T22:27:58+00:00",
+          "UpdateDate": "2024-11-06T22:27:58+00:00",
+          "Tags": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "public_policy_version_IAMAuditRootUserCredentials",
+      "service": "iam",
+      "operation": "GetPolicyVersion",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/IAMAuditRootUserCredentials",
+        "VersionId": "v1"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:02.805092+00:00",
+      "code": "Success",
+      "output": {
+        "PolicyVersion": {
+          "Document": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "DenyAllOtherActionsOnAnyResource",
+                "Effect": "Deny",
+                "NotAction": [
+                  "iam:ListAccessKeys",
+                  "iam:ListSigningCertificates",
+                  "iam:GetLoginProfile",
+                  "iam:ListMFADevices",
+                  "iam:GetAccountSummary",
+                  "iam:GetUser",
+                  "iam:GetAccessKeyLastUsed"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Sid": "DenyAuditingCredentialsOnNonRootUserResource",
+                "Effect": "Deny",
+                "Action": [
+                  "iam:ListAccessKeys",
+                  "iam:ListSigningCertificates",
+                  "iam:GetLoginProfile",
+                  "iam:ListMFADevices",
+                  "iam:GetUser",
+                  "iam:GetAccessKeyLastUsed"
+                ],
+                "NotResource": "arn:aws:iam::*:root"
+              }
+            ]
+          },
+          "VersionId": "v1",
+          "IsDefaultVersion": true,
+          "CreateDate": "2024-11-06T22:27:58+00:00"
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "public_policy_IAMCreateRootUserPassword",
+      "service": "iam",
+      "operation": "GetPolicy",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/IAMCreateRootUserPassword"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:03.568853+00:00",
+      "code": "Success",
+      "output": {
+        "Policy": {
+          "PolicyName": "IAMCreateRootUserPassword",
+          "PolicyId": "ANPAZKAPJZG4OEGTN7YT5",
+          "Arn": "arn:aws:iam::aws:policy/root-task/IAMCreateRootUserPassword",
+          "Path": "/root-task/",
+          "DefaultVersionId": "v1",
+          "AttachmentCount": 0,
+          "PermissionsBoundaryUsageCount": 0,
+          "IsAttachable": true,
+          "Description": "Provides access required to create a root user password using the Security Token Service (STS) AssumeRoot API.  Use this managed policy only with the STS AssumeRoot action. ",
+          "CreateDate": "2024-11-06T22:32:59+00:00",
+          "UpdateDate": "2024-11-06T22:32:59+00:00",
+          "Tags": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "public_policy_version_IAMCreateRootUserPassword",
+      "service": "iam",
+      "operation": "GetPolicyVersion",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/IAMCreateRootUserPassword",
+        "VersionId": "v1"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:04.286303+00:00",
+      "code": "Success",
+      "output": {
+        "PolicyVersion": {
+          "Document": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "DenyAllOtherActionsOnAnyResource",
+                "Effect": "Deny",
+                "NotAction": [
+                  "iam:CreateLoginProfile",
+                  "iam:GetLoginProfile"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Sid": "DenyCreatingPasswordOnNonRootUserResource",
+                "Effect": "Deny",
+                "Action": [
+                  "iam:CreateLoginProfile",
+                  "iam:GetLoginProfile"
+                ],
+                "NotResource": "arn:aws:iam::*:root"
+              }
+            ]
+          },
+          "VersionId": "v1",
+          "IsDefaultVersion": true,
+          "CreateDate": "2024-11-06T22:32:59+00:00"
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "public_policy_IAMDeleteRootUserCredentials",
+      "service": "iam",
+      "operation": "GetPolicy",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/IAMDeleteRootUserCredentials"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:05.011209+00:00",
+      "code": "Success",
+      "output": {
+        "Policy": {
+          "PolicyName": "IAMDeleteRootUserCredentials",
+          "PolicyId": "ANPAZKAPJZG4CX73XKORQ",
+          "Arn": "arn:aws:iam::aws:policy/root-task/IAMDeleteRootUserCredentials",
+          "Path": "/root-task/",
+          "DefaultVersionId": "v1",
+          "AttachmentCount": 0,
+          "PermissionsBoundaryUsageCount": 0,
+          "IsAttachable": true,
+          "Description": "Provides access required to delete all root user credentials such as root password and root access keys using the Security Token Service (STS) AssumeRoot API.  Use this managed policy only with the STS AssumeRoot action.",
+          "CreateDate": "2024-11-06T22:47:58+00:00",
+          "UpdateDate": "2024-11-06T22:47:58+00:00",
+          "Tags": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "public_policy_version_IAMDeleteRootUserCredentials",
+      "service": "iam",
+      "operation": "GetPolicyVersion",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/IAMDeleteRootUserCredentials",
+        "VersionId": "v1"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:05.724545+00:00",
+      "code": "Success",
+      "output": {
+        "PolicyVersion": {
+          "Document": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "DenyAllOtherActionsOnAnyResource",
+                "Effect": "Deny",
+                "NotAction": [
+                  "iam:DeleteAccessKey",
+                  "iam:DeleteSigningCertificate",
+                  "iam:DeleteLoginProfile",
+                  "iam:DeactivateMFADevice",
+                  "iam:DeleteVirtualMFADevice",
+                  "iam:ListAccessKeys",
+                  "iam:ListSigningCertificates",
+                  "iam:GetLoginProfile",
+                  "iam:ListMFADevices",
+                  "iam:GetUser",
+                  "iam:GetAccessKeyLastUsed"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Sid": "DenyDeletingRootUserCredentialsOnNonRootUserResource",
+                "Effect": "Deny",
+                "Action": [
+                  "iam:DeleteAccessKey",
+                  "iam:DeleteSigningCertificate",
+                  "iam:DeleteLoginProfile",
+                  "iam:DeactivateMFADevice",
+                  "iam:DeleteVirtualMFADevice",
+                  "iam:ListAccessKeys",
+                  "iam:ListSigningCertificates",
+                  "iam:GetLoginProfile",
+                  "iam:ListMFADevices",
+                  "iam:GetUser",
+                  "iam:GetAccessKeyLastUsed"
+                ],
+                "NotResource": "arn:aws:iam::*:root"
+              }
+            ]
+          },
+          "VersionId": "v1",
+          "IsDefaultVersion": true,
+          "CreateDate": "2024-11-06T22:47:58+00:00"
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "public_policy_S3UnlockBucketPolicy",
+      "service": "iam",
+      "operation": "GetPolicy",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/S3UnlockBucketPolicy"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:06.449007+00:00",
+      "code": "Success",
+      "output": {
+        "Policy": {
+          "PolicyName": "S3UnlockBucketPolicy",
+          "PolicyId": "ANPAZKAPJZG4OALTIPZOF",
+          "Arn": "arn:aws:iam::aws:policy/root-task/S3UnlockBucketPolicy",
+          "Path": "/root-task/",
+          "DefaultVersionId": "v1",
+          "AttachmentCount": 0,
+          "PermissionsBoundaryUsageCount": 0,
+          "IsAttachable": true,
+          "Description": "Provides access required to unlock a S3 bucket policy using the Security Token Service (STS) AssumeRoot API. Use this managed policy only with the STS AssumeRoot action.",
+          "CreateDate": "2024-11-06T21:55:56+00:00",
+          "UpdateDate": "2024-11-06T21:55:56+00:00",
+          "Tags": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "public_policy_version_S3UnlockBucketPolicy",
+      "service": "iam",
+      "operation": "GetPolicyVersion",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/S3UnlockBucketPolicy",
+        "VersionId": "v1"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:07.176235+00:00",
+      "code": "Success",
+      "output": {
+        "PolicyVersion": {
+          "Document": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "DenyAllOtherActionsOnAnyResource",
+                "Effect": "Deny",
+                "NotAction": [
+                  "s3:DeleteBucketPolicy",
+                  "s3:PutBucketPolicy",
+                  "s3:GetBucketPolicy",
+                  "s3:ListAllMyBuckets"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Sid": "DenyManagingBucketPolicyForNonRootCallers",
+                "Effect": "Deny",
+                "Action": [
+                  "s3:DeleteBucketPolicy",
+                  "s3:PutBucketPolicy",
+                  "s3:GetBucketPolicy",
+                  "s3:ListAllMyBuckets"
+                ],
+                "Resource": "*",
+                "Condition": {
+                  "StringNotLike": {
+                    "aws:PrincipalArn": "arn:aws:iam::*:root"
+                  }
+                }
+              }
+            ]
+          },
+          "VersionId": "v1",
+          "IsDefaultVersion": true,
+          "CreateDate": "2024-11-06T21:55:56+00:00"
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "public_policy_SQSUnlockQueuePolicy",
+      "service": "iam",
+      "operation": "GetPolicy",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/SQSUnlockQueuePolicy"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:07.893718+00:00",
+      "code": "Success",
+      "output": {
+        "Policy": {
+          "PolicyName": "SQSUnlockQueuePolicy",
+          "PolicyId": "ANPAZKAPJZG4HPZI4FDUV",
+          "Arn": "arn:aws:iam::aws:policy/root-task/SQSUnlockQueuePolicy",
+          "Path": "/root-task/",
+          "DefaultVersionId": "v1",
+          "AttachmentCount": 0,
+          "PermissionsBoundaryUsageCount": 0,
+          "IsAttachable": true,
+          "Description": "Provides access required to unlock a SQS queue policy using the Security Token Service (STS) AssumeRoot API. Use this managed policy only with the STS AssumeRoot action.",
+          "CreateDate": "2024-11-06T21:51:02+00:00",
+          "UpdateDate": "2024-11-06T21:51:02+00:00",
+          "Tags": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "case": "public_policy_version_SQSUnlockQueuePolicy",
+      "service": "iam",
+      "operation": "GetPolicyVersion",
+      "input": {
+        "PolicyArn": "arn:aws:iam::aws:policy/root-task/SQSUnlockQueuePolicy",
+        "VersionId": "v1"
+      },
+      "credential": "original",
+      "observed_at": "2026-09-11T16:39:08.605051+00:00",
+      "code": "Success",
+      "output": {
+        "PolicyVersion": {
+          "Document": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "DenyAllOtherActionsOnAnyResource",
+                "Effect": "Deny",
+                "NotAction": [
+                  "sqs:SetQueueAttributes",
+                  "sqs:GetQueueAttributes",
+                  "sqs:ListQueues",
+                  "sqs:GetQueueUrl"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Sid": "DenyGettingQueueAttributesOnNonOwnQueue",
+                "Effect": "Deny",
+                "Action": [
+                  "sqs:GetQueueAttributes"
+                ],
+                "Resource": "arn:aws:sqs:*:*:*",
+                "Condition": {
+                  "StringNotEqualsIfExists": {
+                    "aws:ResourceAccount": [
+                      "${aws:PrincipalAccount}"
+                    ]
+                  }
+                }
+              },
+              {
+                "Sid": "DenyActionsForNonRootUser",
+                "Effect": "Deny",
+                "Action": [
+                  "sqs:SetQueueAttributes",
+                  "sqs:GetQueueAttributes",
+                  "sqs:ListQueues",
+                  "sqs:GetQueueUrl"
+                ],
+                "Resource": "*",
+                "Condition": {
+                  "StringNotLike": {
+                    "aws:PrincipalArn": "arn:aws:iam::*:root"
+                  }
+                }
+              }
+            ]
+          },
+          "VersionId": "v1",
+          "IsDefaultVersion": true,
+          "CreateDate": "2024-11-06T21:51:02+00:00"
+        }
+      },
+      "http_status": 200
+    }
+  ],
+  "cleanup": [
+    {
+      "service": "iam",
+      "operation": "DeleteAccessKey",
+      "input": {
+        "UserName": "stackd-root-access-fixture-scoped_reads",
+        "AccessKeyId": "<access-key:scoped_reads>"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUserPolicy",
+      "input": {
+        "UserName": "stackd-root-access-fixture-scoped_reads",
+        "PolicyName": "ReportPermissions"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-root-access-fixture-scoped_reads"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteAccessKey",
+      "input": {
+        "UserName": "stackd-root-access-fixture-no_grants",
+        "AccessKeyId": "<access-key:no_grants>"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUserPolicy",
+      "input": {
+        "UserName": "stackd-root-access-fixture-no_grants",
+        "PolicyName": "ReportPermissions"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-root-access-fixture-no_grants"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteAccessKey",
+      "input": {
+        "UserName": "stackd-root-access-fixture-explicit_deny_observer",
+        "AccessKeyId": "<access-key:explicit_deny_observer>"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUserPolicy",
+      "input": {
+        "UserName": "stackd-root-access-fixture-explicit_deny_observer",
+        "PolicyName": "ReportPermissions"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-root-access-fixture-explicit_deny_observer"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-root-access-fixture-explicit_deny_observer"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-root-access-fixture-no_grants"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-root-access-fixture-scoped_reads"
+      },
+      "code": "NoSuchEntity"
+    }
+  ],
+  "capture_complete": true,
+  "cleanup_verified": true,
+  "sanitization": "Account/organization IDs and owned identities normalized; no credential secrets, root credential details, unrelated principal rows, service integrations or CLI debug logs retained.",
+  "limitations": [
+    "Existing organization settings, trusted service access, delegated administrators and root credentials are never changed.",
+    "Feature enable/disable requests use only an owned observer with explicit Deny; successful feature transitions and disable/re-enable persistence are documentation-only in this capture.",
+    "AssumeRoot calls target only the management account or its owned observer ARN. No member account is targeted, no privileged root task is performed, and any unexpected returned credentials are discarded without use.",
+    "GetAccountProperties is a separate account configuration map, including RoleManager settings; it is not the centralized-root feature list."
+  ]
+}

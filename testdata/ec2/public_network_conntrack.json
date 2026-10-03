@@ -1,0 +1,232 @@
+{
+  "production_file": "compute/network/native.go",
+  "scope": "nativePolicyScript retirement only; no Go-prefix changes, registry or dependency additions",
+  "native_environment": {
+    "image": "nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61",
+    "conntrack_version": "1.4.8",
+    "peers": "real rootful Docker peers, host sockets and real native guest TAP; no QEMU boot or AWS calls"
+  },
+  "before": {
+    "owner": "stackd-private-7381d2c74d",
+    "initial_private_conntrack_ids": {
+      "10.253.239.20": 1959831983,
+      "10.253.239.1": 2658747125
+    },
+    "first_association": {
+      "host_local": false,
+      "same_vpc_forwarded": false,
+      "conntrack": ""
+    }
+  },
+  "after": {
+    "owner": "stackd-private-b60402b10f",
+    "private_conntrack_ids_preserved": {
+      "10.253.239.20": 1447760785,
+      "10.253.239.1": 4004066081
+    },
+    "private_snat_conntrack_id_preserved": 1413302896,
+    "zero_private_sg_egress_phases": [
+      "first_association",
+      "removal",
+      "reassociation_same_owner",
+      "sg_external_revoke_established",
+      "reassociation_other_owner"
+    ],
+    "reverse_only_host_and_forwarded_tcp": "server-originated payloads received after every transition, without client-first conntrack recreation",
+    "private_snat": "private-origin SNAT to VPC gateway retains the same tuple, so this is not blanket private/SNAT deletion",
+    "new_private_egress": "denied",
+    "old_public_tcp": "host-local and forwarded tuples absent and old sockets no longer exchange after removal/remap",
+    "host_external_tuple_before": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=172.17.0.1 sport=57788 dport=8182 src=172.17.0.1 dst=198.19.239.71 sport=8182 dport=57788 [ASSURED] mark=0 use=1 id=83631809",
+    "upstream_tuple_before": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=1.1.1.1 sport=51400 dport=443 src=1.1.1.1 dst=192.168.0.109 sport=443 dport=51400 [ASSURED] mark=0 use=1 id=1769696409",
+    "external_revocation": "host-local public-source NAT and real 1.1.1.1 HTTPS upstream-MASQ tuples absent; established flows stopped after owner loses assignment",
+    "callback": "preserved before, during and after public ownership",
+    "imds": "metadata-private-ok",
+    "late_cleanup": "successor retained",
+    "restart": "successor retained",
+    "quarantine_recovery": "peer-1"
+  },
+  "native_bridge_observation": {
+    "bridge_present_gateway_missing": "failed closed; quarantine retained",
+    "gateway_restored": "mapping recovered",
+    "bridge_observed_absent": "exact-owned cleanup completed without private-IP-wide deletion"
+  },
+  "filter_semantics": {
+    "inbound": "orig-dst PUBLIC",
+    "host_or_public_peer_snat": "orig-src PRIVATE + reply-dst PUBLIC; reply-src PRIVATE also describes unrelated private inbound replies and is not used",
+    "upstream": "stream only orig-src PRIVATE + src-nat XML, classify original destination against observed old bridge gateway CIDR, and delete external tuples constrained by original/reply addresses, protocol, zone and available transport fields",
+    "error_boundary": "absent observed native bridge skips only upstream scan; present bridge missing gateway, inspection/parse/delete errors fail closed; zero deleted entries remain accepted"
+  },
+  "cleanup": {
+    "before": {
+      "stackd-private-7381d2c74d-external-client": true,
+      "stackd-private-7381d2c74d-private-client": true,
+      "stackd-private-7381d2c74d-1": true,
+      "stackd-private-7381d2c74d-0": true,
+      "bridge": true,
+      "native_tables_absent": true,
+      "198.19.239.71_route_absent": true,
+      "198.19.239.72_route_absent": true,
+      "docker_admission_absent": true
+    },
+    "after": {
+      "guest": true,
+      "stackd-private-b60402b10f-external-client": true,
+      "stackd-private-b60402b10f-private-client": true,
+      "stackd-private-b60402b10f-1": true,
+      "stackd-private-b60402b10f-0": true,
+      "bridge": true,
+      "native_tables_absent": true,
+      "private_nat_table_absent": true,
+      "198.19.239.71_route_absent": true,
+      "198.19.239.72_route_absent": true,
+      "docker_admission_absent": true
+    },
+    "bridge_guard": {
+      "container": true,
+      "bridge": true,
+      "native_tables_absent": true,
+      "public_route_absent": true,
+      "docker_admission_absent": true
+    },
+    "residual_owned_conntracks": "exact gateway IGMP tuple deleted; owned subnet orig-src/orig-dst dumps both zero; both public destinations zero"
+  },
+  "commands": [
+    "go build -o /tmp/stackd-private-controller /tmp/stackd-private-controller.go",
+    "python3 -B -P /tmp/stackd-private-conntrack-proof.py before /tmp/stackd-bridge-overlap-before /tmp/stackd-private-conntrack-before.json",
+    "python3 -B -P /tmp/stackd-private-conntrack-proof.py after /tmp/stackd-private-controller /tmp/stackd-private-conntrack-after.json",
+    "python3 -B -P /tmp/stackd-private-bridge-proof.py"
+  ],
+  "verification_boundary": "Real TCP/IPv4 native zone-0 paths exercised. No tests/lint/formatter/project-wide gates; integration owner retains those and docs. Client-first payloads can reconstruct loose conntrack state, so reproduction requires server-first traffic and stable tracked IDs.",
+  "reproduction": {
+    "sources": {
+      "stackd-private-controller.go": "package main\n\nimport (\n \"bufio\"\n \"context\"\n \"encoding/json\"\n \"fmt\"\n \"net/http\"\n \"os\"\n \"stackd/compute/docker\"\n \"stackd/compute/network\"\n \"stackd/compute/ec2\"\n)\n\nfunc main() {\n ctx:=context.Background()\n d,e:=docker.New(ctx,docker.Config{}); if e!=nil {panic(e)}; defer d.Close()\n b,_:=network.NewBridges(d)\n var gm *ec2.GuestNetworkManager\n s:=bufio.NewScanner(os.Stdin)\n for s.Scan() {\n  var v struct { Op,Name,Peer,StateDirectory string; Spec network.Specification; Bridge network.Bridge }\n  var result any\n  e=json.Unmarshal(s.Bytes(),&v)\n  if e==nil {\n   switch v.Op {\n   case \"bridge\": e=b.WithBridge(ctx,v.Spec,func(n network.Bridge)error{result=n;return nil})\n   case \"apply\": e=b.ApplyPolicy(ctx,v.Name,v.Spec,v.Spec.Policy,v.Peer,network.Options{Callback:v.Spec.Gateway.String()+\":8181\",Guest:true,PublicOwner:v.StateDirectory},v.Bridge)\n   case \"remove\": e=b.RemovePolicy(ctx,v.Name,v.StateDirectory)\n   case \"release\": e=b.Release(ctx,v.Spec.NetworkID)\n   case \"guest\":\n    if gm==nil {gm,e=ec2.NewGuestNetworks(ctx,ec2.GuestNetworkConfig{Docker:d,Bridges:b,StateDirectory:v.StateDirectory,DNSMasqBinary:\"/usr/sbin/dnsmasq\"})}\n    if e==nil {_,e=gm.Prepare(ctx,v.Name,v.Spec,http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){fmt.Fprint(w,\"metadata-private-ok\")}))}\n   case \"guest-remove\": e=gm.Remove(ctx,v.Name,v.Spec)\n   default: e=fmt.Errorf(\"unknown command\")\n   }\n  }\n  msg:=map[string]any{\"result\":result}; if e!=nil {msg[\"error\"]=e.Error()}; json.NewEncoder(os.Stdout).Encode(msg)\n }\n}\n",
+      "stackd-private-conntrack-proof.py": "import copy, json, os, socket, socketserver, subprocess, sys, threading, traceback, uuid\nIMAGE='nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61'\nmode,binary,out=sys.argv[1:]\nprefix='stackd-private-'+uuid.uuid4().hex[:10]\nreport={'owner':prefix,'mode':mode,'observations':{},'cleanup':{}}\ncontainers=[];owners=[];sessions=[];ctl=None;bridge=None;guest=False\nprivate_nat=None;nat_table='stackd_private_nat_'+uuid.uuid4().hex[:12]\nbase={'NetworkID':prefix,'Pool':'10.253.239.0/24','Gateway':'10.253.239.1','Address':'10.253.239.10','MAC':'02:00:00:fd:ef:10','DNS':['10.253.239.2'],'DNSSupport':True,'Hostname':'private-proof','DomainName':'proof.internal','Policy':{'Subnet':'10.253.239.0/24','SecurityIngress':[{'CIDR':'0.0.0.0/0','Protocol':6,'FromPort':8080,'ToPort':8080}],'SecurityEgress':[],'ACLIngress':[{'Number':100,'Allow':True,'Rule':{'CIDR':'0.0.0.0/0','Protocol':-1}}],'ACLEgress':[{'Number':100,'Allow':True,'Rule':{'CIDR':'0.0.0.0/0','Protocol':-1}}],'PublicEgress':False}}\ndef run(args,check=True,timeout=35):\n r=subprocess.run(args,text=True,capture_output=True,timeout=timeout)\n if check and r.returncode:raise RuntimeError(str(args)+': '+r.stdout+r.stderr)\n return r\ndef controller():return subprocess.Popen([binary],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)\ndef call(op,**kw):\n kw.setdefault('StateDirectory','/tmp/'+prefix)\n ctl.stdin.write(json.dumps(dict(Op=op,**kw))+'\\n');ctl.stdin.flush()\n line=ctl.stdout.readline()\n if not line:raise RuntimeError('controller exited')\n r=json.loads(line)\n if r.get('error'):raise RuntimeError(r['error'])\n return r.get('result')\ndef helper(command,check=True):return run(['docker','run','--rm','--network','host','--cap-drop','ALL','--cap-add','NET_ADMIN',IMAGE,'sh','-ec',command],check)\ndef apply(i):return call('apply',Name=owners[i],Spec=specs[i],Peer=peers[i],Bridge=bridge)\ndef execin(c,*args,check=True):return run(['docker','exec',c,*args],check)\nremote_program=\"\"\"import json,socket,ssl,sys\nhost,port,tls=sys.argv[1:];s=socket.create_connection((host,int(port)),3);s.settimeout(1.5)\nif tls=='yes':s=ssl._create_unverified_context().wrap_socket(s,server_hostname=host)\nelse:assert s.recv(64).startswith(b'peer-')\nprint(json.dumps({'ready':True}),flush=True)\nfor line in sys.stdin:\n try:\n  value=json.loads(line)\n  if tls=='yes':\n   s.sendall(b'GET /cdn-cgi/trace HTTP/1.1\\\\r\\\\nHost: 1.1.1.1\\\\r\\\\nConnection: keep-alive\\\\r\\\\n\\\\r\\\\n')\n   data=s.recv(16384);ok=b'HTTP/1.1 200' in data\n  elif value.startswith('receive:'):ok=s.recv(4096)==value[8:].encode()\n  else:\n   data=value.encode();s.sendall(data);ok=s.recv(4096)==data\n  print(json.dumps({'ok':ok}),flush=True)\n except Exception as e:print(json.dumps({'ok':False,'error':type(e).__name__}),flush=True)\n\"\"\"\nclass Remote:\n def __init__(self,c,host,port=8080,tls=False):\n  self.p=subprocess.Popen(['docker','exec','-i',c,'python3','-u','-c',remote_program,host,str(port),'yes' if tls else 'no'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)\n  line=self.p.stdout.readline()\n  if not line:raise RuntimeError(self.p.stderr.read())\n  assert json.loads(line)['ready'];sessions.append(self)\n def exchange(self,value):\n  self.p.stdin.write(json.dumps(value)+'\\n');self.p.stdin.flush();return json.loads(self.p.stdout.readline())['ok']\n def receive(self,value):return self.exchange('receive:'+value)\n def close(self):\n  self.p.stdin.close();self.p.wait(timeout=5)\nclass Local:\n def __init__(self,host):\n  self.s=socket.create_connection((host,8080),3);self.s.settimeout(1.5);assert self.s.recv(64).startswith(b'peer-');sessions.append(self)\n def exchange(self,value):\n  try:self.s.sendall(value.encode());return self.s.recv(4096)==value.encode()\n  except (OSError,TimeoutError):return False\n def receive(self,value):\n  try:return self.s.recv(4096)==value.encode()\n  except (OSError,TimeoutError):return False\n def close(self):self.s.close()\nclass Callback(socketserver.BaseRequestHandler):\n def handle(self):\n  self.request.recv(4096);self.request.sendall(b'HTTP/1.1 200 OK\\r\\nContent-Length: 11\\r\\nConnection: close\\r\\n\\r\\ncallback-ok')\nclass Echo(socketserver.BaseRequestHandler):\n def handle(self):\n  self.request.sendall(b'peer-host\\n')\n  while data:=self.request.recv(4096):self.request.sendall(data)\nsocketserver.ThreadingTCPServer.allow_reuse_address=True\nsocketserver.ThreadingTCPServer.daemon_threads=True\nserver=socketserver.ThreadingTCPServer(('0.0.0.0',8181),Callback);threading.Thread(target=server.serve_forever,daemon=True).start()\necho_server=socketserver.ThreadingTCPServer(('0.0.0.0',8182),Echo);threading.Thread(target=echo_server.serve_forever,daemon=True).start()\ndef callback(i):\n r=execin(containers[i],'curl','--noproxy','*','-fsS','--max-time','3','http://10.253.239.1:8181');assert r.stdout=='callback-ok'\ndef snapshot(selector):return helper('conntrack -L -f ipv4 '+selector+' -o id',False).stdout.strip()\ndef private_ok(stage):\n tracked=snapshot('--reply-src 10.253.239.10')\n execin(containers[0],'python3','-c',\"import socket;s=socket.create_connection(('127.0.0.1',9090));s.sendall(\"+repr(stage.encode())+\");s.close()\")\n observed={'host_local':host_private.receive(stage),'same_vpc_forwarded':forward_private.receive(stage),'conntrack':tracked}\n if private_nat:\n  observed['private_snat']=private_nat.exchange(stage+'-snat')\n  observed['private_snat_conntrack']=snapshot('--orig-src 10.253.239.10 --orig-dst 10.253.239.1 --src-nat')\n  assert observed['private_snat'],observed\n report['observations'][stage]=observed\n if mode!='before':assert observed['host_local'] and observed['same_vpc_forwarded'],observed\n return observed\ntry:\n ctl=controller();bridge=call('bridge',Spec=base);specs=[];peers=[]\n for i in range(2):\n  spec=copy.deepcopy(base);spec['Address']='10.253.239.'+str(10+i);spec['MAC']='02:00:00:fd:ef:'+str(10+i);specs.append(spec)\n  name=prefix+'-'+str(i);containers.append(name);owner='stackd_ec2_'+uuid.uuid4().hex;owners.append(owner)\n  program=\"import socket,threading; clients=[];s=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);s.bind(('0.0.0.0',8080));s.listen();\\n\"+\"def trigger():\\n t=socket.socket();t.bind(('127.0.0.1',9090));t.listen()\\n while True:\\n  c,a=t.accept();data=c.recv(4096);c.close()\\n  for peer in clients:\\n   try:peer.sendall(data)\\n   except OSError:pass\\nthreading.Thread(target=trigger,daemon=True).start()\\ndef handle(c):\\n clients.append(c);c.sendall(b'peer-\"+str(i)+\"\\\\n')\\n while True:\\n  data=c.recv(4096)\\n  if not data: break\\n  c.sendall(data)\\n clients.remove(c);c.close()\\nwhile True:\\n c,a=s.accept();threading.Thread(target=handle,args=(c,),daemon=True).start()\"\n  run(['docker','run','-d','--name',name,'--network',bridge['Name'],'--ip',spec['Address'],'--mac-address',spec['MAC'],IMAGE,'python3','-u','-c',program])\n  idx=int(execin(name,'cat','/sys/class/net/eth0/iflink').stdout);links=json.loads(helper('ip -j link show master '+bridge['Device']).stdout);peers.append(next(x['ifname'] for x in links if x['ifindex']==idx));apply(i)\n # The client has no customer packet policy; A's return depends solely on conntrack.\n private_client=prefix+'-private-client';containers.append(private_client);run(['docker','run','-d','--name',private_client,'--network',bridge['Name'],'--ip','10.253.239.20',IMAGE,'sleep','600'])\n external_client=prefix+'-external-client';containers.append(external_client);run(['docker','run','-d','--name',external_client,IMAGE,'sleep','600'])\n host_private=Local(specs[0]['Address']);forward_private=Remote(private_client,specs[0]['Address']);private_ok('initial_private')\n denied=execin(containers[0],'python3','-c',\"import socket;socket.create_connection(('10.253.239.11',8080),1)\",check=False);assert denied.returncode!=0\n report['observations']['private_new_egress_without_sg']='denied'\n callback(0)\n if mode!='before':\n  helper('nft add table ip '+nat_table+'; nft add chain ip '+nat_table+' private_source \\'{ type nat hook input priority 98; policy accept; ip saddr 10.253.239.10 ip daddr 10.253.239.1 tcp dport 8182 snat to 10.253.239.11; }\\'')\n  specs[0]['Policy']['SecurityEgress']=[{'CIDR':'10.253.239.1/32','Protocol':6,'FromPort':8182,'ToPort':8182}];apply(0)\n  private_nat=Remote(containers[0],'10.253.239.1',8182);assert private_nat.exchange('private-snat-before')\n  specs[0]['Policy']['SecurityEgress']=[];apply(0);private_ok('private_snat_with_no_egress')\n specs[0]['Policy'].update(PublicIPv4='198.19.239.71',PublicEgress=True);apply(0)\n first=private_ok('first_association')\n if mode=='before':assert not first['host_local'] and not first['same_vpc_forwarded'],first\n else:\n  public_host=Local('198.19.239.71');public_forward=Remote(external_client,'198.19.239.71');assert public_host.exchange('public-host') and public_forward.exchange('public-forward')\n  specs[0]['Policy']['PublicEgress']=False;apply(0);private_ok('removal')\n  assert snapshot('--orig-dst 198.19.239.71 --reply-src 10.253.239.10')==''\n  assert not public_host.exchange('removed-host') and not public_forward.exchange('removed-forward')\n  report['observations']['removal_public_sessions']='host-local and forwarded retired';callback(0)\n  specs[0]['Policy']['PublicEgress']=True;apply(0);private_ok('reassociation_same_owner')\n  public_host=Local('198.19.239.71');public_forward=Remote(external_client,'198.19.239.71')\n  # Permit only this external destination; private replies still have no SG egress rule.\n  specs[0]['Policy']['SecurityEgress']=[{'CIDR':'1.1.1.1/32','Protocol':6,'FromPort':443,'ToPort':443},{'CIDR':'172.17.0.1/32','Protocol':6,'FromPort':8182,'ToPort':8182}];apply(0)\n  external=Remote(containers[0],'1.1.1.1',443,True);assert external.exchange('external-before')\n  host_external=Remote(containers[0],'172.17.0.1',8182);assert host_external.exchange('host-external-before')\n  report['observations']['host_external_before']=snapshot('--orig-src 10.253.239.10 --orig-dst 172.17.0.1')\n  report['observations']['external_before']=snapshot('--orig-src 10.253.239.10 --orig-dst 1.1.1.1')\n  specs[0]['Policy']['SecurityEgress']=[];apply(0);assert external.exchange('external-established-no-egress');private_ok('sg_external_revoke_established')\n  assert host_external.exchange('host-external-established-no-egress')\n  specs[1]['Policy'].update(PublicIPv4='198.19.239.71',PublicEgress=True);apply(1);private_ok('reassociation_other_owner')\n  assert snapshot('--orig-dst 198.19.239.71 --reply-src 10.253.239.10')==''\n  assert snapshot('--orig-src 10.253.239.10 --orig-dst 172.17.0.1')==''\n  assert not host_external.exchange('host-external-revoked')\n  report['observations']['host_external_retirement']='public SNAT tuple retired'\n  assert not public_host.exchange('remap-host') and not public_forward.exchange('remap-forward')\n  assert snapshot('--orig-src 10.253.239.10 --orig-dst 1.1.1.1')=='',report\n  assert not external.exchange('revoked-external')\n  report['observations']['remap_retirement']={'host_public':'retired','forwarded_public':'retired','upstream_masquerade':'retired'}\n  callback(0)\n  with socket.create_connection(('198.19.239.71',8080),3) as s:assert s.recv(64)==b'peer-1\\n'\n  call('remove',Name=owners[0])\n  with socket.create_connection(('198.19.239.71',8080),3) as s:assert s.recv(64)==b'peer-1\\n'\n  report['observations']['late_old_cleanup']='successor retained'\n  ctl.stdin.close();ctl.wait(timeout=10);ctl=controller();apply(1)\n  with socket.create_connection(('198.19.239.71',8080),3) as s:assert s.recv(64)==b'peer-1\\n'\n  report['observations']['controller_restart']='successor retained'\n  invalid=copy.deepcopy(specs[1]);invalid['Policy']['PublicIPv4']='198.19.239.72';invalid['Policy']['SecurityIngress'][0]['FromPort']=70000;invalid['Policy']['SecurityIngress'][0]['ToPort']=70000\n  try:call('apply',Name=owners[1],Spec=invalid,Peer=peers[1],Bridge=bridge);raise AssertionError('invalid policy admitted')\n  except RuntimeError as e:assert '70000' in str(e)\n  assert 'quarantine_in' in helper('nft list table ip stackd_public_c613ef48').stdout\n  ctl.stdin.close();ctl.wait(timeout=10);ctl=controller();specs[1]['Policy']['PublicIPv4']='198.19.239.72';apply(1)\n  with socket.create_connection(('198.19.239.72',8080),3) as s:assert s.recv(64)==b'peer-1\\n'\n  report['observations']['quarantine_restart_recovery']='peer-1'\n  spec=copy.deepcopy(base);spec.update(Address='10.253.239.12',MAC='02:00:00:fd:ef:12',Hostname='imds-proof');guest_spec=spec\n  os.mkdir('/tmp/'+prefix,0o700);guest=True;call('guest',Name=prefix+'-guest',Spec=spec)\n  links=json.loads(helper('ip -d -j link show master '+bridge['Device']).stdout);tap=next(x['ifname'] for x in links if x.get('ifalias')=='stackd.ec2:'+prefix+'-guest');bridge_mac=json.loads(helper('ip -j link show dev '+bridge['Device']).stdout)[0]['address']\n  imds=run(['docker','run','--rm','--network','host','--cap-add','NET_ADMIN','--device','/dev/net/tun','-v','/tmp/stackd-private-tap-proof.py:/probe.py:ro',IMAGE,'python3','/probe.py',tap,spec['MAC'],bridge_mac,spec['Address']]).stdout\n  assert 'metadata-private-ok' in imds;report['observations']['private_imds_real_tap']='metadata-private-ok';report['observations']['callback']='preserved before, during and after public ownership'\nexcept Exception:report['error']=traceback.format_exc()\nfinally:\n for s in sessions:\n  try:s.close()\n  except Exception:pass\n if ctl:\n  if guest:\n   try:call('guest-remove',Name=prefix+'-guest',Spec=guest_spec);report['cleanup']['guest']=True\n   except Exception as e:report['cleanup']['guest']=str(e)\n  for owner in owners:\n   try:call('remove',Name=owner)\n   except Exception as e:report['cleanup'][owner]=str(e)\n helper('nft destroy table ip '+nat_table)\n for c in reversed(containers):report['cleanup'][c]=run(['docker','rm','-f',c],check=False).returncode==0\n if ctl and bridge:\n  try:call('release',Spec=base);report['cleanup']['bridge']=True\n  except Exception as e:report['cleanup']['bridge']=str(e)\n if ctl:ctl.stdin.close();ctl.wait(timeout=10)\n server.shutdown();server.server_close()\n echo_server.shutdown();echo_server.server_close()\n native=json.loads(helper('nft -j list tables').stdout);report['cleanup']['native_tables_absent']=not any(x.get('table',{}).get('name') in owners+['stackd_public_c613ef47','stackd_public_c613ef48'] for x in native['nftables'])\n report['cleanup']['private_nat_table_absent']=not any(x.get('table',{}).get('name')==nat_table for x in native['nftables'])\n for addr in ['198.19.239.71','198.19.239.72']:report['cleanup'][addr+'_route_absent']=json.loads(helper('ip -j route show table main exact '+addr+'/32').stdout)==[]\n report['cleanup']['docker_admission_absent']=all('stackd_public_c613ef4' not in helper('nft list chain ip '+chain).stdout for chain in ['filter DOCKER-USER','raw PREROUTING'])\n open(out,'w').write(json.dumps(report,indent=2));print(json.dumps(report,indent=2))\n if report.get('error') or not all(v is True for v in report['cleanup'].values()):raise SystemExit(1)\n",
+      "stackd-private-bridge-proof.py": "import copy,json,subprocess,sys,traceback,uuid\nIMAGE='nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61'\nprefix='stackd-retire-bridge-'+uuid.uuid4().hex[:10];owner='stackd_ec2_'+uuid.uuid4().hex;bridge=None;container=False;gateway_missing=False;ctl=None\nreport={'owner':prefix,'observations':{},'cleanup':{}}\nspec={'NetworkID':prefix,'Pool':'10.253.239.0/24','Gateway':'10.253.239.1','Address':'10.253.239.10','MAC':'02:00:00:fd:ef:10','Policy':{'Subnet':'10.253.239.0/24','SecurityIngress':[],'SecurityEgress':[],'ACLIngress':[],'ACLEgress':[],'PublicIPv4':'198.19.239.71','PublicEgress':True}}\ndef run(args,check=True):\n r=subprocess.run(args,text=True,capture_output=True,timeout=35)\n if check and r.returncode:raise RuntimeError(r.stdout+r.stderr)\n return r\ndef helper(command):return run(['docker','run','--rm','--network','host','--cap-add','NET_ADMIN',IMAGE,'sh','-ec',command]).stdout\ndef call(op,**kw):\n ctl.stdin.write(json.dumps(dict(Op=op,StateDirectory='/tmp/'+prefix,**kw))+'\\n');ctl.stdin.flush();r=json.loads(ctl.stdout.readline())\n if r.get('error'):raise RuntimeError(r['error'])\n return r.get('result')\ntry:\n ctl=subprocess.Popen(['/tmp/stackd-private-controller'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)\n bridge=call('bridge',Spec=spec);run(['docker','run','-d','--name',prefix,'--network',bridge['Name'],'--ip',spec['Address'],'--mac-address',spec['MAC'],IMAGE,'sleep','120']);container=True\n idx=int(run(['docker','exec',prefix,'cat','/sys/class/net/eth0/iflink']).stdout);links=json.loads(helper('ip -j link show master '+bridge['Device']));peer=next(x['ifname'] for x in links if x['ifindex']==idx)\n call('apply',Name=owner,Spec=spec,Peer=peer,Bridge=bridge)\n helper('ip address del 10.253.239.1/24 dev '+bridge['Device']);gateway_missing=True\n removed=copy.deepcopy(spec);removed['Policy']['PublicEgress']=False\n try:call('apply',Name=owner,Spec=removed,Peer=peer,Bridge=bridge);raise AssertionError('missing gateway allowed')\n except RuntimeError as e:assert 'lacks its retained gateway' in str(e)\n assert 'quarantine_in' in helper('nft list table ip stackd_public_c613ef47')\n report['observations']['bridge_present_gateway_missing']='failed closed; quarantine retained'\n helper('ip address add 10.253.239.1/24 dev '+bridge['Device']);gateway_missing=False\n call('apply',Name=owner,Spec=spec,Peer=peer,Bridge=bridge)\n assert 'quarantine_in' not in helper('nft list table ip stackd_public_c613ef47')\n report['observations']['gateway_restored']='mapping recovered'\n run(['docker','rm','-f',prefix]);container=False;report['cleanup']['container']=True\n run(['docker','network','rm',bridge['Name']]);report['cleanup']['bridge']=True\n links=json.loads(helper('ip -j link show'));assert all(x['ifname']!=bridge['Device'] for x in links)\n call('remove',Name=owner)\n report['observations']['bridge_observed_absent']='exact-owned cleanup completed without private-IP-wide deletion'\nexcept Exception:report['error']=traceback.format_exc()\nfinally:\n if gateway_missing:helper('ip address add 10.253.239.1/24 dev '+bridge['Device'])\n if ctl:\n  try:call('remove',Name=owner)\n  except Exception as e:report['cleanup']['policy_error']=str(e)\n if container:report['cleanup']['container']=run(['docker','rm','-f',prefix],False).returncode==0\n if bridge:\n  try:call('release',Spec=spec);report['cleanup']['bridge']=True\n  except Exception as e:report['cleanup']['bridge']=str(e)\n if ctl:ctl.stdin.close();ctl.wait(timeout=10)\n tables=json.loads(helper('nft -j list tables'))['nftables'];report['cleanup']['native_tables_absent']=not any(x.get('table',{}).get('name') in [owner,'stackd_public_c613ef47'] for x in tables)\n report['cleanup']['public_route_absent']=json.loads(helper('ip -j route show table main exact 198.19.239.71/32'))==[]\n report['cleanup']['docker_admission_absent']=all('stackd_public_c613ef47' not in helper('nft list chain ip '+chain) for chain in ['filter DOCKER-USER','raw PREROUTING'])\n open('/tmp/stackd-private-bridge-evidence.json','w').write(json.dumps(report,indent=2));print(json.dumps(report,indent=2))\n if report.get('error') or not all(v is True for v in report['cleanup'].values()):raise SystemExit(1)\n",
+      "stackd-private-tap-proof.py": "import fcntl,os,select,struct,sys,time\nfrom scapy.all import ARP,Ether,IP,TCP,Raw\nname,mac,bridge_mac,private=sys.argv[1:]\nfd=os.open('/dev/net/tun',os.O_RDWR|os.O_NONBLOCK)\nfcntl.ioctl(fd,0x400454ca,struct.pack('16sH',name.encode(),0x1002))\nseq=61000;ack=0;port=42731\n\ndef send(flags,data=b''):\n global seq\n packet=Ether(src=mac,dst=bridge_mac)/IP(src=private,dst='169.254.169.254')/TCP(sport=port,dport=80,seq=seq,ack=ack,flags=flags)\n if data:packet=packet/Raw(data)\n os.write(fd,bytes(packet));seq+=len(data)+(1 if 'S' in flags or 'F' in flags else 0)\n\nsend('S');deadline=time.monotonic()+8;response=b'';requested=False\nwhile time.monotonic()<deadline:\n if not select.select([fd],[],[],.5)[0]:continue\n packet=Ether(os.read(fd,65536))\n if ARP in packet and packet[ARP].op==1 and packet[ARP].pdst==private:\n  os.write(fd,bytes(Ether(src=mac,dst=packet.src)/ARP(op=2,hwsrc=mac,psrc=private,hwdst=packet[ARP].hwsrc,pdst=packet[ARP].psrc)));continue\n if IP not in packet or TCP not in packet or packet[IP].src!='169.254.169.254' or packet[TCP].dport!=port:continue\n tcp=packet[TCP];data=bytes(tcp.payload)\n if not requested and tcp.flags.S and tcp.flags.A:\n  ack=tcp.seq+1;send('A');send('PA',b'GET /latest/meta-data/instance-id HTTP/1.1\\r\\nHost: 169.254.169.254\\r\\nConnection: close\\r\\n\\r\\n');requested=True\n elif data:\n  if tcp.seq==ack:response+=data;ack+=len(data)\n  send('A')\n  if b'metadata-private-ok' in response:send('FA');print(response.decode());break\nelse:raise RuntimeError('private TAP metadata exchange did not complete: '+repr(response))\nos.close(fd)\n"
+    },
+    "before": {
+      "owner": "stackd-private-7381d2c74d",
+      "mode": "before",
+      "observations": {
+        "initial_private": {
+          "host_local": true,
+          "same_vpc_forwarded": true,
+          "conntrack": "tcp      6 431999 ESTABLISHED src=10.253.239.20 dst=10.253.239.10 sport=53916 dport=8080 src=10.253.239.10 dst=10.253.239.20 sport=8080 dport=53916 [ASSURED] mark=0 use=1 id=1959831983\ntcp      6 431999 ESTABLISHED src=10.253.239.1 dst=10.253.239.10 sport=50848 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=50848 [ASSURED] mark=0 use=1 id=2658747125"
+        },
+        "private_new_egress_without_sg": "denied",
+        "first_association": {
+          "host_local": false,
+          "same_vpc_forwarded": false,
+          "conntrack": ""
+        }
+      },
+      "cleanup": {
+        "stackd-private-7381d2c74d-external-client": true,
+        "stackd-private-7381d2c74d-private-client": true,
+        "stackd-private-7381d2c74d-1": true,
+        "stackd-private-7381d2c74d-0": true,
+        "bridge": true,
+        "native_tables_absent": true,
+        "198.19.239.71_route_absent": true,
+        "198.19.239.72_route_absent": true,
+        "docker_admission_absent": true
+      }
+    },
+    "after": {
+      "owner": "stackd-private-b60402b10f",
+      "mode": "after",
+      "observations": {
+        "initial_private": {
+          "host_local": true,
+          "same_vpc_forwarded": true,
+          "conntrack": "tcp      6 431999 ESTABLISHED src=10.253.239.20 dst=10.253.239.10 sport=51264 dport=8080 src=10.253.239.10 dst=10.253.239.20 sport=8080 dport=51264 [ASSURED] mark=0 use=1 id=1447760785\ntcp      6 431999 ESTABLISHED src=10.253.239.1 dst=10.253.239.10 sport=56524 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=56524 [ASSURED] mark=0 use=1 id=4004066081"
+        },
+        "private_new_egress_without_sg": "denied",
+        "private_snat_with_no_egress": {
+          "host_local": true,
+          "same_vpc_forwarded": true,
+          "conntrack": "tcp      6 431997 ESTABLISHED src=10.253.239.20 dst=10.253.239.10 sport=51264 dport=8080 src=10.253.239.10 dst=10.253.239.20 sport=8080 dport=51264 [ASSURED] mark=0 use=1 id=1447760785\ntcp      6 431997 ESTABLISHED src=10.253.239.1 dst=10.253.239.10 sport=56524 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=56524 [ASSURED] mark=0 use=1 id=4004066081",
+          "private_snat": true,
+          "private_snat_conntrack": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=10.253.239.1 sport=55716 dport=8182 src=10.253.239.1 dst=10.253.239.11 sport=8182 dport=55716 [ASSURED] mark=0 use=1 id=1413302896"
+        },
+        "first_association": {
+          "host_local": true,
+          "same_vpc_forwarded": true,
+          "conntrack": "tcp      6 431998 ESTABLISHED src=10.253.239.20 dst=10.253.239.10 sport=51264 dport=8080 src=10.253.239.10 dst=10.253.239.20 sport=8080 dport=51264 [ASSURED] mark=0 use=1 id=1447760785\ntcp      6 431998 ESTABLISHED src=10.253.239.1 dst=10.253.239.10 sport=56524 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=56524 [ASSURED] mark=0 use=1 id=4004066081",
+          "private_snat": true,
+          "private_snat_conntrack": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=10.253.239.1 sport=55716 dport=8182 src=10.253.239.1 dst=10.253.239.11 sport=8182 dport=55716 [ASSURED] mark=0 use=1 id=1413302896"
+        },
+        "removal": {
+          "host_local": true,
+          "same_vpc_forwarded": true,
+          "conntrack": "tcp      6 431998 ESTABLISHED src=10.253.239.20 dst=10.253.239.10 sport=51264 dport=8080 src=10.253.239.10 dst=10.253.239.20 sport=8080 dport=51264 [ASSURED] mark=0 use=1 id=1447760785\ntcp      6 431998 ESTABLISHED src=10.253.239.1 dst=10.253.239.10 sport=56524 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=56524 [ASSURED] mark=0 use=1 id=4004066081",
+          "private_snat": true,
+          "private_snat_conntrack": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=10.253.239.1 sport=55716 dport=8182 src=10.253.239.1 dst=10.253.239.11 sport=8182 dport=55716 [ASSURED] mark=0 use=1 id=1413302896"
+        },
+        "removal_public_sessions": "host-local and forwarded retired",
+        "reassociation_same_owner": {
+          "host_local": true,
+          "same_vpc_forwarded": true,
+          "conntrack": "tcp      6 431995 ESTABLISHED src=10.253.239.20 dst=10.253.239.10 sport=51264 dport=8080 src=10.253.239.10 dst=10.253.239.20 sport=8080 dport=51264 [ASSURED] mark=0 use=1 id=1447760785\ntcp      6 431995 ESTABLISHED src=10.253.239.1 dst=10.253.239.10 sport=56524 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=56524 [ASSURED] mark=0 use=1 id=4004066081",
+          "private_snat": true,
+          "private_snat_conntrack": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=10.253.239.1 sport=55716 dport=8182 src=10.253.239.1 dst=10.253.239.11 sport=8182 dport=55716 [ASSURED] mark=0 use=1 id=1413302896"
+        },
+        "host_external_before": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=172.17.0.1 sport=57788 dport=8182 src=172.17.0.1 dst=198.19.239.71 sport=8182 dport=57788 [ASSURED] mark=0 use=1 id=83631809",
+        "external_before": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=1.1.1.1 sport=51400 dport=443 src=1.1.1.1 dst=192.168.0.109 sport=443 dport=51400 [ASSURED] mark=0 use=1 id=1769696409",
+        "sg_external_revoke_established": {
+          "host_local": true,
+          "same_vpc_forwarded": true,
+          "conntrack": "tcp      6 431998 ESTABLISHED src=172.17.0.2 dst=198.19.239.71 sport=35424 dport=8080 src=10.253.239.10 dst=172.17.0.2 sport=8080 dport=35424 [ASSURED] mark=0 use=1 id=4129419116\ntcp      6 299 ESTABLISHED src=10.253.239.1 dst=198.19.239.71 sport=60024 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=60024 mark=0 use=1 id=4047610139\ntcp      6 431996 ESTABLISHED src=10.253.239.20 dst=10.253.239.10 sport=51264 dport=8080 src=10.253.239.10 dst=10.253.239.20 sport=8080 dport=51264 [ASSURED] mark=0 use=1 id=1447760785\ntcp      6 431997 ESTABLISHED src=172.17.0.2 dst=198.19.239.71 sport=45410 dport=8080 src=10.253.239.10 dst=172.17.0.2 sport=8080 dport=45410 [ASSURED] mark=0 use=1 id=3527144388\ntcp      6 431996 ESTABLISHED src=10.253.239.1 dst=10.253.239.10 sport=56524 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=56524 [ASSURED] mark=0 use=1 id=4004066081\ntcp      6 431997 ESTABLISHED src=10.253.239.1 dst=198.19.239.71 sport=43004 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=43004 [ASSURED] mark=0 use=1 id=3029300570",
+          "private_snat": true,
+          "private_snat_conntrack": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=10.253.239.1 sport=55716 dport=8182 src=10.253.239.1 dst=10.253.239.11 sport=8182 dport=55716 [ASSURED] mark=0 use=1 id=1413302896"
+        },
+        "reassociation_other_owner": {
+          "host_local": true,
+          "same_vpc_forwarded": true,
+          "conntrack": "tcp      6 431999 ESTABLISHED src=10.253.239.20 dst=10.253.239.10 sport=51264 dport=8080 src=10.253.239.10 dst=10.253.239.20 sport=8080 dport=51264 [ASSURED] mark=0 use=1 id=1447760785\ntcp      6 431999 ESTABLISHED src=10.253.239.1 dst=10.253.239.10 sport=56524 dport=8080 src=10.253.239.10 dst=10.253.239.1 sport=8080 dport=56524 [ASSURED] mark=0 use=1 id=4004066081",
+          "private_snat": true,
+          "private_snat_conntrack": "tcp      6 431999 ESTABLISHED src=10.253.239.10 dst=10.253.239.1 sport=55716 dport=8182 src=10.253.239.1 dst=10.253.239.11 sport=8182 dport=55716 [ASSURED] mark=0 use=1 id=1413302896"
+        },
+        "host_external_retirement": "public SNAT tuple retired",
+        "remap_retirement": {
+          "host_public": "retired",
+          "forwarded_public": "retired",
+          "upstream_masquerade": "retired"
+        },
+        "late_old_cleanup": "successor retained",
+        "controller_restart": "successor retained",
+        "quarantine_restart_recovery": "peer-1",
+        "private_imds_real_tap": "metadata-private-ok",
+        "callback": "preserved before, during and after public ownership"
+      },
+      "cleanup": {
+        "guest": true,
+        "stackd-private-b60402b10f-external-client": true,
+        "stackd-private-b60402b10f-private-client": true,
+        "stackd-private-b60402b10f-1": true,
+        "stackd-private-b60402b10f-0": true,
+        "bridge": true,
+        "native_tables_absent": true,
+        "private_nat_table_absent": true,
+        "198.19.239.71_route_absent": true,
+        "198.19.239.72_route_absent": true,
+        "docker_admission_absent": true
+      }
+    },
+    "bridge_guard": {
+      "owner": "stackd-retire-bridge-b6864b8173",
+      "observations": {
+        "bridge_present_gateway_missing": "failed closed; quarantine retained",
+        "gateway_restored": "mapping recovered",
+        "bridge_observed_absent": "exact-owned cleanup completed without private-IP-wide deletion"
+      },
+      "cleanup": {
+        "container": true,
+        "bridge": true,
+        "native_tables_absent": true,
+        "public_route_absent": true,
+        "docker_admission_absent": true
+      }
+    }
+  }
+}

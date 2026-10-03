@@ -1,0 +1,4982 @@
+{
+  "Source": "local_acl_authority_evidence.json.gz",
+  "Notes": [
+    "Projection of the 496-operation native capture; Sequence is its immutable operation id. Status, error code, object ETag/checksum and consumer-body length/SHA256 derive only from that observation. Resource names/account and issued ARNs/canonical IDs are rebound; object payload bytes are unchanged.",
+    "Baseline uses only the second settled 45-read matrix (83-127), after the native 60-second IAM propagation wait and spaced 30-second confirmation. IgnorePublicAcls uses settled 45-second on/off observations, never immediate propagation results or the client transport failure at 146.",
+    "Each scenario starts an independent replay store. Setup repeats only the listed real native SDK prerequisites. Reopen=true is an explicit local persistence prerequisite immediately before the referenced native read, not a claim that native AWS was restarted; no fabricated native setup observations are included.",
+    "IAM CreateAccessKey Session saves actual SDK AccessKeyId/SecretAccessKey with an empty token, just as STS AssumeRole Session saves actual returned temporary credentials. Native redacted credentials are never reconstructed or used. Caller ARN/account, user/role/boundary ARNs and canonical owner are bound through SDK outputs.",
+    "GetBucketPolicy Output.Policy is the parsed native document, compared semantically rather than pinning JSON formatting. Native IAM policy variables, if present, are not rewritten.",
+    "CreateBucket inputs preserve native ACL/grant/ownership headers. The aged 120-second global-virtual observation at 470 represents the settled SDK operation; 450/456/462 and 476/482 are additional time/endpoint corroboration, not duplicate same-path assertions. Global-virtual versus global/regional path wire addressing is transport-specific and is not asserted by this SDK fixture; there are no unprojectable raw-body variants in this capture.",
+    "Observed us-east-1 owned duplicate creation is 409 BucketAlreadyOwnedByYou, including Preferred/private and Enforced/private requests. This capture diverges from documented legacy 200/ACL-reset behavior; it does not establish that legacy behavior never occurs."
+  ],
+  "Payloads": {},
+  "Scenarios": [
+    {
+      "Name": "same-account-public-grants-implicit-ceilings-explicit-denies-and-ignore-restoration",
+      "Setup": [
+        {
+          "Label": "guard/account",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 1,
+          "Service": "sts",
+          "Operation": "GetCallerIdentity",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {},
+          "Output": {
+            "Account": "${account}",
+            "Arn": "${callerARN}"
+          },
+          "Bind": {
+            "account": "Account",
+            "callerARN": "Arn"
+          }
+        },
+        {
+          "Label": "setup/auth-bucket",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 3,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-auth"
+          }
+        },
+        {
+          "Label": "setup/owner",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 9,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Bind": {
+            "owner": "Owner.ID"
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "setup/allow-read-public",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 10,
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "setup/object/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 11,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private",
+            "ACL": "private",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "aGFybWxlc3Mgc2FtZS1hY2NvdW50IGF1dGhvcml6YXRpb24gZml4dHVyZQo="
+        },
+        {
+          "Label": "setup/object/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 12,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ACL": "public-read",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "aGFybWxlc3Mgc2FtZS1hY2NvdW50IGF1dGhvcml6YXRpb24gZml4dHVyZQo="
+        },
+        {
+          "Label": "setup/object/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 13,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ACL": "authenticated-read",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "aGFybWxlc3Mgc2FtZS1hY2NvdW50IGF1dGhvcml6YXRpb24gZml4dHVyZQo="
+        },
+        {
+          "Label": "setup/object/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 14,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ACL": "private",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "aGFybWxlc3Mgc2FtZS1hY2NvdW50IGF1dGhvcml6YXRpb24gZml4dHVyZQo="
+        },
+        {
+          "Label": "setup/object/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 15,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read",
+            "GrantRead": "id=\"${owner}\"",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"5d43da058986346b448d7ec6652881d5\"",
+            "ChecksumCRC32": "xIxUBg==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "aGFybWxlc3MgY2Fub25pY2FsIGFjY291bnQgZ3JhbnQK"
+        },
+        {
+          "Label": "setup/public-policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 16,
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::local-acl-auth/policy\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "setup/boundary",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 17,
+          "Service": "iam",
+          "Operation": "CreatePolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "PolicyName": "local-acl-boundary",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:ListBucket\", \"Resource\": \"arn:aws:s3:::local-acl-auth\"}]}"
+          },
+          "Output": {
+            "Policy": {
+              "PolicyName": "local-acl-boundary",
+              "Arn": "${boundaryARN}"
+            }
+          },
+          "Bind": {
+            "boundaryARN": "Policy.Arn"
+          }
+        },
+        {
+          "Label": "setup/role/no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 18,
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "local-acl-no-get",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"${callerARN}\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Output": {
+            "Role": {
+              "RoleName": "local-acl-no-get",
+              "Arn": "${roleNoGetARN}"
+            }
+          },
+          "Bind": {
+            "roleNoGetARN": "Role.Arn"
+          }
+        },
+        {
+          "Label": "setup/role-policy/no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 19,
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "local-acl-no-get",
+            "PolicyName": "read",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:ListBucket\", \"Resource\": \"arn:aws:s3:::local-acl-auth\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "setup/user/no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 20,
+          "Service": "iam",
+          "Operation": "CreateUser",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "local-acl-no-get-u"
+          },
+          "Output": {
+            "User": {
+              "UserName": "local-acl-no-get-u",
+              "Arn": "${userNoGetARN}"
+            }
+          },
+          "Bind": {
+            "userNoGetARN": "User.Arn"
+          }
+        },
+        {
+          "Label": "setup/user-policy/no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 21,
+          "Service": "iam",
+          "Operation": "PutUserPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "local-acl-no-get-u",
+            "PolicyName": "read",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:ListBucket\", \"Resource\": \"arn:aws:s3:::local-acl-auth\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "setup/user-key/no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 22,
+          "Service": "iam",
+          "Operation": "CreateAccessKey",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "local-acl-no-get-u"
+          },
+          "Output": {
+            "AccessKey": {
+              "UserName": "local-acl-no-get-u",
+              "Status": "Active"
+            }
+          },
+          "Session": "user-no-get"
+        },
+        {
+          "Label": "setup/role/allow-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 23,
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "local-acl-allow-get",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"${callerARN}\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Output": {
+            "Role": {
+              "RoleName": "local-acl-allow-get",
+              "Arn": "${roleAllowGetARN}"
+            }
+          },
+          "Bind": {
+            "roleAllowGetARN": "Role.Arn"
+          }
+        },
+        {
+          "Label": "setup/role-policy/allow-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 24,
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "local-acl-allow-get",
+            "PolicyName": "read",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectAcl\"], \"Resource\": \"arn:aws:s3:::local-acl-auth/*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "setup/user/allow-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 25,
+          "Service": "iam",
+          "Operation": "CreateUser",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "local-acl-allow-get-u"
+          },
+          "Output": {
+            "User": {
+              "UserName": "local-acl-allow-get-u",
+              "Arn": "${userAllowGetARN}"
+            }
+          },
+          "Bind": {
+            "userAllowGetARN": "User.Arn"
+          }
+        },
+        {
+          "Label": "setup/user-policy/allow-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 26,
+          "Service": "iam",
+          "Operation": "PutUserPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "local-acl-allow-get-u",
+            "PolicyName": "read",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectAcl\"], \"Resource\": \"arn:aws:s3:::local-acl-auth/*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "setup/user-key/allow-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 27,
+          "Service": "iam",
+          "Operation": "CreateAccessKey",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "local-acl-allow-get-u"
+          },
+          "Output": {
+            "AccessKey": {
+              "UserName": "local-acl-allow-get-u",
+              "Status": "Active"
+            }
+          },
+          "Session": "user-allow-get"
+        },
+        {
+          "Label": "setup/role/boundary-no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 28,
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "local-acl-boundary-no-get",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"${callerARN}\"}, \"Action\": \"sts:AssumeRole\"}]}",
+            "PermissionsBoundary": "${boundaryARN}"
+          },
+          "Output": {
+            "Role": {
+              "RoleName": "local-acl-boundary-no-get",
+              "Arn": "${roleBoundaryNoGetARN}",
+              "PermissionsBoundary": {
+                "PermissionsBoundaryType": "Policy",
+                "PermissionsBoundaryArn": "${boundaryARN}"
+              }
+            }
+          },
+          "Bind": {
+            "roleBoundaryNoGetARN": "Role.Arn"
+          }
+        },
+        {
+          "Label": "setup/role-policy/boundary-no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 29,
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleName": "local-acl-boundary-no-get",
+            "PolicyName": "read",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectAcl\"], \"Resource\": \"arn:aws:s3:::local-acl-auth/*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "setup/user/boundary-no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 30,
+          "Service": "iam",
+          "Operation": "CreateUser",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "local-acl-boundary-no-get-u",
+            "PermissionsBoundary": "${boundaryARN}"
+          },
+          "Output": {
+            "User": {
+              "UserName": "local-acl-boundary-no-get-u",
+              "Arn": "${userBoundaryNoGetARN}",
+              "PermissionsBoundary": {
+                "PermissionsBoundaryType": "Policy",
+                "PermissionsBoundaryArn": "${boundaryARN}"
+              }
+            }
+          },
+          "Bind": {
+            "userBoundaryNoGetARN": "User.Arn"
+          }
+        },
+        {
+          "Label": "setup/user-policy/boundary-no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 31,
+          "Service": "iam",
+          "Operation": "PutUserPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "local-acl-boundary-no-get-u",
+            "PolicyName": "read",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectAcl\"], \"Resource\": \"arn:aws:s3:::local-acl-auth/*\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "setup/user-key/boundary-no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 32,
+          "Service": "iam",
+          "Operation": "CreateAccessKey",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "UserName": "local-acl-boundary-no-get-u"
+          },
+          "Output": {
+            "AccessKey": {
+              "UserName": "local-acl-boundary-no-get-u",
+              "Status": "Active"
+            }
+          },
+          "Session": "user-boundary-no-get"
+        },
+        {
+          "Label": "setup/session/no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 33,
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${roleNoGetARN}",
+            "RoleSessionName": "native-no-get"
+          },
+          "Output": {},
+          "Session": "role-no-get"
+        },
+        {
+          "Label": "setup/session/allow-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 34,
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${roleAllowGetARN}",
+            "RoleSessionName": "native-allow-get"
+          },
+          "Output": {},
+          "Session": "role-allow-get"
+        },
+        {
+          "Label": "setup/session/boundary-no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 35,
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${roleBoundaryNoGetARN}",
+            "RoleSessionName": "native-boundary-no-get"
+          },
+          "Output": {},
+          "Session": "role-boundary-no-get"
+        },
+        {
+          "Label": "setup/session/session-no-get",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 36,
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${roleAllowGetARN}",
+            "RoleSessionName": "native-session-no-get",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:ListBucket\", \"Resource\": \"arn:aws:s3:::local-acl-auth\"}]}"
+          },
+          "Output": {},
+          "Session": "role-session-no-get"
+        },
+        {
+          "Label": "setup/session/session-explicit-deny",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 37,
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "RoleArn": "${roleAllowGetARN}",
+            "RoleSessionName": "native-session-explicit-deny",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::local-acl-auth/*\"}, {\"Effect\": \"Deny\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::local-acl-auth/*\"}]}"
+          },
+          "Output": {},
+          "Session": "role-session-explicit-deny"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "baseline-1/anonymous/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 83,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/anonymous/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 84,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/anonymous/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 85,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/anonymous/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 86,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/anonymous/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 87,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-no-get/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 88,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/user-no-get/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 89,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/user-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 90,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 91,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-no-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 92,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-allow-get/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 93,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-allow-get/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 94,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 33,
+            "ETag": "\"5d43da058986346b448d7ec6652881d5\"",
+            "ChecksumCRC32": "xIxUBg==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 33,
+            "SHA256": "1cfb72f955650af720f45fda497974ea459718a56a4ef26b23f571158fe03512"
+          }
+        },
+        {
+          "Label": "baseline-1/user-allow-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 95,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-allow-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 96,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-allow-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 97,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-boundary-no-get/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 98,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/user-boundary-no-get/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 99,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/user-boundary-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 100,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-boundary-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-boundary-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 101,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-boundary-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/user-boundary-no-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 102,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-boundary-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-no-get/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 103,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-no-get/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 104,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 105,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 106,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-no-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 107,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-allow-get/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 108,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-allow-get/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 109,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 33,
+            "ETag": "\"5d43da058986346b448d7ec6652881d5\"",
+            "ChecksumCRC32": "xIxUBg==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 33,
+            "SHA256": "1cfb72f955650af720f45fda497974ea459718a56a4ef26b23f571158fe03512"
+          }
+        },
+        {
+          "Label": "baseline-1/role-allow-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 110,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-allow-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 111,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-allow-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 112,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-boundary-no-get/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 113,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-boundary-no-get/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 114,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-boundary-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 115,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-boundary-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-boundary-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 116,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-boundary-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-boundary-no-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 117,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-boundary-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-session-no-get/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 118,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-session-no-get/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 119,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-session-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 120,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-session-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 121,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-session-no-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 122,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "baseline-1/role-session-explicit-deny/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 123,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-session-explicit-deny/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 124,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-session-explicit-deny/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 125,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-session-explicit-deny/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 126,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "baseline-1/role-session-explicit-deny/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 127,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "retained/baseline/private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 128,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "private"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "retained/baseline/canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 129,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "canonical-read"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "retained/baseline/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 130,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "retained/baseline/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 131,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "retained/baseline/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 132,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "transition/ignore-public-acls-on",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 133,
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/anonymous/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 152,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {},
+          "Reopen": true
+        },
+        {
+          "Label": "ignore-on-settled/anonymous/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 153,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/anonymous/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 155,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-on-settled/user-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 156,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/user-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 157,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/user-allow-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 160,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-on-settled/user-allow-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 161,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-on-settled/user-boundary-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 164,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/user-boundary-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 165,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/role-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 168,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/role-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 169,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/role-allow-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 172,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-on-settled/role-allow-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 173,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-on-settled/role-boundary-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 176,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/role-boundary-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 177,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/role-session-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 180,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/role-session-no-get/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 181,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/role-session-no-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 183,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-on-settled/role-session-explicit-deny/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 184,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/role-session-explicit-deny/authenticated-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 185,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "authenticated-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-on-settled/role-session-explicit-deny/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 187,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "retained/ignore-on/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 188,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "retained/ignore-on/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 189,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "retained/ignore-on/get_bucket_policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 191,
+          "Service": "s3",
+          "Operation": "GetBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth"
+          },
+          "Output": {
+            "Policy": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": "*",
+                  "Action": "s3:GetObject",
+                  "Resource": "arn:aws:s3:::local-acl-auth/policy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "retained/ignore-on/object-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 193,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "transition/ignore-public-acls-off",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 194,
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-off-settled/anonymous/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 195,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "ignore-off-settled/user-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 197,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-off-settled/user-allow-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 199,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-off-settled/user-boundary-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 201,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-boundary-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-off-settled/role-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 203,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-off-settled/role-allow-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 205,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-off-settled/role-boundary-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 207,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-boundary-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-off-settled/role-session-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 209,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-off-settled/role-session-no-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 210,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "ignore-off-settled/role-session-explicit-deny/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 211,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ignore-off-settled/role-session-explicit-deny/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 212,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "retained/ignore-off/object-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 213,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "transition/explicit-bucket-deny",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 214,
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::local-acl-auth/policy\"}, {\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::local-acl-auth/public-acl\"}]}"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/anonymous/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 215,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "anonymous",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {},
+          "Reopen": true
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/user-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 217,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/user-allow-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 219,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-allow-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/user-boundary-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 221,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "user-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/role-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 223,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/role-allow-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 225,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/role-allow-get/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 226,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-allow-get",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 44,
+            "ETag": "\"78247c62dcb19c076b276326a43ceb68\"",
+            "ChecksumCRC32": "+6cU3w==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 44,
+            "SHA256": "13a8c86e6a58bbd9dcdc42612cb2691826200c3c2647e2faad18263f4df98ef8"
+          }
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/role-boundary-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 227,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-boundary-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/role-session-no-get/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 229,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-no-get",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/role-session-explicit-deny/public-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 231,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "explicit-bucket-deny-settled/role-session-explicit-deny/policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 232,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "role-session-explicit-deny",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "policy"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "retained/denied-object-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 233,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-auth",
+            "Key": "public-acl"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "create-acl-admission-and-fresh-ownership-public-block-defaults",
+      "Setup": [],
+      "Calls": [
+        {
+          "Label": "create/default-omitted",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 234,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-default-omitted"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-default-omitted"
+          }
+        },
+        {
+          "Label": "initial/default-omitted/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 235,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-default-omitted"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerEnforced"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "initial/default-omitted/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 236,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-default-omitted"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "initial/default-omitted/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 237,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-default-omitted"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Bind": {
+            "owner": "Owner.ID"
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "create/default-private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 240,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-default-private",
+            "ACL": "private"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-default-private"
+          }
+        },
+        {
+          "Label": "initial/default-private/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 241,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-default-private"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerEnforced"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "initial/default-private/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 242,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-default-private"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "initial/default-private/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 243,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-default-private"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "create/default-public-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 246,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "InvalidBucketAclWithObjectOwnership",
+          "Status": 400,
+          "Input": {
+            "Bucket": "local-acl-default-public-read",
+            "ACL": "public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "failed-create-absence/default-public-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 247,
+          "Service": "s3",
+          "Operation": "HeadBucket",
+          "Actor": "caller",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "local-acl-default-public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create/enforced-omitted",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 248,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-enforced-omitted",
+            "ObjectOwnership": "BucketOwnerEnforced"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-enforced-omitted"
+          }
+        },
+        {
+          "Label": "initial/enforced-omitted/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 249,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-enforced-omitted"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerEnforced"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "initial/enforced-omitted/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 250,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-enforced-omitted"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "initial/enforced-omitted/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 251,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-enforced-omitted"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "create/enforced-private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 254,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-enforced-private",
+            "ObjectOwnership": "BucketOwnerEnforced",
+            "ACL": "private"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-enforced-private"
+          }
+        },
+        {
+          "Label": "initial/enforced-private/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 255,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-enforced-private"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerEnforced"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "initial/enforced-private/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 256,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-enforced-private"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "initial/enforced-private/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 257,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-enforced-private"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "create/enforced-public-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 260,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "InvalidBucketAclWithObjectOwnership",
+          "Status": 400,
+          "Input": {
+            "Bucket": "local-acl-enforced-public-read",
+            "ObjectOwnership": "BucketOwnerEnforced",
+            "ACL": "public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "failed-create-absence/enforced-public-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 261,
+          "Service": "s3",
+          "Operation": "HeadBucket",
+          "Actor": "caller",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "local-acl-enforced-public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create/preferred-omitted",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 262,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-preferred-omitted",
+            "ObjectOwnership": "BucketOwnerPreferred"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-preferred-omitted"
+          }
+        },
+        {
+          "Label": "initial/preferred-omitted/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 263,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-preferred-omitted"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "initial/preferred-omitted/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 264,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-preferred-omitted"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "initial/preferred-omitted/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 265,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-preferred-omitted"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "create/preferred-private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 268,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-preferred-private",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "ACL": "private"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-preferred-private"
+          }
+        },
+        {
+          "Label": "initial/preferred-private/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 269,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-preferred-private"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "BucketOwnerPreferred"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "initial/preferred-private/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 270,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-preferred-private"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "initial/preferred-private/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 271,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-preferred-private"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "create/preferred-public-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 274,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "InvalidBucketAclWithBlockPublicAccessError",
+          "Status": 400,
+          "Input": {
+            "Bucket": "local-acl-preferred-public-read",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "ACL": "public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "failed-create-absence/preferred-public-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 275,
+          "Service": "s3",
+          "Operation": "HeadBucket",
+          "Actor": "caller",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "local-acl-preferred-public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create/writer-omitted",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 276,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-omitted",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-writer-omitted"
+          }
+        },
+        {
+          "Label": "initial/writer-omitted/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 277,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-omitted"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "initial/writer-omitted/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 278,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-omitted"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "initial/writer-omitted/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 279,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-omitted"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "create/writer-private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 282,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-private",
+            "ObjectOwnership": "ObjectWriter",
+            "ACL": "private"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-writer-private"
+          }
+        },
+        {
+          "Label": "initial/writer-private/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 283,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-private"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "initial/writer-private/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 284,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-private"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "initial/writer-private/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 285,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-private"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "create/writer-public-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 288,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "InvalidBucketAclWithBlockPublicAccessError",
+          "Status": 400,
+          "Input": {
+            "Bucket": "local-acl-writer-public-read",
+            "ObjectOwnership": "ObjectWriter",
+            "ACL": "public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "failed-create-absence/writer-public-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 289,
+          "Service": "s3",
+          "Operation": "HeadBucket",
+          "Actor": "caller",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "local-acl-writer-public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create/default-canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 290,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "InvalidBucketAclWithObjectOwnership",
+          "Status": 400,
+          "Input": {
+            "Bucket": "local-acl-default-canonical-read",
+            "GrantRead": "id=\"${owner}\""
+          },
+          "Output": {}
+        },
+        {
+          "Label": "failed-create-absence/default-canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 291,
+          "Service": "s3",
+          "Operation": "HeadBucket",
+          "Actor": "caller",
+          "Code": "404",
+          "Status": 404,
+          "Input": {
+            "Bucket": "local-acl-default-canonical-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "create/writer-canonical-read",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 292,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-canonical-read",
+            "ObjectOwnership": "ObjectWriter",
+            "GrantRead": "id=\"${owner}\""
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-writer-canonical-read"
+          }
+        },
+        {
+          "Label": "initial/writer-canonical-read/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 293,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-canonical-read"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "initial/writer-canonical-read/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 294,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-canonical-read"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": true,
+              "IgnorePublicAcls": true,
+              "BlockPublicPolicy": true,
+              "RestrictPublicBuckets": true
+            }
+          }
+        },
+        {
+          "Label": "initial/writer-canonical-read/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 295,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-writer-canonical-read"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "owned-duplicate-create-preserves-object-policy-acl-and-configuration",
+      "Setup": [
+        {
+          "Label": "create/duplicate",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 298,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-duplicate"
+          }
+        },
+        {
+          "Label": "initial/duplicate/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 301,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Bind": {
+            "owner": "Owner.ID"
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "duplicate/setup-public-block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 304,
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "duplicate/setup-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 305,
+          "Service": "s3",
+          "Operation": "PutBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate",
+            "ACL": "public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "duplicate/setup-object",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 306,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate",
+            "Key": "retained",
+            "ACL": "public-read",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"67040edc3929cab2de6c335994c20be0\"",
+            "ChecksumCRC32": "PkfIcA==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "aGFybWxlc3MgcmV0YWluZWQgc3RhdGUK"
+        },
+        {
+          "Label": "duplicate/setup-policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 307,
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "local-acl-duplicate",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::local-acl-duplicate/retained\", \"Principal\": \"*\"}]}"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "duplicate/before/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 308,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "duplicate/before/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 309,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "duplicate/before/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 310,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "duplicate/before/get_bucket_policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 311,
+          "Service": "s3",
+          "Operation": "GetBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "Policy": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": "*",
+                  "Action": "s3:GetObject",
+                  "Resource": "arn:aws:s3:::local-acl-duplicate/retained"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "duplicate/no-headers",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 313,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "duplicate/after-no-headers/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 314,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "duplicate/after-no-headers/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 315,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "duplicate/after-no-headers/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 316,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "duplicate/after-no-headers/get_bucket_policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 317,
+          "Service": "s3",
+          "Operation": "GetBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "Policy": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": "*",
+                  "Action": "s3:GetObject",
+                  "Resource": "arn:aws:s3:::local-acl-duplicate/retained"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "duplicate/retained-object",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 319,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate",
+            "Key": "retained",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 24,
+            "ETag": "\"67040edc3929cab2de6c335994c20be0\"",
+            "ChecksumCRC32": "PkfIcA==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 24,
+            "SHA256": "7242f991a8f0dde639274874641627badfa9c88f559b5c2a043304ae98c37165"
+          }
+        },
+        {
+          "Label": "duplicate/retained-object-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 320,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate",
+            "Key": "retained"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "duplicate/preferred-private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 321,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Input": {
+            "Bucket": "local-acl-duplicate",
+            "ObjectOwnership": "BucketOwnerPreferred",
+            "ACL": "private"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "duplicate/after-preferred-private/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 322,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "duplicate/after-preferred-private/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 323,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "duplicate/after-preferred-private/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 324,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "duplicate/after-preferred-private/get_bucket_policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 325,
+          "Service": "s3",
+          "Operation": "GetBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "Policy": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": "*",
+                  "Action": "s3:GetObject",
+                  "Resource": "arn:aws:s3:::local-acl-duplicate/retained"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "duplicate/enforced-private",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 327,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Input": {
+            "Bucket": "local-acl-duplicate",
+            "ObjectOwnership": "BucketOwnerEnforced",
+            "ACL": "private"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "duplicate/after-enforced-private/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 328,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "duplicate/after-enforced-private/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 329,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "duplicate/after-enforced-private/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 330,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "duplicate/after-enforced-private/get_bucket_policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 331,
+          "Service": "s3",
+          "Operation": "GetBucketPolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-duplicate"
+          },
+          "Output": {
+            "Policy": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": "*",
+                  "Action": "s3:GetObject",
+                  "Resource": "arn:aws:s3:::local-acl-duplicate/retained"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "Name": "settled-aged-owned-duplicate-create-409-preserves-public-acls-and-object",
+      "Setup": [
+        {
+          "Label": "aged/create/duplicate",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 435,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "Output": {
+            "BucketArn": "arn:aws:s3:::local-acl-aged-duplicate"
+          }
+        },
+        {
+          "Label": "aged/initial/duplicate/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 438,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "Bind": {
+            "owner": "Owner.ID"
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "aged/setup-public-block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 441,
+          "Service": "s3",
+          "Operation": "PutPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate",
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "aged/setup-acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 442,
+          "Service": "s3",
+          "Operation": "PutBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate",
+            "ACL": "public-read"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "aged/setup-object",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 443,
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate",
+            "Key": "retained",
+            "ACL": "public-read",
+            "ChecksumAlgorithm": "CRC32"
+          },
+          "Output": {
+            "ETag": "\"67040edc3929cab2de6c335994c20be0\"",
+            "ChecksumCRC32": "PkfIcA==",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256"
+          },
+          "Body": "aGFybWxlc3MgcmV0YWluZWQgc3RhdGUK"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "aged/before/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 445,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "Label": "aged/before/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 446,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "aged/before/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 447,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "aged/duplicate-120s/global-virtual",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 470,
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "BucketAlreadyOwnedByYou",
+          "Status": 409,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "aged/after-120s/global-virtual/get_bucket_ownership_controls",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 471,
+          "Service": "s3",
+          "Operation": "GetBucketOwnershipControls",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate"
+          },
+          "Output": {
+            "OwnershipControls": {
+              "Rules": [
+                {
+                  "ObjectOwnership": "ObjectWriter"
+                }
+              ]
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "aged/after-120s/global-virtual/get_public_access_block",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 472,
+          "Service": "s3",
+          "Operation": "GetPublicAccessBlock",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate"
+          },
+          "Output": {
+            "PublicAccessBlockConfiguration": {
+              "BlockPublicAcls": false,
+              "IgnorePublicAcls": false,
+              "BlockPublicPolicy": false,
+              "RestrictPublicBuckets": false
+            }
+          }
+        },
+        {
+          "Label": "aged/after-120s/global-virtual/get_bucket_acl",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 473,
+          "Service": "s3",
+          "Operation": "GetBucketAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        },
+        {
+          "Label": "aged/after-120s/global-virtual/get_bucket_policy",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 474,
+          "Service": "s3",
+          "Operation": "GetBucketPolicy",
+          "Actor": "caller",
+          "Code": "NoSuchBucketPolicy",
+          "Status": 404,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "aged/object-120s",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 488,
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate",
+            "Key": "retained",
+            "ChecksumMode": "ENABLED"
+          },
+          "Output": {
+            "AcceptRanges": "bytes",
+            "ContentLength": 24,
+            "ETag": "\"67040edc3929cab2de6c335994c20be0\"",
+            "ChecksumCRC32": "PkfIcA==",
+            "ChecksumType": "FULL_OBJECT",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Digest": {
+            "Length": 24,
+            "SHA256": "7242f991a8f0dde639274874641627badfa9c88f559b5c2a043304ae98c37165"
+          }
+        },
+        {
+          "Label": "aged/object-acl-120s",
+          "Source": "local_acl_authority_evidence.json.gz",
+          "Sequence": 489,
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "local-acl-aged-duplicate",
+            "Key": "retained"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${owner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${owner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+                },
+                "Permission": "READ"
+              }
+            ]
+          },
+          "Absent": [
+            "Owner.DisplayName"
+          ]
+        }
+      ]
+    }
+  ]
+}

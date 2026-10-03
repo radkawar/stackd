@@ -1,0 +1,44 @@
+{
+  "sources": [
+    "https://docs.aws.amazon.com/eks/latest/userguide/pod-configuration.html",
+    "https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html",
+    "https://github.com/aws/amazon-eks-pod-identity-webhook/blob/81bcb64a91e08b9de60c9d8f9df299f57075b09f/README.md"
+  ],
+  "notes": "Cases describe inputs, not expected AWS outcomes. Annotation keys are expanded with eks.amazonaws.com/. Each case gets a distinct ServiceAccount and unscheduled Pod. No node or workload execution. The pinned upstream revision documents the probes, not the private EKS control-plane build; DescribeCluster records the actual Kubernetes and EKS platform versions.",
+  "cases": [
+    {"name": "defaults"},
+    {"name": "sa-expiry", "serviceAccountAnnotations": {"token-expiration": "7200"}},
+    {"name": "pod-expiry", "serviceAccountAnnotations": {"token-expiration": "7200"}, "podAnnotations": {"token-expiration": "3600"}},
+    {"name": "sa-expiry-below", "serviceAccountAnnotations": {"token-expiration": "599"}},
+    {"name": "sa-expiry-min", "serviceAccountAnnotations": {"token-expiration": "600"}},
+    {"name": "sa-expiry-above", "serviceAccountAnnotations": {"token-expiration": "86401"}},
+    {"name": "sa-expiry-invalid", "serviceAccountAnnotations": {"token-expiration": "invalid"}},
+    {"name": "sa-expiry-negative", "serviceAccountAnnotations": {"token-expiration": "-1"}},
+    {"name": "sa-expiry-zero", "serviceAccountAnnotations": {"token-expiration": "0"}},
+    {"name": "pod-expiry-below", "serviceAccountAnnotations": {"token-expiration": "7200"}, "podAnnotations": {"token-expiration": "599"}},
+    {"name": "pod-expiry-above", "podAnnotations": {"token-expiration": "86401"}},
+    {"name": "pod-expiry-invalid", "serviceAccountAnnotations": {"token-expiration": "7200"}, "podAnnotations": {"token-expiration": "invalid"}},
+    {"name": "audience", "serviceAccountAnnotations": {"audience": "capture.example"}},
+    {"name": "regional-true", "serviceAccountAnnotations": {"sts-regional-endpoints": "true"}},
+    {"name": "regional-false", "serviceAccountAnnotations": {"sts-regional-endpoints": "false"}},
+    {"name": "regional-invalid", "serviceAccountAnnotations": {"sts-regional-endpoints": "invalid"}},
+    {"name": "skip", "podAnnotations": {"skip-containers": "init-skip,sidecar"}, "podSpec": {"initContainers": [{"name": "init-skip", "image": "registry.k8s.io/pause:3.10"}, {"name": "init-use", "image": "registry.k8s.io/pause:3.10"}], "containers": [{"name": "main", "image": "registry.k8s.io/pause:3.10"}, {"name": "sidecar", "image": "registry.k8s.io/pause:3.10"}]}},
+    {"name": "caller-env", "podSpec": {"containers": [{"name": "main", "image": "registry.k8s.io/pause:3.10", "env": [{"name": "AWS_ROLE_ARN", "value": "caller-role"}, {"name": "AWS_WEB_IDENTITY_TOKEN_FILE", "value": "/caller/token"}, {"name": "AWS_REGION", "value": "caller-region"}, {"name": "AWS_DEFAULT_REGION", "value": "caller-default"}, {"name": "AWS_STS_REGIONAL_ENDPOINTS", "value": "legacy"}, {"name": "CALLER", "value": "preserved"}]}]}},
+    {"name": "caller-role-only", "podSpec": {"containers": [{"name": "main", "image": "registry.k8s.io/pause:3.10", "env": [{"name": "AWS_ROLE_ARN", "value": "caller-role"}]}]}},
+    {"name": "caller-token-only", "podSpec": {"containers": [{"name": "main", "image": "registry.k8s.io/pause:3.10", "env": [{"name": "AWS_WEB_IDENTITY_TOKEN_FILE", "value": "/caller/token"}]}]}},
+    {"name": "caller-region-only", "podSpec": {"containers": [{"name": "main", "image": "registry.k8s.io/pause:3.10", "env": [{"name": "AWS_REGION", "value": "caller-region"}]}]}},
+    {"name": "caller-volume", "podSpec": {"volumes": [{"name": "aws-iam-token", "emptyDir": {}}], "containers": [{"name": "main", "image": "registry.k8s.io/pause:3.10", "volumeMounts": [{"name": "aws-iam-token", "mountPath": "/caller", "readOnly": false}]}]}},
+    {"name": "automount-false", "podSpec": {"automountServiceAccountToken": false}},
+    {"name": "sa-automount-false", "serviceAccountSpec": {"automountServiceAccountToken": false}},
+    {"name": "unannotated", "annotated": false},
+    {"name": "coexist", "association": true},
+    {"name": "association-only", "association": true, "annotated": false}
+  ],
+  "stsCases": [
+    {"name": "correct-subject", "serviceAccount": "defaults", "audience": "sts.amazonaws.com"},
+    {"name": "wrong-subject", "serviceAccount": "unannotated", "audience": "sts.amazonaws.com"},
+    {"name": "wrong-audience", "serviceAccount": "defaults", "audience": "capture.example"},
+    {"name": "tampered-signature", "source": "correct-subject", "mutation": "signature"},
+    {"name": "tampered-payload", "source": "correct-subject", "mutation": "payload"}
+  ]
+}

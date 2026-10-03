@@ -1,0 +1,47 @@
+{
+  "evidence": "Primary-document-derived rules; not native AWS cluster captures. Executable Kubernetes proof is integration/eks_access_smoke.py.",
+  "reviewedAt": "2026-09-27",
+  "nativeImpersonationEvidence": {
+    "fixture": "impersonation_native.json",
+    "rule": "The authenticated caller's EKS policy can grant impersonation; target requests use only the target's Kubernetes RBAC permissions, without the caller's EKS grants."
+  },
+  "primarySources": [
+    "https://docs.aws.amazon.com/eks/latest/userguide/auth-configmap.html",
+    "https://docs.aws.amazon.com/eks/latest/userguide/migrating-access-entries.html",
+    "https://docs.aws.amazon.com/eks/latest/userguide/creating-access-entries.html",
+    "https://docs.aws.amazon.com/eks/latest/userguide/access-entries.html",
+    "https://docs.aws.amazon.com/eks/latest/userguide/setting-up-access-entries.html",
+    "https://docs.aws.amazon.com/eks/latest/userguide/access-policies.html",
+    "https://kubernetes.io/docs/reference/access-authn-authz/user-impersonation/",
+    "https://raw.githubusercontent.com/kubernetes/apiserver/v0.33.4/pkg/endpoints/filters/impersonation.go"
+  ],
+  "authentication": [
+    {"name":"legacy user mapping", "mode":"CONFIG_MAP", "currentID":"new-user", "mapUser":true, "wantUsername":"legacy-user", "wantGroups":["viewers"]},
+    {"name":"deleted IAM user", "mode":"CONFIG_MAP", "currentID":"", "mapUser":true, "denied":true},
+    {"name":"API ignores ConfigMap", "mode":"API", "currentID":"new-user", "mapUser":true, "denied":true},
+    {"name":"dual mode prefers API", "mode":"API_AND_CONFIG_MAP", "currentID":"new-user", "mapUser":true, "entryID":"new-user", "wantUsername":"api-user", "wantGroups":["api-viewers"]},
+    {"name":"stale API entry prevents legacy fallback", "mode":"API_AND_CONFIG_MAP", "currentID":"new-user", "mapUser":true, "entryID":"old-user", "denied":true},
+    {"name":"legacy mapping accepts recreated user", "mode":"CONFIG_MAP", "currentID":"new-user", "mapUser":true, "entryID":"old-user", "wantUsername":"legacy-user", "wantGroups":["viewers"]},
+    {"name":"dual mode falls back when entry absent", "mode":"API_AND_CONFIG_MAP", "currentID":"new-user", "mapUser":true, "wantUsername":"legacy-user", "wantGroups":["viewers"]},
+    {"name":"creator implicit bootstrap", "mode":"CONFIG_MAP", "currentID":"new-user", "creator":true, "wantUsername":"arn:aws:iam::111111111111:user/developer", "wantGroups":["system:masters"]},
+    {"name":"creator bootstrap cannot reappear after API entry deletion", "mode":"API_AND_CONFIG_MAP", "currentID":"new-user", "creator":true, "denied":true},
+    {"name":"IAM role path uses pathless mapping", "mode":"CONFIG_MAP", "currentID":"new-user", "role":true, "mapRole":"arn:aws:iam::111111111111:role/developer", "wantUsername":"role:demo@example.test:111111111111", "wantGroups":["session:demo-example.test"]},
+    {"name":"IAM role mapping with path is invalid", "mode":"CONFIG_MAP", "currentID":"new-user", "role":true, "mapRole":"arn:aws:iam::111111111111:role/team/developer", "denied":true}
+  ],
+  "namespacePatterns": [
+    {"pattern":"dev-*", "namespace":"dev-one", "allowed":true},
+    {"pattern":"dev-*", "namespace":"production", "allowed":false},
+    {"pattern":"dev-?", "namespace":"dev-a", "allowed":true},
+    {"pattern":"dev-?", "namespace":"dev-ab", "allowed":false},
+    {"pattern":"*", "namespace":"kube-system", "allowed":true},
+    {"pattern":"dev-[ab]", "namespace":"dev-a", "allowed":false}
+  ],
+  "impersonation": [
+    {"name":"group without user", "headers":{"Impersonate-Group":["viewers"]}, "denied":true},
+    {"name":"UID without user", "headers":{"Impersonate-Uid":["uid-one"]}, "denied":true},
+    {"name":"extra without user", "headers":{"Impersonate-Extra-scopes":["read"]}, "denied":true},
+    {"name":"service account default groups", "headers":{"Impersonate-User":["system:serviceaccount:dev:reader"]}, "resource":"serviceaccounts", "namespace":"dev", "resourceName":"reader", "groups":["system:serviceaccounts","system:serviceaccounts:dev","system:authenticated"]},
+    {"name":"anonymous identity", "headers":{"Impersonate-User":["system:anonymous"]}, "resource":"users", "resourceName":"system:anonymous", "groups":["system:unauthenticated"]},
+    {"name":"reserved native grant group", "headers":{"Impersonate-User":["developer"], "Impersonate-Group":["stackd:eks:grant:forged"]}, "denied":true}
+  ]
+}

@@ -1,0 +1,2185 @@
+{
+  "source": "native AWS CLI using scripts/aws/aws_cli.py run/result typed decoding",
+  "retrieved_at": "2026-09-13T23:04:19.173126+00:00",
+  "region": "us-east-1",
+  "scope": "Unique owned S3 bucket, single-region non-organization trail, IAM role/inline policy and Logs group; configuration-only empty destination updates; logging never started",
+  "primary_references": [
+    "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_CreateTrail.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_UpdateTrail.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_GetTrailStatus.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/send-cloudtrail-events-to-cloudwatch-logs.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-required-policy-for-cloudwatch-logs.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudwatch-log-group-log-stream-naming-for-cloudtrail.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_AdvancedFieldSelector.html"
+  ],
+  "bounds": {
+    "configuration_attempts": 4,
+    "configuration_retry_seconds": 15,
+    "cli_timeout_seconds": 50,
+    "automatic_retries": false
+  },
+  "substitutions": "Account -> 111111111111; unique names -> owned names consistently across policies, ARNs and messages. Credential IDs omitted; caller ARN/principal ID replaced consistently; client IP -> 192.0.2.1. Native timestamps, request/event IDs and opaque page tokens retained. Message JSON reformatted after redaction.",
+  "identity_relationships": {
+    "account": "111111111111",
+    "trail_arn": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+    "role_arn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+    "group_arn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned",
+    "bucket": "stackd-ctlogs-owned-bucket",
+    "role_trusted_service": "cloudtrail.amazonaws.com"
+  },
+  "resources": [
+    {
+      "kind": "bucket",
+      "name": "stackd-ctlogs-owned-bucket",
+      "creation": "Success"
+    },
+    {
+      "kind": "group",
+      "name": "/stackd/native-cloudtrail-logs-owned",
+      "creation": "Success"
+    },
+    {
+      "kind": "role",
+      "name": "stackd-ctlogs-owned-role",
+      "creation": "Success"
+    },
+    {
+      "kind": "inline-policy",
+      "name": "owned-cloudtrail-logs",
+      "role": "stackd-ctlogs-owned-role",
+      "creation": "Success"
+    },
+    {
+      "kind": "trail",
+      "name": "stackd-ctlogs-owned-trail",
+      "creation": "Success",
+      "attempt": 0
+    }
+  ],
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1789340659173,
+      "request_finished_ms": 1789340659847,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Account": "111111111111"
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "create-bucket",
+      "service": "s3api",
+      "operation": "create-bucket",
+      "input": {
+        "Bucket": "stackd-ctlogs-owned-bucket"
+      },
+      "request_started_ms": 1789340659848,
+      "request_finished_ms": 1789340660760,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Location": "/stackd-ctlogs-owned-bucket",
+          "BucketArn": "arn:aws:s3:::stackd-ctlogs-owned-bucket"
+        }
+      }
+    },
+    {
+      "label": "bucket-policy",
+      "service": "s3api",
+      "operation": "put-bucket-policy",
+      "input": {
+        "Bucket": "stackd-ctlogs-owned-bucket",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AWSCloudTrailAclCheck20150319\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-ctlogs-owned-bucket\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail\"}}}, {\"Sid\": \"AWSCloudTrailWrite20150319\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-ctlogs-owned-bucket/owned/AWSLogs/111111111111/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "request_started_ms": 1789340660761,
+      "request_finished_ms": 1789340661559,
+      "result": {
+        "code": "Success",
+        "output": {}
+      }
+    },
+    {
+      "label": "create-group",
+      "service": "logs",
+      "operation": "create-log-group",
+      "input": {
+        "logGroupName": "/stackd/native-cloudtrail-logs-owned",
+        "tags": {
+          "owner": "stackd-probe"
+        }
+      },
+      "request_started_ms": 1789340661560,
+      "request_finished_ms": 1789340662329,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "group-retention",
+      "service": "logs",
+      "operation": "put-retention-policy",
+      "input": {
+        "logGroupName": "/stackd/native-cloudtrail-logs-owned",
+        "retentionInDays": 1
+      },
+      "request_started_ms": 1789340662330,
+      "request_finished_ms": 1789340663091,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "describe-owned-group",
+      "service": "logs",
+      "operation": "describe-log-groups",
+      "input": {
+        "logGroupNamePrefix": "/stackd/native-cloudtrail-logs-owned"
+      },
+      "request_started_ms": 1789340663092,
+      "request_finished_ms": 1789340663778,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logGroups": [
+            {
+              "logGroupName": "/stackd/native-cloudtrail-logs-owned",
+              "creationTime": 1789340662181,
+              "retentionInDays": 1,
+              "metricFilterCount": 0,
+              "arn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+              "storedBytes": 0,
+              "logGroupClass": "STANDARD",
+              "logGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned",
+              "deletionProtectionEnabled": false,
+              "bearerTokenAuthenticationEnabled": false
+            }
+          ]
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "create-role",
+      "service": "iam",
+      "operation": "create-role",
+      "input": {
+        "RoleName": "stackd-ctlogs-owned-role",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "request_started_ms": 1789340663779,
+      "request_finished_ms": 1789340664534,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Role": {
+            "Path": "/",
+            "RoleName": "stackd-ctlogs-owned-role",
+            "RoleId": "OWNEDROLEID",
+            "Arn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+            "CreateDate": "2026-09-13T23:04:24+00:00",
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "cloudtrail.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            }
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "role-policy-CreateLogStream-PutLogEvents",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "input": {
+        "RoleName": "stackd-ctlogs-owned-role",
+        "PolicyName": "owned-cloudtrail-logs",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": \"arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:log-stream:111111111111_CloudTrail_us-east-1*\"}]}"
+      },
+      "request_started_ms": 1789340664535,
+      "request_finished_ms": 1789340665268,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      }
+    },
+    {
+      "label": "create-configured-trail-0",
+      "service": "cloudtrail",
+      "operation": "create-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail",
+        "S3BucketName": "stackd-ctlogs-owned-bucket",
+        "S3KeyPrefix": "owned",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "EnableLogFileValidation": false,
+        "IsOrganizationTrail": false,
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "request_started_ms": 1789340680269,
+      "request_finished_ms": 1789340681246,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-ctlogs-owned-trail",
+          "S3BucketName": "stackd-ctlogs-owned-bucket",
+          "S3KeyPrefix": "owned",
+          "IncludeGlobalServiceEvents": false,
+          "IsMultiRegionTrail": false,
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+          "LogFileValidationEnabled": false,
+          "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+          "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+          "IsOrganizationTrail": false
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-empty-role-only-before-get",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340681247,
+      "request_finished_ms": 1789340681998,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trail": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "S3BucketName": "stackd-ctlogs-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "HomeRegion": "us-east-1",
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+            "LogFileValidationEnabled": false,
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "IsOrganizationTrail": false
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-empty-role-only",
+      "service": "cloudtrail",
+      "operation": "update-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail",
+        "CloudWatchLogsRoleArn": ""
+      },
+      "request_started_ms": 1789340681999,
+      "request_finished_ms": 1789340682843,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-ctlogs-owned-trail",
+          "S3BucketName": "stackd-ctlogs-owned-bucket",
+          "S3KeyPrefix": "owned",
+          "IncludeGlobalServiceEvents": false,
+          "IsMultiRegionTrail": false,
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+          "LogFileValidationEnabled": false,
+          "IsOrganizationTrail": false
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-empty-role-only-immediate-get",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340682844,
+      "request_finished_ms": 1789340683572,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trail": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "S3BucketName": "stackd-ctlogs-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "HomeRegion": "us-east-1",
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+            "LogFileValidationEnabled": false,
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "IsOrganizationTrail": false
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-empty-role-only-immediate-status",
+      "service": "cloudtrail",
+      "operation": "get-trail-status",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340683574,
+      "request_finished_ms": 1789340684263,
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsLogging": false,
+          "LatestDeliveryAttemptTime": "",
+          "LatestNotificationAttemptTime": "",
+          "LatestNotificationAttemptSucceeded": "",
+          "LatestDeliveryAttemptSucceeded": "",
+          "TimeLoggingStarted": "",
+          "TimeLoggingStopped": ""
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-both-empty-restore",
+      "service": "cloudtrail",
+      "operation": "update-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail",
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "request_started_ms": 1789340684273,
+      "request_finished_ms": 1789340685208,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-ctlogs-owned-trail",
+          "S3BucketName": "stackd-ctlogs-owned-bucket",
+          "S3KeyPrefix": "owned",
+          "IncludeGlobalServiceEvents": false,
+          "IsMultiRegionTrail": false,
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+          "LogFileValidationEnabled": false,
+          "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+          "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+          "IsOrganizationTrail": false
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-both-empty-before-get",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340685209,
+      "request_finished_ms": 1789340685924,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trail": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "S3BucketName": "stackd-ctlogs-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "HomeRegion": "us-east-1",
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+            "LogFileValidationEnabled": false,
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "IsOrganizationTrail": false
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-both-empty",
+      "service": "cloudtrail",
+      "operation": "update-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail",
+        "CloudWatchLogsLogGroupArn": "",
+        "CloudWatchLogsRoleArn": ""
+      },
+      "request_started_ms": 1789340685925,
+      "request_finished_ms": 1789340686769,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-ctlogs-owned-trail",
+          "S3BucketName": "stackd-ctlogs-owned-bucket",
+          "S3KeyPrefix": "owned",
+          "IncludeGlobalServiceEvents": false,
+          "IsMultiRegionTrail": false,
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+          "LogFileValidationEnabled": false,
+          "IsOrganizationTrail": false
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-both-empty-immediate-get",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340686771,
+      "request_finished_ms": 1789340687486,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trail": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "S3BucketName": "stackd-ctlogs-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "HomeRegion": "us-east-1",
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+            "LogFileValidationEnabled": false,
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "IsOrganizationTrail": false
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-both-empty-immediate-status",
+      "service": "cloudtrail",
+      "operation": "get-trail-status",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340687487,
+      "request_finished_ms": 1789340688203,
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsLogging": false,
+          "LatestDeliveryAttemptTime": "",
+          "LatestNotificationAttemptTime": "",
+          "LatestNotificationAttemptSucceeded": "",
+          "LatestDeliveryAttemptSucceeded": "",
+          "TimeLoggingStarted": "",
+          "TimeLoggingStopped": ""
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-empty-group-nonempty-role-restore",
+      "service": "cloudtrail",
+      "operation": "update-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail",
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "request_started_ms": 1789340688206,
+      "request_finished_ms": 1789340689312,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-ctlogs-owned-trail",
+          "S3BucketName": "stackd-ctlogs-owned-bucket",
+          "S3KeyPrefix": "owned",
+          "IncludeGlobalServiceEvents": false,
+          "IsMultiRegionTrail": false,
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+          "LogFileValidationEnabled": false,
+          "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+          "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+          "IsOrganizationTrail": false
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-empty-group-nonempty-role-before-get",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340689313,
+      "request_finished_ms": 1789340690044,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trail": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "S3BucketName": "stackd-ctlogs-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "HomeRegion": "us-east-1",
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+            "LogFileValidationEnabled": false,
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "IsOrganizationTrail": false
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-empty-group-nonempty-role",
+      "service": "cloudtrail",
+      "operation": "update-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail",
+        "CloudWatchLogsLogGroupArn": "",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "request_started_ms": 1789340690045,
+      "request_finished_ms": 1789340690787,
+      "result": {
+        "code": "InvalidCloudWatchLogsLogGroupArnException",
+        "message": "You must specify a log group and a role ARN.",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "configured-empty-group-nonempty-role-immediate-get",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340690789,
+      "request_finished_ms": 1789340691559,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trail": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "S3BucketName": "stackd-ctlogs-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "HomeRegion": "us-east-1",
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+            "LogFileValidationEnabled": false,
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "IsOrganizationTrail": false
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-empty-group-nonempty-role-immediate-status",
+      "service": "cloudtrail",
+      "operation": "get-trail-status",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340691561,
+      "request_finished_ms": 1789340692331,
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsLogging": false,
+          "LatestDeliveryAttemptTime": "",
+          "LatestNotificationAttemptTime": "",
+          "LatestNotificationAttemptSucceeded": "",
+          "LatestDeliveryAttemptSucceeded": "",
+          "TimeLoggingStarted": "",
+          "TimeLoggingStopped": ""
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-nonempty-group-empty-role-restore",
+      "service": "cloudtrail",
+      "operation": "update-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail",
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "request_started_ms": 1789340692341,
+      "request_finished_ms": 1789340693264,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Name": "stackd-ctlogs-owned-trail",
+          "S3BucketName": "stackd-ctlogs-owned-bucket",
+          "S3KeyPrefix": "owned",
+          "IncludeGlobalServiceEvents": false,
+          "IsMultiRegionTrail": false,
+          "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+          "LogFileValidationEnabled": false,
+          "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+          "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+          "IsOrganizationTrail": false
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-nonempty-group-empty-role-before-get",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340693266,
+      "request_finished_ms": 1789340694021,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trail": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "S3BucketName": "stackd-ctlogs-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "HomeRegion": "us-east-1",
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+            "LogFileValidationEnabled": false,
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "IsOrganizationTrail": false
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-nonempty-group-empty-role",
+      "service": "cloudtrail",
+      "operation": "update-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail",
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": ""
+      },
+      "request_started_ms": 1789340694023,
+      "request_finished_ms": 1789340694774,
+      "result": {
+        "code": "InvalidCloudWatchLogsRoleArnException",
+        "message": "You must specify a log group and a role ARN.",
+        "http_status": 400
+      }
+    },
+    {
+      "label": "configured-nonempty-group-empty-role-immediate-get",
+      "service": "cloudtrail",
+      "operation": "get-trail",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340694775,
+      "request_finished_ms": 1789340695501,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Trail": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "S3BucketName": "stackd-ctlogs-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "HomeRegion": "us-east-1",
+            "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+            "LogFileValidationEnabled": false,
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+            "HasCustomEventSelectors": false,
+            "HasInsightSelectors": false,
+            "IsOrganizationTrail": false
+          }
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "configured-nonempty-group-empty-role-immediate-status",
+      "service": "cloudtrail",
+      "operation": "get-trail-status",
+      "input": {
+        "Name": "stackd-ctlogs-owned-trail"
+      },
+      "request_started_ms": 1789340695502,
+      "request_finished_ms": 1789340696225,
+      "result": {
+        "code": "Success",
+        "output": {
+          "IsLogging": false,
+          "LatestDeliveryAttemptTime": "",
+          "LatestNotificationAttemptTime": "",
+          "LatestNotificationAttemptSucceeded": "",
+          "LatestDeliveryAttemptSucceeded": "",
+          "TimeLoggingStarted": "",
+          "TimeLoggingStopped": ""
+        },
+        "http_status": 200
+      }
+    }
+  ],
+  "delivery": {
+    "attempted": false,
+    "reason": "Configuration-only mode never starts logging or reads events"
+  },
+  "previous_runs": [
+    {
+      "source": "native AWS CLI using scripts/aws/aws_cli.py run/result typed decoding",
+      "retrieved_at": "2026-09-13T23:01:55.953576+00:00",
+      "region": "us-east-1",
+      "scope": "Unique owned S3 bucket, single-region non-organization trail, IAM role/inline policy and Logs group; configuration-only empty destination updates; logging never started",
+      "primary_references": [
+        "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_CreateTrail.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_UpdateTrail.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_GetTrailStatus.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/send-cloudtrail-events-to-cloudwatch-logs.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-required-policy-for-cloudwatch-logs.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudwatch-log-group-log-stream-naming-for-cloudtrail.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_AdvancedFieldSelector.html"
+      ],
+      "bounds": {
+        "configuration_attempts": 4,
+        "configuration_retry_seconds": 15,
+        "cli_timeout_seconds": 50,
+        "automatic_retries": false
+      },
+      "substitutions": "Account -> 111111111111; unique names -> owned names consistently across policies, ARNs and messages. Credential IDs omitted; caller ARN/principal ID replaced consistently; client IP -> 192.0.2.1. Native timestamps, request/event IDs and opaque page tokens retained. Message JSON reformatted after redaction.",
+      "identity_relationships": {
+        "account": "111111111111",
+        "trail_arn": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+        "role_arn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+        "group_arn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned",
+        "bucket": "stackd-ctlogs-owned-bucket",
+        "role_trusted_service": "cloudtrail.amazonaws.com"
+      },
+      "resources": [
+        {
+          "kind": "bucket",
+          "name": "stackd-ctlogs-owned-bucket",
+          "creation": "Success"
+        },
+        {
+          "kind": "group",
+          "name": "/stackd/native-cloudtrail-logs-owned",
+          "creation": "Success"
+        },
+        {
+          "kind": "role",
+          "name": "stackd-ctlogs-owned-role",
+          "creation": "Success"
+        },
+        {
+          "kind": "inline-policy",
+          "name": "owned-cloudtrail-logs",
+          "role": "stackd-ctlogs-owned-role",
+          "creation": "Success"
+        },
+        {
+          "kind": "trail",
+          "name": "stackd-ctlogs-owned-trail",
+          "creation": "Success",
+          "attempt": 0
+        }
+      ],
+      "observations": [
+        {
+          "label": "identity",
+          "service": "sts",
+          "operation": "get-caller-identity",
+          "input": {},
+          "request_started_ms": 1789340515953,
+          "request_finished_ms": 1789340516654,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Account": "111111111111"
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "create-bucket",
+          "service": "s3api",
+          "operation": "create-bucket",
+          "input": {
+            "Bucket": "stackd-ctlogs-owned-bucket"
+          },
+          "request_started_ms": 1789340516654,
+          "request_finished_ms": 1789340517592,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Location": "/stackd-ctlogs-owned-bucket",
+              "BucketArn": "arn:aws:s3:::stackd-ctlogs-owned-bucket"
+            }
+          }
+        },
+        {
+          "label": "bucket-policy",
+          "service": "s3api",
+          "operation": "put-bucket-policy",
+          "input": {
+            "Bucket": "stackd-ctlogs-owned-bucket",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AWSCloudTrailAclCheck20150319\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-ctlogs-owned-bucket\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail\"}}}, {\"Sid\": \"AWSCloudTrailWrite20150319\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-ctlogs-owned-bucket/owned/AWSLogs/111111111111/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+          },
+          "request_started_ms": 1789340517592,
+          "request_finished_ms": 1789340518408,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "create-group",
+          "service": "logs",
+          "operation": "create-log-group",
+          "input": {
+            "logGroupName": "/stackd/native-cloudtrail-logs-owned",
+            "tags": {
+              "owner": "stackd-probe"
+            }
+          },
+          "request_started_ms": 1789340518408,
+          "request_finished_ms": 1789340519147,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "group-retention",
+          "service": "logs",
+          "operation": "put-retention-policy",
+          "input": {
+            "logGroupName": "/stackd/native-cloudtrail-logs-owned",
+            "retentionInDays": 1
+          },
+          "request_started_ms": 1789340519148,
+          "request_finished_ms": 1789340519900,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "describe-owned-group",
+          "service": "logs",
+          "operation": "describe-log-groups",
+          "input": {
+            "logGroupNamePrefix": "/stackd/native-cloudtrail-logs-owned"
+          },
+          "request_started_ms": 1789340519900,
+          "request_finished_ms": 1789340520614,
+          "result": {
+            "code": "Success",
+            "output": {
+              "logGroups": [
+                {
+                  "logGroupName": "/stackd/native-cloudtrail-logs-owned",
+                  "creationTime": 1789340519005,
+                  "retentionInDays": 1,
+                  "metricFilterCount": 0,
+                  "arn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+                  "storedBytes": 0,
+                  "logGroupClass": "STANDARD",
+                  "logGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned",
+                  "deletionProtectionEnabled": false,
+                  "bearerTokenAuthenticationEnabled": false
+                }
+              ]
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "create-role",
+          "service": "iam",
+          "operation": "create-role",
+          "input": {
+            "RoleName": "stackd-ctlogs-owned-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "request_started_ms": 1789340520614,
+          "request_finished_ms": 1789340521340,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Role": {
+                "Path": "/",
+                "RoleName": "stackd-ctlogs-owned-role",
+                "RoleId": "OWNEDROLEID",
+                "Arn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+                "CreateDate": "2026-09-13T23:02:01+00:00",
+                "AssumeRolePolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {
+                        "Service": "cloudtrail.amazonaws.com"
+                      },
+                      "Action": "sts:AssumeRole"
+                    }
+                  ]
+                }
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "role-policy-CreateLogStream-PutLogEvents",
+          "service": "iam",
+          "operation": "put-role-policy",
+          "input": {
+            "RoleName": "stackd-ctlogs-owned-role",
+            "PolicyName": "owned-cloudtrail-logs",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": \"arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:log-stream:111111111111_CloudTrail_us-east-1*\"}]}"
+          },
+          "request_started_ms": 1789340521341,
+          "request_finished_ms": 1789340522080,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "create-configured-trail-0",
+          "service": "cloudtrail",
+          "operation": "create-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "S3BucketName": "stackd-ctlogs-owned-bucket",
+            "S3KeyPrefix": "owned",
+            "IncludeGlobalServiceEvents": false,
+            "IsMultiRegionTrail": false,
+            "EnableLogFileValidation": false,
+            "IsOrganizationTrail": false,
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "request_started_ms": 1789340537080,
+          "request_finished_ms": 1789340538088,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Name": "stackd-ctlogs-owned-trail",
+              "S3BucketName": "stackd-ctlogs-owned-bucket",
+              "S3KeyPrefix": "owned",
+              "IncludeGlobalServiceEvents": false,
+              "IsMultiRegionTrail": false,
+              "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+              "LogFileValidationEnabled": false,
+              "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+              "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+              "IsOrganizationTrail": false
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-empty-role-only-before-get",
+          "service": "cloudtrail",
+          "operation": "get-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340538089,
+          "request_finished_ms": 1789340538811,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Trail": {
+                "Name": "stackd-ctlogs-owned-trail",
+                "S3BucketName": "stackd-ctlogs-owned-bucket",
+                "S3KeyPrefix": "owned",
+                "IncludeGlobalServiceEvents": false,
+                "IsMultiRegionTrail": false,
+                "HomeRegion": "us-east-1",
+                "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+                "LogFileValidationEnabled": false,
+                "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+                "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+                "HasCustomEventSelectors": false,
+                "HasInsightSelectors": false,
+                "IsOrganizationTrail": false
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-empty-role-only",
+          "service": "cloudtrail",
+          "operation": "update-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "CloudWatchLogsRoleArn": ""
+          },
+          "request_started_ms": 1789340538811,
+          "request_finished_ms": 1789340539645,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Name": "stackd-ctlogs-owned-trail",
+              "S3BucketName": "stackd-ctlogs-owned-bucket",
+              "S3KeyPrefix": "owned",
+              "IncludeGlobalServiceEvents": false,
+              "IsMultiRegionTrail": false,
+              "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+              "LogFileValidationEnabled": false,
+              "IsOrganizationTrail": false
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-empty-role-only-immediate-get",
+          "service": "cloudtrail",
+          "operation": "get-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340539645,
+          "request_finished_ms": 1789340540385,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Trail": {
+                "Name": "stackd-ctlogs-owned-trail",
+                "S3BucketName": "stackd-ctlogs-owned-bucket",
+                "S3KeyPrefix": "owned",
+                "IncludeGlobalServiceEvents": false,
+                "IsMultiRegionTrail": false,
+                "HomeRegion": "us-east-1",
+                "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+                "LogFileValidationEnabled": false,
+                "HasCustomEventSelectors": false,
+                "HasInsightSelectors": false,
+                "IsOrganizationTrail": false
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-empty-role-only-immediate-status",
+          "service": "cloudtrail",
+          "operation": "get-trail-status",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340540386,
+          "request_finished_ms": 1789340541107,
+          "result": {
+            "code": "Success",
+            "output": {
+              "IsLogging": false,
+              "LatestDeliveryAttemptTime": "",
+              "LatestNotificationAttemptTime": "",
+              "LatestNotificationAttemptSucceeded": "",
+              "LatestDeliveryAttemptSucceeded": "",
+              "TimeLoggingStarted": "",
+              "TimeLoggingStopped": ""
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-both-empty-restore",
+          "service": "cloudtrail",
+          "operation": "update-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "request_started_ms": 1789340541116,
+          "request_finished_ms": 1789340542017,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Name": "stackd-ctlogs-owned-trail",
+              "S3BucketName": "stackd-ctlogs-owned-bucket",
+              "S3KeyPrefix": "owned",
+              "IncludeGlobalServiceEvents": false,
+              "IsMultiRegionTrail": false,
+              "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+              "LogFileValidationEnabled": false,
+              "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+              "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+              "IsOrganizationTrail": false
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-both-empty-before-get",
+          "service": "cloudtrail",
+          "operation": "get-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340542018,
+          "request_finished_ms": 1789340542733,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Trail": {
+                "Name": "stackd-ctlogs-owned-trail",
+                "S3BucketName": "stackd-ctlogs-owned-bucket",
+                "S3KeyPrefix": "owned",
+                "IncludeGlobalServiceEvents": false,
+                "IsMultiRegionTrail": false,
+                "HomeRegion": "us-east-1",
+                "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+                "LogFileValidationEnabled": false,
+                "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+                "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+                "HasCustomEventSelectors": false,
+                "HasInsightSelectors": false,
+                "IsOrganizationTrail": false
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-both-empty",
+          "service": "cloudtrail",
+          "operation": "update-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "CloudWatchLogsLogGroupArn": "",
+            "CloudWatchLogsRoleArn": ""
+          },
+          "request_started_ms": 1789340542733,
+          "request_finished_ms": 1789340543569,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Name": "stackd-ctlogs-owned-trail",
+              "S3BucketName": "stackd-ctlogs-owned-bucket",
+              "S3KeyPrefix": "owned",
+              "IncludeGlobalServiceEvents": false,
+              "IsMultiRegionTrail": false,
+              "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+              "LogFileValidationEnabled": false,
+              "IsOrganizationTrail": false
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-both-empty-immediate-get",
+          "service": "cloudtrail",
+          "operation": "get-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340543569,
+          "request_finished_ms": 1789340544287,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Trail": {
+                "Name": "stackd-ctlogs-owned-trail",
+                "S3BucketName": "stackd-ctlogs-owned-bucket",
+                "S3KeyPrefix": "owned",
+                "IncludeGlobalServiceEvents": false,
+                "IsMultiRegionTrail": false,
+                "HomeRegion": "us-east-1",
+                "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+                "LogFileValidationEnabled": false,
+                "HasCustomEventSelectors": false,
+                "HasInsightSelectors": false,
+                "IsOrganizationTrail": false
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-both-empty-immediate-status",
+          "service": "cloudtrail",
+          "operation": "get-trail-status",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340544287,
+          "request_finished_ms": 1789340544996,
+          "result": {
+            "code": "Success",
+            "output": {
+              "IsLogging": false,
+              "LatestDeliveryAttemptTime": "",
+              "LatestNotificationAttemptTime": "",
+              "LatestNotificationAttemptSucceeded": "",
+              "LatestDeliveryAttemptSucceeded": "",
+              "TimeLoggingStarted": "",
+              "TimeLoggingStopped": ""
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-empty-group-nonempty-role-restore",
+          "service": "cloudtrail",
+          "operation": "update-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "request_started_ms": 1789340545006,
+          "request_finished_ms": 1789340545898,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Name": "stackd-ctlogs-owned-trail",
+              "S3BucketName": "stackd-ctlogs-owned-bucket",
+              "S3KeyPrefix": "owned",
+              "IncludeGlobalServiceEvents": false,
+              "IsMultiRegionTrail": false,
+              "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+              "LogFileValidationEnabled": false,
+              "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+              "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+              "IsOrganizationTrail": false
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-empty-group-nonempty-role-before-get",
+          "service": "cloudtrail",
+          "operation": "get-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340545899,
+          "request_finished_ms": 1789340546623,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Trail": {
+                "Name": "stackd-ctlogs-owned-trail",
+                "S3BucketName": "stackd-ctlogs-owned-bucket",
+                "S3KeyPrefix": "owned",
+                "IncludeGlobalServiceEvents": false,
+                "IsMultiRegionTrail": false,
+                "HomeRegion": "us-east-1",
+                "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+                "LogFileValidationEnabled": false,
+                "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+                "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+                "HasCustomEventSelectors": false,
+                "HasInsightSelectors": false,
+                "IsOrganizationTrail": false
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-empty-group-nonempty-role",
+          "service": "cloudtrail",
+          "operation": "update-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "CloudWatchLogsLogGroupArn": "",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "request_started_ms": 1789340546624,
+          "request_finished_ms": 1789340547309,
+          "result": {
+            "code": "InvalidCloudWatchLogsLogGroupArnException",
+            "message": "You must specify a log group and a role ARN.",
+            "http_status": 400
+          }
+        },
+        {
+          "label": "configured-empty-group-nonempty-role-immediate-get",
+          "service": "cloudtrail",
+          "operation": "get-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340547310,
+          "request_finished_ms": 1789340548065,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Trail": {
+                "Name": "stackd-ctlogs-owned-trail",
+                "S3BucketName": "stackd-ctlogs-owned-bucket",
+                "S3KeyPrefix": "owned",
+                "IncludeGlobalServiceEvents": false,
+                "IsMultiRegionTrail": false,
+                "HomeRegion": "us-east-1",
+                "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+                "LogFileValidationEnabled": false,
+                "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+                "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+                "HasCustomEventSelectors": false,
+                "HasInsightSelectors": false,
+                "IsOrganizationTrail": false
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-empty-group-nonempty-role-immediate-status",
+          "service": "cloudtrail",
+          "operation": "get-trail-status",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340548065,
+          "request_finished_ms": 1789340548786,
+          "result": {
+            "code": "Success",
+            "output": {
+              "IsLogging": false,
+              "LatestDeliveryAttemptTime": "",
+              "LatestNotificationAttemptTime": "",
+              "LatestNotificationAttemptSucceeded": "",
+              "LatestDeliveryAttemptSucceeded": "",
+              "TimeLoggingStarted": "",
+              "TimeLoggingStopped": ""
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-nonempty-group-empty-role-restore",
+          "service": "cloudtrail",
+          "operation": "update-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "request_started_ms": 1789340548796,
+          "request_finished_ms": 1789340549716,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Name": "stackd-ctlogs-owned-trail",
+              "S3BucketName": "stackd-ctlogs-owned-bucket",
+              "S3KeyPrefix": "owned",
+              "IncludeGlobalServiceEvents": false,
+              "IsMultiRegionTrail": false,
+              "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+              "LogFileValidationEnabled": false,
+              "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+              "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+              "IsOrganizationTrail": false
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-nonempty-group-empty-role-before-get",
+          "service": "cloudtrail",
+          "operation": "get-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340549717,
+          "request_finished_ms": 1789340550416,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Trail": {
+                "Name": "stackd-ctlogs-owned-trail",
+                "S3BucketName": "stackd-ctlogs-owned-bucket",
+                "S3KeyPrefix": "owned",
+                "IncludeGlobalServiceEvents": false,
+                "IsMultiRegionTrail": false,
+                "HomeRegion": "us-east-1",
+                "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+                "LogFileValidationEnabled": false,
+                "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+                "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+                "HasCustomEventSelectors": false,
+                "HasInsightSelectors": false,
+                "IsOrganizationTrail": false
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-nonempty-group-empty-role",
+          "service": "cloudtrail",
+          "operation": "update-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail",
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": ""
+          },
+          "request_started_ms": 1789340550417,
+          "request_finished_ms": 1789340551119,
+          "result": {
+            "code": "InvalidCloudWatchLogsRoleArnException",
+            "message": "You must specify a log group and a role ARN.",
+            "http_status": 400
+          }
+        },
+        {
+          "label": "configured-nonempty-group-empty-role-immediate-get",
+          "service": "cloudtrail",
+          "operation": "get-trail",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340551120,
+          "request_finished_ms": 1789340551829,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Trail": {
+                "Name": "stackd-ctlogs-owned-trail",
+                "S3BucketName": "stackd-ctlogs-owned-bucket",
+                "S3KeyPrefix": "owned",
+                "IncludeGlobalServiceEvents": false,
+                "IsMultiRegionTrail": false,
+                "HomeRegion": "us-east-1",
+                "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/stackd-ctlogs-owned-trail",
+                "LogFileValidationEnabled": false,
+                "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+                "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role",
+                "HasCustomEventSelectors": false,
+                "HasInsightSelectors": false,
+                "IsOrganizationTrail": false
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "configured-nonempty-group-empty-role-immediate-status",
+          "service": "cloudtrail",
+          "operation": "get-trail-status",
+          "input": {
+            "Name": "stackd-ctlogs-owned-trail"
+          },
+          "request_started_ms": 1789340551830,
+          "request_finished_ms": 1789340552521,
+          "result": {
+            "code": "Success",
+            "output": {
+              "IsLogging": false,
+              "LatestDeliveryAttemptTime": "",
+              "LatestNotificationAttemptTime": "",
+              "LatestNotificationAttemptSucceeded": "",
+              "LatestDeliveryAttemptSucceeded": "",
+              "TimeLoggingStarted": "",
+              "TimeLoggingStopped": ""
+            },
+            "http_status": 200
+          }
+        }
+      ],
+      "delivery": {
+        "attempted": false,
+        "reason": "Configuration-only mode never starts logging or reads events"
+      },
+      "uncertainty": [
+        "One account/region/run; immediate configuration/status observations do not establish event-delivery behavior.",
+        "IAM propagation may require bounded configured-trail creation retries.",
+        "CLI debug is decoded only for HTTP status; raw debug/signatures never persisted. HTTP status omitted where shared helper cannot observe it."
+      ],
+      "cleanup": {
+        "verified": true,
+        "observations": [
+          {
+            "label": "stop-trail",
+            "service": "cloudtrail",
+            "operation": "stop-logging",
+            "input": {
+              "Name": "stackd-ctlogs-owned-trail"
+            },
+            "request_started_ms": 1789340552531,
+            "request_finished_ms": 1789340553252,
+            "result": {
+              "code": "Success",
+              "output": {},
+              "http_status": 200
+            }
+          },
+          {
+            "label": "delete-trail",
+            "service": "cloudtrail",
+            "operation": "delete-trail",
+            "input": {
+              "Name": "stackd-ctlogs-owned-trail"
+            },
+            "request_started_ms": 1789340553253,
+            "request_finished_ms": 1789340554008,
+            "result": {
+              "code": "Success",
+              "output": {},
+              "http_status": 200
+            }
+          },
+          {
+            "label": "verify-trail-absent",
+            "service": "cloudtrail",
+            "operation": "get-trail",
+            "input": {
+              "Name": "stackd-ctlogs-owned-trail"
+            },
+            "request_started_ms": 1789340554009,
+            "request_finished_ms": 1789340554716,
+            "result": {
+              "code": "TrailNotFoundException",
+              "message": "Unknown trail: stackd-ctlogs-owned-trail for the user: 111111111111",
+              "http_status": 400
+            }
+          },
+          {
+            "label": "delete-inline-policy",
+            "service": "iam",
+            "operation": "delete-role-policy",
+            "input": {
+              "RoleName": "stackd-ctlogs-owned-role",
+              "PolicyName": "owned-cloudtrail-logs"
+            },
+            "request_started_ms": 1789340554717,
+            "request_finished_ms": 1789340555457,
+            "result": {
+              "code": "Success",
+              "output": {},
+              "http_status": 200
+            }
+          },
+          {
+            "label": "delete-role",
+            "service": "iam",
+            "operation": "delete-role",
+            "input": {
+              "RoleName": "stackd-ctlogs-owned-role"
+            },
+            "request_started_ms": 1789340555458,
+            "request_finished_ms": 1789340556225,
+            "result": {
+              "code": "Success",
+              "output": {},
+              "http_status": 200
+            }
+          },
+          {
+            "label": "verify-role-absent",
+            "service": "iam",
+            "operation": "get-role",
+            "input": {
+              "RoleName": "stackd-ctlogs-owned-role"
+            },
+            "request_started_ms": 1789340556225,
+            "request_finished_ms": 1789340556923,
+            "result": {
+              "code": "NoSuchEntity",
+              "message": "The role with name stackd-ctlogs-owned-role cannot be found.",
+              "http_status": 404
+            }
+          },
+          {
+            "label": "delete-group",
+            "service": "logs",
+            "operation": "delete-log-group",
+            "input": {
+              "logGroupName": "/stackd/native-cloudtrail-logs-owned"
+            },
+            "request_started_ms": 1789340556924,
+            "request_finished_ms": 1789340557694,
+            "result": {
+              "code": "Success",
+              "output": {},
+              "http_status": 200
+            }
+          },
+          {
+            "label": "verify-group-absent",
+            "service": "logs",
+            "operation": "describe-log-groups",
+            "input": {
+              "logGroupNamePrefix": "/stackd/native-cloudtrail-logs-owned"
+            },
+            "request_started_ms": 1789340557695,
+            "request_finished_ms": 1789340558382,
+            "result": {
+              "code": "Success",
+              "output": {
+                "logGroups": []
+              },
+              "http_status": 200
+            }
+          },
+          {
+            "label": "delete-bucket-policy",
+            "service": "s3api",
+            "operation": "delete-bucket-policy",
+            "input": {
+              "Bucket": "stackd-ctlogs-owned-bucket"
+            },
+            "request_started_ms": 1789340558383,
+            "request_finished_ms": 1789340559222,
+            "result": {
+              "code": "Success",
+              "output": {}
+            }
+          },
+          {
+            "label": "list-owned-cleanup-objects-0",
+            "service": "s3api",
+            "operation": "list-objects-v2",
+            "input": {
+              "Bucket": "stackd-ctlogs-owned-bucket",
+              "MaxKeys": 1000
+            },
+            "request_started_ms": 1789340559223,
+            "request_finished_ms": 1789340559944,
+            "result": {
+              "code": "Success",
+              "output": {
+                "IsTruncated": false,
+                "Contents": [
+                  {
+                    "Key": "owned/AWSLogs/111111111111/CloudTrail/",
+                    "LastModified": "2026-09-13T23:02:30+00:00",
+                    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                    "ChecksumAlgorithm": [
+                      "CRC64NVME"
+                    ],
+                    "ChecksumType": "FULL_OBJECT",
+                    "Size": 0,
+                    "StorageClass": "STANDARD"
+                  }
+                ],
+                "Name": "stackd-ctlogs-owned-bucket",
+                "Prefix": "",
+                "MaxKeys": 1000,
+                "EncodingType": "url",
+                "KeyCount": 1
+              }
+            }
+          },
+          {
+            "label": "delete-owned-objects-0",
+            "service": "s3api",
+            "operation": "delete-objects",
+            "input": {
+              "Bucket": "stackd-ctlogs-owned-bucket",
+              "Delete": {
+                "Objects": [
+                  {
+                    "Key": "owned/AWSLogs/111111111111/CloudTrail/"
+                  }
+                ],
+                "Quiet": true
+              }
+            },
+            "request_started_ms": 1789340559945,
+            "request_finished_ms": 1789340560664,
+            "result": {
+              "code": "Success",
+              "output": {}
+            }
+          },
+          {
+            "label": "delete-bucket-0",
+            "service": "s3api",
+            "operation": "delete-bucket",
+            "input": {
+              "Bucket": "stackd-ctlogs-owned-bucket"
+            },
+            "request_started_ms": 1789340560665,
+            "request_finished_ms": 1789340561628,
+            "result": {
+              "code": "Success",
+              "output": {}
+            }
+          },
+          {
+            "label": "verify-bucket-absent",
+            "service": "s3api",
+            "operation": "head-bucket",
+            "input": {
+              "Bucket": "stackd-ctlogs-owned-bucket"
+            },
+            "request_started_ms": 1789340561629,
+            "request_finished_ms": 1789340562322,
+            "result": {
+              "code": "Success",
+              "output": {
+                "BucketArn": "arn:aws:s3:::stackd-ctlogs-owned-bucket",
+                "BucketRegion": "us-east-1",
+                "AccessPointAlias": false
+              }
+            }
+          },
+          {
+            "label": "delayed-verify-owned-bucket-prefix-absent",
+            "service": "s3api",
+            "operation": "list-buckets",
+            "input": {
+              "Prefix": "stackd-ctlogs-",
+              "MaxBuckets": 1000
+            },
+            "request_started_ms": 1789340607065,
+            "request_finished_ms": 1789340607899,
+            "result": {
+              "code": "Success",
+              "output": {
+                "Buckets": [],
+                "Prefix": "stackd-ctlogs-"
+              }
+            },
+            "projection": "Native Owner omitted; no buckets or continuation token returned. Empty complete owned-prefix listing proves this run's bucket absent after immediate post-delete HeadBucket was still successful."
+          }
+        ],
+        "remaining_owned": []
+      },
+      "request_counts": {
+        "sts": 1,
+        "s3api": 8,
+        "logs": 5,
+        "iam": 5,
+        "cloudtrail": 23,
+        "total": 42
+      },
+      "configuration_transitions": [
+        {
+          "label": "configured-empty-role-only",
+          "update_code": "Success",
+          "update_http_status": 200,
+          "before_destination": {
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "after_destination": {},
+          "after_destination_field_presence": {
+            "CloudWatchLogsLogGroupArn": false,
+            "CloudWatchLogsRoleArn": false
+          },
+          "observed_state": "removed"
+        },
+        {
+          "label": "configured-both-empty",
+          "update_code": "Success",
+          "update_http_status": 200,
+          "before_destination": {
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "after_destination": {},
+          "after_destination_field_presence": {
+            "CloudWatchLogsLogGroupArn": false,
+            "CloudWatchLogsRoleArn": false
+          },
+          "observed_state": "removed"
+        },
+        {
+          "label": "configured-empty-group-nonempty-role",
+          "update_code": "InvalidCloudWatchLogsLogGroupArnException",
+          "update_http_status": 400,
+          "before_destination": {
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "after_destination": {
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "after_destination_field_presence": {
+            "CloudWatchLogsLogGroupArn": true,
+            "CloudWatchLogsRoleArn": true
+          },
+          "observed_state": "preserved"
+        },
+        {
+          "label": "configured-nonempty-group-empty-role",
+          "update_code": "InvalidCloudWatchLogsRoleArnException",
+          "update_http_status": 400,
+          "before_destination": {
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "after_destination": {
+            "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+            "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+          },
+          "after_destination_field_presence": {
+            "CloudWatchLogsLogGroupArn": true,
+            "CloudWatchLogsRoleArn": true
+          },
+          "observed_state": "preserved"
+        }
+      ],
+      "completed": true,
+      "finished_at": "2026-09-13T23:03:27.899000+00:00"
+    }
+  ],
+  "uncertainty": [
+    "One account/region/run; immediate configuration/status observations do not establish event-delivery behavior.",
+    "IAM propagation may require bounded configured-trail creation retries.",
+    "CLI debug is decoded only for HTTP status; raw debug/signatures never persisted. HTTP status omitted where shared helper cannot observe it."
+  ],
+  "cleanup": {
+    "verified": true,
+    "observations": [
+      {
+        "label": "stop-trail",
+        "service": "cloudtrail",
+        "operation": "stop-logging",
+        "input": {
+          "Name": "stackd-ctlogs-owned-trail"
+        },
+        "request_started_ms": 1789340696235,
+        "request_finished_ms": 1789340696943,
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        }
+      },
+      {
+        "label": "delete-trail",
+        "service": "cloudtrail",
+        "operation": "delete-trail",
+        "input": {
+          "Name": "stackd-ctlogs-owned-trail"
+        },
+        "request_started_ms": 1789340696944,
+        "request_finished_ms": 1789340697683,
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        }
+      },
+      {
+        "label": "verify-trail-absent",
+        "service": "cloudtrail",
+        "operation": "get-trail",
+        "input": {
+          "Name": "stackd-ctlogs-owned-trail"
+        },
+        "request_started_ms": 1789340697685,
+        "request_finished_ms": 1789340698386,
+        "result": {
+          "code": "TrailNotFoundException",
+          "message": "Unknown trail: stackd-ctlogs-owned-trail for the user: 111111111111",
+          "http_status": 400
+        }
+      },
+      {
+        "label": "delete-inline-policy",
+        "service": "iam",
+        "operation": "delete-role-policy",
+        "input": {
+          "RoleName": "stackd-ctlogs-owned-role",
+          "PolicyName": "owned-cloudtrail-logs"
+        },
+        "request_started_ms": 1789340698388,
+        "request_finished_ms": 1789340699111,
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        }
+      },
+      {
+        "label": "delete-role",
+        "service": "iam",
+        "operation": "delete-role",
+        "input": {
+          "RoleName": "stackd-ctlogs-owned-role"
+        },
+        "request_started_ms": 1789340699112,
+        "request_finished_ms": 1789340699846,
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        }
+      },
+      {
+        "label": "verify-role-absent",
+        "service": "iam",
+        "operation": "get-role",
+        "input": {
+          "RoleName": "stackd-ctlogs-owned-role"
+        },
+        "request_started_ms": 1789340699847,
+        "request_finished_ms": 1789340700560,
+        "result": {
+          "code": "NoSuchEntity",
+          "message": "The role with name stackd-ctlogs-owned-role cannot be found.",
+          "http_status": 404
+        }
+      },
+      {
+        "label": "delete-group",
+        "service": "logs",
+        "operation": "delete-log-group",
+        "input": {
+          "logGroupName": "/stackd/native-cloudtrail-logs-owned"
+        },
+        "request_started_ms": 1789340700562,
+        "request_finished_ms": 1789340701346,
+        "result": {
+          "code": "Success",
+          "output": {},
+          "http_status": 200
+        }
+      },
+      {
+        "label": "verify-group-absent",
+        "service": "logs",
+        "operation": "describe-log-groups",
+        "input": {
+          "logGroupNamePrefix": "/stackd/native-cloudtrail-logs-owned"
+        },
+        "request_started_ms": 1789340701347,
+        "request_finished_ms": 1789340702022,
+        "result": {
+          "code": "Success",
+          "output": {
+            "logGroups": []
+          },
+          "http_status": 200
+        }
+      },
+      {
+        "label": "delete-bucket-policy",
+        "service": "s3api",
+        "operation": "delete-bucket-policy",
+        "input": {
+          "Bucket": "stackd-ctlogs-owned-bucket"
+        },
+        "request_started_ms": 1789340702023,
+        "request_finished_ms": 1789340702839,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "list-owned-cleanup-objects-0",
+        "service": "s3api",
+        "operation": "list-objects-v2",
+        "input": {
+          "Bucket": "stackd-ctlogs-owned-bucket",
+          "MaxKeys": 1000
+        },
+        "request_started_ms": 1789340702840,
+        "request_finished_ms": 1789340703587,
+        "result": {
+          "code": "Success",
+          "output": {
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "owned/AWSLogs/111111111111/CloudTrail/",
+                "LastModified": "2026-09-13T23:04:54+00:00",
+                "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 0,
+                "StorageClass": "STANDARD"
+              }
+            ],
+            "Name": "stackd-ctlogs-owned-bucket",
+            "Prefix": "",
+            "MaxKeys": 1000,
+            "EncodingType": "url",
+            "KeyCount": 1
+          }
+        }
+      },
+      {
+        "label": "delete-owned-objects-0",
+        "service": "s3api",
+        "operation": "delete-objects",
+        "input": {
+          "Bucket": "stackd-ctlogs-owned-bucket",
+          "Delete": {
+            "Objects": [
+              {
+                "Key": "owned/AWSLogs/111111111111/CloudTrail/"
+              }
+            ],
+            "Quiet": true
+          }
+        },
+        "request_started_ms": 1789340703589,
+        "request_finished_ms": 1789340704343,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "delete-bucket-0",
+        "service": "s3api",
+        "operation": "delete-bucket",
+        "input": {
+          "Bucket": "stackd-ctlogs-owned-bucket"
+        },
+        "request_started_ms": 1789340704345,
+        "request_finished_ms": 1789340705313,
+        "result": {
+          "code": "Success",
+          "output": {}
+        }
+      },
+      {
+        "label": "verify-bucket-absent",
+        "service": "s3api",
+        "operation": "head-bucket",
+        "input": {
+          "Bucket": "stackd-ctlogs-owned-bucket"
+        },
+        "request_started_ms": 1789340705314,
+        "request_finished_ms": 1789340706027,
+        "result": {
+          "code": "404",
+          "message": "Not Found"
+        }
+      }
+    ],
+    "remaining_owned": []
+  },
+  "request_counts": {
+    "sts": 1,
+    "s3api": 7,
+    "logs": 5,
+    "iam": 5,
+    "cloudtrail": 23,
+    "total": 41
+  },
+  "configuration_transitions": [
+    {
+      "label": "configured-empty-role-only",
+      "update_code": "Success",
+      "update_http_status": 200,
+      "before_destination": {
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "after_destination": {},
+      "after_destination_field_presence": {
+        "CloudWatchLogsLogGroupArn": false,
+        "CloudWatchLogsRoleArn": false
+      },
+      "observed_state": "removed"
+    },
+    {
+      "label": "configured-both-empty",
+      "update_code": "Success",
+      "update_http_status": 200,
+      "before_destination": {
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "after_destination": {},
+      "after_destination_field_presence": {
+        "CloudWatchLogsLogGroupArn": false,
+        "CloudWatchLogsRoleArn": false
+      },
+      "observed_state": "removed"
+    },
+    {
+      "label": "configured-empty-group-nonempty-role",
+      "update_code": "InvalidCloudWatchLogsLogGroupArnException",
+      "update_http_status": 400,
+      "before_destination": {
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "after_destination": {
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "after_destination_field_presence": {
+        "CloudWatchLogsLogGroupArn": true,
+        "CloudWatchLogsRoleArn": true
+      },
+      "observed_state": "preserved"
+    },
+    {
+      "label": "configured-nonempty-group-empty-role",
+      "update_code": "InvalidCloudWatchLogsRoleArnException",
+      "update_http_status": 400,
+      "before_destination": {
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "after_destination": {
+        "CloudWatchLogsLogGroupArn": "arn:aws:logs:us-east-1:111111111111:log-group:/stackd/native-cloudtrail-logs-owned:*",
+        "CloudWatchLogsRoleArn": "arn:aws:iam::111111111111:role/stackd-ctlogs-owned-role"
+      },
+      "after_destination_field_presence": {
+        "CloudWatchLogsLogGroupArn": true,
+        "CloudWatchLogsRoleArn": true
+      },
+      "observed_state": "preserved"
+    }
+  ],
+  "completed": true,
+  "finished_at": "2026-09-13T23:05:06.028538+00:00"
+}

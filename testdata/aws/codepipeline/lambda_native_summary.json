@@ -1,0 +1,165 @@
+{
+  "source": "Summary of retained native AWS observations, not simulator behavior",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "fixtures": {
+    "lambda_native.json": "Initial continuation capture. Pipeline succeeded and function-produced output was retained, but the probe requested deployed/transformed.txt instead of native deployed//transformed.txt after supplying ObjectKey=deployed/. Capture complete=false; cleanup_verified=true. Preserved transparently, not counted as full workflow proof.",
+    "lambda_native_complete.json": "Complete Source -> Lambda continuation/transform -> S3 Deploy byte proof, callback/admission/failure/missing-output/missing-function/pending controls. complete=true; cleanup_verified=true.",
+    "lambda_native_abandon.json": "Focused ordinary-return END/REPORT proof and callback acceptance after abandon and pipeline deletion, with postcallback state/history. complete=true; cleanup_verified=true."
+  },
+  "source_urls": [
+    "https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-Lambda.html",
+    "https://docs.aws.amazon.com/codepipeline/latest/userguide/actions-invoke-lambda-function.html",
+    "https://docs.aws.amazon.com/codepipeline/latest/APIReference/API_PutJobSuccessResult.html",
+    "https://docs.aws.amazon.com/codepipeline/latest/APIReference/API_PutJobFailureResult.html",
+    "https://docs.aws.amazon.com/codepipeline/latest/APIReference/API_JobData.html",
+    "https://docs.aws.amazon.com/codepipeline/latest/userguide/limits.html"
+  ],
+  "model": {
+    "botocore_version": "1.43.98",
+    "api_version": "2015-07-09",
+    "service_2_normalized_json_sha256": "4150475bb386cf1ad921e85fba76ddf077ca7d912acfa0be88936e0b9fc8b3be"
+  },
+  "admission": {
+    "action_type": {"category": "Invoke", "owner": "AWS", "provider": "Lambda", "version": "1"},
+    "documented_artifact_counts": {"inputs": "0-5", "outputs": "0-5", "boundary_counts_executed": false},
+    "missing_function_name": {
+      "code": "InvalidActionDeclarationException",
+      "message": "Action configuration for action 'Transform' is missing required configuration 'FunctionName'"
+    },
+    "unknown_configuration": {
+      "code": "InvalidActionDeclarationException",
+      "message": "Action configuration for action 'Transform' contains unknown configuration 'Unknown'"
+    },
+    "nonexistent_function_name": {
+      "admission": "Success",
+      "execution": "Failed",
+      "error_code": "ConfigurationError",
+      "summary_template": "The AWS Lambda function <FunctionName> does not exist."
+    },
+    "user_parameters": "Optional JSON string in this probe; delivered unchanged to actionConfiguration.configuration.UserParameters."
+  },
+  "event_shape": {
+    "top_level": ["CodePipeline.job"],
+    "job_fields": ["id", "accountId", "data"],
+    "initial_data_fields": ["actionConfiguration", "inputArtifacts", "outputArtifacts", "artifactCredentials"],
+    "absent_fields": ["actionTypeId", "pipelineContext", "continuationToken on initial invocation", "encryptionKey for artifactStore with no explicit encryption key"],
+    "artifact_location_shape": {"type": "S3", "s3Location": {"bucketName": "owned artifact bucket", "objectKey": "native reserved artifact key"}},
+    "input_revision": "Source S3 version ID string",
+    "output_revision": null,
+    "artifact_credentials_fields": ["accessKeyId", "secretAccessKey", "sessionToken", "expirationTime"],
+    "secret_handling": "All accessKeyId, secretAccessKey and sessionToken values were replaced in the function before capture persistence. The raw event was never logged or returned. Capture audit found no unredacted credential fields or access-key identifiers.",
+    "expiration_time": {
+      "json_type": "integer",
+      "unit": "epoch milliseconds",
+      "observed_value": 1790648898000,
+      "function_start_epoch_seconds": 1790648002.0084004,
+      "remaining_ttl_seconds_approximate": 895.99,
+      "continued_invocation_value": 1790648929000
+    }
+  },
+  "artifact_authority": {
+    "evidence": "lambda_native_complete.json function_records[0]",
+    "artifact_principal": "Assumed CodePipeline service role, not the function execution role",
+    "unrelated_owned_key_read": {
+      "code": "AccessDenied",
+      "reason": "No session policy allows s3:GetObject on unrelated-owned.txt, although the underlying pipeline role permits s3:* on both exact-owned buckets."
+    },
+    "artifact_credentials_unknown_job_callback": {
+      "code": "AccessDeniedException",
+      "reason": "No identity-based policy allows codepipeline:PutJobSuccessResult on the pipeline role. This observation does not separately establish whether the artifact session policy would permit callbacks if the underlying role allowed them."
+    },
+    "function_role_unknown_job_callback": "JobNotFoundException proves its execution-role credentials reach callback job lookup.",
+    "actual_artifact_access": "Function used delivered artifact credentials to read input ZIP and write output ZIP. Its own role permits only destination captures/* writes, callbacks and exact-owned logs; it cannot directly read/write pipeline artifacts."
+  },
+  "continuation": {
+    "evidence_labels": ["function-job", "job-versus-action-identity"],
+    "first_job_id": "e56d0cd0-9e5a-4fcb-abfb-6b7a1b9d1597",
+    "continued_job_id": "1cd28557-94a0-4197-9caf-07034946ac52",
+    "job_id_changes": true,
+    "action_execution_id": "One unchanged actionExecutionId, different from either job ID",
+    "token": "Exact opaque callback token echoed as data.continuationToken in second invocation; absent in first event.",
+    "artifacts": "Input and reserved output locators remain unchanged across continuation.",
+    "old_job_during_continuation": "InvalidJobStateException when reporting success with a different result from the already accepted continuation result.",
+    "token_with_output_variables": {
+      "code": "ValidationException",
+      "message": "A job can not contain both a continuation token and output variables.",
+      "job_consumed_by_rejection": false
+    },
+    "timing": "Two invocations observed; first capture starts were about 28 seconds apart. This is an observation, not a scheduling guarantee."
+  },
+  "callbacks": {
+    "success": "HTTP 200 empty result",
+    "failure": "HTTP 200 empty result",
+    "identical_success_repeat": "HTTP 200, with identical executionDetails/currentRevision/outputVariables",
+    "identical_failure_repeat": "HTTP 200, with identical failureDetails",
+    "changed_same_status_success": {
+      "code": "InvalidJobStateException",
+      "message_template": "The status of job with id <id> is already set to the desired value. It cannot be updated with the same status, but different result or output variables."
+    },
+    "opposite_status_after_terminal": {
+      "code": "InvalidJobStateException",
+      "message_template": "Job with id <id> has already terminated"
+    },
+    "unknown_success_and_failure": {"code": "JobNotFoundException", "message_template": "Job with id '<id>' does not exist"},
+    "known_job_wrong_region_us_west_2": "JobNotFoundException",
+    "malformed_job_id": "ValidationException with UUID regular-expression constraint",
+    "current_revision": "Accepted by Lambda callback. Native GetPipelineExecution still reports source artifact revisions; Lambda action state/history does not expose the supplied currentRevision."
+  },
+  "action_history": {
+    "successful_external_execution_id": "FunctionName, both with and without supplied executionDetails",
+    "successful_external_execution_url_template": "https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logStream:group=%252Faws%252Flambda%252F<FunctionName>",
+    "success_callback_details": "Supplied externalExecutionId and executionDetails.summary are not projected into Lambda action history.",
+    "failure": {"status": "Failed", "error_code": "JobFailed", "external_execution_summary": "owned explicit failure", "external_execution_id": "FunctionName, ignoring supplied failureDetails.externalExecutionId", "output_artifacts": [], "output_variables": {}},
+    "output_variables": "Returned key/value pairs appear in action execution outputVariables and resolve downstream action configuration."
+  },
+  "real_output": {
+    "evidence_label": "real-output-consumed",
+    "deployed_key": "deployed/transformed.txt",
+    "body": "lambda-produced:OWNED SOURCE BYTES\n",
+    "length": 35,
+    "sha256": "089e9377d47eceb789d9a9505423e1db3f77f595138b6842773c6b5836544724",
+    "function_artifact_version_id": "G47BwXoxw5WeJDBu.W4bieOUB.jqC2j1",
+    "deployed_version_id": "m3N3sd8kyzbbIzCo2D73VmRT2hhXW9WJ",
+    "identical_function_and_deployed_bytes": true,
+    "output_variable_consumed": "Lambda outputVariables.Produced=yes resolves S3 Deploy CacheControl; deployed object has CacheControl=yes."
+  },
+  "missing_output_trust_boundary": {
+    "evidence_label": "no-output",
+    "function_uploads_declared_output": false,
+    "success_callback": "HTTP 200",
+    "lambda_action_status": "Succeeded",
+    "lambda_action_output_artifacts": "Reserved S3 locator is exposed despite no object being uploaded.",
+    "downstream_s3_deploy_status": "Failed",
+    "downstream_error_code": "ConfigurationError",
+    "downstream_summary": "Input artifact does not exist or permission is missing; native underlying S3 response is 404 NoSuchKey.",
+    "consequence": "Do not invent an output-object existence check that fails the Lambda action itself. Success callback is the Lambda-stage trust boundary; downstream consumer accesses actual bytes."
+  },
+  "ordinary_return_and_fencing": {
+    "evidence_fixture": "lambda_native_abandon.json",
+    "handler_return": {"statusCode": 200, "body": "ordinary return without callback"},
+    "lambda_request_id": "819f2ba3-5cbc-4ca8-8f56-3ea7451bf9e7",
+    "runtime_proof": "CloudWatch START, END and REPORT retained; duration 3296.51 ms, no runtime error.",
+    "after_return_observation_seconds": 20,
+    "action_status_after_return": "InProgress",
+    "abandon": {"pipeline": "Stopped", "action": "Abandoned"},
+    "callback_after_abandon": "HTTP 200 Success",
+    "postcallback_state": "After a 5-second pause and subsequent GetPipelineExecution/ListActionExecutions/GetPipelineState, pipeline remains Stopped and action remains Abandoned with empty outputs.",
+    "delete_proof": "DeletePipeline succeeds, GetPipeline returns PipelineNotFoundException.",
+    "identical_callback_after_delete": "HTTP 200 Success on the same retained job after its successful post-abandon callback.",
+    "interpretation": "Retained job callback acceptance/idempotency is distinct from action revival. The measured callback did not revive the abandoned action. A first-ever callback to a job deleted before any callback was not measured."
+  },
+  "cleanup": {
+    "all_three_attempts_cleanup_verified": true,
+    "resources_removed_per_attempt": "One exact-owned pipeline, one Lambda function, one log group, two private versioned buckets with all versions/delete markers, and two inline-policy IAM roles.",
+    "proof": "PipelineNotFoundException, Lambda ResourceNotFoundException, exact log-group absence, bucket HeadBucket 404, role NoSuchEntity, and successful exact-owned version deletion are retained. No function versions were published; deleting each function removed its $LATEST code."
+  },
+  "limitations": [
+    "No cross-account callback test; wrong-scope test uses us-west-2.",
+    "No explicit customer-managed KMS key test; no encryptionKey field was present for the unconfigured artifact store.",
+    "No timeout waits or timeout-duration claims; ordinary return was observed for 20 seconds then abandoned.",
+    "Output-variable size/key boundaries, artifact-count boundaries, and stop-wait/update/retry race matrices were not executed.",
+    "The first complete capture's request-ID-filtered CloudWatch query returned no events; the focused capture retrieves and retains actual END/REPORT proof without that filter.",
+    "The initial prefix-mismatch probe failure is retained; full byte proof comes from lambda_native_complete.json, not from the incomplete initial capture."
+  ]
+}

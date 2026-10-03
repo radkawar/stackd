@@ -1,0 +1,4788 @@
+{
+  "Source": "s3control/access_point_audit_evidence.json.gz",
+  "AuditBucket": "stackd-ap-audit-c915c05d9c-logs",
+  "AuditPrefix": "trail/AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Every native row identifies the packaged source array/index and original label; RecordSource points to a wrapped event only after exact native request-ID correlation.",
+    "Native management projections came from LookupEvents, whereas the ten data records came from conventional gzip S3 delivery. Replay adds a local Management selector to exercise these same projections in actual gzip delivery after backend reopen; it does not misattribute native management capture to the data-only trail.",
+    "Native account IDs rebind to 123456789012/222222222222; issued aliases and bucket canonical owner bind from responses. Audit timestamps, request IDs, Host and serialized byte accounting are correlated by the existing runner.",
+    "The native upload is exactly 25 UTF-8 bytes: 24 printable bytes plus LF. Payload and consumer digest derive from source input Body, with no trimming.",
+    "Boto3 automatically supplied encoding-type=url for ListObjectsV2; the replay explicitly sets the same observed query. CopySource dictionaries become the exact source-event encoded header.",
+    "The Go replay explicitly requests CRC32 uploads and enabled checksum reads to preserve boto3's checksum transport defaults rather than comparing different SDK defaults.",
+    "The native empty LocationConstraint XML becomes null in boto3 and the empty enum string in Go; source response bytes are retained unchanged.",
+    "Direct HeadBucket is Data and requires the native Object selector. After those bucket calls the local replay narrows data selection to AP only, proving the late AP records still deliver without inventing negative delivery expectations.",
+    "Control records omit resources and path Name/ResourceArn, retain readOnly and XML request root/xmlns, and have null responseElements. ARN/alias bucket requests retain actual bucketName plus their distinct AP metadata.",
+    "Native raw ARN-host GetBucketLocation returns405 MethodNotAllowed; alias returns200. The SDK ARN endpoint-resolution rejection is retained only as a client-side source gap, not a service assertion.",
+    "No server access log lines were delivered in the bounded capture; no suppression assertion is made. Uncorrelated data observations remain source evidence only."
+  ],
+  "Payloads": {
+    "audit-text": [
+      {
+        "Base64": "b3duZWQtYWNjZXNzLXBvaW50LWF1ZGl0Cg==",
+        "Repeat": 1
+      }
+    ]
+  },
+  "Setup": [
+    {
+      "Label": "create-stackd-ap-audit-c915c05d9c-src",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[1]",
+      "Sequence": 1,
+      "NativeCase": "create-stackd-ap-audit-c915c05d9c-src",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {
+        "Location": "/stackd-ap-audit-c915c05d9c-src",
+        "BucketArn": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+      }
+    },
+    {
+      "Label": "create-stackd-ap-audit-c915c05d9c-logs",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[2]",
+      "Sequence": 2,
+      "NativeCase": "create-stackd-ap-audit-c915c05d9c-logs",
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-logs"
+      },
+      "Output": {
+        "Location": "/stackd-ap-audit-c915c05d9c-logs",
+        "BucketArn": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-logs"
+      }
+    },
+    {
+      "Label": "destination-policy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[5]",
+      "Sequence": 3,
+      "NativeCase": "destination-policy",
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-logs",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::stackd-ap-audit-c915c05d9c-logs\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/stackd-ap-audit-c915c05d9c-trail\"}}}, {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-ap-audit-c915c05d9c-logs/trail/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/stackd-ap-audit-c915c05d9c-trail\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}, {\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"logging.s3.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::stackd-ap-audit-c915c05d9c-logs/sal/*\", \"Condition\": {\"ArnLike\": {\"aws:SourceArn\": \"arn:aws:s3:::stackd-ap-audit-c915c05d9c-src\"}, \"StringEquals\": {\"aws:SourceAccount\": \"123456789012\"}}}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "restore-native-default-bucket-public-block",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[3]",
+      "Service": "s3",
+      "Operation": "PutPublicAccessBlock",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        }
+      },
+      "Output": {},
+      "LocalComposition": "Restore all four native default flags; not a separately captured mutation."
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create-trail",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[7]",
+      "Sequence": 4,
+      "NativeCase": "create-trail",
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-ap-audit-c915c05d9c-trail",
+        "S3BucketName": "stackd-ap-audit-c915c05d9c-logs",
+        "S3KeyPrefix": "trail",
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "EnableLogFileValidation": false,
+        "IsOrganizationTrail": false
+      },
+      "Output": {}
+    },
+    {
+      "Label": "scoped-data-selectors",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[8]",
+      "Sequence": 5,
+      "NativeCase": "scoped-data-selectors",
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "TrailName": "stackd-ap-audit-c915c05d9c-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "owned-bucket-objects",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::S3::Object"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "owned-access-points",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::S3::AccessPoint"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+                  "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-vpc",
+                  "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-gone"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "local-management-delivery",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Management"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Output": {},
+      "LocalComposition": "Native data selectors plus local management delivery for request-correlated LookupEvents projections."
+    },
+    {
+      "Label": "start-trail",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[9]",
+      "Sequence": 6,
+      "NativeCase": "start-trail",
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "stackd-ap-audit-c915c05d9c-trail"
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "create-stackd-ap-audit-c915c05d9c-net",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[11]",
+      "Sequence": 7,
+      "NativeCase": "create-stackd-ap-audit-c915c05d9c-net",
+      "Service": "s3control",
+      "Operation": "CreateAccessPoint",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net",
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {
+        "AccessPointArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "Alias": "${netAlias}"
+      },
+      "Bind": {
+        "netAlias": "Alias",
+        "netARN": "AccessPointArn"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[22].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:54Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CreateAccessPoint",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com",
+          "CreateAccessPointRequest": {
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/",
+            "Bucket": "stackd-ap-audit-c915c05d9c-src"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 158,
+          "startTime": 1789957854255,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957854615,
+          "x-amz-id-2": "MhGTl5GqKtrYsVK36ItSOdOahHdoGlP154CkrwaWGhf1hmgALbPpJNoXQtxyb17o1LAtd4zZpoDxSOt46vLcO+ACQ/aLFKq8",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 246
+        },
+        "requestID": "NFX6PJ8SJPM8GWHZ",
+        "eventID": "1198b1e6-2e16-4151-a9f9-8e3eefd8917c",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "create-stackd-ap-audit-c915c05d9c-vpc",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[12]",
+      "Sequence": 8,
+      "NativeCase": "create-stackd-ap-audit-c915c05d9c-vpc",
+      "Service": "s3control",
+      "Operation": "CreateAccessPoint",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-vpc",
+        "Bucket": "stackd-ap-audit-c915c05d9c-src",
+        "VpcConfiguration": {
+          "VpcId": "vpc-0123456789abcdef0"
+        }
+      },
+      "Output": {
+        "AccessPointArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-vpc",
+        "Alias": "${vpcAlias}"
+      },
+      "Bind": {
+        "vpcAlias": "Alias",
+        "vpcARN": "AccessPointArn"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[23].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:54Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CreateAccessPoint",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com",
+          "CreateAccessPointRequest": {
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/",
+            "Bucket": "stackd-ap-audit-c915c05d9c-src",
+            "VpcConfiguration": {
+              "VpcId": "vpc-0123456789abcdef0"
+            }
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-vpc",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 231,
+          "startTime": 1789957854746,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957854939,
+          "x-amz-id-2": "iCRApsTn0LjiQwu4hijkAVV6GYz7VVQmXbAolHjqx0nHWLXFXN9HHLu5X/cxESuHtEPaSuoLOGJc7rl8MKoxAGmhoiF86mfy",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 246
+        },
+        "requestID": "NFXAXBA7B3DF072P",
+        "eventID": "383d3a7b-f322-490d-b526-3c41ca0ab5af",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "create-stackd-ap-audit-c915c05d9c-gone",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[13]",
+      "Sequence": 9,
+      "NativeCase": "create-stackd-ap-audit-c915c05d9c-gone",
+      "Service": "s3control",
+      "Operation": "CreateAccessPoint",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-gone",
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {
+        "AccessPointArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-gone",
+        "Alias": "${goneAlias}"
+      },
+      "Bind": {
+        "goneAlias": "Alias",
+        "goneARN": "AccessPointArn"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[19].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CreateAccessPoint",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com",
+          "CreateAccessPointRequest": {
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/",
+            "Bucket": "stackd-ap-audit-c915c05d9c-src"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-gone",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 158,
+          "startTime": 1789957855071,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957855210,
+          "x-amz-id-2": "T5rGTzuayifWoIdAOcfKNr3zIpf7xXystAnXwPeOZdo+c+QLO9k5CYWHeH1hVnnY4zqjnMX11Mej3MGJRs+52UZQGG8TzSGu",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 247
+        },
+        "requestID": "892V819899NTDNBQ",
+        "eventID": "43a9c11d-0f08-4429-8b53-1b8bd115119b",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "get-net",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[14]",
+      "Sequence": 10,
+      "NativeCase": "get-net",
+      "Service": "s3control",
+      "Operation": "GetAccessPoint",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {
+        "Name": "stackd-ap-audit-c915c05d9c-net",
+        "Bucket": "stackd-ap-audit-c915c05d9c-src",
+        "NetworkOrigin": "Internet",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        },
+        "Alias": "${netAlias}",
+        "AccessPointArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "Endpoints": {
+          "ipv4": "s3-accesspoint.us-east-1.amazonaws.com",
+          "fips": "s3-accesspoint-fips.us-east-1.amazonaws.com",
+          "fips_dualstack": "s3-accesspoint-fips.dualstack.us-east-1.amazonaws.com",
+          "dualstack": "s3-accesspoint.dualstack.us-east-1.amazonaws.com"
+        },
+        "BucketAccountId": "123456789012"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[21].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPoint",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957855333,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957855462,
+          "x-amz-id-2": "6A+Yb+k4DzikVTvQvcKJEegaHDC11qRacZlI+eKQC4gWENX9X8Vw3hAoQU5CrEdH4Ls9ONCQ0Kp4mocvFnarUZoD+W7jbwED",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 1292
+        },
+        "requestID": "892XXWNGG0V2V4XF",
+        "eventID": "a84255b1-c685-4f6e-a408-67ce8d85a8cd",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "get-vpc",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[15]",
+      "Sequence": 11,
+      "NativeCase": "get-vpc",
+      "Service": "s3control",
+      "Operation": "GetAccessPoint",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-vpc"
+      },
+      "Output": {
+        "Name": "stackd-ap-audit-c915c05d9c-vpc",
+        "Bucket": "stackd-ap-audit-c915c05d9c-src",
+        "NetworkOrigin": "VPC",
+        "VpcConfiguration": {
+          "VpcId": "vpc-0123456789abcdef0"
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        },
+        "Alias": "${vpcAlias}",
+        "AccessPointArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-vpc",
+        "Endpoints": {
+          "ipv4": "s3-accesspoint.us-east-1.amazonaws.com",
+          "fips": "s3-accesspoint-fips.us-east-1.amazonaws.com",
+          "fips_dualstack": "s3-accesspoint-fips.dualstack.us-east-1.amazonaws.com",
+          "dualstack": "s3-accesspoint.dualstack.us-east-1.amazonaws.com"
+        },
+        "BucketAccountId": "123456789012"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[18].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPoint",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957855567,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957855637,
+          "x-amz-id-2": "r9SvcTarXwfLNd1sd9rtJbtySD71mK0QzBPuEeOK/+uAM9Pwt0Bxry6/GiuH7xOCcZkIGNkKrgWHNqkCAJrmbGf5OUtkYjbV",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 1371
+        },
+        "requestID": "892V3Q7DNHSK8TPX",
+        "eventID": "2d866a67-5dc2-43f5-9ec4-6a92cc54f4cf",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "list-access-points",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[16]",
+      "Sequence": 12,
+      "NativeCase": "list-access-points",
+      "Service": "s3control",
+      "Operation": "ListAccessPoints",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {
+        "AccessPointList": [
+          {
+            "Name": "stackd-ap-audit-c915c05d9c-gone",
+            "NetworkOrigin": "Internet",
+            "Bucket": "stackd-ap-audit-c915c05d9c-src",
+            "AccessPointArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-gone",
+            "Alias": "${goneAlias}",
+            "BucketAccountId": "123456789012"
+          },
+          {
+            "Name": "stackd-ap-audit-c915c05d9c-net",
+            "NetworkOrigin": "Internet",
+            "Bucket": "stackd-ap-audit-c915c05d9c-src",
+            "AccessPointArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+            "Alias": "${netAlias}",
+            "BucketAccountId": "123456789012"
+          },
+          {
+            "Name": "stackd-ap-audit-c915c05d9c-vpc",
+            "NetworkOrigin": "VPC",
+            "VpcConfiguration": {
+              "VpcId": "vpc-0123456789abcdef0"
+            },
+            "Bucket": "stackd-ap-audit-c915c05d9c-src",
+            "AccessPointArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-vpc",
+            "Alias": "${vpcAlias}",
+            "BucketAccountId": "123456789012"
+          }
+        ]
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[20].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "ListAccessPoints",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucket": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957855741,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957855826,
+          "x-amz-id-2": "a8mU7wbTmVvG+JJXUfvMpxmRMUKRC2SzXumHqQb9xns3tXthaTVXhFFcWvQXmD4kQpRguCvARgr+YB+9drFnUAqm1pWg15Qe",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 1658
+        },
+        "requestID": "892GN38661RD2R4A",
+        "eventID": "5fe5e096-b29f-4756-bd95-f5324e484bc6",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "create-duplicate",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[17]",
+      "Sequence": 13,
+      "NativeCase": "create-duplicate",
+      "Service": "s3control",
+      "Operation": "CreateAccessPoint",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "AccessPointAlreadyOwnedByYou",
+      "Status": 409,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net",
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[17].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CreateAccessPoint",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessPointAlreadyOwnedByYou",
+        "errorMessage": "Your previous request to create the named accesspoint succeeded and you already own it.",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com",
+          "CreateAccessPointRequest": {
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/",
+            "Bucket": "stackd-ap-audit-c915c05d9c-src"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 158,
+          "startTime": 1789957855933,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957856000,
+          "x-amz-id-2": "oTldzPRUhqZuOV5/84QsI+kipbEFAhdhDu414dPPrEeNwQ2w0b76MJVTDSL3e0ezoOlcDWgj5vekno/agA0So1WO5foTZW6Y",
+          "httpStatusCode": 409,
+          "bytesTransferredOut": 345
+        },
+        "requestID": "892QAZ4K5BTCHYP0",
+        "eventID": "eb96efac-55f4-4f05-ac72-3c151d51726f",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "get-missing",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[18]",
+      "Sequence": 14,
+      "NativeCase": "get-missing",
+      "Service": "s3control",
+      "Operation": "GetAccessPoint",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchAccessPoint",
+      "Status": 404,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-absent"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[16].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPoint",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchAccessPoint",
+        "errorMessage": "The specified accesspoint does not exist",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957856137,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957856162,
+          "x-amz-id-2": "X4JVXkMGfloi4e528tfOGzj62YERyJuz5APf+xxVaiPW1VmIr/EGdsxkGI6JmVm+dygtwmPjng/GA2g5dCwLtCcsasc1sxlP",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 355
+        },
+        "requestID": "7NFPXTHX0C6XFJ8M",
+        "eventID": "a409270a-2d11-4c8c-b74e-d1225aab04fa",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "public-policy-stackd-ap-audit-c915c05d9c-net",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[19]",
+      "Sequence": 15,
+      "NativeCase": "public-policy-stackd-ap-audit-c915c05d9c-net",
+      "Service": "s3control",
+      "Operation": "PutAccessPointPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net/object/*\"}]}"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[13].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutAccessPointPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "Access Denied",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com",
+          "PutAccessPointPolicyRequest": {
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net/object/*\"}]}",
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 340,
+          "startTime": 1789957856268,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957856399,
+          "x-amz-id-2": "gbhjNdchMGqMv5AOKytuKwYesE4WVPkISIAjzosiy9bQDWq8Dg+K13UelKriXRI86gdc/90XKrtvM1AtloWcHqBbUOg1uRrJ",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 255
+        },
+        "requestID": "7NFPPNF706DVBCPF",
+        "eventID": "24a123de-677b-4900-b1b8-6c9a660415f0",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "public-status-stackd-ap-audit-c915c05d9c-net",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[20]",
+      "Sequence": 16,
+      "NativeCase": "public-status-stackd-ap-audit-c915c05d9c-net",
+      "Service": "s3control",
+      "Operation": "GetAccessPointPolicyStatus",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchAccessPointPolicy",
+      "Status": 404,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[14].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPointPolicyStatus",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchAccessPointPolicy",
+        "errorMessage": "The specified accesspoint policy does not exist",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957856532,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957856599,
+          "x-amz-id-2": "WL+JaFkN6fNFkwfUEeYi94hGgZbS2s6yshEsLLq8c50hwni42pu4dAYEh4PH+nygm9/CLmy93lvj4xDZiKNCHRbw4oNea3Rc",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 365
+        },
+        "requestID": "7NFK4QBQH0G200WP",
+        "eventID": "3aff6c48-c7f7-4325-bb51-9fc2502cd539",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "public-policy-stackd-ap-audit-c915c05d9c-vpc",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[21]",
+      "Sequence": 17,
+      "NativeCase": "public-policy-stackd-ap-audit-c915c05d9c-vpc",
+      "Service": "s3control",
+      "Operation": "PutAccessPointPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-vpc",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-vpc/object/*\"}]}"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[12].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutAccessPointPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com",
+          "PutAccessPointPolicyRequest": {
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-vpc/object/*\"}]}",
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-vpc",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 340,
+          "startTime": 1789957856711,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957856799,
+          "x-amz-id-2": "MVHKIhxeB1/U4qPFsgs/aWxPrI4lz/liiBbnkkjOIQ8Enrg7o6uqig/r5EX52TzVyLyFLj8DbOO0ujLGafAQT6UW5DSS0i7U",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "7NFQ3JBWFDX6ZBT3",
+        "eventID": "0624152c-443d-4063-a2f1-a265f5734e21",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "public-status-stackd-ap-audit-c915c05d9c-vpc",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[22]",
+      "Sequence": 18,
+      "NativeCase": "public-status-stackd-ap-audit-c915c05d9c-vpc",
+      "Service": "s3control",
+      "Operation": "GetAccessPointPolicyStatus",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-vpc"
+      },
+      "Output": {
+        "PolicyStatus": {
+          "IsPublic": false
+        }
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[15].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPointPolicyStatus",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957856931,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957856994,
+          "x-amz-id-2": "OkBjfA+XdqAKrmCu4hoayGZqH83RfONJbWnYOTybbMrbeLQajDIpAUbXb+uhJjyhVo7+MVCqBj3bd5yBmr6L71LC6SopLBFD",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 137
+        },
+        "requestID": "7NFT2KJW2YPT31F2",
+        "eventID": "46e0c5be-34d1-4fac-987f-941cb17379ca",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "vpc-policy-read",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[23]",
+      "Sequence": 19,
+      "NativeCase": "vpc-policy-read",
+      "Service": "s3control",
+      "Operation": "GetAccessPointPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-vpc"
+      },
+      "Output": {
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-vpc/object/*\"}]}"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[11].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPointPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957857098,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957857155,
+          "x-amz-id-2": "4W64w/NYlKfJxq71WFbIKaJUnkkdjU7eZlBEnodDxJnNIv9qxsqzgzB5G8rY7xngb5Ks03nZUyWkDet6bvG2AfsXZZjTsujR",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 385
+        },
+        "requestID": "48PH6X1DYT58XFB9",
+        "eventID": "dcc7671e-e639-43d9-90a5-ba95009c9272",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "net-private-policy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[25]",
+      "Sequence": 20,
+      "NativeCase": "net-private-policy",
+      "Service": "s3control",
+      "Operation": "PutAccessPointPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net/object/*\"}]}"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[10].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutAccessPointPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com",
+          "PutAccessPointPolicyRequest": {
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net/object/*\"}]}",
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 378,
+          "startTime": 1789957857655,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957857758,
+          "x-amz-id-2": "5JS03ZAwxgQWgOrLDycxZKcogkIcywJ3O13rgJ5wYS8gVOaHNBWfeyGu1HHBB+Do8oLg3+3Rqsbewb1zmFUNiSK5fqjao5yw",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "48PKDF14ZD984V45",
+        "eventID": "82906a38-3132-4dab-bd0b-db6262bbd826",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "net-policy-read",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[26]",
+      "Sequence": 21,
+      "NativeCase": "net-policy-read",
+      "Service": "s3control",
+      "Operation": "GetAccessPointPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::123456789012:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net/object/*\"}]}"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[9].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPointPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957857893,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957857959,
+          "x-amz-id-2": "KWu/p1zS4U2lc4YL6XX1ISTa0u+L7stWomaKHkm4RJHuo08Tu0lWexaLWTczButP3qo1KalzQLsVuDyd0UTXmcizre9VPp1f",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 432
+        },
+        "requestID": "48PGK6CS9KP2VT18",
+        "eventID": "2cabe409-73d3-4e41-874a-fd470ee00c36",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "net-private-status",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[27]",
+      "Sequence": 22,
+      "NativeCase": "net-private-status",
+      "Service": "s3control",
+      "Operation": "GetAccessPointPolicyStatus",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {
+        "PolicyStatus": {
+          "IsPublic": false
+        }
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[6].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:58Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPointPolicyStatus",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957858063,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957858132,
+          "x-amz-id-2": "aE8fKgmRZZiYohC9f+NYrp3tPEgD+jM0CXuj7ldX7h0Auggku3QidJWbpeKnlLONnsNQSckH0q+Nqz16a1O7FZ6ug2CNaimf",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 137
+        },
+        "requestID": "D528DS1B9MJKH7XW",
+        "eventID": "afdb78b5-2ed7-4db8-a5d0-b9f189b6b4ba",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "tag-ap",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[28]",
+      "Sequence": 23,
+      "NativeCase": "tag-ap",
+      "Service": "s3control",
+      "Operation": "TagResource",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "ResourceArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "Tags": [
+          {
+            "Key": "probe",
+            "Value": "stackd-ap-audit-c915c05d9c"
+          }
+        ]
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[5].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:58Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "TagResource",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "TagResourceRequest": {
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/",
+            "Tags": {
+              "Tag": {
+                "Value": "stackd-ap-audit-c915c05d9c",
+                "Key": "probe"
+              }
+            }
+          },
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 180,
+          "startTime": 1789957858238,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957858309,
+          "x-amz-id-2": "OOm5lQMIfwSymJbjJcCGg+1j0l4UNrozlAdaiV+9iVUcVD++iWGqc1+dRqat3aMzP9rOUNqLgixrchwB8wo6GGl34CcemtG1",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "D52EV9CJ0T94PY8V",
+        "eventID": "81058321-fc97-4425-a5b4-1dce3c66b3b2",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "list-ap-tags",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[29]",
+      "Sequence": 24,
+      "NativeCase": "list-ap-tags",
+      "Service": "s3control",
+      "Operation": "ListTagsForResource",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "ResourceArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {
+        "Tags": [
+          {
+            "Key": "probe",
+            "Value": "stackd-ap-audit-c915c05d9c"
+          }
+        ]
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[4].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:58Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "ListTagsForResource",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957858448,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957858492,
+          "x-amz-id-2": "3HfDKT7FplxB6R03dZ/1oxrvLHcwr6DFzNWaJbYOvS8a43JoKSQ5IiVgScnvkM7d5dFH0koi1wjrtLhly9tWI3Odn7s67oYM",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 168
+        },
+        "requestID": "D52ES9SP6NSWJJ69",
+        "eventID": "5021ba66-5b07-4154-9341-6c9edbab59d4",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "untag-ap",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[30]",
+      "Sequence": 25,
+      "NativeCase": "untag-ap",
+      "Service": "s3control",
+      "Operation": "UntagResource",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "AccountId": "123456789012",
+        "ResourceArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "TagKeys": [
+          "probe"
+        ]
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[7].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:58Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "UntagResource",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com",
+          "tagKeys": "probe"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957858604,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957858661,
+          "x-amz-id-2": "Rs5XLRwIQzgkNYwkmxkLlOvJ4b7O7sZI/8me44yBj10nRKczXVyvFAzM9Pf4pY1e0s3ZFVG5V+aUSAQ2KoLfIw/BOctnuntc",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "D528GC5P61T01QFD",
+        "eventID": "cc441d55-d8ea-40c1-b6e7-ec6067e91f2c",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "tag-missing",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[31]",
+      "Sequence": 26,
+      "NativeCase": "tag-missing",
+      "Service": "s3control",
+      "Operation": "TagResource",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchAccessPoint",
+      "Status": 404,
+      "Input": {
+        "AccountId": "123456789012",
+        "ResourceArn": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-absent",
+        "Tags": [
+          {
+            "Key": "probe",
+            "Value": "stackd-ap-audit-c915c05d9c"
+          }
+        ]
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[8].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:58Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "TagResource",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchAccessPoint",
+        "errorMessage": "The specified accesspoint does not exist",
+        "requestParameters": {
+          "TagResourceRequest": {
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/",
+            "Tags": {
+              "Tag": {
+                "Value": "stackd-ap-audit-c915c05d9c",
+                "Key": "probe"
+              }
+            }
+          },
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-absent",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 180,
+          "startTime": 1789957858764,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957858783,
+          "x-amz-id-2": "14xMJphNnCzWPSA8a4aQnmef0yWzSAE0WMhXP8C2pYg8iclbJF0zsQIaYk0iViL8t1jE6mD+t1RotXAoogxg8e6QQf1KaZo7",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 355
+        },
+        "requestID": "D525ADNTB5RAM93P",
+        "eventID": "f4743e0f-d960-4958-ad61-d8e824c8502d",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "delete-net-policy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[32]",
+      "Sequence": 27,
+      "NativeCase": "delete-net-policy",
+      "Service": "s3control",
+      "Operation": "DeleteAccessPointPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[3].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:59Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteAccessPointPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957858921,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957859000,
+          "x-amz-id-2": "krYD/lZavgt89OHcQRdW5fMWlS0m3szWrfuPhwWqPon1Kygn/M38PijDSbdPBavAchujUf01MEL09DStm7XM9eOMG/Zn+wv9",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "D529SHKXGFQKNKRY",
+        "eventID": "d0923cc9-997a-49b8-8cc6-2decd968e1e3",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "read-missing-net-policy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[33]",
+      "Sequence": 28,
+      "NativeCase": "read-missing-net-policy",
+      "Service": "s3control",
+      "Operation": "GetAccessPointPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchAccessPointPolicy",
+      "Status": 404,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[2].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:59Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPointPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchAccessPointPolicy",
+        "errorMessage": "The specified accesspoint policy does not exist",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957859102,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957859165,
+          "x-amz-id-2": "RQVuiuN+y4ouX0LMosWSTbTVvW3dyMjE4vuldGeueda6LBvuDelEpA+MK2OczpOJOrybuOxiIegHxvnOmXr9BGmTZRGTcwfq",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 365
+        },
+        "requestID": "BR37QN50KPW70HQH",
+        "eventID": "479abf50-74e7-43a2-a872-4151cb93c49f",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "delete-gone-ap",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[34]",
+      "Sequence": 29,
+      "NativeCase": "delete-gone-ap",
+      "Service": "s3control",
+      "Operation": "DeleteAccessPoint",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-gone"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[1].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:59Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteAccessPoint",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-gone",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957859267,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957859339,
+          "x-amz-id-2": "usEhcGcwCQGNJOBp2LiyPfokGRGq9+PdeTSe3HXgWtPeyl56ADBQrFQ3jd4MMLpnQs2b1ys0n/rN5YGzh/DGuiJ57Pj3SOqc",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "BR386MZAJ59R6WFW",
+        "eventID": "39b3f47b-97eb-46b5-adb3-55a50348ba9d",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "get-deleted-ap",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[35]",
+      "Sequence": 30,
+      "NativeCase": "get-deleted-ap",
+      "Service": "s3control",
+      "Operation": "GetAccessPoint",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchAccessPoint",
+      "Status": 404,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-gone"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[0].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:30:59Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPoint",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/Z,T,D,b cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchAccessPoint",
+        "errorMessage": "The specified accesspoint does not exist",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789957859441,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789957859466,
+          "x-amz-id-2": "8A5c4QktO0o7/dJrz3mUlRwHB01xyRJx48I3cNZ5yqBtzlNkOOYRxP/Dd8PPqzfQhrBve8qDzqn2pEsQCHt62qWBkbJGb+Z4",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 353
+        },
+        "requestID": "BR3CDE6NTH3S6TZ5",
+        "eventID": "0ed5d0bf-e55b-4e05-a859-0293d53882e2",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "arn-put",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[36]",
+      "Sequence": 31,
+      "NativeCase": "arn-put",
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ChecksumAlgorithm": "CRC32",
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "Key": "arn-seed"
+      },
+      "Output": {
+        "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+        "ChecksumCRC32": "fbXZXg==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "AES256"
+      },
+      "Payload": "audit-text"
+    },
+    {
+      "Label": "alias-put",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[43]",
+      "Sequence": 32,
+      "NativeCase": "alias-put",
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ChecksumAlgorithm": "CRC32",
+        "Bucket": "${netAlias}",
+        "Key": "alias-seed"
+      },
+      "Output": {
+        "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+        "ChecksumCRC32": "fbXZXg==",
+        "ChecksumType": "FULL_OBJECT",
+        "ServerSideEncryption": "AES256"
+      },
+      "Payload": "audit-text"
+    },
+    {
+      "Label": "set-distinct-bucket-policy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[0]",
+      "Sequence": 33,
+      "NativeCase": "set-distinct-bucket-policy",
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedBucketProjection\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/*\"}]}"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[57].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:54Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,U,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketPolicy": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "OwnedBucketProjection",
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": "arn:aws:iam::123456789012:root"
+                },
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/*"
+              }
+            ]
+          },
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com",
+          "policy": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 236,
+          "startTime": 1789958274318,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958274423,
+          "x-amz-id-2": "czhkvXf2DxrG4DYcE3OOwVTNNtlW5tU2ojELwaTImawWAF0aKnGiifC4jayu4l8x0w80Ax8Q8g7FO4l2RurlxRSf7RzihrJv",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "V1641R3X329ENSHC",
+        "eventID": "0060b3ae-4214-4fb0-832b-6a4941726aec",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "set-distinct-ap-policy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[1]",
+      "Sequence": 34,
+      "NativeCase": "set-distinct-ap-policy",
+      "Service": "s3control",
+      "Operation": "PutAccessPointPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedAccessPointProjection\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net/object/*\"}]}"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[58].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:54Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutAccessPointPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/T,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com",
+          "PutAccessPointPolicyRequest": {
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"OwnedAccessPointProjection\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::123456789012:root\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net/object/*\"}]}",
+            "xmlns": "http://awss3control.amazonaws.com/doc/2018-08-20/"
+          }
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 415,
+          "startTime": 1789958274852,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958274942,
+          "x-amz-id-2": "DLv6QFp525vzj8mkt//AgMa8gMD3ZrFgcjgtcr81IvImgJP5yHD/eNP4dLLqs9zrxpzW/QkjMyh6bKn8RNHuCEJxIUQ8c8qb",
+          "httpStatusCode": 204,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "V169NH4KEDAATJB2",
+        "eventID": "5ff0064b-2416-4a7a-b5e0-c03ba012478d",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "bucket-get_bucket_acl",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[2]",
+      "Sequence": 35,
+      "NativeCase": "bucket-get_bucket_acl",
+      "Service": "s3",
+      "Operation": "GetBucketAcl",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {
+        "Owner": {
+          "ID": "${ownerID}"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "Bind": {
+        "ownerID": "Owner.ID"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[55].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAcl",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com",
+          "acl": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958275082,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958275092,
+          "x-amz-id-2": "K1D3oF9zm+cqf2xnW0n5d6l2qIcHIv24Y6g/82hdD13SwddY5zRFiOCE8xptN2wLlscn35Nyz1NLyVtsGGaX1wT/9GQQZIMd",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 480
+        },
+        "requestID": "WPM6HKCRQW6RJBWF",
+        "eventID": "9a2596ac-125e-43fb-84bd-6bd2d97ad894",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "bucket-get_bucket_cors",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[3]",
+      "Sequence": 36,
+      "NativeCase": "bucket-get_bucket_cors",
+      "Service": "s3",
+      "Operation": "GetBucketCors",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchCORSConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[53].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchCORSConfiguration",
+        "errorMessage": "The CORS configuration does not exist",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com",
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958275196,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958275200,
+          "x-amz-id-2": "fW+Mf9ovLegncgS5ByFJBz7B6DY/zQ55jpqrAeBs216D03VJyNxwVCe+ZA6FMTA5kGYwyhlfwtqlt0/kTAd9aUSqt9YnaMtM",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 353
+        },
+        "requestID": "WPM3ZMWXGHYP8G8X",
+        "eventID": "29725fc3-86eb-44f8-9e5f-3847435d60f2",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "bucket-get_bucket_location",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[4]",
+      "Sequence": 37,
+      "NativeCase": "bucket-get_bucket_location",
+      "Service": "s3",
+      "Operation": "GetBucketLocation",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {
+        "LocationConstraint": ""
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[52].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketLocation",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "location": "",
+          "Host": "s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958275569,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958275597,
+          "x-amz-id-2": "lcs6z6CZnjMrW1WMH2mchCiQAEf/jH0uAC8c02poUu8gVMmDmvdZp5nmPmoi0GVEYWjgnWAY9wyb7YQ1qPmo4wsXGZbWc3YC",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 108
+        },
+        "requestID": "WPM0497PHP0EKYQP",
+        "eventID": "172a730d-252e-406c-904f-a02abce65603",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "bucket-get_bucket_notification_configuration",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[5]",
+      "Sequence": 38,
+      "NativeCase": "bucket-get_bucket_notification_configuration",
+      "Service": "s3",
+      "Operation": "GetBucketNotificationConfiguration",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[56].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketNotification",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "notification": "",
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958275698,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958275705,
+          "x-amz-id-2": "g/ijUYcpw+VO/hCvnl4e6qYCRmdoZ1cgvhn8aZkqo4uPg1BnSvuC8cb6j6HeFmHAAuuuq1wIPJkeAToUQypYoyDZV/ROcyU9",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 115
+        },
+        "requestID": "WPM07KFXQEE8WQJH",
+        "eventID": "b32fa1aa-78dc-4c0a-afab-575408e8e476",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "bucket-get_bucket_policy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[6]",
+      "Sequence": 39,
+      "NativeCase": "bucket-get_bucket_policy",
+      "Service": "s3",
+      "Operation": "GetBucketPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedBucketProjection\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::123456789012:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/*\"}]}"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[54].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com",
+          "policy": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958275808,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958275817,
+          "x-amz-id-2": "ZQoT805WRDeUYH5W1mUulVs8JQ2efYr3fxyVyDaN1gZH+jriLgu9SQo6JUAchkXx6hCABYHuJNv7otwHdy4vmAI3XoqsGR5n",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 223
+        },
+        "requestID": "WPMF07RFC5RXPACD",
+        "eventID": "5afaaf19-f272-4ebc-9eb7-0564ada24256",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "bucket-head_bucket",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[7]",
+      "Sequence": 40,
+      "NativeCase": "bucket-head_bucket",
+      "Service": "s3",
+      "Operation": "HeadBucket",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {
+        "BucketArn": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src",
+        "BucketRegion": "us-east-1",
+        "AccessPointAlias": false
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[65].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:55Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "HeadBucket",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958275918,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958275920,
+          "x-amz-id-2": "HdmxHCVkLLFC/UelWLHpeMROq66QbDoyXFIHOs1x9VQVV2nYmOKng4aSpw3Y0d0Kw2YHd+kASyuCEpfOajMhdAvyyk026Mcw",
+          "turnAroundTime": 2,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "WPM81YPAVDAP14X1",
+        "eventID": "2d6ff733-bfcd-471f-ae52-27bcfe2ac023",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARNPrefix": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "arn-get_bucket_acl",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[8]",
+      "Sequence": 41,
+      "NativeCase": "arn-get_bucket_acl",
+      "Service": "s3",
+      "Operation": "GetBucketAcl",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {
+        "Owner": {
+          "ID": "${ownerID}"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[48].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAcl",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+          "acl": "",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958276365,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958276396,
+          "x-amz-id-2": "dKWcxS39DHd4CrZkiSUS2+Ddh97ytq9cWYwU5g6Jjfkn55qohM6KWem8BjFaiPXG9gIk3n3tJcw=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 480
+        },
+        "requestID": "7B96PCV0PJ7G5E1D",
+        "eventID": "14b8be55-e262-4a41-9663-95f89a0e6b57",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "arn-get_bucket_cors",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[9]",
+      "Sequence": 42,
+      "NativeCase": "arn-get_bucket_cors",
+      "Service": "s3",
+      "Operation": "GetBucketCors",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchCORSConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[50].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchCORSConfiguration",
+        "errorMessage": "The CORS configuration does not exist",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+          "cors": "",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958276501,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958276506,
+          "x-amz-id-2": "eN2QvV5Kh4A+rJxPqJ4iDYckjWlC/JDzBmKDCVslWAR6ihh0UeXfwCWqnzi/1uNV8BYDFzgO1lw=",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 333
+        },
+        "requestID": "7B98A13W2FGW8X52",
+        "eventID": "403f4543-b7a6-46d6-8961-3596b8f1aa6d",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "arn-get_bucket_notification_configuration",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[11]",
+      "Sequence": 43,
+      "NativeCase": "arn-get_bucket_notification_configuration",
+      "Service": "s3",
+      "Operation": "GetBucketNotificationConfiguration",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[51].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketNotification",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "notification": "",
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958276615,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958276625,
+          "x-amz-id-2": "JhjnUyH4K9a1TxtbqRv9l8CBbjGR/iqA1n2kqQd6qvxu73rH03pJ175Xbdo1dUYXswZhQb/dn0s=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 115
+        },
+        "requestID": "7B96HQ1YWNDWVYKA",
+        "eventID": "a9f39acf-9d9e-4a45-9b87-e2e7819e6a78",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "arn-get_bucket_policy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[12]",
+      "Sequence": 44,
+      "NativeCase": "arn-get_bucket_policy",
+      "Service": "s3",
+      "Operation": "GetBucketPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedBucketProjection\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::123456789012:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/*\"}]}"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[49].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "policy": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958276727,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958276739,
+          "x-amz-id-2": "vrqvjPQSIs96hgQ/iD+zPg/lKK0WTVpKHhPiJXbaALSUa6T7bDbSO6BDQibjRpV2tDTa+l8K5LA=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 223
+        },
+        "requestID": "7B9CBMKY638C4AX1",
+        "eventID": "173806ca-3443-4254-a827-8607278ac332",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "arn-head_bucket",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[13]",
+      "Sequence": 45,
+      "NativeCase": "arn-head_bucket",
+      "Service": "s3",
+      "Operation": "HeadBucket",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {
+        "BucketArn": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src",
+        "BucketRegion": "us-east-1",
+        "AccessPointAlias": false
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[66].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:56Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "HeadBucket",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958276842,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958276846,
+          "x-amz-id-2": "3CIh7WYT+zQ27jsFAkoX2EIn401UsntVWqnpAWz9RQINceOou6fEXJ423Q7xndyoqf/eQTPPtec=",
+          "turnAroundTime": 3,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "7B9EQ1FEKHVS8WEB",
+        "eventID": "9783191a-597c-4867-b744-1cc3829bdb00",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARNPrefix": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "alias-get_bucket_acl",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[14]",
+      "Sequence": 46,
+      "NativeCase": "alias-get_bucket_acl",
+      "Service": "s3",
+      "Operation": "GetBucketAcl",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "${netAlias}"
+      },
+      "Output": {
+        "Owner": {
+          "ID": "${ownerID}"
+        },
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ]
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[44].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAcl",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "${netAlias}.s3.amazonaws.com",
+          "acl": "",
+          "accessPointAlias": "${netAlias}"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958277270,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958277306,
+          "x-amz-id-2": "R2CmPYKTgsoMG/S3x5bHvl1ht+Oz3Bulq0o7wq0nyl955jGY3WLPyCLCZUHpJkVokpcPrY6FMYtL6rx6zolby2dRiG5sDWIQ",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 480
+        },
+        "requestID": "EY3HT8Q8SV1SDSQA",
+        "eventID": "41cf8fdf-21ef-44a4-a7f6-3cdcfd28b21d",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "alias-get_bucket_cors",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[15]",
+      "Sequence": 47,
+      "NativeCase": "alias-get_bucket_cors",
+      "Service": "s3",
+      "Operation": "GetBucketCors",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchCORSConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "${netAlias}"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[45].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchCORSConfiguration",
+        "errorMessage": "The CORS configuration does not exist",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "${netAlias}.s3.amazonaws.com",
+          "cors": "",
+          "accessPointAlias": "${netAlias}"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958277410,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958277414,
+          "x-amz-id-2": "0jdnh1GeN3EqdqUu29XlkHMdIrNqBgrnrCfJR1IH0UtE1euozZddCbBLF6x59ednAY4fg4fTnYHi8yvKKQuI0r5k/sF7WyOl",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 353
+        },
+        "requestID": "EY3WHADTQGGB0PJZ",
+        "eventID": "802ebe86-a0f2-4287-b115-87f461efa446",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "alias-get_bucket_location",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[16]",
+      "Sequence": 48,
+      "NativeCase": "alias-get_bucket_location",
+      "Service": "s3",
+      "Operation": "GetBucketLocation",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "${netAlias}"
+      },
+      "Output": {
+        "LocationConstraint": ""
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[46].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketLocation",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "location": "",
+          "Host": "s3.amazonaws.com",
+          "accessPointAlias": "${netAlias}"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958277519,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958277534,
+          "x-amz-id-2": "Z87H+GT51JY0YGEdzEjCiRqAVoTwDyELMHKyBseTuw1pe2zqbrqTOmVYbKUKuLOztz0Q3LNtjRZcl0jihyAZL2pC6dIaUXzp",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 108
+        },
+        "requestID": "EY3RZGJHRE4K7WW5",
+        "eventID": "8a08745a-a47e-4740-8486-86309166fdbd",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "alias-get_bucket_notification_configuration",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[17]",
+      "Sequence": 49,
+      "NativeCase": "alias-get_bucket_notification_configuration",
+      "Service": "s3",
+      "Operation": "GetBucketNotificationConfiguration",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "${netAlias}"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[47].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketNotification",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "notification": "",
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "${netAlias}.s3.amazonaws.com",
+          "accessPointAlias": "${netAlias}"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958277636,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958277641,
+          "x-amz-id-2": "JVV2qid9MhB6LO5A8Hfz5zPmnSzrSOxCsKo0ApuxoHKcP38NfJwfmXmPWyv9WLhsHXrNJWCl9oPLlKg4IDdqSpRnH70Welie",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 115
+        },
+        "requestID": "EY3ZTGXHT9B36KHC",
+        "eventID": "b907519f-1851-4f46-a6d2-30d446977cbc",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "alias-get_bucket_policy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[18]",
+      "Sequence": 50,
+      "NativeCase": "alias-get_bucket_policy",
+      "Service": "s3",
+      "Operation": "GetBucketPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "${netAlias}"
+      },
+      "Output": {
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedBucketProjection\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::123456789012:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/*\"}]}"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[43].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "${netAlias}.s3.amazonaws.com",
+          "accessPointAlias": "${netAlias}",
+          "policy": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958277744,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958277757,
+          "x-amz-id-2": "nNfESI49EDtRSuI+TFI4zOOLj7hTDQvz73W3zXqLCRA8+BrUkjP/dGiy0UXV7PQXGaFRRo7IGbCGTN5CSmgHQ2irKmvOi8uT",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 223
+        },
+        "requestID": "EY3GBEP3TDC2B2ZE",
+        "eventID": "03bbd334-8d57-4ec9-a30d-c4d545a52abd",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "alias-head_bucket",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[19]",
+      "Sequence": 51,
+      "NativeCase": "alias-head_bucket",
+      "Service": "s3",
+      "Operation": "HeadBucket",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "${netAlias}"
+      },
+      "Output": {
+        "BucketArn": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src",
+        "BucketRegion": "us-east-1",
+        "AccessPointAlias": true
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[59].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:57Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "HeadBucket",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "${netAlias}.s3.amazonaws.com",
+          "accessPointAlias": "${netAlias}"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958277860,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958277864,
+          "x-amz-id-2": "QytkolMyvXFNpfcfdom5mt8lbEKPFugOm6ZhRL12+tXoz4Hutixc49AcquupP9OwzvoFZ+Lm2DyEn+oHAU4EIzumBx4xxc0G",
+          "turnAroundTime": 3,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "EY3VME0C95C750QY",
+        "eventID": "a5605b81-5e6b-49d2-b7a6-4b76117ebd34",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARNPrefix": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "arn-unsupported-put-cors",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[20]",
+      "Sequence": 52,
+      "NativeCase": "arn-unsupported-put-cors",
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "AllowedMethods": [
+                "GET"
+              ],
+              "AllowedOrigins": [
+                "https://example.invalid"
+              ]
+            }
+          ]
+        }
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[40].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:58Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,U,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: ${auditUserARN} is not authorized to perform: s3:PutBucketCORS on resource: \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net\" with an explicit deny in a resource-based policy",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": "GET",
+              "AllowedOrigin": "https://example.invalid"
+            }
+          },
+          "cors": "",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 196,
+          "startTime": 1789958277966,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958277973,
+          "x-amz-id-2": "YlZ3WITaaM9VxS+09m50z3eIxiuWsHdKL65PJYBcFLiGs/s/9b/deIdrRMF05CH5uQKq9p7jVVw=",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 464
+        },
+        "requestID": "EY3MX9AKTN3SR51S",
+        "eventID": "a1ed0e22-4660-4cd2-9ef1-6df1bfce421e",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "alias-unsupported-put-cors",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[21]",
+      "Sequence": 53,
+      "NativeCase": "alias-unsupported-put-cors",
+      "Service": "s3",
+      "Operation": "PutBucketCors",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "Bucket": "${netAlias}",
+        "CORSConfiguration": {
+          "CORSRules": [
+            {
+              "AllowedMethods": [
+                "GET"
+              ],
+              "AllowedOrigins": [
+                "https://example.invalid"
+              ]
+            }
+          ]
+        }
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[41].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:58Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,U,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "AccessDenied",
+        "errorMessage": "User: ${auditUserARN} is not authorized to perform: s3:PutBucketCORS on resource: \"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net\" with an explicit deny in a resource-based policy",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "${netAlias}.s3.amazonaws.com",
+          "CORSConfiguration": {
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+            "CORSRule": {
+              "AllowedMethod": "GET",
+              "AllowedOrigin": "https://example.invalid"
+            }
+          },
+          "cors": "",
+          "accessPointAlias": "${netAlias}"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 196,
+          "startTime": 1789958278074,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958278079,
+          "x-amz-id-2": "FtuCIpNO0YJbWTbo8WxLaV6LOEd12/L3Bt5T/hUEsbUvk/hhn6O7XsgVgQgozubK/fppIPEtfoWlVOSZ9FCMUxQfN4Y1noX1",
+          "httpStatusCode": 403,
+          "bytesTransferredOut": 484
+        },
+        "requestID": "1WR7HM14J8ZZ1FB0",
+        "eventID": "b0e39e39-b271-4e58-a3b0-871e1cdf76ed",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "verify-source-cors-after-ap-attempts",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[22]",
+      "Sequence": 54,
+      "NativeCase": "verify-source-cors-after-ap-attempts",
+      "Service": "s3",
+      "Operation": "GetBucketCors",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchCORSConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "stackd-ap-audit-c915c05d9c-src"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[39].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:58Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketCors",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/n,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchCORSConfiguration",
+        "errorMessage": "The CORS configuration does not exist",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com",
+          "cors": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958278182,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958278185,
+          "x-amz-id-2": "xAQZS4rUz8M3M6RFdSGaC3KWE4TNRNh0uU6tyouwPO5Lt3fUpuqxMoAP8v4jyIEP0IIRNHl4/GLfE/PeiMsPM9I+VZ/27xsh",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 353
+        },
+        "requestID": "1WR5R7DAN5RVTD7J",
+        "eventID": "2452ec07-df50-4b8f-a23a-d49a34ea30e4",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-src.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "verify-ap-policy-after-data-controls",
+      "Source": "s3control/access_point_audit_evidence.json.gz:BucketControls[23]",
+      "Sequence": 55,
+      "NativeCase": "verify-ap-policy-after-data-controls",
+      "Service": "s3control",
+      "Operation": "GetAccessPointPolicy",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccountId": "123456789012",
+        "Name": "stackd-ap-audit-c915c05d9c-net"
+      },
+      "Output": {
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedAccessPointProjection\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::123456789012:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net/object/*\"}]}"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[42].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:37:58Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetAccessPointPolicy",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/T,Z,b,D cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "Host": "123456789012.s3-control.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958278292,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958278351,
+          "x-amz-id-2": "I3yzldnrS3OubSV3NOs8cCkR4sI4vkZNqQCoqp4UdbQuMoV7VVyGSQvIeS3eGe7joHukRs0fFlYIscoi2xK/2DF4exTD/WUs",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 487
+        },
+        "requestID": "1WRAN3R672NNN38G",
+        "eventID": "f44bff4e-2703-4ae0-9851-5ffbc88ff702",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "123456789012.s3-control.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "raw-arn-location",
+      "Sequence": 56,
+      "Source": "s3control/access_point_audit_evidence.json.gz:RawLocation",
+      "NativeCase": "raw-arn-location",
+      "Service": "s3",
+      "Operation": "GetBucketLocation",
+      "Actor": "audit-user",
+      "Code": "MethodNotAllowed",
+      "Status": 405,
+      "Raw": {
+        "Sequence": 56,
+        "Label": "raw-arn-location",
+        "Operation": "GetBucketLocation",
+        "Method": "GET",
+        "Target": "/?location",
+        "RequestHost": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+        "Region": "us-east-1",
+        "Status": 405,
+        "Code": "MethodNotAllowed",
+        "ErrorDetails": {
+          "Method": "GET",
+          "ResourceType": "ACCESSPOINT"
+        }
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[38].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:38:33Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketLocation",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "errorCode": "MethodNotAllowed",
+        "errorMessage": "The specified method is not allowed against this resource.",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "location": "",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958313629,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958313649,
+          "x-amz-id-2": "z0LSiJ9IsS/9rX5OlpU7+PVr4niLDG130LeJPLojM7/A0Aljc7crogdEMsjlSIgRcMGTV26TcXc=",
+          "httpStatusCode": 405,
+          "bytesTransferredOut": 352
+        },
+        "requestID": "SNYFD4HYXGQ9M42J",
+        "eventID": "1a4c3e82-e473-4f5a-bebe-f89b3f926845",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "regional-alias-virtual",
+      "Sequence": 57,
+      "Source": "s3control/access_point_audit_evidence.json.gz:LocationTransports[1]",
+      "NativeCase": "regional-alias-virtual",
+      "Service": "s3",
+      "Operation": "GetBucketLocation",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Sequence": 57,
+        "Label": "regional-alias-virtual",
+        "Operation": "GetBucketLocation",
+        "Method": "GET",
+        "Target": "/?location",
+        "RequestHost": "${netAlias}.s3.us-east-1.amazonaws.com",
+        "Region": "us-east-1",
+        "Status": 200,
+        "Code": ""
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[36].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:39:09Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketLocation",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "location": "",
+          "Host": "${netAlias}.s3.us-east-1.amazonaws.com",
+          "accessPointAlias": "${netAlias}"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958349338,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958349364,
+          "x-amz-id-2": "Sj0Psa1wFQyFKps0PFe2P3VhEFTmAbi02TO5dfenQ/wUmIxbclLnwkH54cHJbPquco0/x6J7jwU=",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 108
+        },
+        "requestID": "4QE2Y6K80D668XC1",
+        "eventID": "89b523cb-4b36-4364-85d5-aefb40a74126",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "regional-alias-path",
+      "Sequence": 58,
+      "Source": "s3control/access_point_audit_evidence.json.gz:LocationTransports[2]",
+      "NativeCase": "regional-alias-path",
+      "Service": "s3",
+      "Operation": "GetBucketLocation",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Raw": {
+        "Sequence": 58,
+        "Label": "regional-alias-path",
+        "Operation": "GetBucketLocation",
+        "Method": "GET",
+        "Target": "/${netAlias}?location",
+        "RequestHost": "s3.us-east-1.amazonaws.com",
+        "Region": "us-east-1",
+        "Status": 200,
+        "Code": ""
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[35].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:39:09Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketLocation",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Python-urllib/3.12]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "location": "",
+          "Host": "s3.us-east-1.amazonaws.com",
+          "accessPointAlias": "${netAlias}"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958349716,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958349743,
+          "x-amz-id-2": "2xLGNB/E0MLSCfKmCmOoGpVAWfyDOEDtq6iusOzghmWmKaGSUmgGlKPndQpeItZGLg/aQvSfnjDgXQd47Qr3rVeCpcWH8mlH",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 108
+        },
+        "requestID": "4QE2SP2DKMJMQSAX",
+        "eventID": "74c45416-68f2-428c-95ca-223afe752f76",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Management",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "local-narrow-data-selection-to-owned-access-points",
+      "Source": "s3control/access_point_audit_evidence.json.gz:Observations[8]",
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "TrailName": "stackd-ap-audit-c915c05d9c-trail",
+        "AdvancedEventSelectors": [
+          {
+            "Name": "owned-access-points",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Data"
+                ]
+              },
+              {
+                "Field": "resources.type",
+                "Equals": [
+                  "AWS::S3::AccessPoint"
+                ]
+              },
+              {
+                "Field": "resources.ARN",
+                "StartsWith": [
+                  "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+                  "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-vpc",
+                  "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-gone"
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "local-management-delivery",
+            "FieldSelectors": [
+              {
+                "Field": "eventCategory",
+                "Equals": [
+                  "Management"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Output": {},
+      "LocalComposition": "Remove Object data selector after direct HeadBucket; keep exact native AP selector and local Management selector."
+    },
+    {
+      "Label": "late-arn-get",
+      "Source": "s3control/access_point_audit_evidence.json.gz:LateObservations[0]",
+      "Sequence": 59,
+      "NativeCase": "late-arn-get",
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ChecksumMode": "ENABLED",
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "Key": "arn-seed"
+      },
+      "Output": {
+        "AcceptRanges": "bytes",
+        "ContentLength": 25,
+        "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+        "ChecksumCRC32": "fbXZXg==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "AES256",
+        "Metadata": {}
+      },
+      "Digest": {
+        "Length": 25,
+        "SHA256": "5dfd42ca7f5408fbd69c61df91915dcae8586895fefcb0deb2c581f9a33e27cc"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[63].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:40:52Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,b,n,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "key": "arn-seed"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 25,
+          "bytesTransferredIn": 0,
+          "startTime": 1789958452297,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958452331,
+          "x-amz-id-2": "MTsO9X1nNyQWsU8f4pY2iyH1zXZtMfQXHEQWcNRZFHwpQUzbNFZS5qZTUf16yj2wly+GgdSXlGfYYDggR91F7UhkRBt0mGVh",
+          "turnAroundTime": 33,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 25
+        },
+        "requestID": "6N5BX3YPH5VBVN7D",
+        "eventID": "63a215bf-fa25-460f-89b2-53a974503281",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/arn-seed"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "late-arn-list",
+      "Source": "s3control/access_point_audit_evidence.json.gz:LateObservations[2]",
+      "Sequence": 60,
+      "NativeCase": "late-arn-list",
+      "Service": "s3",
+      "Operation": "ListObjectsV2",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "EncodingType": "url"
+      },
+      "Output": {
+        "IsTruncated": false,
+        "Contents": [
+          {
+            "Key": "alias-seed",
+            "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+            "Size": 25
+          },
+          {
+            "Key": "arn-seed",
+            "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+            "Size": 25
+          }
+        ],
+        "Name": "stackd-ap-audit-c915c05d9c-src",
+        "Prefix": "",
+        "MaxKeys": 1000,
+        "EncodingType": "url",
+        "KeyCount": 2
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[60].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:40:52Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "ListObjects",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,b,n,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "list-type": "2",
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "encoding-type": "url",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958452549,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958452563,
+          "x-amz-id-2": "uRViGvSPSXhRfkyZ+gosYy7njWAUtDtgEFX1wgTQpBPqpaS+U7sNw3LoOTa12pkiZfN5Lp/AgWy7G2EUPldgt7ctLPx6sm4n",
+          "turnAroundTime": 14,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 867
+        },
+        "requestID": "6N5D2077F3HNNWZ8",
+        "eventID": "cd543404-fb97-4c83-95ff-4efc981f8c83",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARNPrefix": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "late-arn-copy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:LateObservations[3]",
+      "Sequence": 61,
+      "NativeCase": "late-arn-copy",
+      "Service": "s3",
+      "Operation": "CopyObject",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "Key": "late-arn-copy",
+        "CopySource": "arn%3Aaws%3As3%3Aus-east-1%3A123456789012%3Aaccesspoint/stackd-ap-audit-c915c05d9c-net/object/arn-seed"
+      },
+      "Output": {
+        "ServerSideEncryption": "AES256",
+        "CopyObjectResult": {
+          "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+          "ChecksumType": "FULL_OBJECT",
+          "ChecksumCRC32": "fbXZXg=="
+        }
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[61].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:40:52Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CopyObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,b,n,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "x-amz-copy-source": "arn%3Aaws%3As3%3Aus-east-1%3A123456789012%3Aaccesspoint/stackd-ap-audit-c915c05d9c-net/object/arn-seed",
+          "key": "late-arn-copy"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 25,
+          "bytesTransferredIn": 0,
+          "SSEApplied": "Default_SSE_S3",
+          "startTime": 1789958452668,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958452701,
+          "x-amz-id-2": "UfkSJyoLP0yS6rEUoRNn8InWQxwOn9ipiKDh9o9pk/IrCqRPKavdCv+gHmq9qbb4LcvLC/S+wf7RhRoyBOiXDec09AeIxeYR",
+          "turnAroundTime": 11,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 303
+        },
+        "requestID": "6N512A4SBMAMBDFK",
+        "eventID": "e5cef0c0-b825-459a-b820-622eb850d0ed",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/late-arn-copy"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/arn-seed"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "late-arn-batch",
+      "Source": "s3control/access_point_audit_evidence.json.gz:LateObservations[4]",
+      "Sequence": 62,
+      "NativeCase": "late-arn-batch",
+      "Service": "s3",
+      "Operation": "DeleteObjects",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "Delete": {
+          "Objects": [
+            {
+              "Key": "late-arn-copy"
+            }
+          ]
+        }
+      },
+      "Output": {
+        "Deleted": [
+          {
+            "Key": "late-arn-copy"
+          }
+        ]
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[62].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:40:52Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "DeleteObjects",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,b,U,Z,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "accountId": "123456789012",
+          "Host": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com",
+          "accessPointName": "stackd-ap-audit-c915c05d9c-net",
+          "delete": ""
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958452807,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958452835,
+          "x-amz-id-2": "JPZyTTGoJerP1/f0y/JMNuFIHGLo/FS0ISBHA9Bm3mo6gntrMmg92WELoinorPZiiEwlvtPBHgsGFBCrsGPM4mYdyx92OPsx",
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 0
+        },
+        "requestID": "6N5CWNSYG80GDFRZ",
+        "eventID": "0d949a5f-606d-4cac-abb4-75e0985a2c26",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARNPrefix": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "stackd-ap-audit-c915c05d9c-net-123456789012.s3-accesspoint.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "late-alias-get",
+      "Source": "s3control/access_point_audit_evidence.json.gz:LateObservations[5]",
+      "Sequence": 63,
+      "NativeCase": "late-alias-get",
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ChecksumMode": "ENABLED",
+        "Bucket": "${netAlias}",
+        "Key": "alias-seed"
+      },
+      "Output": {
+        "AcceptRanges": "bytes",
+        "ContentLength": 25,
+        "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+        "ChecksumCRC32": "fbXZXg==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "AES256",
+        "Metadata": {}
+      },
+      "Digest": {
+        "Length": 25,
+        "SHA256": "5dfd42ca7f5408fbd69c61df91915dcae8586895fefcb0deb2c581f9a33e27cc"
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[68].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:40:53Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,b,n,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "${netAlias}.s3.amazonaws.com",
+          "accessPointAlias": "${netAlias}",
+          "key": "alias-seed"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 25,
+          "bytesTransferredIn": 0,
+          "startTime": 1789958453209,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958453247,
+          "x-amz-id-2": "Lr+OefBRWbhVoXBWmpSM1OOJV14urtCyFlli4VQsTq/oQf6Z+zqgOAJdDLJrrDCQo+zK5Of+N8Y=",
+          "turnAroundTime": 38,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 25
+        },
+        "requestID": "7PFDKWJ5WM4VWS9W",
+        "eventID": "8f3fbf51-eca6-4cf0-9a46-99b6738f4b97",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/alias-seed"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "late-alias-missing",
+      "Source": "s3control/access_point_audit_evidence.json.gz:LateObservations[6]",
+      "Sequence": 64,
+      "NativeCase": "late-alias-missing",
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "NoSuchKey",
+      "Status": 404,
+      "Input": {
+        "ChecksumMode": "ENABLED",
+        "Bucket": "${netAlias}",
+        "Key": "late-missing"
+      },
+      "Output": {},
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[67].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:40:53Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,b,n,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "errorCode": "NoSuchKey",
+        "errorMessage": "The specified key does not exist.",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "${netAlias}.s3.amazonaws.com",
+          "accessPointAlias": "${netAlias}",
+          "key": "late-missing"
+        },
+        "responseElements": null,
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "bytesTransferredIn": 0,
+          "startTime": 1789958453351,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958453359,
+          "x-amz-id-2": "GlNWesstw1s5IAlBp3nzTFPSALvBq53UZAABkBoBa8EOEHcevs46kyM8YCTwGVBrzpFTJIyUMTA=",
+          "httpStatusCode": 404,
+          "bytesTransferredOut": 283
+        },
+        "requestID": "7PF3F30NM4YPVGW1",
+        "eventID": "5daa9dae-abb6-47c5-b05d-ca5b6bbb700c",
+        "readOnly": true,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/late-missing"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Label": "late-alias-copy",
+      "Source": "s3control/access_point_audit_evidence.json.gz:LateObservations[8]",
+      "Sequence": 65,
+      "NativeCase": "late-alias-copy",
+      "Service": "s3",
+      "Operation": "CopyObject",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "${netAlias}",
+        "Key": "late-alias-copy",
+        "CopySource": "${netAlias}/alias-seed"
+      },
+      "Output": {
+        "ServerSideEncryption": "AES256",
+        "CopyObjectResult": {
+          "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+          "ChecksumType": "FULL_OBJECT",
+          "ChecksumCRC32": "fbXZXg=="
+        }
+      },
+      "RecordSource": "s3control/access_point_audit_evidence.json.gz:CloudTrailEvents[64].event",
+      "Record": {
+        "eventVersion": "1.11",
+        "userIdentity": {
+          "type": "IAMUser",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "arn": "${auditUserARN}",
+          "accountId": "123456789012",
+          "userName": "Delegated"
+        },
+        "eventTime": "2026-09-21T02:40:53Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CopyObject",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "92.234.107.50",
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/D,b,n,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "requestParameters": {
+          "bucketName": "stackd-ap-audit-c915c05d9c-src",
+          "Host": "${netAlias}.s3.amazonaws.com",
+          "accessPointAlias": "${netAlias}",
+          "x-amz-copy-source": "${netAlias}/alias-seed",
+          "key": "late-alias-copy"
+        },
+        "responseElements": {
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "additionalEventData": {
+          "SignatureVersion": "SigV4",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "objectSize": 25,
+          "bytesTransferredIn": 0,
+          "SSEApplied": "Default_SSE_S3",
+          "startTime": 1789958453584,
+          "AuthenticationMethod": "AuthHeader",
+          "endTime": 1789958453616,
+          "x-amz-id-2": "92pnaCD67SsRNbpRGFLS4dkliFDabtkpfsoR/jlfS23QsxUaibp45KzofTLqMjvPT/hKxywqSsA=",
+          "turnAroundTime": 15,
+          "httpStatusCode": 200,
+          "bytesTransferredOut": 303
+        },
+        "requestID": "7PFB7VCM0Q2DGXSC",
+        "eventID": "2dff5bf7-a99d-42db-b131-b5d4cfb2085f",
+        "readOnly": false,
+        "resources": [
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/late-alias-copy"
+          },
+          {
+            "accountId": "123456789012",
+            "type": "AWS::S3::AccessPoint",
+            "ARN": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net"
+          },
+          {
+            "type": "AWS::S3::Object",
+            "ARN": "arn:aws:s3:::stackd-ap-audit-c915c05d9c-src/alias-seed"
+          }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": false,
+        "recipientAccountId": "123456789012",
+        "eventCategory": "Data",
+        "tlsDetails": {
+          "tlsVersion": "TLSv1.3",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "${netAlias}.s3.amazonaws.com"
+        }
+      }
+    }
+  ],
+  "Verify": [
+    {
+      "Label": "after-reopen-late-arn-get",
+      "Source": "s3control/access_point_audit_evidence.json.gz:LateObservations[0]",
+      "Sequence": 66,
+      "NativeCase": "late-arn-get",
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ChecksumMode": "ENABLED",
+        "Bucket": "arn:aws:s3:us-east-1:123456789012:accesspoint/stackd-ap-audit-c915c05d9c-net",
+        "Key": "arn-seed"
+      },
+      "Output": {
+        "AcceptRanges": "bytes",
+        "ContentLength": 25,
+        "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+        "ChecksumCRC32": "fbXZXg==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "AES256",
+        "Metadata": {}
+      },
+      "Digest": {
+        "Length": 25,
+        "SHA256": "5dfd42ca7f5408fbd69c61df91915dcae8586895fefcb0deb2c581f9a33e27cc"
+      },
+      "LocalComposition": "Repeat captured successful read after backend reopen."
+    },
+    {
+      "Label": "after-reopen-late-alias-get",
+      "Source": "s3control/access_point_audit_evidence.json.gz:LateObservations[5]",
+      "Sequence": 67,
+      "NativeCase": "late-alias-get",
+      "Service": "s3",
+      "Operation": "GetObject",
+      "Actor": "audit-user",
+      "Region": "us-east-1",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ChecksumMode": "ENABLED",
+        "Bucket": "${netAlias}",
+        "Key": "alias-seed"
+      },
+      "Output": {
+        "AcceptRanges": "bytes",
+        "ContentLength": 25,
+        "ETag": "\"5105fc9a840c026314ca00b18457eb53\"",
+        "ChecksumCRC32": "fbXZXg==",
+        "ChecksumType": "FULL_OBJECT",
+        "ContentType": "binary/octet-stream",
+        "ServerSideEncryption": "AES256",
+        "Metadata": {}
+      },
+      "Digest": {
+        "Length": 25,
+        "SHA256": "5dfd42ca7f5408fbd69c61df91915dcae8586895fefcb0deb2c581f9a33e27cc"
+      },
+      "LocalComposition": "Repeat captured successful read after backend reopen."
+    }
+  ]
+}

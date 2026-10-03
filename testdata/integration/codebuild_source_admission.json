@@ -1,0 +1,396 @@
+{
+  "scope": "Local executable only; project admission, role S3 deny, SQLite restart and atomic updates; no builds.",
+  "binary_sha256": "30d7b7bb44d89b66d07e3a6498db5d39ba05bbff229c1021b39368558b11da46",
+  "observations": [
+    {
+      "case": "create-role",
+      "operation": "create_role",
+      "expected": "Success",
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/",
+          "RoleName": "source-admission",
+          "RoleId": "AROA2V6OBQK5C4OTIXTSR",
+          "Arn": "arn:aws:iam::000000000000:role/source-admission",
+          "CreateDate": "2026-10-01 11:12:49.573979+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "codebuild.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+        }
+      },
+      "matches": true
+    },
+    {
+      "case": "deny-role-s3",
+      "operation": "put_role_policy",
+      "expected": "Success",
+      "code": "Success",
+      "output": {},
+      "matches": true
+    },
+    {
+      "case": "create-missing-missing.zip",
+      "operation": "create_project",
+      "expected": "InvalidInputException",
+      "code": "InvalidInputException",
+      "error": {
+        "Message": "Bucket absent-source/missing.zip does not exist",
+        "Code": "InvalidInputException"
+      },
+      "matches": true
+    },
+    {
+      "case": "create-missing-empty/",
+      "operation": "create_project",
+      "expected": "InvalidInputException",
+      "code": "InvalidInputException",
+      "error": {
+        "Message": "Bucket absent-source/empty/ does not exist",
+        "Code": "InvalidInputException"
+      },
+      "matches": true
+    },
+    {
+      "case": "create-missing-secondary",
+      "operation": "create_project",
+      "expected": "InvalidInputException",
+      "code": "InvalidInputException",
+      "error": {
+        "Message": "Bucket absent-source/aux/ does not exist",
+        "Code": "InvalidInputException"
+      },
+      "matches": true
+    },
+    {
+      "case": "create-source-bucket",
+      "operation": "create_bucket",
+      "expected": "Success",
+      "code": "Success",
+      "output": {
+        "Location": "/source-admission",
+        "BucketArn": "arn:aws:s3:::source-admission"
+      },
+      "matches": true
+    },
+    {
+      "case": "create-empty-source",
+      "operation": "create_project",
+      "expected": "Success",
+      "code": "Success",
+      "output": {
+        "project": {
+          "name": "source-admission",
+          "arn": "arn:aws:codebuild:us-east-1:000000000000:project/source-admission",
+          "source": {
+            "type": "S3",
+            "location": "source-admission/empty/"
+          },
+          "artifacts": {
+            "type": "NO_ARTIFACTS"
+          },
+          "cache": {
+            "type": "NO_CACHE"
+          },
+          "environment": {
+            "type": "LINUX_CONTAINER",
+            "image": "busybox:1.38.0",
+            "computeType": "BUILD_GENERAL1_SMALL",
+            "imagePullCredentialsType": "CODEBUILD"
+          },
+          "serviceRole": "arn:aws:iam::000000000000:role/source-admission",
+          "timeoutInMinutes": 60,
+          "queuedTimeoutInMinutes": 480,
+          "created": "2026-10-01 12:12:49.638046+01:00",
+          "lastModified": "2026-10-01 12:12:49.638046+01:00",
+          "logsConfig": {
+            "cloudWatchLogs": {
+              "status": "ENABLED"
+            }
+          },
+          "projectVisibility": "PRIVATE"
+        }
+      },
+      "matches": true
+    },
+    {
+      "case": "update-missing-secondary",
+      "operation": "update_project",
+      "expected": "InvalidInputException",
+      "code": "InvalidInputException",
+      "error": {
+        "Message": "Bucket absent-source/aux/ does not exist",
+        "Code": "InvalidInputException"
+      },
+      "matches": true
+    },
+    {
+      "case": "update-existing-secondary",
+      "operation": "update_project",
+      "expected": "Success",
+      "code": "Success",
+      "output": {
+        "project": {
+          "name": "source-admission",
+          "arn": "arn:aws:codebuild:us-east-1:000000000000:project/source-admission",
+          "source": {
+            "type": "NO_SOURCE",
+            "buildspec": "version: 0.2\nphases:\n  build:\n    commands: [true]\n"
+          },
+          "secondarySources": [
+            {
+              "type": "S3",
+              "location": "source-admission/aux/",
+              "sourceIdentifier": "Aux"
+            }
+          ],
+          "artifacts": {
+            "type": "NO_ARTIFACTS"
+          },
+          "cache": {
+            "type": "NO_CACHE"
+          },
+          "environment": {
+            "type": "LINUX_CONTAINER",
+            "image": "busybox:1.38.0",
+            "computeType": "BUILD_GENERAL1_SMALL",
+            "imagePullCredentialsType": "CODEBUILD"
+          },
+          "serviceRole": "arn:aws:iam::000000000000:role/source-admission",
+          "timeoutInMinutes": 60,
+          "queuedTimeoutInMinutes": 480,
+          "created": "2026-10-01 12:12:49.638046+01:00",
+          "lastModified": "2026-10-01 12:12:49.657856+01:00",
+          "logsConfig": {
+            "cloudWatchLogs": {
+              "status": "ENABLED"
+            }
+          },
+          "projectVisibility": "PRIVATE"
+        }
+      },
+      "matches": true
+    },
+    {
+      "case": "restored-source",
+      "operation": "batch_get_projects",
+      "expected": "Success",
+      "code": "Success",
+      "output": {
+        "projects": [
+          {
+            "name": "source-admission",
+            "arn": "arn:aws:codebuild:us-east-1:000000000000:project/source-admission",
+            "source": {
+              "type": "NO_SOURCE",
+              "buildspec": "version: 0.2\nphases:\n  build:\n    commands: [true]\n"
+            },
+            "secondarySources": [
+              {
+                "type": "S3",
+                "location": "source-admission/aux/",
+                "sourceIdentifier": "Aux"
+              }
+            ],
+            "artifacts": {
+              "type": "NO_ARTIFACTS"
+            },
+            "cache": {
+              "type": "NO_CACHE"
+            },
+            "environment": {
+              "type": "LINUX_CONTAINER",
+              "image": "busybox:1.38.0",
+              "computeType": "BUILD_GENERAL1_SMALL",
+              "imagePullCredentialsType": "CODEBUILD"
+            },
+            "serviceRole": "arn:aws:iam::000000000000:role/source-admission",
+            "timeoutInMinutes": 60,
+            "queuedTimeoutInMinutes": 480,
+            "created": "2026-10-01 12:12:49.638046+01:00",
+            "lastModified": "2026-10-01 12:12:49.657856+01:00",
+            "logsConfig": {
+              "cloudWatchLogs": {
+                "status": "ENABLED"
+              }
+            },
+            "projectVisibility": "PRIVATE"
+          }
+        ]
+      },
+      "matches": true
+    },
+    {
+      "case": "delete-source-bucket",
+      "operation": "delete_bucket",
+      "expected": "Success",
+      "code": "Success",
+      "output": {},
+      "matches": true
+    },
+    {
+      "case": "update-omitted-deleted-source",
+      "operation": "update_project",
+      "expected": "InvalidInputException",
+      "code": "InvalidInputException",
+      "error": {
+        "Message": "Bucket source-admission/aux/ does not exist",
+        "Code": "InvalidInputException"
+      },
+      "matches": true
+    },
+    {
+      "case": "read-rejected-update",
+      "operation": "batch_get_projects",
+      "expected": "Success",
+      "code": "Success",
+      "output": {
+        "projects": [
+          {
+            "name": "source-admission",
+            "arn": "arn:aws:codebuild:us-east-1:000000000000:project/source-admission",
+            "source": {
+              "type": "NO_SOURCE",
+              "buildspec": "version: 0.2\nphases:\n  build:\n    commands: [true]\n"
+            },
+            "secondarySources": [
+              {
+                "type": "S3",
+                "location": "source-admission/aux/",
+                "sourceIdentifier": "Aux"
+              }
+            ],
+            "artifacts": {
+              "type": "NO_ARTIFACTS"
+            },
+            "cache": {
+              "type": "NO_CACHE"
+            },
+            "environment": {
+              "type": "LINUX_CONTAINER",
+              "image": "busybox:1.38.0",
+              "computeType": "BUILD_GENERAL1_SMALL",
+              "imagePullCredentialsType": "CODEBUILD"
+            },
+            "serviceRole": "arn:aws:iam::000000000000:role/source-admission",
+            "timeoutInMinutes": 60,
+            "queuedTimeoutInMinutes": 480,
+            "created": "2026-10-01 12:12:49.638046+01:00",
+            "lastModified": "2026-10-01 12:12:49.657856+01:00",
+            "logsConfig": {
+              "cloudWatchLogs": {
+                "status": "ENABLED"
+              }
+            },
+            "projectVisibility": "PRIVATE"
+          }
+        ]
+      },
+      "matches": true
+    },
+    {
+      "case": "cleanup-project",
+      "operation": "delete_project",
+      "expected": "Success",
+      "code": "Success",
+      "output": {},
+      "matches": true
+    },
+    {
+      "case": "cleanup-role-policy",
+      "operation": "delete_role_policy",
+      "expected": "Success",
+      "code": "Success",
+      "output": {},
+      "matches": true
+    },
+    {
+      "case": "cleanup-role",
+      "operation": "delete_role",
+      "expected": "Success",
+      "code": "Success",
+      "output": {},
+      "matches": true
+    },
+    {
+      "case": "verify-project-absent",
+      "operation": "batch_get_projects",
+      "expected": "Success",
+      "code": "Success",
+      "output": {
+        "projectsNotFound": [
+          "source-admission"
+        ]
+      },
+      "matches": true
+    },
+    {
+      "case": "verify-role-absent",
+      "operation": "get_role",
+      "expected": "NoSuchEntity",
+      "code": "NoSuchEntity",
+      "error": {
+        "Type": "Sender",
+        "Code": "NoSuchEntity",
+        "Message": "The role with name source-admission cannot be found."
+      },
+      "matches": true
+    },
+    {
+      "case": "verify-bucket-absent",
+      "operation": "head_bucket",
+      "expected": "404",
+      "code": "404",
+      "error": {
+        "Code": "404",
+        "Message": "Not Found"
+      },
+      "matches": true
+    }
+  ],
+  "controllers": [
+    {
+      "start": 1,
+      "command": [
+        "/home/r/dev/minor/stackd/bin/stackd",
+        "-listen",
+        "127.0.0.1:39003",
+        "-public-endpoint",
+        "http://127.0.0.1:39003",
+        "-database",
+        "/tmp/stackd-source-admission-7x1qz9km/state.sqlite"
+      ],
+      "log": "/tmp/stackd-source-admission-7x1qz9km/controller-1.log",
+      "pid": 3816463,
+      "exit": 0
+    },
+    {
+      "start": 2,
+      "command": [
+        "/home/r/dev/minor/stackd/bin/stackd",
+        "-listen",
+        "127.0.0.1:39003",
+        "-public-endpoint",
+        "http://127.0.0.1:39003",
+        "-database",
+        "/tmp/stackd-source-admission-7x1qz9km/state.sqlite"
+      ],
+      "log": "/tmp/stackd-source-admission-7x1qz9km/controller-2.log",
+      "pid": 3816759,
+      "exit": 0
+    }
+  ],
+  "restored_source": true,
+  "atomic_update": true,
+  "project_absent": true,
+  "status": "passed"
+}

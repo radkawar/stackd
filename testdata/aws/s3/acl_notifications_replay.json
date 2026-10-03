@@ -1,0 +1,481 @@
+{
+  "Schema": 1,
+  "Evidence": "acl_notifications_evidence.json.gz",
+  "Bounds": {
+    "NativeNegativeWindowSeconds": 45
+  },
+  "Notes": [
+    "Fresh owned AWS bucket and queue; deleted and independently absent after capture. The caller was IAM user Delegated, not a root credential.",
+    "Exact repeated header ACL produced no event within45seconds; changing to the reversed-grant XML policy and then private each produced a request-correlated event. This does not assert an unbounded no-redelivery guarantee.",
+    "Classic ACL records contain key,eTag,versionId but neither size nor sequencer. Native event request IDs match their API calls; native extended host IDs differed from response headers and remain opaque.",
+    "Native JSON-input Body was base64-decoded by the CLI, not read as a filename. Replay uses those27 decoded bytes whose MD5 matches the native ETag. No native payload download occurred in this ACL-only capture.",
+    "No native EventBridge sink was provisioned; this fixture claims only classic SQS delivery."
+  ],
+  "Cases": [
+    {
+      "Name": "native-acl-changes-exact-repeat-and-retained-order",
+      "Calls": [
+        {
+          "Sequence": 2,
+          "Label": "create-queue-2",
+          "Source": "acl_notifications_evidence.json.gz#/observations/1",
+          "Service": "sqs",
+          "Operation": "CreateQueue",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "QueueName": "stackd-acl-events-7c78f7f84a74"
+          },
+          "Bind": {
+            "queue_classic": "QueueUrl"
+          }
+        },
+        {
+          "Sequence": 3,
+          "Label": "get-queue-attributes-3",
+          "Source": "acl_notifications_evidence.json.gz#/observations/2",
+          "Service": "sqs",
+          "Operation": "GetQueueAttributes",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "QueueUrl": "${queue_classic}",
+            "AttributeNames": [
+              "QueueArn"
+            ]
+          },
+          "Bind": {
+            "queueArn": "Attributes.QueueArn"
+          }
+        },
+        {
+          "Sequence": 4,
+          "Label": "set-queue-attributes-4",
+          "Source": "acl_notifications_evidence.json.gz#/observations/3",
+          "Service": "sqs",
+          "Operation": "SetQueueAttributes",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "QueueUrl": "${queue_classic}",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"s3.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"${queueArn}\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:s3:::stackd-acl-events-7c78f7f84a74\"}, \"StringEquals\": {\"aws:SourceAccount\": \"${account}\"}}}]}"
+            }
+          }
+        },
+        {
+          "Sequence": 5,
+          "Label": "create-bucket-5",
+          "Source": "acl_notifications_evidence.json.gz#/observations/4",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "ObjectOwnership": "ObjectWriter"
+          },
+          "BindRequestID": "request5"
+        },
+        {
+          "Sequence": 6,
+          "Label": "put-bucket-versioning-6",
+          "Source": "acl_notifications_evidence.json.gz#/observations/5",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "BindRequestID": "request6"
+        },
+        {
+          "Sequence": 7,
+          "Label": "put-bucket-notification-configuration-7",
+          "Source": "acl_notifications_evidence.json.gz#/observations/6",
+          "Service": "s3",
+          "Operation": "PutBucketNotificationConfiguration",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "NotificationConfiguration": {
+              "QueueConfigurations": [
+                {
+                  "Id": "acl-events",
+                  "QueueArn": "${queueArn}",
+                  "Events": [
+                    "s3:ObjectAcl:Put"
+                  ]
+                }
+              ]
+            }
+          },
+          "BindRequestID": "request7",
+          "Notifications": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "sqs",
+              "Source": "acl_notifications_evidence.json.gz#test-event",
+              "SourceSequence": 7,
+              "Payload": {
+                "Service": "Amazon S3",
+                "Event": "s3:TestEvent",
+                "Time": "2026-09-21T15:04:37.498Z",
+                "Bucket": "stackd-acl-events-7c78f7f84a74",
+                "RequestId": "${request7}",
+                "HostId": "U7nCJzmsHlGWJK1dTOcUMksBdIsoRl+qlTZNQGKZ8ZUQV08lOQzZfRQYxMD1Cnzq+fIaBZXSAUqULEZDGYnSOmMFw7hbeqlD"
+              },
+              "Dynamic": {
+                "Time": "time",
+                "HostId": "opaque"
+              }
+            }
+          ]
+        },
+        {
+          "Sequence": 8,
+          "Label": "put-object-8",
+          "Source": "acl_notifications_evidence.json.gz#/observations/7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "Key": "acl-probe",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "BindRequestID": "request8",
+          "Body": "/tmp/stackdaclnotificationpayloadbin",
+          "Bind": {
+            "version": "VersionId"
+          },
+          "Output": {
+            "ETag": "\"1145e7649fb122c67a8db04caace882e\"",
+            "ChecksumCRC64NVME": "29eG2Ql16Bg=",
+            "ChecksumType": "FULL_OBJECT",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${version}"
+          },
+          "Advance": "1m"
+        },
+        {
+          "Sequence": 9,
+          "Label": "get-object-acl-9",
+          "Source": "acl_notifications_evidence.json.gz#/observations/8",
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "Key": "acl-probe",
+            "VersionId": "${version}"
+          },
+          "BindRequestID": "request9",
+          "Bind": {
+            "aclOwner": "Owner.ID"
+          },
+          "Output": {
+            "Owner": {
+              "ID": "${aclOwner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${aclOwner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 10,
+          "Label": "put-object-acl-10",
+          "Source": "acl_notifications_evidence.json.gz#/observations/9",
+          "Service": "s3",
+          "Operation": "PutObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "Key": "acl-probe",
+            "VersionId": "${version}",
+            "GrantFullControl": "id=\"${aclOwner}\"",
+            "GrantReadACP": "uri=\"http://acs.amazonaws.com/groups/s3/LogDelivery\""
+          },
+          "BindRequestID": "request10",
+          "Notifications": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "sqs",
+              "Source": "acl_notifications_evidence.json.gz#request=6NTRA7XPYRPGA2P6",
+              "SourceSequence": 10,
+              "Payload": {
+                "eventVersion": "2.6",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "2026-09-21T15:04:40.183Z",
+                "eventName": "ObjectAcl:Put",
+                "userIdentity": {
+                  "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "92.234.107.50"
+                },
+                "responseElements": {
+                  "x-amz-request-id": "${request10}",
+                  "x-amz-id-2": "lMLY0Y7C6kEiaPEzWlIbPUF7MajzK7vaxqBlgd0bfccIYzVj3l8rTyAYU2A2pTdcnIl6wZIQng5O0DyqXAXYYtdC8TQIE+u1"
+                },
+                "s3": {
+                  "s3SchemaVersion": "1.0",
+                  "configurationId": "acl-events",
+                  "bucket": {
+                    "name": "stackd-acl-events-7c78f7f84a74",
+                    "ownerIdentity": {
+                      "principalId": "AW1K7DS23TRWT"
+                    },
+                    "arn": "arn:aws:s3:::stackd-acl-events-7c78f7f84a74"
+                  },
+                  "object": {
+                    "key": "acl-probe",
+                    "eTag": "1145e7649fb122c67a8db04caace882e",
+                    "versionId": "${version}"
+                  }
+                }
+              },
+              "Dynamic": {
+                "eventTime": "time",
+                "userIdentity.principalId": "opaque",
+                "requestParameters.sourceIPAddress": "ip",
+                "responseElements.x-amz-id-2": "opaque",
+                "s3.bucket.ownerIdentity.principalId": "opaque"
+              }
+            }
+          ]
+        },
+        {
+          "Sequence": 11,
+          "Label": "get-object-acl-11",
+          "Source": "acl_notifications_evidence.json.gz#/observations/10",
+          "Service": "s3",
+          "Operation": "GetObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "Key": "acl-probe",
+            "VersionId": "${version}"
+          },
+          "BindRequestID": "request11",
+          "Output": {
+            "Owner": {
+              "ID": "${aclOwner}"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "${aclOwner}",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              },
+              {
+                "Grantee": {
+                  "Type": "Group",
+                  "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                },
+                "Permission": "READ_ACP"
+              }
+            ]
+          }
+        },
+        {
+          "Sequence": 12,
+          "Label": "put-object-acl-12",
+          "Source": "acl_notifications_evidence.json.gz#/observations/11",
+          "Service": "s3",
+          "Operation": "PutObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "Key": "acl-probe",
+            "VersionId": "${version}",
+            "GrantFullControl": "id=\"${aclOwner}\"",
+            "GrantReadACP": "uri=\"http://acs.amazonaws.com/groups/s3/LogDelivery\""
+          },
+          "BindRequestID": "request12",
+          "QuietQueues": [
+            "${queue_classic}"
+          ]
+        },
+        {
+          "Sequence": 13,
+          "Label": "put-object-acl-13",
+          "Source": "acl_notifications_evidence.json.gz#/observations/12",
+          "Service": "s3",
+          "Operation": "PutObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "Key": "acl-probe",
+            "VersionId": "${version}",
+            "AccessControlPolicy": {
+              "Owner": {
+                "ID": "${aclOwner}"
+              },
+              "Grants": [
+                {
+                  "Grantee": {
+                    "Type": "Group",
+                    "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
+                  },
+                  "Permission": "READ_ACP"
+                },
+                {
+                  "Grantee": {
+                    "ID": "${aclOwner}",
+                    "Type": "CanonicalUser"
+                  },
+                  "Permission": "FULL_CONTROL"
+                }
+              ]
+            }
+          },
+          "BindRequestID": "request13",
+          "Reopen": true,
+          "Notifications": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "sqs",
+              "Source": "acl_notifications_evidence.json.gz#request=JKQH5PMTDRD3DWTA",
+              "SourceSequence": 13,
+              "Payload": {
+                "eventVersion": "2.6",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "2026-09-21T15:04:42.389Z",
+                "eventName": "ObjectAcl:Put",
+                "userIdentity": {
+                  "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "92.234.107.50"
+                },
+                "responseElements": {
+                  "x-amz-request-id": "${request13}",
+                  "x-amz-id-2": "KqdKPidCBY8FohZnEzsco9y80jlMIGOIhZ6L3WyiWrOFK9o4GWDYh+o06KNceCTau6TS8YxSajMHjyJTcMKkQNKRATWhedcn"
+                },
+                "s3": {
+                  "s3SchemaVersion": "1.0",
+                  "configurationId": "acl-events",
+                  "bucket": {
+                    "name": "stackd-acl-events-7c78f7f84a74",
+                    "ownerIdentity": {
+                      "principalId": "AW1K7DS23TRWT"
+                    },
+                    "arn": "arn:aws:s3:::stackd-acl-events-7c78f7f84a74"
+                  },
+                  "object": {
+                    "key": "acl-probe",
+                    "eTag": "1145e7649fb122c67a8db04caace882e",
+                    "versionId": "${version}"
+                  }
+                }
+              },
+              "Dynamic": {
+                "eventTime": "time",
+                "userIdentity.principalId": "opaque",
+                "requestParameters.sourceIPAddress": "ip",
+                "responseElements.x-amz-id-2": "opaque",
+                "s3.bucket.ownerIdentity.principalId": "opaque"
+              }
+            }
+          ]
+        },
+        {
+          "Sequence": 14,
+          "Label": "put-object-acl-14",
+          "Source": "acl_notifications_evidence.json.gz#/observations/13",
+          "Service": "s3",
+          "Operation": "PutObjectAcl",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "Bucket": "stackd-acl-events-7c78f7f84a74",
+            "Key": "acl-probe",
+            "VersionId": "${version}",
+            "ACL": "private"
+          },
+          "BindRequestID": "request14",
+          "Notifications": [
+            {
+              "Queue": "${queue_classic}",
+              "Kind": "sqs",
+              "Source": "acl_notifications_evidence.json.gz#request=C3HT4Y1HKE2H1D7G",
+              "SourceSequence": 14,
+              "Payload": {
+                "eventVersion": "2.6",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "2026-09-21T15:04:43.117Z",
+                "eventName": "ObjectAcl:Put",
+                "userIdentity": {
+                  "principalId": "AWS:AIDAQAAAAAAAMEZHRHAHY"
+                },
+                "requestParameters": {
+                  "sourceIPAddress": "92.234.107.50"
+                },
+                "responseElements": {
+                  "x-amz-request-id": "${request14}",
+                  "x-amz-id-2": "R3VP//za3nT6ZKvDz8O5djqwnvAnxNdMKdmXRs1CGpOD54jp6KT1glb3gnRP6BdGUfQD8oU6noq+msp+pohSXX44RNSW8F3H"
+                },
+                "s3": {
+                  "s3SchemaVersion": "1.0",
+                  "configurationId": "acl-events",
+                  "bucket": {
+                    "name": "stackd-acl-events-7c78f7f84a74",
+                    "ownerIdentity": {
+                      "principalId": "AW1K7DS23TRWT"
+                    },
+                    "arn": "arn:aws:s3:::stackd-acl-events-7c78f7f84a74"
+                  },
+                  "object": {
+                    "key": "acl-probe",
+                    "eTag": "1145e7649fb122c67a8db04caace882e",
+                    "versionId": "${version}"
+                  }
+                }
+              },
+              "Dynamic": {
+                "eventTime": "time",
+                "userIdentity.principalId": "opaque",
+                "requestParameters.sourceIPAddress": "ip",
+                "responseElements.x-amz-id-2": "opaque",
+                "s3.bucket.ownerIdentity.principalId": "opaque"
+              }
+            }
+          ]
+        },
+        {
+          "Sequence": 15,
+          "Label": "drained-final-delivery",
+          "Advance": "1s",
+          "QuietQueues": [
+            "${queue_classic}"
+          ],
+          "QuietAll": true
+        }
+      ]
+    }
+  ]
+}

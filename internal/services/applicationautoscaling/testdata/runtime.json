@@ -1,0 +1,123 @@
+{
+  "Start": "2026-09-17T00:00:00Z",
+  "Policies": [
+    {
+      "Name": "step deployment excludes scale-in only",
+      "Initial": {"Desired": 4, "Running": 4, "DeploymentInProgress": true},
+      "Policy": {
+        "PolicyType": "StepScaling",
+        "StepScalingPolicyConfiguration": {
+          "AdjustmentType": "ChangeInCapacity", "Cooldown": 300, "MetricAggregationType": "Average",
+          "StepAdjustments": [
+            {"MetricIntervalUpperBound": 0, "ScalingAdjustment": -1},
+            {"MetricIntervalLowerBound": 0, "ScalingAdjustment": 2}
+          ]
+        }
+      },
+      "Steps": [
+        {"Name": "scale-in blocked", "At": 0, "Metric": 25, "Below": true, "Desired": 4, "Running": 4},
+        {"Name": "scale-out permitted", "At": 1, "Metric": 75, "Desired": 6, "Running": 4},
+        {"Name": "scale-out completes", "At": 2, "Complete": true, "Desired": 6, "Running": 6},
+        {"Name": "scale-in still blocked", "At": 3, "Metric": 25, "Below": true, "Desired": 6, "Running": 6},
+        {"Name": "scale-in resumes after deployment", "At": 4, "Deployment": false, "Metric": 25, "Below": true, "Desired": 5, "Running": 6}
+      ]
+    },
+    {
+      "Name": "target tracking deployment excludes scale-in only",
+      "Initial": {"Desired": 4, "Running": 4, "DeploymentInProgress": true},
+      "Policy": {
+        "PolicyType": "TargetTrackingScaling",
+        "TargetTrackingScalingPolicyConfiguration": {
+          "TargetValue": 50, "ScaleInCooldown": 300, "ScaleOutCooldown": 300,
+          "PredefinedMetricSpecification": {"PredefinedMetricType": "ECSServiceAverageCPUUtilization"}
+        }
+      },
+      "Steps": [
+        {"Name": "scale-in blocked", "At": 0, "Metric": 25, "Below": true, "Desired": 4, "Running": 4},
+        {"Name": "scale-out permitted", "At": 1, "Metric": 75, "Desired": 6, "Running": 4},
+        {"Name": "scale-out completes", "At": 2, "Complete": true, "Desired": 6, "Running": 6},
+        {"Name": "scale-in still blocked", "At": 3, "Metric": 25, "Below": true, "Desired": 6, "Running": 6},
+        {"Name": "scale-in resumes after deployment", "At": 4, "Deployment": false, "Metric": 25, "Below": true, "Desired": 3, "Running": 6}
+      ]
+    },
+    {
+      "Name": "cumulative cooldown credit survives reopen and expires on completion time",
+      "Initial": {"Desired": 1, "Running": 1},
+      "Policy": {
+        "PolicyType": "StepScaling",
+        "StepScalingPolicyConfiguration": {
+          "AdjustmentType": "ChangeInCapacity", "Cooldown": 300, "MetricAggregationType": "Average",
+          "StepAdjustments": [
+            {"MetricIntervalLowerBound": 0, "MetricIntervalUpperBound": 10, "ScalingAdjustment": 1},
+            {"MetricIntervalLowerBound": 10, "ScalingAdjustment": 2}
+          ]
+        }
+      },
+      "Steps": [
+        {"Name": "low breach requests one", "At": 0, "Metric": 55, "Desired": 2, "Running": 1},
+        {"Name": "uncompleted request does not compound", "At": 10, "Metric": 55, "Desired": 2, "Running": 1},
+        {"Name": "first actual completion", "At": 20, "Complete": true, "Desired": 2, "Running": 2},
+        {"Name": "higher breach requests only residual credit", "At": 21, "Metric": 65, "Desired": 3, "Running": 2},
+        {"Name": "second actual completion", "At": 30, "Complete": true, "Desired": 3, "Running": 3},
+        {"Name": "same higher breach cannot consume credit twice", "At": 31, "Metric": 65, "Desired": 3, "Running": 3},
+        {"Name": "reopened controller retains cumulative credit", "At": 32, "Reopen": true, "Metric": 65, "Desired": 3, "Running": 3},
+        {"Name": "credit retained immediately before completion based expiry", "At": 329, "Metric": 65, "Desired": 3, "Running": 3},
+        {"Name": "full adjustment at exact cooldown expiry", "At": 330, "Metric": 65, "Desired": 5, "Running": 3},
+        {"Name": "expired window new change completes", "At": 340, "Complete": true, "Desired": 5, "Running": 5},
+        {"Name": "new window has its own credit", "At": 341, "Metric": 65, "Desired": 5, "Running": 5}
+      ]
+    },
+    {
+      "Name": "accepted scaling intent survives controller reopen",
+      "Initial": {"Desired": 1, "Running": 1},
+      "Policy": {
+        "PolicyType": "StepScaling",
+        "StepScalingPolicyConfiguration": {
+          "AdjustmentType": "ChangeInCapacity", "Cooldown": 300, "MetricAggregationType": "Average",
+          "StepAdjustments": [{"MetricIntervalLowerBound": 0, "ScalingAdjustment": 1}]
+        }
+      },
+      "Steps": [
+        {"Name": "accepted request is pending before execution", "At": 0, "Metric": 55, "DeferExecution": true, "ActivityStatus": "Pending", "Desired": 1, "Running": 1},
+        {"Name": "reopened controller executes retained intent", "At": 1, "Reopen": true, "ActivityStatus": "InProgress", "Desired": 2, "Running": 1},
+        {"Name": "actual capacity completes the original activity", "At": 2, "Complete": true, "ActivityStatus": "Successful", "Desired": 2, "Running": 2}
+      ]
+    },
+    {
+      "Name": "rejected nested resource change remains atomic",
+      "Initial": {"Desired": 1, "Running": 1},
+      "Policy": {
+        "PolicyType": "StepScaling",
+        "StepScalingPolicyConfiguration": {
+          "AdjustmentType": "ChangeInCapacity", "Cooldown": 300, "MetricAggregationType": "Average",
+          "StepAdjustments": [{"MetricIntervalLowerBound": 0, "ScalingAdjustment": 1}]
+        }
+      },
+      "Steps": [
+        {"Name": "failed resource write rolls back desired capacity", "At": 0, "Metric": 55, "Reject": true, "ActivityStatus": "Failed", "Desired": 1, "Running": 1},
+        {"Name": "retry can scale", "At": 1, "Metric": 55, "Desired": 2, "Running": 1},
+        {"Name": "successful retry completes", "At": 2, "Complete": true, "Desired": 2, "Running": 2},
+        {"Name": "only successful retry contributes credit", "At": 3, "Metric": 55, "Desired": 2, "Running": 2}
+      ]
+    }
+  ],
+  "Schedules": [
+    {
+      "Name": "one-shot rejection leaves later action runnable",
+      "Schedule": "at(2026-09-17T00:01:00)",
+      "Steps": [
+        {"At": 60, "Error": "ValidationException", "Min": 0, "Max": 3, "Desired": 2, "NextName": "later-valid", "NextAt": 120},
+        {"At": 120, "Min": 4, "Max": 5, "Desired": 4}
+      ]
+    },
+    {
+      "Name": "recurring rejection consumes only the invalid occurrence",
+      "Schedule": "rate(5 minutes)",
+      "Steps": [
+        {"At": 60, "Error": "ValidationException", "Min": 0, "Max": 3, "Desired": 2, "NextName": "later-valid", "NextAt": 120},
+        {"At": 120, "Min": 4, "Max": 5, "Desired": 4, "NextName": "one-sided", "NextAt": 360},
+        {"At": 360, "Min": 4, "Max": 5, "Desired": 4, "NextName": "one-sided", "NextAt": 660}
+      ]
+    }
+  ]
+}

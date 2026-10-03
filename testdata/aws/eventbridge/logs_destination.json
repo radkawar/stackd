@@ -1,0 +1,2004 @@
+{
+  "source": "Native AWS CLI, actual configured credentials; not emulator output",
+  "retrieved_at": "2026-09-13T22:11:24.295758+00:00",
+  "region": "us-east-1",
+  "primary_references": [
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-use-resource-based.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-transform-target-input.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutTargets.html",
+    "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-dlq.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutResourcePolicy.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DescribeResourcePolicies.html",
+    "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DeleteResourcePolicy.html"
+  ],
+  "scope": "One unique custom bus/rule, Logs group, resource policy, account policy limited to the owned group/source, and standard SQS target DLQ. No existing policies modified or unrelated Logs records read.",
+  "identity_relationships": {
+    "caller_account": "123456789012",
+    "source_rule_and_destination_account_match": true,
+    "source_rule_arn": "arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule",
+    "destination_group_arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+    "substitutions": "Caller account becomes 123456789012, unique shared prefix becomes stackd-events-logs-owned everywhere including policy documents and messages. Caller ARN/UserId discarded. Native timestamps, IDs, revisions, tokens and stream suffixes retained."
+  },
+  "request_counts": {
+    "sts": 1,
+    "logs": 38,
+    "events": 20,
+    "sqs": 5,
+    "total": 64,
+    "automatic_retries": false
+  },
+  "bounds": {
+    "max_requests_excluding_cleanup": 150,
+    "success_poll_attempts": 18,
+    "success_poll_interval_seconds": 5,
+    "revoked_dlq_polls": 6,
+    "dlq_long_poll_seconds": 10,
+    "target_maximum_retries": 0,
+    "target_maximum_age_seconds": 60
+  },
+  "observations": [
+    {
+      "label": "create-group",
+      "service": "logs",
+      "operation": "create-log-group",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337484295,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337485024
+    },
+    {
+      "label": "retention-one-day",
+      "service": "logs",
+      "operation": "put-retention-policy",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned",
+        "retentionInDays": 1
+      },
+      "request_started_ms": 1789337485024,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337485728
+    },
+    {
+      "label": "create-bus",
+      "service": "events",
+      "operation": "create-event-bus",
+      "input": {
+        "Name": "stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337485729,
+      "result": {
+        "code": "Success",
+        "output": {
+          "EventBusArn": "arn:aws:events:us-east-1:123456789012:event-bus/stackd-events-logs-owned"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337486487
+    },
+    {
+      "label": "create-rule",
+      "service": "events",
+      "operation": "put-rule",
+      "input": {
+        "Name": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "EventPattern": "{\"source\": [\"stackd.native.events-logs\"]}"
+      },
+      "request_started_ms": 1789337486488,
+      "result": {
+        "code": "Success",
+        "output": {
+          "RuleArn": "arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337487252
+    },
+    {
+      "label": "create-dlq",
+      "service": "sqs",
+      "operation": "create-queue",
+      "input": {
+        "QueueName": "stackd-events-logs-owned-dlq",
+        "Attributes": {
+          "MessageRetentionPeriod": "300"
+        }
+      },
+      "request_started_ms": 1789337487253,
+      "result": {
+        "code": "Success",
+        "output": {
+          "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-events-logs-owned-dlq"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337488026
+    },
+    {
+      "label": "authorize-dlq",
+      "service": "sqs",
+      "operation": "set-queue-attributes",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-events-logs-owned-dlq",
+        "Attributes": {
+          "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"}}}]}"
+        }
+      },
+      "request_started_ms": 1789337488027,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337488720
+    },
+    {
+      "label": "resource-policy-before-create",
+      "service": "logs",
+      "operation": "describe-resource-policies",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyScope": "RESOURCE"
+      },
+      "request_started_ms": 1789337488721,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicies": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337489410
+    },
+    {
+      "label": "policy-name-and-resource-arn",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyName": "stackd-events-logs-owned-resource",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}"
+      },
+      "request_started_ms": 1789337489410,
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Both policy name and resource arn cannot be specified at the same time.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337490082
+    },
+    {
+      "label": "policy-invalid-json",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyDocument": "not-json"
+      },
+      "request_started_ms": 1789337490082,
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Error occurred while parsing accessPolicy. Please check if the accessPolicy has been constructed correctly using IAM grammar.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337490808
+    },
+    {
+      "label": "policy-invalid-document",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyDocument": "{}"
+      },
+      "request_started_ms": 1789337490809,
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Error occurred while parsing accessPolicy. Please check if the accessPolicy has been constructed correctly using IAM grammar.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337491519
+    },
+    {
+      "label": "policy-invalid-resource-stream",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:log-stream:owned-invalid",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}"
+      },
+      "request_started_ms": 1789337491520,
+      "result": {
+        "code": "ValidationException",
+        "message": "Invalid resourceArn",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337492211
+    },
+    {
+      "label": "resource-policy-create-revision-omitted",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}"
+      },
+      "request_started_ms": 1789337492211,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicy": {
+            "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+            "lastUpdatedTime": 1789337492811,
+            "policyScope": "RESOURCE",
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned"
+          },
+          "revisionId": "1"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337492905
+    },
+    {
+      "label": "resource-policy-describe",
+      "service": "logs",
+      "operation": "describe-resource-policies",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyScope": "RESOURCE"
+      },
+      "request_started_ms": 1789337492905,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicies": [
+            {
+              "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"delivery.logs.amazonaws.com\",\"events.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"},\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"}}}]}",
+              "lastUpdatedTime": 1789337492802,
+              "policyScope": "RESOURCE",
+              "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+              "revisionId": "1"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337493581
+    },
+    {
+      "label": "resource-policy-describe-default-scope",
+      "service": "logs",
+      "operation": "describe-resource-policies",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337493582,
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Cannot provide ResourceArn for PolicyScope ACCOUNT",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337494275
+    },
+    {
+      "label": "resource-policy-update-revision-omitted",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}"
+      },
+      "request_started_ms": 1789337494275,
+      "result": {
+        "code": "OperationAbortedException",
+        "message": "A conflicting operation is currently in progress against this resource. Please try again.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337494961
+    },
+    {
+      "label": "resource-policy-update-bogus-revision",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+        "expectedRevisionId": "owned-invalid-revision"
+      },
+      "request_started_ms": 1789337494962,
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Invalid ExpectedRevisionId",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337495688
+    },
+    {
+      "label": "resource-policy-update-current-revision",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+        "expectedRevisionId": "1"
+      },
+      "request_started_ms": 1789337495688,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicy": {
+            "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+            "lastUpdatedTime": 1789337496378,
+            "policyScope": "RESOURCE",
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned"
+          },
+          "revisionId": "2"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337496463
+    },
+    {
+      "label": "resource-policy-update-stale-revision",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+        "expectedRevisionId": "1"
+      },
+      "request_started_ms": 1789337496464,
+      "result": {
+        "code": "OperationAbortedException",
+        "message": "A conflicting operation is currently in progress against this resource. Please try again.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337497169
+    },
+    {
+      "label": "resource-policy-delete-stale-revision",
+      "service": "logs",
+      "operation": "delete-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "expectedRevisionId": "1"
+      },
+      "request_started_ms": 1789337497170,
+      "result": {
+        "code": "OperationAbortedException",
+        "message": "A conflicting operation is currently in progress against this resource. Please try again.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337497832
+    },
+    {
+      "label": "resource-policy-after-rejected-revisions",
+      "service": "logs",
+      "operation": "describe-resource-policies",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyScope": "RESOURCE"
+      },
+      "request_started_ms": 1789337497833,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicies": [
+            {
+              "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"},\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"}}}]}",
+              "lastUpdatedTime": 1789337496370,
+              "policyScope": "RESOURCE",
+              "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+              "revisionId": "2"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337498509
+    },
+    {
+      "label": "resource-policy-unsupported-action",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "expectedRevisionId": "2",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:DeleteLogGroup\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}"
+      },
+      "request_started_ms": 1789337498510,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicy": {
+            "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:DeleteLogGroup\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+            "lastUpdatedTime": 1789337499104,
+            "policyScope": "RESOURCE",
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned"
+          },
+          "revisionId": "3"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337499191
+    },
+    {
+      "label": "resource-policy-after-action-probe",
+      "service": "logs",
+      "operation": "describe-resource-policies",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyScope": "RESOURCE"
+      },
+      "request_started_ms": 1789337499192,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicies": [
+            {
+              "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"delivery.logs.amazonaws.com\",\"events.amazonaws.com\"]},\"Action\":\"logs:DeleteLogGroup\",\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"},\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"}}}]}",
+              "lastUpdatedTime": 1789337499097,
+              "policyScope": "RESOURCE",
+              "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+              "revisionId": "3"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337499876
+    },
+    {
+      "label": "restore-resource-policy",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+        "expectedRevisionId": "3"
+      },
+      "request_started_ms": 1789337499877,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicy": {
+            "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+            "lastUpdatedTime": 1789337500483,
+            "policyScope": "RESOURCE",
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned"
+          },
+          "revisionId": "4"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337500575
+    },
+    {
+      "label": "target-role-arn",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "Targets": [
+          {
+            "Id": "owned-target",
+            "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+            },
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "RoleArn": "arn:aws:iam::123456789012:role/stackd-events-logs-owned-uncreated"
+          }
+        ]
+      },
+      "request_started_ms": 1789337500575,
+      "result": {
+        "code": "ValidationException",
+        "message": "RoleArn is not supported for target arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337501318
+    },
+    {
+      "label": "target-input-constant",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "Targets": [
+          {
+            "Id": "owned-target",
+            "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+            },
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "Input": "{\"message\":\"owned-constant\"}"
+          }
+        ]
+      },
+      "request_started_ms": 1789337501318,
+      "result": {
+        "code": "ValidationException",
+        "message": "Input and InputPath are not valid forms of input for target owned-target. The only valid form of input is InputTransformer.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337502070
+    },
+    {
+      "label": "target-input-path",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "Targets": [
+          {
+            "Id": "owned-target",
+            "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+            },
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "InputPath": "$.detail"
+          }
+        ]
+      },
+      "request_started_ms": 1789337502071,
+      "result": {
+        "code": "ValidationException",
+        "message": "Input and InputPath are not valid forms of input for target owned-target. The only valid form of input is InputTransformer.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337502806
+    },
+    {
+      "label": "target-stream-arn",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "Targets": [
+          {
+            "Id": "owned-target",
+            "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:log-stream:owned-invalid",
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+            },
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            }
+          }
+        ]
+      },
+      "request_started_ms": 1789337502807,
+      "result": {
+        "code": "ValidationException",
+        "message": "Parameter arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:log-stream:owned-invalid is not valid. Reason: Provided Arn is not in correct format.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337503539
+    },
+    {
+      "label": "target-transformer-missing-timestamp",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "Targets": [
+          {
+            "Id": "owned-target",
+            "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+            },
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "InputTransformer": {
+              "InputTemplate": "{\"message\":\"owned\"}"
+            }
+          }
+        ]
+      },
+      "request_started_ms": 1789337503540,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337504274
+    },
+    {
+      "label": "target-default",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "Targets": [
+          {
+            "Id": "owned-target",
+            "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+            },
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            }
+          }
+        ]
+      },
+      "request_started_ms": 1789337504275,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337505005
+    },
+    {
+      "label": "list-target-default",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337505006,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": [
+            {
+              "Id": "owned-target",
+              "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+              "DeadLetterConfig": {
+                "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+              },
+              "RetryPolicy": {
+                "MaximumRetryAttempts": 0,
+                "MaximumEventAgeInSeconds": 60
+              }
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337505698
+    },
+    {
+      "label": "put-event-resource-policy-default",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-events-logs-owned",
+            "Source": "stackd.native.events-logs",
+            "DetailType": "OwnedLogsDestination",
+            "Time": "2026-09-13T22:10:00.123000+00:00",
+            "Resources": [
+              "arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule"
+            ],
+            "Detail": "{\"probe\": \"resource-policy-default\", \"text\": \"owned hello\", \"n\": 7}"
+          }
+        ]
+      },
+      "request_started_ms": 1789337520698,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "1917d83a-a0eb-e4fc-f09c-5b621ef1b137"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337521441
+    },
+    {
+      "label": "logs-resource-policy-default-0",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned",
+        "limit": 100
+      },
+      "request_started_ms": 1789337521442,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [],
+          "searchedLogStreams": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337522391
+    },
+    {
+      "label": "logs-resource-policy-default-1",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned",
+        "limit": 100
+      },
+      "request_started_ms": 1789337527392,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "logStreamName": "e18fa6e3-495b-31ad-b0bf-6cf72b033934",
+              "timestamp": 1789337400000,
+              "message": "{\"version\":\"0\",\"id\":\"1917d83a-a0eb-e4fc-f09c-5b621ef1b137\",\"detail-type\":\"OwnedLogsDestination\",\"source\":\"stackd.native.events-logs\",\"account\":\"123456789012\",\"time\":\"2026-09-13T22:10:00Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"],\"detail\":{\"probe\":\"resource-policy-default\",\"text\":\"owned hello\",\"n\":7}}",
+              "ingestionTime": 1789337521715,
+              "eventId": "39903557431601269034618530471120187501672502164433403904"
+            }
+          ],
+          "searchedLogStreams": [],
+          "nextToken": "Bxkq6kVGFtq2y_MoigeqscPOdhXVbhiVtLoAmXb5jCp1QuBoHidKlPH7lBpnu1TDBx8WQ3sd320GbG8wZmA998El4uGhBDNz5XWwWdkJ7e3fJYDsYLmNboFDttgKXmxl0jrfTvPjATrj1I4bKdJI3fO260j1zQFdmkML3Iui-0XfirBIs2TypXzS0dvth-DwTWFTEn6UGGOBNiTvjpnfPK-vv3RFvAcri6NXZcaPi986C29hIuK51Z1HD_REMDyVdeJmrly-ZwQ_iu4Ow9w17LNEMqG6tpg0kfHnKgTRzbFtstt5a87YrigrA7umdHN3FiNLVkvfhTXAAmS6LqV0lA"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337528264
+    },
+    {
+      "label": "account-policy-create",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "policyName": "stackd-events-logs-owned-account",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}"
+      },
+      "request_started_ms": 1789337528267,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicy": {
+            "policyName": "stackd-events-logs-owned-account",
+            "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+            "lastUpdatedTime": 1789337528861,
+            "policyScope": "ACCOUNT"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337528952
+    },
+    {
+      "label": "account-policy-update-bogus-revision",
+      "service": "logs",
+      "operation": "put-resource-policy",
+      "input": {
+        "policyName": "stackd-events-logs-owned-account",
+        "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedUpdated\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+        "expectedRevisionId": "owned-invalid-revision"
+      },
+      "request_started_ms": 1789337528954,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicy": {
+            "policyName": "stackd-events-logs-owned-account",
+            "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedUpdated\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}",
+            "lastUpdatedTime": 1789337529573,
+            "policyScope": "ACCOUNT"
+          }
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337529665
+    },
+    {
+      "label": "account-policy-describe-filtered",
+      "service": "logs",
+      "operation": "describe-resource-policies",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyScope": "ACCOUNT"
+      },
+      "request_started_ms": 1789337529666,
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Cannot provide ResourceArn for PolicyScope ACCOUNT",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337530350
+    },
+    {
+      "label": "target-transformer-timestamp-message",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "Targets": [
+          {
+            "Id": "owned-target",
+            "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+            },
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            },
+            "InputTransformer": {
+              "InputPathsMap": {
+                "timestamp": "$.time",
+                "text": "$.detail.text",
+                "probe": "$.detail.probe"
+              },
+              "InputTemplate": "{\"timestamp\":<timestamp>,\"message\":\"transformed-<probe>: <text>\"}"
+            }
+          }
+        ]
+      },
+      "request_started_ms": 1789337530351,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337531115
+    },
+    {
+      "label": "list-target-transformed",
+      "service": "events",
+      "operation": "list-targets-by-rule",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337531115,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Targets": [
+            {
+              "Id": "owned-target",
+              "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+              "InputTransformer": {
+                "InputPathsMap": {
+                  "probe": "$.detail.probe",
+                  "text": "$.detail.text",
+                  "timestamp": "$.time"
+                },
+                "InputTemplate": "{\"timestamp\":<timestamp>,\"message\":\"transformed-<probe>: <text>\"}"
+              },
+              "DeadLetterConfig": {
+                "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+              },
+              "RetryPolicy": {
+                "MaximumRetryAttempts": 0,
+                "MaximumEventAgeInSeconds": 60
+              }
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337531899
+    },
+    {
+      "label": "put-event-transformed",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-events-logs-owned",
+            "Source": "stackd.native.events-logs",
+            "DetailType": "OwnedLogsDestination",
+            "Time": "2026-09-13T22:10:26.123000+00:00",
+            "Resources": [
+              "arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule"
+            ],
+            "Detail": "{\"probe\": \"transformed\", \"text\": \"owned hello\", \"n\": 7}"
+          }
+        ]
+      },
+      "request_started_ms": 1789337546900,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "c0873372-c1df-ff1a-2b19-668f3762f9f9"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337547674
+    },
+    {
+      "label": "logs-transformed-0",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned",
+        "limit": 100
+      },
+      "request_started_ms": 1789337547675,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "logStreamName": "e18fa6e3-495b-31ad-b0bf-6cf72b033934",
+              "timestamp": 1789337400000,
+              "message": "{\"version\":\"0\",\"id\":\"1917d83a-a0eb-e4fc-f09c-5b621ef1b137\",\"detail-type\":\"OwnedLogsDestination\",\"source\":\"stackd.native.events-logs\",\"account\":\"123456789012\",\"time\":\"2026-09-13T22:10:00Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"],\"detail\":{\"probe\":\"resource-policy-default\",\"text\":\"owned hello\",\"n\":7}}",
+              "ingestionTime": 1789337521715,
+              "eventId": "39903557431601269034618530471120187501672502164433403904"
+            },
+            {
+              "logStreamName": "1e6f10dd-c50d-3d7c-bd9a-ad9cd86965f2",
+              "timestamp": 1789337426000,
+              "message": "transformed-transformed: owned hello",
+              "ingestionTime": 1789337547916,
+              "eventId": "39903558011420644196414732182723702941231758376592080896"
+            }
+          ],
+          "searchedLogStreams": [],
+          "nextToken": "Bxkq6kVGFtq2y_MoigeqscPOdhXVbhiVtLoAmXb5jCrTvVdPwWHE6F-_e2-WqMqqvW8Hedo-EY-JTPyeFJ_8-5wJlyYw5YQea3y3xlA9zeiuOVPWtiXpOJFtOD_aXzpZHSOjIM-ARP3aFzuwEULcU2v3DTto1VzwJOiwgnpzhg1RBS9enIhjHQgSWdt92QRjokBqI0mORypbVSuWTw8H5blj6yUbDrl20rU0yBba9NtRVhZeIlbCwQorZtEBIzQxCSTB1SHFoZvrx7KusoZfKAtjtSXTqmhB0YwBLkTPNtNH9YZf3SiDlIgEIjVO-Z5hKFEr5tipgvaafymbaIwzzg"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337548553
+    },
+    {
+      "label": "describe-delivered-streams",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned",
+        "limit": 10
+      },
+      "request_started_ms": 1789337548556,
+      "result": {
+        "code": "Success",
+        "output": {
+          "logStreams": [
+            {
+              "logStreamName": "1e6f10dd-c50d-3d7c-bd9a-ad9cd86965f2",
+              "creationTime": 1789337547909,
+              "firstEventTimestamp": 1789337426000,
+              "lastEventTimestamp": 1789337426000,
+              "lastIngestionTime": 1789337547916,
+              "uploadSequenceToken": "49039859686146006066547669355942915729948926027782059020",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:log-stream:1e6f10dd-c50d-3d7c-bd9a-ad9cd86965f2",
+              "storedBytes": 0
+            },
+            {
+              "logStreamName": "e18fa6e3-495b-31ad-b0bf-6cf72b033934",
+              "creationTime": 1789337521705,
+              "firstEventTimestamp": 1789337400000,
+              "lastEventTimestamp": 1789337400000,
+              "lastIngestionTime": 1789337521715,
+              "uploadSequenceToken": "49039859686145971239444951795362130551414872371933639923",
+              "arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:log-stream:e18fa6e3-495b-31ad-b0bf-6cf72b033934",
+              "storedBytes": 0
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337549263
+    },
+    {
+      "label": "get-delivered-stream",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned",
+        "logStreamName": "1e6f10dd-c50d-3d7c-bd9a-ad9cd86965f2",
+        "startFromHead": true,
+        "limit": 100
+      },
+      "request_started_ms": 1789337549264,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789337426000,
+              "message": "transformed-transformed: owned hello",
+              "ingestionTime": 1789337547916
+            }
+          ],
+          "nextForwardToken": "f/39903558011420644196414732182723702941231758376592080896/s",
+          "nextBackwardToken": "b/39903558011420644196414732182723702941231758376592080896/s"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337550082
+    },
+    {
+      "label": "get-delivered-stream",
+      "service": "logs",
+      "operation": "get-log-events",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned",
+        "logStreamName": "e18fa6e3-495b-31ad-b0bf-6cf72b033934",
+        "startFromHead": true,
+        "limit": 100
+      },
+      "request_started_ms": 1789337550083,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "timestamp": 1789337400000,
+              "message": "{\"version\":\"0\",\"id\":\"1917d83a-a0eb-e4fc-f09c-5b621ef1b137\",\"detail-type\":\"OwnedLogsDestination\",\"source\":\"stackd.native.events-logs\",\"account\":\"123456789012\",\"time\":\"2026-09-13T22:10:00Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"],\"detail\":{\"probe\":\"resource-policy-default\",\"text\":\"owned hello\",\"n\":7}}",
+              "ingestionTime": 1789337521715
+            }
+          ],
+          "nextForwardToken": "f/39903557431601269034618530471120187501672502164433403904/s",
+          "nextBackwardToken": "b/39903557431601269034618530471120187501672502164433403904/s"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337550870
+    },
+    {
+      "label": "account-policy-delete-bogus-revision",
+      "service": "logs",
+      "operation": "delete-resource-policy",
+      "input": {
+        "policyName": "stackd-events-logs-owned-account",
+        "expectedRevisionId": "owned-invalid-revision"
+      },
+      "request_started_ms": 1789337550871,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337551556
+    },
+    {
+      "label": "account-policy-delete-again",
+      "service": "logs",
+      "operation": "delete-resource-policy",
+      "input": {
+        "policyName": "stackd-events-logs-owned-account"
+      },
+      "request_started_ms": 1789337551557,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Policy with name [stackd-events-logs-owned-account] does not exist.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337552256
+    },
+    {
+      "label": "resource-policy-delete-revision-omitted",
+      "service": "logs",
+      "operation": "delete-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337552257,
+      "result": {
+        "code": "InvalidParameterException",
+        "message": "Invalid ExpectedRevisionId",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337552980
+    },
+    {
+      "label": "resource-policy-delete-current-revision",
+      "service": "logs",
+      "operation": "delete-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "expectedRevisionId": "4"
+      },
+      "request_started_ms": 1789337552981,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337553710
+    },
+    {
+      "label": "resource-policy-after-delete",
+      "service": "logs",
+      "operation": "describe-resource-policies",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyScope": "RESOURCE"
+      },
+      "request_started_ms": 1789337553711,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicies": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337554497
+    },
+    {
+      "label": "resource-policy-delete-again",
+      "service": "logs",
+      "operation": "delete-resource-policy",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "expectedRevisionId": "4"
+      },
+      "request_started_ms": 1789337554498,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "No policy found for ResourceArn",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337555186
+    },
+    {
+      "label": "restore-default-target-before-revocation",
+      "service": "events",
+      "operation": "put-targets",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "Targets": [
+          {
+            "Id": "owned-target",
+            "Arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "DeadLetterConfig": {
+              "Arn": "arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq"
+            },
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 0,
+              "MaximumEventAgeInSeconds": 60
+            }
+          }
+        ]
+      },
+      "request_started_ms": 1789337555187,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337555916
+    },
+    {
+      "label": "put-event-revoked",
+      "service": "events",
+      "operation": "put-events",
+      "input": {
+        "Entries": [
+          {
+            "EventBusName": "stackd-events-logs-owned",
+            "Source": "stackd.native.events-logs",
+            "DetailType": "OwnedLogsDestination",
+            "Time": "2026-09-13T22:10:55.123000+00:00",
+            "Resources": [
+              "arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule"
+            ],
+            "Detail": "{\"probe\": \"revoked\", \"text\": \"owned hello\", \"n\": 7}"
+          }
+        ]
+      },
+      "request_started_ms": 1789337575918,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "Entries": [
+            {
+              "EventId": "4bc9cbf0-12d1-bbf8-f578-6d2d891d0e5a"
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337576823
+    },
+    {
+      "label": "dlq-after-revoke-0",
+      "service": "sqs",
+      "operation": "receive-message",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-events-logs-owned-dlq",
+        "MaxNumberOfMessages": 10,
+        "WaitTimeSeconds": 10,
+        "VisibilityTimeout": 90,
+        "MessageAttributeNames": [
+          "All"
+        ],
+        "MessageSystemAttributeNames": [
+          "All"
+        ]
+      },
+      "request_started_ms": 1789337576825,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Messages": [
+            {
+              "MessageId": "b46a287c-2d89-4812-8e6b-7760c533d578",
+              "ReceiptHandle": "AQEBHaeqiQjm5m3f5o7MhmFfX0Hk6I3VOB20I2VFeI9bxtKcPUc/azBUpuZnHtXXou4QdzT5yAU0c/9bnyter5QBocqxctYqQfmq4UH5ASlftcdb3B46pdtr0AYHnQtRjKrKXN4a7rBORVdTtCZzxuZtrgWRDpZfIUZQFe4PHsokDcZb3mpEGxNFiCKdId3iCQkDCLRwwGTBnyvgW2DKFLNX1NO+axioczqZ8+BXugSqsnQo9iytp4xMF4DKVbDSIm+jRyP6sEH3WT3gjqpu2vXpxfRG1Ixb3xT/xs7byfXBaiXN63IAcyjYIfOn1QsS+LjeIr9uTKwSxZYm3WcNfd6hc012CQl3JNXX6sNEDcdZBnnnbJWd4b3ywu97TSbhUt5w0idIbu7+ikbfbgCIS/Piik9OdKkG0wmUc7Azszo9TSM=",
+              "MD5OfBody": "1f3515594bcd6e11dcf257ad7e834c2a",
+              "Body": "{\"version\":\"0\",\"id\":\"4bc9cbf0-12d1-bbf8-f578-6d2d891d0e5a\",\"detail-type\":\"OwnedLogsDestination\",\"source\":\"stackd.native.events-logs\",\"account\":\"123456789012\",\"time\":\"2026-09-13T22:10:55Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"],\"detail\":{\"probe\":\"revoked\",\"text\":\"owned hello\",\"n\":7}}",
+              "Attributes": {
+                "SenderId": "AIDAJXNJGGKNS7OSV23OI",
+                "ApproximateFirstReceiveTimestamp": "1789337577701",
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1789337577084"
+              },
+              "MD5OfMessageAttributes": "06db9158591e74ddaff3c65f62fcfca5",
+              "MessageAttributes": {
+                "ERROR_CODE": {
+                  "StringValue": "NO_PERMISSIONS",
+                  "DataType": "String"
+                },
+                "ERROR_MESSAGE": {
+                  "StringValue": "Could not complete putLogEvents call for /aws/events/stackd-events-logs-owned.",
+                  "DataType": "String"
+                },
+                "RULE_ARN": {
+                  "StringValue": "arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule",
+                  "DataType": "String"
+                },
+                "TARGET_ARN": {
+                  "StringValue": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+                  "DataType": "String"
+                }
+              }
+            }
+          ]
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337577816
+    },
+    {
+      "label": "logs-revoked-0",
+      "service": "logs",
+      "operation": "filter-log-events",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned",
+        "limit": 100
+      },
+      "request_started_ms": 1789337577817,
+      "result": {
+        "code": "Success",
+        "output": {
+          "events": [
+            {
+              "logStreamName": "e18fa6e3-495b-31ad-b0bf-6cf72b033934",
+              "timestamp": 1789337400000,
+              "message": "{\"version\":\"0\",\"id\":\"1917d83a-a0eb-e4fc-f09c-5b621ef1b137\",\"detail-type\":\"OwnedLogsDestination\",\"source\":\"stackd.native.events-logs\",\"account\":\"123456789012\",\"time\":\"2026-09-13T22:10:00Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"],\"detail\":{\"probe\":\"resource-policy-default\",\"text\":\"owned hello\",\"n\":7}}",
+              "ingestionTime": 1789337521715,
+              "eventId": "39903557431601269034618530471120187501672502164433403904"
+            },
+            {
+              "logStreamName": "1e6f10dd-c50d-3d7c-bd9a-ad9cd86965f2",
+              "timestamp": 1789337426000,
+              "message": "transformed-transformed: owned hello",
+              "ingestionTime": 1789337547916,
+              "eventId": "39903558011420644196414732182723702941231758376592080896"
+            }
+          ],
+          "searchedLogStreams": [],
+          "nextToken": "Bxkq6kVGFtq2y_MoigeqscPOdhXVbhiVtLoAmXb5jCrTvVdPwWHE6F-_e2-WqMqqvW8Hedo-EY-JTPyeFJ_8-5wJlyYw5YQea3y3xlA9zeiuOVPWtiXpOJFtOD_aXzpZHSOjIM-ARP3aFzuwEULcU2v3DTto1VzwJOiwgnpzhg1RBS9enIhjHQgSWdt92QRjokBqI0mORypbVSuWTw8H5blj6yUbDrl20rU0yBba9NtRVhZeIlbCwQorZtEBIzQxCSTB1SHFoZvrx7KusoZfKAtjtSXTqmhB0YwBLkTPNtNH9YZf3SiDlIgEIjVO-Z5hKFEr5tipgvaafymbaIwzzg"
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337578987
+    },
+    {
+      "label": "cleanup-remove-target",
+      "service": "events",
+      "operation": "remove-targets",
+      "input": {
+        "Rule": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned",
+        "Ids": [
+          "owned-target"
+        ]
+      },
+      "request_started_ms": 1789337578990,
+      "result": {
+        "code": "Success",
+        "output": {
+          "FailedEntryCount": 0,
+          "FailedEntries": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337579999
+    },
+    {
+      "label": "cleanup-delete-rule",
+      "service": "events",
+      "operation": "delete-rule",
+      "input": {
+        "Name": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337580001,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337581051
+    },
+    {
+      "label": "cleanup-verify-rule-absent",
+      "service": "events",
+      "operation": "describe-rule",
+      "input": {
+        "Name": "owned-rule",
+        "EventBusName": "stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337581053,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Rule owned-rule does not exist on EventBus stackd-events-logs-owned.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337582101
+    },
+    {
+      "label": "cleanup-delete-bus",
+      "service": "events",
+      "operation": "delete-event-bus",
+      "input": {
+        "Name": "stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337582103,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337583024
+    },
+    {
+      "label": "cleanup-verify-bus-absent",
+      "service": "events",
+      "operation": "describe-event-bus",
+      "input": {
+        "Name": "stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337583026,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "Event bus stackd-events-logs-owned does not exist.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337584098
+    },
+    {
+      "label": "cleanup-verify-resource-policy-absent",
+      "service": "logs",
+      "operation": "describe-resource-policies",
+      "input": {
+        "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "policyScope": "RESOURCE"
+      },
+      "request_started_ms": 1789337584099,
+      "result": {
+        "code": "Success",
+        "output": {
+          "resourcePolicies": []
+        },
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337584859
+    },
+    {
+      "label": "cleanup-delete-group",
+      "service": "logs",
+      "operation": "delete-log-group",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337584860,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337585725
+    },
+    {
+      "label": "cleanup-verify-group-absent",
+      "service": "logs",
+      "operation": "describe-log-streams",
+      "input": {
+        "logGroupName": "/aws/events/stackd-events-logs-owned"
+      },
+      "request_started_ms": 1789337585727,
+      "result": {
+        "code": "ResourceNotFoundException",
+        "message": "The specified log group does not exist.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337586461
+    },
+    {
+      "label": "cleanup-delete-dlq",
+      "service": "sqs",
+      "operation": "delete-queue",
+      "input": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-events-logs-owned-dlq"
+      },
+      "request_started_ms": 1789337586463,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200
+      },
+      "request_finished_ms": 1789337587255
+    },
+    {
+      "label": "cleanup-verify-dlq-absent",
+      "service": "sqs",
+      "operation": "get-queue-url",
+      "input": {
+        "QueueName": "stackd-events-logs-owned-dlq"
+      },
+      "request_started_ms": 1789337587256,
+      "result": {
+        "code": "AWS.SimpleQueueService.NonExistentQueue",
+        "message": "The specified queue does not exist.",
+        "http_status": 400
+      },
+      "request_finished_ms": 1789337587984
+    }
+  ],
+  "delivery": {
+    "resource-policy-default": {
+      "event_id": "1917d83a-a0eb-e4fc-f09c-5b621ef1b137",
+      "elapsed_seconds": 6.824,
+      "matched_log_events": [
+        {
+          "logStreamName": "e18fa6e3-495b-31ad-b0bf-6cf72b033934",
+          "timestamp": 1789337400000,
+          "message": "{\"version\":\"0\",\"id\":\"1917d83a-a0eb-e4fc-f09c-5b621ef1b137\",\"detail-type\":\"OwnedLogsDestination\",\"source\":\"stackd.native.events-logs\",\"account\":\"123456789012\",\"time\":\"2026-09-13T22:10:00Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"],\"detail\":{\"probe\":\"resource-policy-default\",\"text\":\"owned hello\",\"n\":7}}",
+          "ingestionTime": 1789337521715,
+          "eventId": "39903557431601269034618530471120187501672502164433403904"
+        }
+      ],
+      "poll_attempts": 2
+    },
+    "transformed": {
+      "event_id": "c0873372-c1df-ff1a-2b19-668f3762f9f9",
+      "elapsed_seconds": 0.879,
+      "matched_log_events": [
+        {
+          "logStreamName": "1e6f10dd-c50d-3d7c-bd9a-ad9cd86965f2",
+          "timestamp": 1789337426000,
+          "message": "transformed-transformed: owned hello",
+          "ingestionTime": 1789337547916,
+          "eventId": "39903558011420644196414732182723702941231758376592080896"
+        }
+      ],
+      "poll_attempts": 1
+    },
+    "revocation_dlq": {
+      "event_id": "4bc9cbf0-12d1-bbf8-f578-6d2d891d0e5a",
+      "messages": [
+        {
+          "MessageId": "b46a287c-2d89-4812-8e6b-7760c533d578",
+          "ReceiptHandle": "AQEBHaeqiQjm5m3f5o7MhmFfX0Hk6I3VOB20I2VFeI9bxtKcPUc/azBUpuZnHtXXou4QdzT5yAU0c/9bnyter5QBocqxctYqQfmq4UH5ASlftcdb3B46pdtr0AYHnQtRjKrKXN4a7rBORVdTtCZzxuZtrgWRDpZfIUZQFe4PHsokDcZb3mpEGxNFiCKdId3iCQkDCLRwwGTBnyvgW2DKFLNX1NO+axioczqZ8+BXugSqsnQo9iytp4xMF4DKVbDSIm+jRyP6sEH3WT3gjqpu2vXpxfRG1Ixb3xT/xs7byfXBaiXN63IAcyjYIfOn1QsS+LjeIr9uTKwSxZYm3WcNfd6hc012CQl3JNXX6sNEDcdZBnnnbJWd4b3ywu97TSbhUt5w0idIbu7+ikbfbgCIS/Piik9OdKkG0wmUc7Azszo9TSM=",
+          "MD5OfBody": "1f3515594bcd6e11dcf257ad7e834c2a",
+          "Body": "{\"version\":\"0\",\"id\":\"4bc9cbf0-12d1-bbf8-f578-6d2d891d0e5a\",\"detail-type\":\"OwnedLogsDestination\",\"source\":\"stackd.native.events-logs\",\"account\":\"123456789012\",\"time\":\"2026-09-13T22:10:55Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"],\"detail\":{\"probe\":\"revoked\",\"text\":\"owned hello\",\"n\":7}}",
+          "Attributes": {
+            "SenderId": "AIDAJXNJGGKNS7OSV23OI",
+            "ApproximateFirstReceiveTimestamp": "1789337577701",
+            "ApproximateReceiveCount": "1",
+            "SentTimestamp": "1789337577084"
+          },
+          "MD5OfMessageAttributes": "06db9158591e74ddaff3c65f62fcfca5",
+          "MessageAttributes": {
+            "ERROR_CODE": {
+              "StringValue": "NO_PERMISSIONS",
+              "DataType": "String"
+            },
+            "ERROR_MESSAGE": {
+              "StringValue": "Could not complete putLogEvents call for /aws/events/stackd-events-logs-owned.",
+              "DataType": "String"
+            },
+            "RULE_ARN": {
+              "StringValue": "arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule",
+              "DataType": "String"
+            },
+            "TARGET_ARN": {
+              "StringValue": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+              "DataType": "String"
+            }
+          }
+        }
+      ],
+      "elapsed_seconds": 0.992,
+      "poll_attempts": 1,
+      "matching_messages": 1
+    },
+    "revoked": {
+      "event_id": "4bc9cbf0-12d1-bbf8-f578-6d2d891d0e5a",
+      "elapsed_seconds": 1.171,
+      "matched_log_events": [],
+      "poll_attempts": 1
+    }
+  },
+  "cleanup": {
+    "verified": true,
+    "failures": [],
+    "finished_at": "2026-09-13T22:13:07.985414+00:00"
+  },
+  "limitations": [
+    "One account/region/run. EventBridge eventual propagation and batching are observed only within recorded polling bounds.",
+    "HTTP status comes from shared result(debug=True); native modeled error text is retained, not the raw debug/signing log.",
+    "Revision tests are sequential stale-token concurrency guards, not simultaneous racing writes.",
+    "Describe account policies is not called without the owned resourceArn filter; unrelated policy bodies returned despite a filter are discarded.",
+    "DLQ messages and Logs events can be duplicates; bounded absence is not proof of permanent loss or authorization denial."
+  ],
+  "previous_runs": [
+    {
+      "source": "Native AWS CLI, actual configured credentials; not emulator output",
+      "retrieved_at": "2026-09-13T22:10:20.320847+00:00",
+      "region": "us-east-1",
+      "primary_references": [
+        "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-use-resource-based.html",
+        "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-transform-target-input.html",
+        "https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutTargets.html",
+        "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-dlq.html",
+        "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutResourcePolicy.html",
+        "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DescribeResourcePolicies.html",
+        "https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DeleteResourcePolicy.html"
+      ],
+      "scope": "One unique custom bus/rule, Logs group, resource policy, account policy limited to the owned group/source, and standard SQS target DLQ. No existing policies modified or unrelated Logs records read.",
+      "identity_relationships": {
+        "caller_account": "123456789012",
+        "source_rule_and_destination_account_match": true,
+        "source_rule_arn": "arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule",
+        "destination_group_arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+        "substitutions": "Caller account becomes 123456789012, unique shared prefix becomes stackd-events-logs-owned everywhere including policy documents and messages. Caller ARN/UserId discarded. Native timestamps, IDs, revisions, tokens and stream suffixes retained."
+      },
+      "request_counts": {
+        "sts": 1,
+        "logs": 10,
+        "events": 7,
+        "sqs": 4,
+        "total": 22,
+        "automatic_retries": false
+      },
+      "bounds": {
+        "max_requests_excluding_cleanup": 150,
+        "success_poll_attempts": 18,
+        "success_poll_interval_seconds": 5,
+        "revoked_dlq_polls": 6,
+        "dlq_long_poll_seconds": 10,
+        "target_maximum_retries": 0,
+        "target_maximum_age_seconds": 60
+      },
+      "observations": [
+        {
+          "label": "create-group",
+          "service": "logs",
+          "operation": "create-log-group",
+          "input": {
+            "logGroupName": "/aws/events/stackd-events-logs-owned"
+          },
+          "request_started_ms": 1789337420320,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337421070
+        },
+        {
+          "label": "retention-one-day",
+          "service": "logs",
+          "operation": "put-retention-policy",
+          "input": {
+            "logGroupName": "/aws/events/stackd-events-logs-owned",
+            "retentionInDays": 1
+          },
+          "request_started_ms": 1789337421071,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337422035
+        },
+        {
+          "label": "create-bus",
+          "service": "events",
+          "operation": "create-event-bus",
+          "input": {
+            "Name": "stackd-events-logs-owned"
+          },
+          "request_started_ms": 1789337422035,
+          "result": {
+            "code": "Success",
+            "output": {
+              "EventBusArn": "arn:aws:events:us-east-1:123456789012:event-bus/stackd-events-logs-owned"
+            },
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337422860
+        },
+        {
+          "label": "create-rule",
+          "service": "events",
+          "operation": "put-rule",
+          "input": {
+            "Name": "owned-rule",
+            "EventBusName": "stackd-events-logs-owned",
+            "EventPattern": "{\"source\": [\"stackd.native.events-logs\"]}"
+          },
+          "request_started_ms": 1789337422860,
+          "result": {
+            "code": "Success",
+            "output": {
+              "RuleArn": "arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule"
+            },
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337423778
+        },
+        {
+          "label": "create-dlq",
+          "service": "sqs",
+          "operation": "create-queue",
+          "input": {
+            "QueueName": "stackd-events-logs-owned-dlq",
+            "Attributes": {
+              "MessageRetentionPeriod": "300"
+            }
+          },
+          "request_started_ms": 1789337423778,
+          "result": {
+            "code": "Success",
+            "output": {
+              "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-events-logs-owned-dlq"
+            },
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337424632
+        },
+        {
+          "label": "authorize-dlq",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-events-logs-owned-dlq",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:123456789012:stackd-events-logs-owned-dlq\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"}}}]}"
+            }
+          },
+          "request_started_ms": 1789337424632,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337425461
+        },
+        {
+          "label": "resource-policy-before-create",
+          "service": "logs",
+          "operation": "describe-resource-policies",
+          "input": {
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "policyScope": "RESOURCE"
+          },
+          "request_started_ms": 1789337425461,
+          "result": {
+            "code": "Success",
+            "output": {
+              "resourcePolicies": []
+            },
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337426240
+        },
+        {
+          "label": "policy-invalid-json",
+          "service": "logs",
+          "operation": "put-resource-policy",
+          "input": {
+            "policyName": "stackd-events-logs-owned-resource",
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "policyDocument": "not-json"
+          },
+          "request_started_ms": 1789337426240,
+          "result": {
+            "code": "InvalidParameterException",
+            "message": "Both policy name and resource arn cannot be specified at the same time.",
+            "http_status": 400
+          },
+          "request_finished_ms": 1789337427071
+        },
+        {
+          "label": "policy-invalid-document",
+          "service": "logs",
+          "operation": "put-resource-policy",
+          "input": {
+            "policyName": "stackd-events-logs-owned-resource",
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "policyDocument": "{}"
+          },
+          "request_started_ms": 1789337427072,
+          "result": {
+            "code": "InvalidParameterException",
+            "message": "Both policy name and resource arn cannot be specified at the same time.",
+            "http_status": 400
+          },
+          "request_finished_ms": 1789337428828
+        },
+        {
+          "label": "policy-invalid-resource-stream",
+          "service": "logs",
+          "operation": "put-resource-policy",
+          "input": {
+            "policyName": "stackd-events-logs-owned-resource",
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:log-stream:owned-invalid",
+            "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}"
+          },
+          "request_started_ms": 1789337428828,
+          "result": {
+            "code": "ValidationException",
+            "message": "Invalid resourceArn",
+            "http_status": 400
+          },
+          "request_finished_ms": 1789337429611
+        },
+        {
+          "label": "resource-policy-create-revision-omitted",
+          "service": "logs",
+          "operation": "put-resource-policy",
+          "input": {
+            "policyName": "stackd-events-logs-owned-resource",
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"OwnedEventBridgeLogs\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"delivery.logs.amazonaws.com\"]},\"Action\":[\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned:*\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:events:us-east-1:123456789012:rule/stackd-events-logs-owned/owned-rule\"},\"StringEquals\":{\"aws:SourceAccount\":\"123456789012\"}}}]}"
+          },
+          "request_started_ms": 1789337429611,
+          "result": {
+            "code": "InvalidParameterException",
+            "message": "Both policy name and resource arn cannot be specified at the same time.",
+            "http_status": 400
+          },
+          "request_finished_ms": 1789337430462
+        },
+        {
+          "label": "cleanup-remove-target",
+          "service": "events",
+          "operation": "remove-targets",
+          "input": {
+            "Rule": "owned-rule",
+            "EventBusName": "stackd-events-logs-owned",
+            "Ids": [
+              "owned-target"
+            ]
+          },
+          "request_started_ms": 1789337430462,
+          "result": {
+            "code": "Success",
+            "output": {
+              "FailedEntryCount": 0,
+              "FailedEntries": []
+            },
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337431663
+        },
+        {
+          "label": "cleanup-delete-rule",
+          "service": "events",
+          "operation": "delete-rule",
+          "input": {
+            "Name": "owned-rule",
+            "EventBusName": "stackd-events-logs-owned"
+          },
+          "request_started_ms": 1789337431663,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337432457
+        },
+        {
+          "label": "cleanup-verify-rule-absent",
+          "service": "events",
+          "operation": "describe-rule",
+          "input": {
+            "Name": "owned-rule",
+            "EventBusName": "stackd-events-logs-owned"
+          },
+          "request_started_ms": 1789337432457,
+          "result": {
+            "code": "ResourceNotFoundException",
+            "message": "Rule owned-rule does not exist on EventBus stackd-events-logs-owned.",
+            "http_status": 400
+          },
+          "request_finished_ms": 1789337433398
+        },
+        {
+          "label": "cleanup-delete-bus",
+          "service": "events",
+          "operation": "delete-event-bus",
+          "input": {
+            "Name": "stackd-events-logs-owned"
+          },
+          "request_started_ms": 1789337433398,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337434319
+        },
+        {
+          "label": "cleanup-verify-bus-absent",
+          "service": "events",
+          "operation": "describe-event-bus",
+          "input": {
+            "Name": "stackd-events-logs-owned"
+          },
+          "request_started_ms": 1789337434320,
+          "result": {
+            "code": "ResourceNotFoundException",
+            "message": "Event bus stackd-events-logs-owned does not exist.",
+            "http_status": 400
+          },
+          "request_finished_ms": 1789337435420
+        },
+        {
+          "label": "cleanup-verify-resource-policy-absent",
+          "service": "logs",
+          "operation": "describe-resource-policies",
+          "input": {
+            "resourceArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/events/stackd-events-logs-owned",
+            "policyScope": "RESOURCE"
+          },
+          "request_started_ms": 1789337435420,
+          "result": {
+            "code": "Success",
+            "output": {
+              "resourcePolicies": []
+            },
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337436345
+        },
+        {
+          "label": "cleanup-delete-group",
+          "service": "logs",
+          "operation": "delete-log-group",
+          "input": {
+            "logGroupName": "/aws/events/stackd-events-logs-owned"
+          },
+          "request_started_ms": 1789337436345,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337437512
+        },
+        {
+          "label": "cleanup-verify-group-absent",
+          "service": "logs",
+          "operation": "describe-log-streams",
+          "input": {
+            "logGroupName": "/aws/events/stackd-events-logs-owned"
+          },
+          "request_started_ms": 1789337437512,
+          "result": {
+            "code": "ResourceNotFoundException",
+            "message": "The specified log group does not exist.",
+            "http_status": 400
+          },
+          "request_finished_ms": 1789337438365
+        },
+        {
+          "label": "cleanup-delete-dlq",
+          "service": "sqs",
+          "operation": "delete-queue",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/stackd-events-logs-owned-dlq"
+          },
+          "request_started_ms": 1789337438366,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          },
+          "request_finished_ms": 1789337439284
+        },
+        {
+          "label": "cleanup-verify-dlq-absent",
+          "service": "sqs",
+          "operation": "get-queue-url",
+          "input": {
+            "QueueName": "stackd-events-logs-owned-dlq"
+          },
+          "request_started_ms": 1789337439285,
+          "result": {
+            "code": "AWS.SimpleQueueService.NonExistentQueue",
+            "message": "The specified queue does not exist.",
+            "http_status": 400
+          },
+          "request_finished_ms": 1789337440141
+        }
+      ],
+      "delivery": {},
+      "cleanup": {
+        "verified": true,
+        "failures": [],
+        "finished_at": "2026-09-13T22:10:40.141919+00:00"
+      },
+      "limitations": [
+        "One account/region/run. EventBridge eventual propagation and batching are observed only within recorded polling bounds.",
+        "HTTP status comes from shared result(debug=True); native modeled error text is retained, not the raw debug/signing log.",
+        "Revision tests are sequential stale-token concurrency guards, not simultaneous racing writes.",
+        "Describe account policies is not called without the owned resourceArn filter; unrelated policy bodies returned despite a filter are discarded.",
+        "DLQ messages and Logs events can be duplicates; bounded absence is not proof of permanent loss or authorization denial."
+      ],
+      "failure": {
+        "type": "RuntimeError",
+        "message": "Required native operation failed: InvalidParameterException"
+      }
+    }
+  ],
+  "successful_default_delivery_observed": true
+}

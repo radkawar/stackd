@@ -1,0 +1,488 @@
+{
+  "schema_version": 1,
+  "source": "Real AWS IAM and STS APIs, commercial partition",
+  "probe": "scripts/aws/iam_mfa_propagation_probe.py",
+  "aws_cli_version": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+  "started_at": "2026-09-11T21:37:23.015913+00:00",
+  "finished_at": "2026-09-11T21:42:08.061601+00:00",
+  "documentation": [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateVirtualMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_EnableMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeactivateMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ResyncMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListVirtualMFADevices.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetMFADevice.html"
+  ],
+  "model_source": "clones/aws-sdk-go-v2/codegen/sdk-codegen/aws-models/{iam,sts}.json",
+  "eligibility": {},
+  "setup": [
+    {
+      "service": "iam",
+      "operation": "CreateUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "Path": "/org-access/"
+      },
+      "output": {
+        "User": {
+          "Path": "/org-access/",
+          "UserName": "stackd-mfa-fixture-recreate",
+          "UserId": "<user-id:recreate>",
+          "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-mfa-fixture-recreate",
+          "CreateDate": "2026-09-11T21:37:24+00:00"
+        }
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "CreateAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate"
+      },
+      "output": {
+        "AccessKey": {
+          "UserName": "stackd-mfa-fixture-recreate",
+          "AccessKeyId": "<access-key:recreate>",
+          "Status": "Active",
+          "CreateDate": "2026-09-11T21:37:25+00:00"
+        }
+      }
+    }
+  ],
+  "observations": [
+    {
+      "case": "create_original",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-recreate"
+      },
+      "requested_at": "2026-09-11T21:37:34.583834+00:00",
+      "observed_at": "2026-09-11T21:37:35.735736+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "enable_original",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "requested_at": "2026-09-11T21:37:35.736396+00:00",
+      "observed_at": "2026-09-11T21:37:36.509035+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step": 59638755,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "before_recreate",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:02.000167+00:00",
+      "observed_at": "2026-09-11T21:39:02.813683+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638759,
+      "code_step_offset": 1
+    },
+    {
+      "case": "exhaust_original_0",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:02.814199+00:00",
+      "observed_at": "2026-09-11T21:39:03.486630+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638858,
+      "code_step_offset": 100
+    },
+    {
+      "case": "exhaust_original_1",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:03.486979+00:00",
+      "observed_at": "2026-09-11T21:39:04.178991+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638859,
+      "code_step_offset": 101
+    },
+    {
+      "case": "exhaust_original_2",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:04.179568+00:00",
+      "observed_at": "2026-09-11T21:39:04.844445+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638860,
+      "code_step_offset": 102
+    },
+    {
+      "case": "exhaust_original_3",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:04.844806+00:00",
+      "observed_at": "2026-09-11T21:39:05.533415+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638861,
+      "code_step_offset": 103
+    },
+    {
+      "case": "exhaust_original_4",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:05.533781+00:00",
+      "observed_at": "2026-09-11T21:39:06.242860+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638862,
+      "code_step_offset": 104
+    },
+    {
+      "case": "exhaust_original_5",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:06.243233+00:00",
+      "observed_at": "2026-09-11T21:39:06.944809+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638863,
+      "code_step_offset": 105
+    },
+    {
+      "case": "exhaust_original_6",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:06.945174+00:00",
+      "observed_at": "2026-09-11T21:39:07.717434+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638864,
+      "code_step_offset": 106
+    },
+    {
+      "case": "exhaust_original_7",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:07.718104+00:00",
+      "observed_at": "2026-09-11T21:39:08.694142+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638865,
+      "code_step_offset": 107
+    },
+    {
+      "case": "original_limited",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:08.694717+00:00",
+      "observed_at": "2026-09-11T21:39:09.473652+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed, unable to validate MFA code.  Please verify your MFA serial number is valid and associated with this user.",
+      "http_status": 403,
+      "code_step": 59638760,
+      "code_step_offset": 2
+    },
+    {
+      "case": "deactivate_original",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "requested_at": "2026-09-11T21:39:09.474214+00:00",
+      "observed_at": "2026-09-11T21:39:10.377172+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_original",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "requested_at": "2026-09-11T21:39:10.377811+00:00",
+      "observed_at": "2026-09-11T21:39:11.250780+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_replacement",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-recreate"
+      },
+      "requested_at": "2026-09-11T21:39:31.251431+00:00",
+      "observed_at": "2026-09-11T21:39:32.097226+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "enable_replacement",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "requested_at": "2026-09-11T21:39:32.100284+00:00",
+      "observed_at": "2026-09-11T21:39:32.861762+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step": 59638759,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "old_immediate",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:32.862154+00:00",
+      "observed_at": "2026-09-11T21:39:33.602861+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed, unable to validate MFA code.  Please verify your MFA serial number is valid and associated with this user.",
+      "http_status": 403,
+      "code_step": 59638761,
+      "code_step_offset": 2
+    },
+    {
+      "case": "old_later",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:45.603534+00:00",
+      "observed_at": "2026-09-11T21:39:46.415550+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed, unable to validate MFA code.  Please verify your MFA serial number is valid and associated with this user.",
+      "http_status": 403,
+      "code_step": 59638761,
+      "code_step_offset": 2
+    },
+    {
+      "case": "new_later",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:46.416200+00:00",
+      "observed_at": "2026-09-11T21:39:47.155660+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed, unable to validate MFA code.  Please verify your MFA serial number is valid and associated with this user.",
+      "http_status": 403,
+      "code_step": 59638760,
+      "code_step_offset": 1
+    },
+    {
+      "case": "new_unspent_later",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:39:47.156442+00:00",
+      "observed_at": "2026-09-11T21:39:47.864975+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed, unable to validate MFA code.  Please verify your MFA serial number is valid and associated with this user.",
+      "http_status": 403,
+      "code_step": 59638758,
+      "code_step_offset": -1
+    },
+    {
+      "case": "new_recovered",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:40:17.865489+00:00",
+      "observed_at": "2026-09-11T21:40:18.592698+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed, unable to validate MFA code.  Please verify your MFA serial number is valid and associated with this user.",
+      "http_status": 403,
+      "code_step": 59638761,
+      "code_step_offset": 1
+    },
+    {
+      "case": "new_after_boundary",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "requested_at": "2026-09-11T21:42:02.000103+00:00",
+      "observed_at": "2026-09-11T21:42:02.880634+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638765,
+      "code_step_offset": 1
+    }
+  ],
+  "cleanup": [
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "AccessKeyId": "<access-key:recreate>"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate"
+      },
+      "code": "NoSuchEntity"
+    }
+  ],
+  "capture_complete": true,
+  "cleanup_verified": true,
+  "sanitization": "Owned names/IDs/account normalized; original caller identity redacted; no bearer tokens, credential secrets or debug logs retained.",
+  "limitations": [
+    "Only uniquely owned users, keys and virtual devices are changed. Root MFA and existing devices are unchanged.",
+    "Seeds, QR payloads, authentication codes and issued credentials remain in memory. List results retain only owned devices.",
+    "Hardware and FIDO registration are not covered. Time windows are observations, not undocumented latency guarantees."
+  ]
+}

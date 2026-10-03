@@ -1,0 +1,3459 @@
+{
+  "Source": "restore_evidence.json.gz",
+  "ProjectionNotes": [
+    "Each native Sequence and Label identifies an observation in Source experiment r7 or r8. Generated versions, role ARNs, account and STS credentials bind to local identities; the captured owner Delegated user normalizes to owned root.",
+    "Native requests/outcomes run through the shared public SDK/raw replay. IAM setup reconstructs only each captured role trust, exact action grants and real STS session; no notification or CloudTrail infrastructure is created by these control scenarios.",
+    "Native service time is normalized to 2026-09-21 09:00 UTC plus Sequence seconds before completion. r7 sequence 93 starts at 09:10 UTC, with subsequent observations one second apart. Local GLACIER Expedited completion is five minutes after admission, not the measured AWS latency. Pending observations precede that boundary and Drain runs only at sequence 93. Exact captured restore expiry strings remain September 23/25 UTC midnight.",
+    "Reopen boundaries are local persistence regressions injected into native control sequences: pending state, completion work, shortened expiry, and real get-only sessions survive reconstructed memory/SQLite stacks.",
+    "Payload Body/Plaintext retain all captured bytes in base64 (r7 37 bytes, r8 30 bytes). Automatic checksum fields, provider transport metadata, error prose and generated LastModified instants are not equality contracts. ETag, length, class, restored plaintext, restore state, expiry, status and structural error details remain assertions.",
+    "Native list omissions normalize to SDK nil RestoreStatus/RestoreExpiryDate; absent HEAD/GET restore/storage-class headers are explicit assertions. The notification-control object remains solely because its actual presence is part of the captured list response.",
+    "The syntactically valid missing version in r7 sequence 32 binds to the generated bounds-object version while querying glacier, preserving NoSuchVersion without provider-specific IDs. All extant versions bind to their creation results.",
+    "Days outside signed int32 use the captured request values in raw XML because the Go SDK cannot represent them. This replays actual AWS HTTP MalformedXML outcomes, not a client preflight failure.",
+    "SupplementalEvidence.upgrade preserves the separate owned bucket capture stackd-restore-upgrade-16eb5fe5e60b. Its native sequence/label references cover pending Bulk-to-Standard/Expedited admission, unchanged-Days requirements, downgrade rejection, and two measured completed HEAD responses. Times normalize to September 21 09:00 plus Sequence seconds through sequence 20; sequence 49 drains at 09:10, with sequences 51/70 following at 09:10:02/21. Exact captured September 23 midnight expiry remains unchanged; local retained reopen is injected before the Standard upgrade and completion drain.",
+    "The final isolated scenario is explicitly DerivedRegression, not AWS expiration/copy evidence: local completion due at September 21 23:59 is drained after midnight; expiry must derive from persisted due, remain September 23 midnight, survive reopen, close source GET at the exact boundary, leave a copied STANDARD object independent, and permit a fresh restore."
+  ],
+  "Limitations": [
+    "Expiration itself was not observed; advertised deadlines, update behavior, and public contract captured.",
+    "DEEP_ARCHIVE Standard/Bulk and noncurrent GLACIER Bulk admitted but not awaited to completion; objects deleted during cleanup.",
+    "Days 2147483647 admitted as a Standard restore but its completion or far-future deadline was not observed.",
+    "SELECT GLACIER Type=SELECT rejected 405 MethodNotAllowed before a query workload; STANDARD Type=SELECT rejected 403 InvalidObjectState.",
+    "CloudTrail contains actual delivered records and non-secret accessKeyId identifiers, but no secret access keys/session tokens or raw credential-bearing debug logs.",
+    "Native expedited completion was approximately 61\u201369 seconds, not a deterministic latency contract. No native full GLACIER Standard/Bulk or DEEP_ARCHIVE completion is claimed.",
+    "ListObjectsV2 with OptionalObjectAttributes=RestoreStatus was captured; list requests without that option and ListObjects v1 are not represented as native observations here.",
+    "CloudTrail Lake is excluded. Notifications and actual delivered CloudTrail audit records are replayed separately from this controls fixture.",
+    "The gzip retains the complete r9 evidence, including bounded native delivery polling and cleanup, plus the complete owned upgrade capture under SupplementalEvidence.upgrade. Inspection of both captures found no credential/secret/session-token fields or credential-bearing raw debug logs; public CloudTrail accessKeyId identifiers remain evidence.",
+    "The upgrade capture's changed-days object remains pending at its bounded deadline; no completion or missing event is inferred. Its GET attempts failed in CLI invocation before an AWS HTTP outcome, including the ordinary-object control; successful HEAD completion is the available upgrade evidence, not restored GET plaintext."
+  ],
+  "ExcludedObservations": [
+    {
+      "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+      "Sequence": 4,
+      "Label": "get-standard-cli-default",
+      "Code": "CLIError",
+      "EvidenceKind": "LocalCLIPreflight",
+      "Reason": "CLI GET outfile invocation failure; not an AWS payload or authorization outcome."
+    },
+    {
+      "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+      "Sequence": 50,
+      "Label": "restored-get-missing-days",
+      "Code": "CLIError",
+      "EvidenceKind": "LocalCLIPreflight",
+      "Reason": "CLI GET outfile invocation failure; native HEAD sequence 49, not this GET, establishes completed restore."
+    },
+    {
+      "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+      "Sequence": 52,
+      "Label": "restored-get-same-days",
+      "Code": "CLIError",
+      "EvidenceKind": "LocalCLIPreflight",
+      "Reason": "CLI GET outfile invocation failure; native HEAD sequence 51, not this GET, establishes completed restore."
+    },
+    {
+      "Source": "restore_evidence.json.gz:r7",
+      "Sequence": 50,
+      "Label": "empty-tier",
+      "Code": "CLIError",
+      "EvidenceKind": "LocalCLIPreflight",
+      "Reason": "The CLI rejected an empty GlacierJobParameters structure before AWS HTTP; not an S3 admission observation."
+    }
+  ],
+  "Scenarios": [
+    {
+      "Name": "native-pending-tier-upgrades",
+      "Setup": [
+        {
+          "Sequence": 2,
+          "Label": "create-owned-bucket",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Location": "/restore-upgrades",
+            "BucketArn": "arn:aws:s3:::restore-upgrades"
+          }
+        },
+        {
+          "Sequence": 5,
+          "Label": "put-missing-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "missing-days",
+            "StorageClass": "GLACIER"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Body": "b3duZWQgbmF0aXZlIHJlc3RvcmUgdXBncmFkZSBwYXlsb2FkCg==",
+          "Output": {
+            "ETag": "\"4406e8eedbb050c75f0631bbf55f1d04\"",
+            "ServerSideEncryption": "AES256"
+          },
+          "Headers": {
+            "x-amz-storage-class": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 7,
+          "Label": "put-changed-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "changed-days",
+            "StorageClass": "GLACIER"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Body": "b3duZWQgbmF0aXZlIHJlc3RvcmUgdXBncmFkZSBwYXlsb2FkCg==",
+          "Output": {
+            "ETag": "\"4406e8eedbb050c75f0631bbf55f1d04\"",
+            "ServerSideEncryption": "AES256"
+          },
+          "Headers": {
+            "x-amz-storage-class": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 9,
+          "Label": "put-same-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "same-days",
+            "StorageClass": "GLACIER"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Body": "b3duZWQgbmF0aXZlIHJlc3RvcmUgdXBncmFkZSBwYXlsb2FkCg==",
+          "Output": {
+            "ETag": "\"4406e8eedbb050c75f0631bbf55f1d04\"",
+            "ServerSideEncryption": "AES256"
+          },
+          "Headers": {
+            "x-amz-storage-class": "GLACIER"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Sequence": 6,
+          "Label": "initiate-missing-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "missing-days",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:00:06Z",
+          "Output": {}
+        },
+        {
+          "Sequence": 8,
+          "Label": "initiate-changed-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "changed-days",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:00:08Z",
+          "Output": {}
+        },
+        {
+          "Sequence": 10,
+          "Label": "initiate-same-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "same-days",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:00:10Z",
+          "Output": {}
+        },
+        {
+          "Sequence": 11,
+          "Label": "upgrade-missing-days-standard",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "missing-days",
+            "RestoreRequest": {
+              "GlacierJobParameters": {
+                "Tier": "Standard"
+              }
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:11Z"
+        },
+        {
+          "Sequence": 12,
+          "Label": "upgrade-changed-days-standard",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "changed-days",
+            "RestoreRequest": {
+              "Days": 2,
+              "GlacierJobParameters": {
+                "Tier": "Standard"
+              }
+            }
+          },
+          "Code": "RestoreAlreadyInProgress",
+          "Status": 409,
+          "At": "2026-09-21T09:00:12Z"
+        },
+        {
+          "Sequence": 13,
+          "Label": "upgrade-same-days-standard",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "same-days",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Standard"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:00:13Z",
+          "Output": {},
+          "Reopen": true
+        },
+        {
+          "Sequence": 14,
+          "Label": "downgrade-same-days-bulk",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "same-days",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "Code": "RestoreAlreadyInProgress",
+          "Status": 409,
+          "At": "2026-09-21T09:00:14Z"
+        },
+        {
+          "Sequence": 15,
+          "Label": "upgrade-expedited-missing-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "missing-days",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:00:15Z",
+          "Output": {}
+        },
+        {
+          "Sequence": 16,
+          "Label": "upgrade-expedited-changed-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "changed-days",
+            "RestoreRequest": {
+              "Days": 2,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "RestoreAlreadyInProgress",
+          "Status": 409,
+          "At": "2026-09-21T09:00:16Z"
+        },
+        {
+          "Sequence": 17,
+          "Label": "upgrade-expedited-same-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "same-days",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:00:17Z",
+          "Output": {}
+        },
+        {
+          "Sequence": 18,
+          "Label": "poll-changed-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "changed-days"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:18Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"true\"",
+            "LastModified": "2026-09-21T11:24:41Z",
+            "ContentLength": 37,
+            "ETag": "\"4406e8eedbb050c75f0631bbf55f1d04\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\"",
+            "x-amz-storage-class": "GLACIER"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        },
+        {
+          "Sequence": 19,
+          "Label": "poll-missing-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "missing-days"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:19Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"true\"",
+            "LastModified": "2026-09-21T11:24:40Z",
+            "ContentLength": 37,
+            "ETag": "\"4406e8eedbb050c75f0631bbf55f1d04\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\"",
+            "x-amz-storage-class": "GLACIER"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        },
+        {
+          "Sequence": 20,
+          "Label": "poll-same-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "same-days"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:20Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"true\"",
+            "LastModified": "2026-09-21T11:24:43Z",
+            "ContentLength": 37,
+            "ETag": "\"4406e8eedbb050c75f0631bbf55f1d04\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\"",
+            "x-amz-storage-class": "GLACIER"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        },
+        {
+          "Sequence": 49,
+          "Label": "poll-missing-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "missing-days"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:00Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "LastModified": "2026-09-21T11:24:40Z",
+            "ContentLength": 37,
+            "ETag": "\"4406e8eedbb050c75f0631bbf55f1d04\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "x-amz-storage-class": "GLACIER"
+          },
+          "AbsentHeaders": [],
+          "Absent": [],
+          "Drain": true,
+          "Reopen": true
+        },
+        {
+          "Sequence": 51,
+          "Label": "poll-same-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "same-days"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:02Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "LastModified": "2026-09-21T11:24:43Z",
+            "ContentLength": 37,
+            "ETag": "\"4406e8eedbb050c75f0631bbf55f1d04\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "x-amz-storage-class": "GLACIER"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        },
+        {
+          "Sequence": 70,
+          "Label": "poll-changed-days",
+          "Source": "restore_evidence.json.gz:SupplementalEvidence.upgrade",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-upgrades",
+            "Key": "changed-days"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:21Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"true\"",
+            "LastModified": "2026-09-21T11:24:41Z",
+            "ContentLength": 37,
+            "ETag": "\"4406e8eedbb050c75f0631bbf55f1d04\"",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\"",
+            "x-amz-storage-class": "GLACIER"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        }
+      ]
+    },
+    {
+      "Name": "native-controls-and-restore-only",
+      "Setup": [
+        {
+          "Sequence": 16,
+          "Label": "create-role",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Input": {
+            "RoleName": "restore-native-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${account}:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "r7-role": "Role.Arn"
+          }
+        },
+        {
+          "Sequence": 17,
+          "Label": "role-policy",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Input": {
+            "RoleName": "restore-native-role",
+            "PolicyName": "restore-only",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:RestoreObject\", \"Resource\": \"arn:aws:s3:::restore-native/*\"}, {\"Effect\": \"Deny\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\"], \"Resource\": \"arn:aws:s3:::restore-native/*\"}]}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 61,
+          "Label": "assume-restore-only",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Input": {
+            "RoleArn": "${r7-role}",
+            "RoleSessionName": "restore-only"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Session": "restore-only"
+        }
+      ],
+      "Calls": [
+        {
+          "Sequence": 2,
+          "Label": "create-stackd-restore-1789982477",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:02Z",
+          "Output": {
+            "Location": "/restore-native",
+            "BucketArn": "arn:aws:s3:::restore-native"
+          }
+        },
+        {
+          "Sequence": 4,
+          "Label": "versioning",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:04Z",
+          "Output": {}
+        },
+        {
+          "Sequence": 18,
+          "Label": "put-glacier",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "StorageClass": "GLACIER",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:18Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-glacier}"
+          },
+          "Bind": {
+            "r7-glacier": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}",
+            "x-amz-storage-class": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 19,
+          "Label": "put-permission",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "permission",
+            "StorageClass": "GLACIER",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:19Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-permission}"
+          },
+          "Bind": {
+            "r7-permission": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-permission}",
+            "x-amz-storage-class": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 20,
+          "Label": "put-bounds",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "StorageClass": "GLACIER",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:20Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-bounds}"
+          },
+          "Bind": {
+            "r7-bounds": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-bounds}",
+            "x-amz-storage-class": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 21,
+          "Label": "put-marker",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "marker",
+            "StorageClass": "GLACIER",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:21Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-marker}"
+          },
+          "Bind": {
+            "r7-marker": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-marker}",
+            "x-amz-storage-class": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 22,
+          "Label": "put-deep",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "deep",
+            "StorageClass": "DEEP_ARCHIVE",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:22Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-deep}"
+          },
+          "Bind": {
+            "r7-deep": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-deep}",
+            "x-amz-storage-class": "DEEP_ARCHIVE"
+          }
+        },
+        {
+          "Sequence": 23,
+          "Label": "put-standard",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "standard",
+            "StorageClass": "STANDARD",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:23Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-standard}"
+          },
+          "Bind": {
+            "r7-standard": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-standard}"
+          }
+        },
+        {
+          "Sequence": 24,
+          "Label": "put-ia",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "ia",
+            "StorageClass": "STANDARD_IA",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:24Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-ia}"
+          },
+          "Bind": {
+            "r7-ia": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-ia}",
+            "x-amz-storage-class": "STANDARD_IA"
+          }
+        },
+        {
+          "Sequence": 25,
+          "Label": "put-instant",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "instant",
+            "StorageClass": "GLACIER_IR",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:25Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-instant}"
+          },
+          "Bind": {
+            "r7-instant": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-instant}",
+            "x-amz-storage-class": "GLACIER_IR"
+          }
+        },
+        {
+          "Sequence": 26,
+          "Label": "put-intelligent",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "intelligent",
+            "StorageClass": "INTELLIGENT_TIERING",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:26Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-intelligent}"
+          },
+          "Bind": {
+            "r7-intelligent": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-intelligent}",
+            "x-amz-storage-class": "INTELLIGENT_TIERING"
+          }
+        },
+        {
+          "Sequence": 27,
+          "Label": "delete-current-marker",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "marker"
+          },
+          "Code": "Success",
+          "Status": 204,
+          "At": "2026-09-21T09:00:27Z",
+          "Output": {
+            "DeleteMarker": true,
+            "VersionId": "${r7-marker-marker}"
+          },
+          "Bind": {
+            "r7-marker-marker": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-marker-marker}",
+            "x-amz-delete-marker": "true"
+          }
+        },
+        {
+          "Sequence": 28,
+          "Label": "missing-key",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "missing",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "At": "2026-09-21T09:00:28Z",
+          "ErrorDetails": {
+            "Key": "missing"
+          }
+        },
+        {
+          "Sequence": 29,
+          "Label": "current-marker",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "marker",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "NoSuchKey",
+          "Status": 404,
+          "At": "2026-09-21T09:00:29Z",
+          "ErrorDetails": {
+            "Key": "marker"
+          }
+        },
+        {
+          "Sequence": 30,
+          "Label": "explicit-marker",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "marker",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            },
+            "VersionId": "${r7-marker-marker}"
+          },
+          "Code": "MethodNotAllowed",
+          "Status": 405,
+          "At": "2026-09-21T09:00:30Z",
+          "Headers": {
+            "x-amz-delete-marker": "true",
+            "x-amz-version-id": "${r7-marker-marker}",
+            "allow": "DELETE"
+          },
+          "ErrorDetails": {
+            "Method": "POST",
+            "ResourceType": "DeleteMarker"
+          }
+        },
+        {
+          "Sequence": 31,
+          "Label": "invalid-version-syntax",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            },
+            "VersionId": "not-a-version"
+          },
+          "Code": "InvalidArgument",
+          "Status": 400,
+          "At": "2026-09-21T09:00:31Z",
+          "ErrorDetails": {
+            "ArgumentName": "versionId",
+            "ArgumentValue": "not-a-version"
+          }
+        },
+        {
+          "Sequence": 32,
+          "Label": "missing-version",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            },
+            "VersionId": "${r7-bounds}"
+          },
+          "Code": "NoSuchVersion",
+          "Status": 404,
+          "At": "2026-09-21T09:00:32Z",
+          "ErrorDetails": {
+            "Key": "glacier",
+            "VersionId": "${r7-bounds}"
+          }
+        },
+        {
+          "Sequence": 33,
+          "Label": "expected-owner-mismatch",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            },
+            "ExpectedBucketOwner": "111111111111"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "At": "2026-09-21T09:00:33Z"
+        },
+        {
+          "Sequence": 34,
+          "Label": "class-standard",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "standard",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "At": "2026-09-21T09:00:34Z"
+        },
+        {
+          "Sequence": 35,
+          "Label": "payload-standard",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "standard"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:35Z",
+          "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T09:21:37Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-standard}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-standard}"
+          },
+          "AbsentHeaders": [
+            "x-amz-storage-class",
+            "x-amz-restore"
+          ],
+          "Absent": [
+            "StorageClass",
+            "Restore"
+          ]
+        },
+        {
+          "Sequence": 36,
+          "Label": "class-ia",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "ia",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "At": "2026-09-21T09:00:36Z"
+        },
+        {
+          "Sequence": 37,
+          "Label": "payload-ia",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "ia"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:37Z",
+          "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T09:21:37Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-ia}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "STANDARD_IA"
+          },
+          "Headers": {
+            "x-amz-storage-class": "STANDARD_IA",
+            "x-amz-version-id": "${r7-ia}"
+          },
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ],
+          "Absent": [
+            "Restore"
+          ]
+        },
+        {
+          "Sequence": 38,
+          "Label": "class-instant",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "instant",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "At": "2026-09-21T09:00:38Z"
+        },
+        {
+          "Sequence": 39,
+          "Label": "payload-instant",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "instant"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:39Z",
+          "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T09:21:38Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-instant}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER_IR"
+          },
+          "Headers": {
+            "x-amz-storage-class": "GLACIER_IR",
+            "x-amz-version-id": "${r7-instant}"
+          },
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ],
+          "Absent": [
+            "Restore"
+          ]
+        },
+        {
+          "Sequence": 40,
+          "Label": "class-intelligent",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "intelligent",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "At": "2026-09-21T09:00:40Z"
+        },
+        {
+          "Sequence": 41,
+          "Label": "payload-intelligent",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "intelligent"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:41Z",
+          "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T09:21:39Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-intelligent}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "INTELLIGENT_TIERING"
+          },
+          "Headers": {
+            "x-amz-storage-class": "INTELLIGENT_TIERING",
+            "x-amz-version-id": "${r7-intelligent}"
+          },
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ],
+          "Absent": [
+            "Restore"
+          ]
+        },
+        {
+          "Sequence": 42,
+          "Label": "empty",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {}
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:42Z"
+        },
+        {
+          "Sequence": 43,
+          "Label": "missing-days",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:43Z"
+        },
+        {
+          "Sequence": 44,
+          "Label": "days-zero",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Days": 0
+            }
+          },
+          "Code": "InvalidArgument",
+          "Status": 400,
+          "At": "2026-09-21T09:00:44Z",
+          "ErrorDetails": {
+            "ArgumentName": "Days",
+            "ArgumentValue": "0"
+          }
+        },
+        {
+          "Sequence": 45,
+          "Label": "days-negative",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Days": -1
+            }
+          },
+          "Code": "InvalidArgument",
+          "Status": 400,
+          "At": "2026-09-21T09:00:45Z",
+          "ErrorDetails": {
+            "ArgumentName": "Days",
+            "ArgumentValue": "-1"
+          }
+        },
+        {
+          "Sequence": 46,
+          "Label": "days-maxint",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Days": 2147483647
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:00:46Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-bounds}"
+          }
+        },
+        {
+          "Sequence": 47,
+          "Label": "days-overflow",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Days": 2147483648
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:47Z",
+          "Raw": {
+            "Method": "POST",
+            "Target": "/restore-native/bounds?restore",
+            "Body": "<RestoreRequest xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Days>2147483648</Days></RestoreRequest>",
+            "Headers": {
+              "Content-Type": "application/xml"
+            }
+          }
+        },
+        {
+          "Sequence": 48,
+          "Label": "tier-invalid",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Nonsense"
+              }
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:48Z"
+        },
+        {
+          "Sequence": 49,
+          "Label": "tier-lowercase",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "expedited"
+              }
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:49Z"
+        },
+        {
+          "Sequence": 51,
+          "Label": "top-tier-invalid",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Days": 1,
+              "Tier": "Nonsense"
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:51Z"
+        },
+        {
+          "Sequence": 52,
+          "Label": "select-minimal",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Type": "SELECT"
+            }
+          },
+          "Code": "MethodNotAllowed",
+          "Status": 405,
+          "At": "2026-09-21T09:00:52Z"
+        },
+        {
+          "Sequence": 53,
+          "Label": "output-days",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Days": 1,
+              "OutputLocation": {
+                "S3": {
+                  "BucketName": "restore-native",
+                  "Prefix": "select-output/"
+                }
+              }
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:53Z"
+        },
+        {
+          "Sequence": 54,
+          "Label": "invalid-type",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "bounds",
+            "RestoreRequest": {
+              "Days": 1,
+              "Type": "Nonsense"
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:54Z"
+        },
+        {
+          "Sequence": 55,
+          "Label": "deep-expedited",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "deep",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "InvalidTier",
+          "Status": 403,
+          "At": "2026-09-21T09:00:55Z"
+        },
+        {
+          "Sequence": 56,
+          "Label": "deep-invalid-tier",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "deep",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Nonsense"
+              }
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:56Z"
+        },
+        {
+          "Sequence": 57,
+          "Label": "head-archived",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:57Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ],
+          "Absent": [
+            "Restore"
+          ]
+        },
+        {
+          "Sequence": 58,
+          "Label": "get-archived",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "At": "2026-09-21T09:00:58Z",
+          "ErrorDetails": {
+            "StorageClass": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 59,
+          "Label": "attributes-archived",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObjectAttributes",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "ObjectAttributes": [
+              "ETag",
+              "Checksum",
+              "ObjectSize",
+              "StorageClass"
+            ]
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:59Z",
+          "Output": {
+            "LastModified": "2026-09-21T09:21:33Z",
+            "VersionId": "${r7-glacier}",
+            "ETag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "StorageClass": "GLACIER",
+            "ObjectSize": 37
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ]
+        },
+        {
+          "Sequence": 60,
+          "Label": "list-archived",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "OptionalObjectAttributes": [
+              "RestoreStatus"
+            ]
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:01:00Z",
+          "Output": {
+            "Contents": [
+              {
+                "Key": "bounds",
+                "LastModified": "2026-09-21T09:21:34Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER",
+                "RestoreStatus": {
+                  "IsRestoreInProgress": true,
+                  "RestoreExpiryDate": null
+                }
+              },
+              {
+                "Key": "deep",
+                "LastModified": "2026-09-21T09:21:36Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "DEEP_ARCHIVE",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "glacier",
+                "LastModified": "2026-09-21T09:21:33Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "ia",
+                "LastModified": "2026-09-21T09:21:37Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "STANDARD_IA",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "instant",
+                "LastModified": "2026-09-21T09:21:38Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER_IR",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "intelligent",
+                "LastModified": "2026-09-21T09:21:39Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "INTELLIGENT_TIERING",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "permission",
+                "LastModified": "2026-09-21T09:21:33Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "standard",
+                "LastModified": "2026-09-21T09:21:37Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "STANDARD",
+                "RestoreStatus": null
+              }
+            ],
+            "Prefix": ""
+          }
+        },
+        {
+          "Sequence": 62,
+          "Label": "authorized-no-get",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "restore-only",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "permission",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:01:02Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-permission}"
+          }
+        },
+        {
+          "Sequence": 63,
+          "Label": "denied-get-before",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "restore-only",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "permission"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "At": "2026-09-21T09:01:03Z"
+        },
+        {
+          "Sequence": 64,
+          "Label": "notification-control",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "notification-control"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:01:04Z",
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-notification-control}"
+          },
+          "Bind": {
+            "r7-notification-control": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-notification-control}"
+          }
+        },
+        {
+          "Sequence": 65,
+          "Label": "start-expedited",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            },
+            "VersionId": "${r7-glacier}"
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:01:05Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}"
+          }
+        },
+        {
+          "Sequence": 66,
+          "Label": "pending-repeat",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            },
+            "VersionId": "${r7-glacier}"
+          },
+          "Code": "RestoreAlreadyInProgress",
+          "Status": 409,
+          "At": "2026-09-21T09:01:06Z"
+        },
+        {
+          "Sequence": 67,
+          "Label": "pending-change-days",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 2,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "RestoreAlreadyInProgress",
+          "Status": 409,
+          "At": "2026-09-21T09:01:07Z"
+        },
+        {
+          "Sequence": 68,
+          "Label": "restore-noncurrent",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "marker",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            },
+            "VersionId": "${r7-marker}"
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:01:08Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-marker}"
+          }
+        },
+        {
+          "Sequence": 69,
+          "Label": "deep-bulk",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "deep",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:01:09Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-deep}"
+          }
+        },
+        {
+          "Sequence": 70,
+          "Label": "head-pending",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:01:10Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"true\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": [],
+          "Reopen": true
+        },
+        {
+          "Sequence": 71,
+          "Label": "get-pending",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "At": "2026-09-21T09:01:11Z",
+          "ErrorDetails": {
+            "StorageClass": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 72,
+          "Label": "attributes-pending",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObjectAttributes",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "ObjectAttributes": [
+              "ETag",
+              "Checksum",
+              "ObjectSize",
+              "StorageClass"
+            ]
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:01:12Z",
+          "Output": {
+            "LastModified": "2026-09-21T09:21:33Z",
+            "VersionId": "${r7-glacier}",
+            "ETag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "StorageClass": "GLACIER",
+            "ObjectSize": 37
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ]
+        },
+        {
+          "Sequence": 73,
+          "Label": "list-pending",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "OptionalObjectAttributes": [
+              "RestoreStatus"
+            ]
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:01:13Z",
+          "Output": {
+            "Contents": [
+              {
+                "Key": "bounds",
+                "LastModified": "2026-09-21T09:21:34Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER",
+                "RestoreStatus": {
+                  "IsRestoreInProgress": true,
+                  "RestoreExpiryDate": null
+                }
+              },
+              {
+                "Key": "deep",
+                "LastModified": "2026-09-21T09:21:36Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "DEEP_ARCHIVE",
+                "RestoreStatus": {
+                  "IsRestoreInProgress": true,
+                  "RestoreExpiryDate": null
+                }
+              },
+              {
+                "Key": "glacier",
+                "LastModified": "2026-09-21T09:21:33Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER",
+                "RestoreStatus": {
+                  "IsRestoreInProgress": true,
+                  "RestoreExpiryDate": null
+                }
+              },
+              {
+                "Key": "ia",
+                "LastModified": "2026-09-21T09:21:37Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "STANDARD_IA",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "instant",
+                "LastModified": "2026-09-21T09:21:38Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER_IR",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "intelligent",
+                "LastModified": "2026-09-21T09:21:39Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "INTELLIGENT_TIERING",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "notification-control",
+                "LastModified": "2026-09-21T09:26:40Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "STANDARD",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "permission",
+                "LastModified": "2026-09-21T09:21:33Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER",
+                "RestoreStatus": {
+                  "IsRestoreInProgress": true,
+                  "RestoreExpiryDate": null
+                }
+              },
+              {
+                "Key": "standard",
+                "LastModified": "2026-09-21T09:21:37Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "STANDARD",
+                "RestoreStatus": null
+              }
+            ],
+            "Prefix": ""
+          }
+        },
+        {
+          "Sequence": 74,
+          "Label": "poll-restore",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:01:14Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"true\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        },
+        {
+          "Sequence": 85,
+          "Label": "poll-restore",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:01:25Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"true\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        },
+        {
+          "Sequence": 93,
+          "Label": "poll-restore",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:00Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": [],
+          "Reopen": true,
+          "Drain": true
+        },
+        {
+          "Sequence": 94,
+          "Label": "restored-payload",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "VersionId": "${r7-glacier}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:01Z",
+          "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        },
+        {
+          "Sequence": 95,
+          "Label": "attributes-restored",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObjectAttributes",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "ObjectAttributes": [
+              "ETag",
+              "Checksum",
+              "ObjectSize",
+              "StorageClass"
+            ]
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:02Z",
+          "Output": {
+            "LastModified": "2026-09-21T09:21:33Z",
+            "VersionId": "${r7-glacier}",
+            "ETag": "04d8b9823b72e8d40cf5a2ebabf39399",
+            "StorageClass": "GLACIER",
+            "ObjectSize": 37
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ]
+        },
+        {
+          "Sequence": 96,
+          "Label": "list-restored",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "ListObjectsV2",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "OptionalObjectAttributes": [
+              "RestoreStatus"
+            ]
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:03Z",
+          "Output": {
+            "Contents": [
+              {
+                "Key": "bounds",
+                "LastModified": "2026-09-21T09:21:34Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER",
+                "RestoreStatus": {
+                  "IsRestoreInProgress": true,
+                  "RestoreExpiryDate": null
+                }
+              },
+              {
+                "Key": "deep",
+                "LastModified": "2026-09-21T09:21:36Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "DEEP_ARCHIVE",
+                "RestoreStatus": {
+                  "IsRestoreInProgress": true,
+                  "RestoreExpiryDate": null
+                }
+              },
+              {
+                "Key": "glacier",
+                "LastModified": "2026-09-21T09:21:33Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER",
+                "RestoreStatus": {
+                  "IsRestoreInProgress": false,
+                  "RestoreExpiryDate": "2026-09-23T00:00:00Z"
+                }
+              },
+              {
+                "Key": "ia",
+                "LastModified": "2026-09-21T09:21:37Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "STANDARD_IA",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "instant",
+                "LastModified": "2026-09-21T09:21:38Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER_IR",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "intelligent",
+                "LastModified": "2026-09-21T09:21:39Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "INTELLIGENT_TIERING",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "notification-control",
+                "LastModified": "2026-09-21T09:26:40Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "STANDARD",
+                "RestoreStatus": null
+              },
+              {
+                "Key": "permission",
+                "LastModified": "2026-09-21T09:21:33Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "GLACIER",
+                "RestoreStatus": {
+                  "IsRestoreInProgress": false,
+                  "RestoreExpiryDate": "2026-09-23T00:00:00Z"
+                }
+              },
+              {
+                "Key": "standard",
+                "LastModified": "2026-09-21T09:21:37Z",
+                "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+                "Size": 37,
+                "StorageClass": "STANDARD",
+                "RestoreStatus": null
+              }
+            ],
+            "Prefix": ""
+          }
+        },
+        {
+          "Sequence": 97,
+          "Label": "already-restored-same",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:04Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}"
+          }
+        },
+        {
+          "Sequence": 98,
+          "Label": "already-restored-extend",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 3,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:05Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}"
+          }
+        },
+        {
+          "Sequence": 99,
+          "Label": "head-extended",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:06Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"false\", expiry-date=\"Fri, 25 Sep 2026 00:00:00 GMT\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"false\", expiry-date=\"Fri, 25 Sep 2026 00:00:00 GMT\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        },
+        {
+          "Sequence": 100,
+          "Label": "already-restored-shorten",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 1
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:07Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}"
+          }
+        },
+        {
+          "Sequence": 101,
+          "Label": "head-shortened",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:08Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": [],
+          "Reopen": true
+        },
+        {
+          "Sequence": 102,
+          "Label": "denied-get-after",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "restore-only",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "permission"
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "At": "2026-09-21T09:10:09Z"
+        },
+        {
+          "Sequence": 103,
+          "Label": "permission-owner-payload",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "permission"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:10:10Z",
+          "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-permission}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-permission}"
+          },
+          "AbsentHeaders": [],
+          "Absent": []
+        }
+      ]
+    },
+    {
+      "Name": "native-get-only-and-tier-boundaries",
+      "Setup": [
+        {
+          "Sequence": 8,
+          "Label": "create-get-only-role",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Input": {
+            "RoleName": "restore-authority",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${account}:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "r8-role": "Role.Arn"
+          }
+        },
+        {
+          "Sequence": 9,
+          "Label": "get-only-policy",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Input": {
+            "RoleName": "restore-authority",
+            "PolicyName": "get-only",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\"], \"Resource\": \"arn:aws:s3:::restore-authority/*\"}]}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 10,
+          "Label": "assume-get-only",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Input": {
+            "RoleArn": "${r8-role}",
+            "RoleSessionName": "get-only"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Session": "get-only"
+        }
+      ],
+      "Calls": [
+        {
+          "Sequence": 2,
+          "Label": "create-bucket",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:02Z",
+          "Output": {
+            "Location": "/restore-authority",
+            "BucketArn": "arn:aws:s3:::restore-authority"
+          }
+        },
+        {
+          "Sequence": 3,
+          "Label": "versioning",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:03Z",
+          "Output": {}
+        },
+        {
+          "Sequence": 4,
+          "Label": "put-ordinary",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "ordinary",
+            "StorageClass": "STANDARD"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:04Z",
+          "Body": "cmVzdG9yZSBhdXRob3JpemF0aW9uIGNvbnRyb2wK",
+          "Output": {
+            "ETag": "\"a9dbf7bfccf6065c0363f9abc8a7fbb8\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r8-ordinary}"
+          },
+          "Bind": {
+            "r8-ordinary": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r8-ordinary}"
+          }
+        },
+        {
+          "Sequence": 5,
+          "Label": "put-top-only",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "top-only",
+            "StorageClass": "GLACIER"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:05Z",
+          "Body": "cmVzdG9yZSBhdXRob3JpemF0aW9uIGNvbnRyb2wK",
+          "Output": {
+            "ETag": "\"a9dbf7bfccf6065c0363f9abc8a7fbb8\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r8-top-only}"
+          },
+          "Bind": {
+            "r8-top-only": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r8-top-only}",
+            "x-amz-storage-class": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 6,
+          "Label": "put-conflict",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "conflict",
+            "StorageClass": "GLACIER"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:06Z",
+          "Body": "cmVzdG9yZSBhdXRob3JpemF0aW9uIGNvbnRyb2wK",
+          "Output": {
+            "ETag": "\"a9dbf7bfccf6065c0363f9abc8a7fbb8\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r8-conflict}"
+          },
+          "Bind": {
+            "r8-conflict": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r8-conflict}",
+            "x-amz-storage-class": "GLACIER"
+          }
+        },
+        {
+          "Sequence": 7,
+          "Label": "put-deep-standard",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "deep-standard",
+            "StorageClass": "DEEP_ARCHIVE"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:07Z",
+          "Body": "cmVzdG9yZSBhdXRob3JpemF0aW9uIGNvbnRyb2wK",
+          "Output": {
+            "ETag": "\"a9dbf7bfccf6065c0363f9abc8a7fbb8\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r8-deep-standard}"
+          },
+          "Bind": {
+            "r8-deep-standard": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r8-deep-standard}",
+            "x-amz-storage-class": "DEEP_ARCHIVE"
+          }
+        },
+        {
+          "Sequence": 11,
+          "Label": "get-only-plaintext-positive",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "get-only",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "ordinary"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T09:00:11Z",
+          "Plaintext": "cmVzdG9yZSBhdXRob3JpemF0aW9uIGNvbnRyb2wK",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T09:26:53Z",
+            "ContentLength": 30,
+            "ETag": "\"a9dbf7bfccf6065c0363f9abc8a7fbb8\"",
+            "VersionId": "${r8-ordinary}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "Headers": {
+            "x-amz-version-id": "${r8-ordinary}"
+          },
+          "AbsentHeaders": [
+            "x-amz-storage-class",
+            "x-amz-restore"
+          ],
+          "Absent": [
+            "StorageClass",
+            "Restore"
+          ],
+          "Reopen": true
+        },
+        {
+          "Sequence": 12,
+          "Label": "get-only-restore-denied-ordinary",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "get-only",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "ordinary",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "At": "2026-09-21T09:00:12Z"
+        },
+        {
+          "Sequence": 13,
+          "Label": "get-only-restore-denied-top-only",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "get-only",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "top-only",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "Code": "AccessDenied",
+          "Status": 403,
+          "At": "2026-09-21T09:00:13Z"
+        },
+        {
+          "Sequence": 14,
+          "Label": "top-tier-only",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "top-only",
+            "RestoreRequest": {
+              "Days": 1,
+              "Tier": "Bulk"
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:14Z"
+        },
+        {
+          "Sequence": 15,
+          "Label": "both-tier-conflict",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "conflict",
+            "RestoreRequest": {
+              "Days": 1,
+              "Tier": "Standard",
+              "GlacierJobParameters": {
+                "Tier": "Bulk"
+              }
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:15Z"
+        },
+        {
+          "Sequence": 16,
+          "Label": "deep-standard-admitted",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "deep-standard",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Standard"
+              }
+            }
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T09:00:16Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r8-deep-standard}"
+          }
+        },
+        {
+          "Sequence": 17,
+          "Label": "select-ordinary",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "ordinary",
+            "RestoreRequest": {
+              "Type": "SELECT"
+            }
+          },
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "At": "2026-09-21T09:00:17Z"
+        },
+        {
+          "Sequence": 18,
+          "Label": "int32-minimum",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "conflict",
+            "RestoreRequest": {
+              "Days": -2147483648
+            }
+          },
+          "Code": "InvalidArgument",
+          "Status": 400,
+          "At": "2026-09-21T09:00:18Z",
+          "ErrorDetails": {
+            "ArgumentName": "Days",
+            "ArgumentValue": "-2147483648"
+          }
+        },
+        {
+          "Sequence": 19,
+          "Label": "below-int32-minimum",
+          "Source": "restore_evidence.json.gz:r8",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-authority",
+            "Key": "conflict",
+            "RestoreRequest": {
+              "Days": -2147483649
+            }
+          },
+          "Code": "MalformedXML",
+          "Status": 400,
+          "At": "2026-09-21T09:00:19Z",
+          "Raw": {
+            "Method": "POST",
+            "Target": "/restore-authority/conflict?restore",
+            "Body": "<RestoreRequest xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Days>-2147483649</Days></RestoreRequest>",
+            "Headers": {
+              "Content-Type": "application/xml"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "Name": "derived-midnight-expiry-and-copy-independence",
+      "EvidenceKind": "DerivedRegression",
+      "Setup": [
+        {
+          "Sequence": 2,
+          "Label": "create-stackd-restore-1789982477",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "Location": "/restore-native",
+            "BucketArn": "arn:aws:s3:::restore-native"
+          }
+        },
+        {
+          "Sequence": 4,
+          "Label": "versioning",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {}
+        },
+        {
+          "Sequence": 18,
+          "Label": "put-glacier",
+          "Source": "restore_evidence.json.gz:r7",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "StorageClass": "GLACIER",
+            "ServerSideEncryption": "AES256"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Body": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "ServerSideEncryption": "AES256",
+            "VersionId": "${r7-glacier}"
+          },
+          "Bind": {
+            "r7-glacier": "VersionId"
+          },
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}",
+            "x-amz-storage-class": "GLACIER"
+          }
+        }
+      ],
+      "Calls": [
+        {
+          "Sequence": 1,
+          "Label": "start-near-midnight",
+          "Source": "derived:archive-boundary-contract",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            },
+            "VersionId": "${r7-glacier}"
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-21T23:54:00Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "EvidenceKind": "DerivedRegression"
+        },
+        {
+          "Sequence": 2,
+          "Label": "pending-before-persisted-due",
+          "Source": "derived:archive-boundary-contract",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-21T23:58:59Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"true\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": [],
+          "EvidenceKind": "DerivedRegression",
+          "Drain": true,
+          "Reopen": true
+        },
+        {
+          "Sequence": 3,
+          "Label": "complete-from-persisted-due-not-drain-horizon",
+          "Source": "derived:archive-boundary-contract",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-22T00:01:00Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": [],
+          "EvidenceKind": "DerivedRegression",
+          "Drain": true,
+          "Reopen": true
+        },
+        {
+          "Sequence": 4,
+          "Label": "restored-version-plaintext",
+          "Source": "derived:archive-boundary-contract",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "VersionId": "${r7-glacier}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-22T00:01:01Z",
+          "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"false\", expiry-date=\"Wed, 23 Sep 2026 00:00:00 GMT\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": [],
+          "EvidenceKind": "DerivedRegression"
+        },
+        {
+          "Sequence": 5,
+          "Label": "copy-restored-source-to-independent-standard-object",
+          "Source": "derived:archive-boundary-contract",
+          "EvidenceKind": "DerivedRegression",
+          "At": "2026-09-22T00:01:02Z",
+          "Service": "s3",
+          "Operation": "CopyObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "copied",
+            "CopySource": "restore-native/glacier?versionId=${r7-glacier}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Output": {
+            "CopyObjectResult": {
+              "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\""
+            }
+          },
+          "Bind": {
+            "copied-version": "VersionId"
+          }
+        },
+        {
+          "Sequence": 6,
+          "Label": "expire-restored-copy-at-exact-midnight",
+          "Source": "derived:archive-boundary-contract",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-23T00:00:00Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [
+            "x-amz-restore"
+          ],
+          "Absent": [
+            "Restore"
+          ],
+          "EvidenceKind": "DerivedRegression",
+          "Drain": true,
+          "Reopen": true
+        },
+        {
+          "Sequence": 7,
+          "Label": "archived-payload-unavailable-after-expiry",
+          "Source": "derived:archive-boundary-contract",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "InvalidObjectState",
+          "Status": 403,
+          "At": "2026-09-23T00:00:00Z",
+          "ErrorDetails": {
+            "StorageClass": "GLACIER"
+          },
+          "EvidenceKind": "DerivedRegression"
+        },
+        {
+          "Sequence": 8,
+          "Label": "copied-object-retains-plaintext-after-source-expiry",
+          "Source": "derived:archive-boundary-contract",
+          "EvidenceKind": "DerivedRegression",
+          "At": "2026-09-23T00:00:01Z",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "copied",
+            "VersionId": "${copied-version}"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "Plaintext": "c3RhY2tkIHJlc3RvcmUgbmF0aXZlIHBheWxvYWQsIGFscGhhCg==",
+          "Output": {
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\""
+          },
+          "Absent": [
+            "Restore",
+            "StorageClass"
+          ],
+          "AbsentHeaders": [
+            "x-amz-restore",
+            "x-amz-storage-class"
+          ]
+        },
+        {
+          "Sequence": 9,
+          "Label": "expired-version-can-start-another-restore",
+          "Source": "derived:archive-boundary-contract",
+          "Service": "s3",
+          "Operation": "RestoreObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier",
+            "RestoreRequest": {
+              "Days": 1,
+              "GlacierJobParameters": {
+                "Tier": "Expedited"
+              }
+            },
+            "VersionId": "${r7-glacier}"
+          },
+          "Code": "Success",
+          "Status": 202,
+          "At": "2026-09-23T00:00:02Z",
+          "Output": {},
+          "Headers": {
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "EvidenceKind": "DerivedRegression"
+        },
+        {
+          "Sequence": 10,
+          "Label": "new-restore-remains-pending",
+          "Source": "derived:archive-boundary-contract",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Actor": "caller",
+          "Input": {
+            "Bucket": "restore-native",
+            "Key": "glacier"
+          },
+          "Code": "Success",
+          "Status": 200,
+          "At": "2026-09-23T00:00:03Z",
+          "Output": {
+            "AcceptRanges": "bytes",
+            "Restore": "ongoing-request=\"true\"",
+            "LastModified": "2026-09-21T09:21:33Z",
+            "ContentLength": 37,
+            "ETag": "\"04d8b9823b72e8d40cf5a2ebabf39399\"",
+            "VersionId": "${r7-glacier}",
+            "ContentType": "binary/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {},
+            "StorageClass": "GLACIER"
+          },
+          "Headers": {
+            "x-amz-restore": "ongoing-request=\"true\"",
+            "x-amz-storage-class": "GLACIER",
+            "x-amz-version-id": "${r7-glacier}"
+          },
+          "AbsentHeaders": [],
+          "Absent": [],
+          "EvidenceKind": "DerivedRegression"
+        }
+      ]
+    }
+  ]
+}

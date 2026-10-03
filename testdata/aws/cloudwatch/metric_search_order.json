@@ -1,0 +1,179 @@
+{
+  "region": "us-west-2",
+  "caller_account": "000000000000",
+  "replay_publications": [
+    {
+      "fixture": "metric_search.json",
+      "label": "publish-owned-metrics"
+    }
+  ],
+  "capture_correction": "The prior probe retained mutable input references and later swapped query IDs. These read-only observations capture independent deep-copied inputs; no original response was rewritten.",
+  "observations": [
+    {
+      "label": "order-z-direct-a-search",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790191107668,
+      "input": {
+        "StartTime": "2026-09-23T17:35:00Z",
+        "EndTime": "2026-09-23T17:40:00Z",
+        "ScanBy": "TimestampAscending",
+        "MetricDataQueries": [
+          {
+            "Id": "z",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "StackdSearch/Project2-trial333/8c31d8f2eb30",
+                "MetricName": "CustomCount1",
+                "Dimensions": [
+                  {
+                    "Name": "ServiceName",
+                    "Value": "Project2-trial333"
+                  },
+                  {
+                    "Name": "Node",
+                    "Value": "blue"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            }
+          },
+          {
+            "Id": "a",
+            "Expression": "SEARCH('Namespace=\"StackdSearch/Project2-trial333/8c31d8f2eb30\" AND (MetricName=\"SDBFailure\")', 'Sum', 60)"
+          }
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "z",
+              "Label": "blue Project2-trial333 CustomCount1",
+              "Timestamps": [
+                "2026-09-23T18:35:00+01:00",
+                "2026-09-23T18:37:00+01:00"
+              ],
+              "Values": [
+                52,
+                60
+              ],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "a",
+              "Label": "red Beta SDBFailure",
+              "Timestamps": [
+                "2026-09-23T18:35:00+01:00",
+                "2026-09-23T18:37:00+01:00"
+              ],
+              "Values": [
+                212,
+                220
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200
+      }
+    },
+    {
+      "label": "order-a-search-z-direct",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "region": "us-west-2",
+      "caller_account": "000000000000",
+      "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+      "request_started_ms": 1790191108587,
+      "input": {
+        "StartTime": "2026-09-23T17:35:00Z",
+        "EndTime": "2026-09-23T17:40:00Z",
+        "ScanBy": "TimestampAscending",
+        "MetricDataQueries": [
+          {
+            "Id": "a",
+            "Expression": "SEARCH('Namespace=\"StackdSearch/Project2-trial333/8c31d8f2eb30\" AND (MetricName=\"SDBFailure\")', 'Sum', 60)"
+          },
+          {
+            "Id": "z",
+            "MetricStat": {
+              "Metric": {
+                "Namespace": "StackdSearch/Project2-trial333/8c31d8f2eb30",
+                "MetricName": "CustomCount1",
+                "Dimensions": [
+                  {
+                    "Name": "ServiceName",
+                    "Value": "Project2-trial333"
+                  },
+                  {
+                    "Name": "Node",
+                    "Value": "blue"
+                  }
+                ]
+              },
+              "Period": 60,
+              "Stat": "Sum"
+            }
+          }
+        ]
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "z",
+              "Label": "blue Project2-trial333 CustomCount1",
+              "Timestamps": [
+                "2026-09-23T18:35:00+01:00",
+                "2026-09-23T18:37:00+01:00"
+              ],
+              "Values": [
+                52,
+                60
+              ],
+              "StatusCode": "Complete"
+            },
+            {
+              "Id": "a",
+              "Label": "red Beta SDBFailure",
+              "Timestamps": [
+                "2026-09-23T18:35:00+01:00",
+                "2026-09-23T18:37:00+01:00"
+              ],
+              "Values": [
+                212,
+                220
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200
+      }
+    }
+  ],
+  "cleanup": {
+    "resources_created": [],
+    "metric_publications": 0
+  },
+  "sources": [
+    {
+      "path": "eval://cloudwatch-search-order-recapture",
+      "content": "import copy, json, os, sys, time\nfrom pathlib import Path\nsys.dont_write_bytecode = True\nsys.path.insert(0, str(Path.cwd() / 'scripts/aws'))\nfrom aws_cli import call, run, result\nbase = json.loads(Path('testdata/aws/cloudwatch/metric_search.json').read_text())\nenv = dict(os.environ, AWS_REGION='us-west-2', AWS_DEFAULT_REGION='us-west-2', AWS_MAX_ATTEMPTS='1', AWS_PAGER='', AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\nfor key in list(env):\n    if key.startswith('AWS_ENDPOINT_URL'):\n        del env[key]\nidentity = call('sts', 'get-caller-identity', env=env)\nif identity['Account'] != '000000000000':\n    raise RuntimeError('Unexpected native account')\nrows = []\nfor label in ['order-z-direct-a-search', 'order-a-search-z-direct']:\n    original = next(row for row in base['observations'] if row['label'] == label)\n    parameters = copy.deepcopy(original['input'])\n    for query in parameters['MetricDataQueries']:\n        query['Id'] = 'z' if 'MetricStat' in query else 'a'\n    started = int(time.time()*1000)\n    response = result(run('cloudwatch', 'get-metric-data', parameters, env, options=['--debug','--no-paginate','--cli-connect-timeout','10','--cli-read-timeout','30']), debug=True)\n    rows.append({'label':label, 'service':'cloudwatch', 'operation':'get-metric-data', 'region':'us-west-2', 'caller_account':identity['Account'], 'actor_arn':identity['Arn'], 'request_started_ms':started, 'input':parameters, 'result':response})\nprint(json.dumps({'region':'us-west-2','caller_account':identity['Account'],'replay_publications':[{'fixture':'metric_search.json','label':'publish-owned-metrics'}],'capture_correction':'The prior probe retained mutable input references and later swapped query IDs. These read-only observations capture independent deep-copied inputs; no original response was rewritten.','observations':rows,'cleanup':{'resources_created':[],'metric_publications':0}},indent=2))\n"
+    },
+    {
+      "path": "scripts/aws/aws_cli.py",
+      "content": "\"\"\"AWS CLI transport shared by native behavior probes.\n\nCallers own endpoint/retry choices, observations and resource cleanup. JSON shapes\nremain open because probes deliberately exercise invalid and newly added inputs.\n\"\"\"\nimport ast\nimport json\nimport re\nimport subprocess\nfrom collections.abc import Mapping, Sequence\nfrom typing import Any, NotRequired, TypedDict\n\n\nclass ProbeResult(TypedDict):\n    code: str\n    output: NotRequired[dict[str, Any]]\n    error: NotRequired[dict[str, Any]]\n    message: NotRequired[str]\n    http_status: NotRequired[int]\n\n\nclass CLITimeout(RuntimeError):\n    \"\"\"A bounded CLI call expired; command arguments may contain secrets.\"\"\"\n\n\nclass AWSCLIError(RuntimeError):\n    \"\"\"A failed strict call, retaining native JSON error fields for its caller.\"\"\"\n\n    def __init__(self, service: str, operation: str, stderr: str, details: dict[str, Any]):\n        super().__init__(f\"{service}:{operation}: {stderr.strip()}\")\n        self.details = details\n\n\ndef run(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n        env: Mapping[str, str] | None = None, *, options: Sequence[str] = (),\n        timeout: float | None = None) -> subprocess.CompletedProcess[str]:\n    \"\"\"Execute one CLI command without interpreting service or client failures.\"\"\"\n    command = [\"aws\", service, operation, \"--output\", \"json\", \"--no-cli-pager\"]\n    if parameters is not None:\n        command += [\"--cli-input-json\", json.dumps(parameters)]\n    try:\n        return subprocess.run(command + list(options), env=env, capture_output=True,\n                              text=True, check=False, timeout=timeout)\n    except subprocess.TimeoutExpired:\n        raise CLITimeout(\"AWS CLI timed out during \" + operation) from None\n\n\ndef call(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n         env: Mapping[str, str] | None = None, *, paginate: bool = True,\n         error_format: str | None = None) -> dict[str, Any]:\n    \"\"\"Return JSON output; service and CLI-validation errors retain typed details.\n\n    Configuration and transport failures abort capture instead of becoming\n    observations of AWS behavior. AWS CLI uses 252 for input errors and 254\n    for service errors.\n    \"\"\"\n    options = [\"--cli-connect-timeout\", \"10\", \"--cli-read-timeout\", \"30\"]\n    if error_format is not None:\n        options += [\"--cli-error-format\", error_format]\n    if not paginate:\n        options.append(\"--no-paginate\")\n    process = run(service, operation, parameters or None, env, options=options)\n    if process.returncode:\n        diagnosis = f\"{service}:{operation}: {process.stderr.strip()}\"\n        if error_format == \"json\" and process.returncode in (252, 254):\n            try:\n                details = json.loads(process.stderr)\n            except json.JSONDecodeError:\n                raise RuntimeError(diagnosis) from None\n            if isinstance(details, dict) and isinstance(details.get(\"Code\"), str):\n                raise AWSCLIError(service, operation, process.stderr, details)\n        raise RuntimeError(diagnosis)\n    return result(process)[\"output\"]\n\n\ndef observe(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n            env: Mapping[str, str] | None = None, *, paginate: bool = True) -> ProbeResult:\n    \"\"\"Capture native JSON success/error fields; callers own output redaction.\"\"\"\n    try:\n        output = call(service, operation, parameters, env, paginate=paginate, error_format=\"json\")\n    except AWSCLIError as error:\n        return {\"code\": error.details[\"Code\"], \"error\": error.details}\n    return {\"code\": \"Success\", \"output\": output}\n\n\ndef _text_error(stderr: str) -> tuple[str, str | None]:\n    match = re.search(r\"An error occurred \\(([^)]+)\\)(?:.*?operation(?: \\([^)]*\\))?: (.*))?\", stderr)\n    return (match[1], match[2]) if match else (\"CLIError\", None)\n\n\ndef result(process: subprocess.CompletedProcess[str], *, cli_error: str = \"CLIError\",\n           cli_message: str | None = \"AWS CLI failed; raw diagnostics discarded\",\n           debug: bool = False) -> ProbeResult:\n    \"\"\"Decode an observation, separating modeled errors from CLI rejection.\n\n    A None client message retains the final three diagnostic lines for probes\n    whose captured CLI-validation observations include those lines.\n    \"\"\"\n    if process.returncode:\n        code, message = _text_error(process.stderr)\n        decoded: ProbeResult = {\n            \"code\": code if message is not None else cli_error,\n            \"message\": message if message is not None else cli_message if cli_message is not None\n            else \" \".join(process.stderr.splitlines()[-3:]),\n        }\n    else:\n        decoded = {\"code\": \"Success\", \"output\": json.loads(process.stdout) if process.stdout.strip() else {}}\n    if debug:\n        statuses = re.findall(r'\"[A-Z]+ [^\"\\r\\n]* HTTP/1\\.[01]\" (\\d{3})', process.stderr)\n        if statuses:\n            decoded[\"http_status\"] = int(statuses[-1])\n    return decoded\n\n\ndef error_code(process: subprocess.CompletedProcess[str]) -> str:\n    \"\"\"Decode code-only observations, including CLI ParamValidation errors.\"\"\"\n    return _text_error(process.stderr)[0]\n\n\ndef raw_xml(process: subprocess.CompletedProcess[str]) -> bytes | None:\n    \"\"\"Extract the last XML response from CLI debug output; discard other logs.\"\"\"\n    raw = None\n    for line in process.stderr.splitlines():\n        if line.startswith((\"b'<\", 'b\"<')):\n            try:\n                candidate = ast.literal_eval(line)\n                if candidate.startswith(b\"<\"):\n                    raw = candidate\n            except (ValueError, SyntaxError):\n                pass\n    return raw\n"
+    }
+  ]
+}

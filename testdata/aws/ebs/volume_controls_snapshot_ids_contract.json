@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "source_script": "scripts/aws/ebs_volume_controls_probe.py",
+  "fixtures": ["volume_controls_snapshot_ids.json", "volume_controls_snapshot_id_bits.json"],
+  "owner_account": "000000000000",
+  "regions": ["us-east-1", "us-west-2"],
+  "documentation": [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSnapshots.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSnapshotAttribute.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateVolume.html"
+  ],
+  "verification": {
+    "native_calls": 310,
+    "initial_distinct_identifiers": 37,
+    "followup_readonly_calls": 198,
+    "new_resources": 0,
+    "actual_create_volume_requests": 0,
+    "production_identifier_validation_changed": false,
+    "project_builds_tests_formatters_run": false
+  },
+  "observations": [
+    "DescribeSnapshots, DescribeSnapshotAttribute and CreateVolume DryRun agree on the error code for all37 initial variants.",
+    "Previously issued deleted IDs return InvalidSnapshot.NotFound. The source initialization snapshot was already deleted before this supplement; its prior live success and verified absence remain in volume_controls_initialization.json.",
+    "Eight-hex all-zero, all-one, all-f and two source-derived variants return InvalidSnapshot.NotFound; their contents are not rejected by the observed admission layer.",
+    "Seventeen-hex all-zero/all-one/all-f and0123456789abcdef0 return InvalidSnapshotID.Malformed. Leading0 plus17lowercase hex digits is insufficient:01111111111111111 is malformed, while0ffffffffffffffff and0fedcba9876543210 reachNotFound.",
+    "Replacing the proven source's leading0 with1 orf is malformed. Uppercase source hex returns InvalidParameterValue with Expected: 'snap-...'.",
+    "For0400dc0055e85b9bf, incrementing each separate nibble at positions1,2,5 through12 still reachesNotFound. Mutations at3,4,13 through16 can be malformed.",
+    "Full0..f sweeps at the six affected positions yield different admitted digit sets for two proven-issued IDs. A fixed independent per-position whitelist does not explain the observations.",
+    "Both east-issued IDs and one west-issued ID reachNotFound at both regional endpoints. Every sampled western-ID mutation has the same classification in east and west; this sample does not exhibit endpoint-region routing differences."
+  ],
+  "nibble_indexing": "Zero-based index into the17hex digits after snap-. Other digits remain identical to the named baseline. NotFound means passed the observed malformed-ID check, not that the identifier was ever issued.",
+  "nibble_tables": [
+    {
+      "snapshot_id": "snap-0400dc0055e85b9bf",
+      "request_region": "us-east-1",
+      "positions": [
+        {"position": 3, "not_found": "03457aef", "malformed": "12689bcd"},
+        {"position": 4, "not_found": "016789adf", "malformed": "2345bce"},
+        {"position": 13, "not_found": "01235789bef", "malformed": "46acd"},
+        {"position": 14, "not_found": "0235789cdef", "malformed": "146ab"},
+        {"position": 15, "not_found": "126be", "malformed": "0345789acdf"},
+        {"position": 16, "not_found": "1478abcef", "malformed": "023569d"}
+      ]
+    },
+    {
+      "snapshot_id": "snap-0129a2cffb43638de",
+      "request_region": "us-east-1",
+      "positions": [
+        {"position": 3, "not_found": "035789ef", "malformed": "1246abcd"},
+        {"position": 4, "not_found": "012469abd", "malformed": "3578cef"},
+        {"position": 13, "not_found": "023458df", "malformed": "1679abce"},
+        {"position": 14, "not_found": "0125678ce", "malformed": "349abdf"},
+        {"position": 15, "not_found": "134789cde", "malformed": "0256abf"},
+        {"position": 16, "not_found": "2479cef", "malformed": "013568abd"}
+      ]
+    }
+  ],
+  "western_baseline": {
+    "snapshot_id": "snap-0f60ea082183ba234",
+    "source_fixture": "copy_data.json",
+    "original_region": "us-west-2",
+    "baseline_both_endpoints": "InvalidSnapshot.NotFound",
+    "mutations_both_endpoints": [
+      {"position": 3, "digit": "1", "code": "InvalidSnapshotID.Malformed"},
+      {"position": 4, "digit": "f", "code": "InvalidSnapshot.NotFound"},
+      {"position": 13, "digit": "b", "code": "InvalidSnapshot.NotFound"},
+      {"position": 14, "digit": "3", "code": "InvalidSnapshot.NotFound"},
+      {"position": 15, "digit": "4", "code": "InvalidSnapshotID.Malformed"},
+      {"position": 16, "digit": "5", "code": "InvalidSnapshotID.Malformed"}
+    ]
+  },
+  "derivation_limits": [
+    "No universal checksum, type/version field decoder, or backend-routing decoder has been established. These observations cannot justify a fixture blacklist or a guessed decoder.",
+    "Many admitted single-nibble mutations do not identify a whole-ID checksum algorithm, nor do they prove the absence of an internal checksum over selected bits.",
+    "Agreement across two endpoints does not exclude global backend topology or an internal structural decoder shared across endpoints.",
+    "Only read-only and DryRun requests were made for arbitrary variants. No snapshot state, permissions, account settings or roles were changed."
+  ],
+  "captured_through": "2026-09-25T17:39:41.310855+00:00"
+}

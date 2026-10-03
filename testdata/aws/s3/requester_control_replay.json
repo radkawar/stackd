@@ -1,0 +1,233 @@
+{
+  "Source": "requester_payment_evidence.json.gz",
+  "Normalization": "Original Source:Sequence retained. Bucket/account rebound; outputs project native retained Payer. Reopen makes retained state observable across backend reopen. Native raw header presence is asserted in companion raw fixtures.",
+  "Scenarios": [
+    {
+      "Name": "retained-payment-control-and-expected-owner",
+      "Setup": [
+        {
+          "Label": "create stackd-requester-0fc164c26bcd48a8",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 1,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {}
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "default payment",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 8,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {
+            "Payer": "BucketOwner"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "set Requester",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 22,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native",
+            "RequestPaymentConfiguration": {
+              "Payer": "Requester"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "Requester retained",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 23,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {
+            "Payer": "Requester"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "get_bucket_request_payment expected 000000000000",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 53,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native",
+            "ExpectedBucketOwner": "${account}"
+          },
+          "Output": {
+            "Payer": "Requester"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "get_bucket_request_payment expected 111122223333",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 55,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "requester-native",
+            "ExpectedBucketOwner": "111122223333"
+          },
+          "Output": {},
+          "Reopen": true
+        },
+        {
+          "Label": "expected-owner state retained",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 56,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {
+            "Payer": "Requester"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "put_bucket_request_payment expected 000000000000",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 57,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native",
+            "ExpectedBucketOwner": "${account}",
+            "RequestPaymentConfiguration": {
+              "Payer": "Requester"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "expected-owner state retained",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 58,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {
+            "Payer": "Requester"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "put_bucket_request_payment expected 111122223333",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 59,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "requester-native",
+            "ExpectedBucketOwner": "111122223333",
+            "RequestPaymentConfiguration": {
+              "Payer": "BucketOwner"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "expected-owner state retained",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 60,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {
+            "Payer": "Requester"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "replace BucketOwner",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 210,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "PutBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native",
+            "RequestPaymentConfiguration": {
+              "Payer": "BucketOwner"
+            }
+          },
+          "Output": {}
+        },
+        {
+          "Label": "BucketOwner restored retained",
+          "Source": "requester_payment_evidence.json.gz",
+          "Sequence": 211,
+          "Service": "s3",
+          "Actor": "caller",
+          "Operation": "GetBucketRequestPayment",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "requester-native"
+          },
+          "Output": {
+            "Payer": "BucketOwner"
+          },
+          "Reopen": true
+        }
+      ]
+    }
+  ]
+}

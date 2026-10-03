@@ -1,0 +1,2980 @@
+{
+  "source": "Owned native SNS authorization-failure and repaired-destination captures; original observations and bounded receive windows retained unchanged, with subsequent read-only retained metric queries.",
+  "captures": {
+    "wrapped": {
+      "source": "native AWS CLI SNS/SQS authorization-failure probe",
+      "account": "000000000000",
+      "region": "us-east-1",
+      "primary_references": [
+        {
+          "url": "https://docs.aws.amazon.com/sns/latest/dg/sns-dead-letter-queues.html",
+          "documented": "Endpoint-policy authorization failures are client-side errors; SNS does not retry client-side failed delivery and redirects to subscription DLQ when configured. Failed deliveries do not change subscription status."
+        },
+        {
+          "url": "https://docs.aws.amazon.com/sns/latest/dg/sns-message-delivery-retries.html",
+          "documented": "SQS and Lambda AWS-managed endpoints use the service-defined retry policy for server-side errors: 100,015 attempts over 23 days. This probe does not exercise server-side failures or validate that duration."
+        }
+      ],
+      "observations": [
+        {
+          "label": "identity-before-writes",
+          "service": "sts",
+          "operation": "get-caller-identity",
+          "input": {},
+          "request_started_ms": 1789380312797,
+          "request_finished_ms": 1789380313549,
+          "result": {
+            "code": "Success",
+            "output": {
+              "UserId": "AIDAQAAAAAAAMEZHRHAHY",
+              "Account": "000000000000",
+              "Arn": "arn:aws:iam::000000000000:user/Delegated"
+            }
+          }
+        },
+        {
+          "label": "create-topic",
+          "service": "sns",
+          "operation": "create-topic",
+          "input": {
+            "Name": "stackd-sns-failures-9ea1f5f0c27b487f"
+          },
+          "request_started_ms": 1789380313550,
+          "request_finished_ms": 1789380314410,
+          "result": {
+            "code": "Success",
+            "output": {
+              "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f"
+            }
+          }
+        },
+        {
+          "label": "create-primary",
+          "service": "sqs",
+          "operation": "create-queue",
+          "input": {
+            "QueueName": "stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "Attributes": {
+              "SqsManagedSseEnabled": "false",
+              "MessageRetentionPeriod": "600"
+            }
+          },
+          "request_started_ms": 1789380314411,
+          "request_finished_ms": 1789380315262,
+          "result": {
+            "code": "Success",
+            "output": {
+              "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary"
+            }
+          }
+        },
+        {
+          "label": "get-primary-arn",
+          "service": "sqs",
+          "operation": "get-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "AttributeNames": [
+              "QueueArn"
+            ]
+          },
+          "request_started_ms": 1789380315262,
+          "request_finished_ms": 1789380315987,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary"
+              }
+            }
+          }
+        },
+        {
+          "label": "configure-primary-policy",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AllowOnlyOwnedSnsTopic\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\"}}}, {\"Sid\": \"DenyOnlyOwnedSnsTopic\", \"Effect\": \"Deny\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\"}}}]}"
+            }
+          },
+          "request_started_ms": 1789380315987,
+          "request_finished_ms": 1789380316704,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "inspect-primary-policy",
+          "service": "sqs",
+          "operation": "get-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "AttributeNames": [
+              "Policy",
+              "QueueArn",
+              "SqsManagedSseEnabled"
+            ]
+          },
+          "request_started_ms": 1789380316704,
+          "request_finished_ms": 1789380317394,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AllowOnlyOwnedSnsTopic\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"sns.amazonaws.com\"},\"Action\":\"sqs:SendMessage\",\"Resource\":\"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\"}}},{\"Sid\":\"DenyOnlyOwnedSnsTopic\",\"Effect\":\"Deny\",\"Principal\":{\"Service\":\"sns.amazonaws.com\"},\"Action\":\"sqs:SendMessage\",\"Resource\":\"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\"}}}]}",
+                "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary",
+                "SqsManagedSseEnabled": "false"
+              }
+            }
+          }
+        },
+        {
+          "label": "create-dlq",
+          "service": "sqs",
+          "operation": "create-queue",
+          "input": {
+            "QueueName": "stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "Attributes": {
+              "SqsManagedSseEnabled": "false",
+              "MessageRetentionPeriod": "600"
+            }
+          },
+          "request_started_ms": 1789380317394,
+          "request_finished_ms": 1789380318144,
+          "result": {
+            "code": "Success",
+            "output": {
+              "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq"
+            }
+          }
+        },
+        {
+          "label": "get-dlq-arn",
+          "service": "sqs",
+          "operation": "get-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "AttributeNames": [
+              "QueueArn"
+            ]
+          },
+          "request_started_ms": 1789380318144,
+          "request_finished_ms": 1789380318861,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-dlq"
+              }
+            }
+          }
+        },
+        {
+          "label": "configure-dlq-policy",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AllowOnlyOwnedSnsTopic\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-dlq\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\"}}}]}"
+            }
+          },
+          "request_started_ms": 1789380318861,
+          "request_finished_ms": 1789380319557,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "inspect-dlq-policy",
+          "service": "sqs",
+          "operation": "get-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "AttributeNames": [
+              "Policy",
+              "QueueArn",
+              "SqsManagedSseEnabled"
+            ]
+          },
+          "request_started_ms": 1789380319558,
+          "request_finished_ms": 1789380320357,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AllowOnlyOwnedSnsTopic\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"sns.amazonaws.com\"},\"Action\":\"sqs:SendMessage\",\"Resource\":\"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-dlq\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\"}}}]}",
+                "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+                "SqsManagedSseEnabled": "false"
+              }
+            }
+          }
+        },
+        {
+          "label": "subscribe-with-dlq",
+          "service": "sns",
+          "operation": "subscribe",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f",
+            "Protocol": "sqs",
+            "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "ReturnSubscriptionArn": true,
+            "Attributes": {
+              "RawMessageDelivery": "false",
+              "RedrivePolicy": "{\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-dlq\"}"
+            }
+          },
+          "request_started_ms": 1789380320358,
+          "request_finished_ms": 1789380321269,
+          "result": {
+            "code": "Success",
+            "output": {
+              "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+            }
+          }
+        },
+        {
+          "label": "inspect-subscription-before-denial",
+          "service": "sns",
+          "operation": "get-subscription-attributes",
+          "input": {
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+          },
+          "request_started_ms": 1789380321269,
+          "request_finished_ms": 1789380321983,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+                "Owner": "000000000000",
+                "RawMessageDelivery": "false",
+                "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f",
+                "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary",
+                "RedrivePolicy": "{\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-dlq\"}",
+                "Protocol": "sqs",
+                "PendingConfirmation": "false",
+                "ConfirmationWasAuthenticated": "true",
+                "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+              }
+            }
+          }
+        },
+        {
+          "label": "publish-denied-with-dlq",
+          "service": "sns",
+          "operation": "publish",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f",
+            "Message": "{\"probe\":\"stackd-sns-failures-9ea1f5f0c27b487f\",\"phase\":\"denied\",\"payload\":\"Original body has Unicode: λ and a newline\\nend\"}",
+            "Subject": "stackd-denied-authorization",
+            "MessageAttributes": {
+              "phase": {
+                "DataType": "String",
+                "StringValue": "denied"
+              },
+              "attempt": {
+                "DataType": "Number",
+                "StringValue": "1"
+              },
+              "tags": {
+                "DataType": "String.Array",
+                "StringValue": "[\"failure\",\"dlq\"]"
+              }
+            }
+          },
+          "request_started_ms": 1789380382984,
+          "request_finished_ms": 1789380383746,
+          "result": {
+            "code": "Success",
+            "output": {
+              "MessageId": "fc1aaae9-b727-56b4-a264-c9c87e780af9"
+            }
+          }
+        },
+        {
+          "label": "dlq-after-denial-1",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380383747,
+          "request_finished_ms": 1789380394492,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "dlq-after-denial-2",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380394492,
+          "request_finished_ms": 1789380404905,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Messages": [
+                {
+                  "MessageId": "5cc48b73-0a7d-48b5-9e93-06159bf80267",
+                  "ReceiptHandle": "AQEBsfwhtvzm81DEMMSrLwCamSo70fX3kPuQlw+hQarjWP6j9EoBxQFt932AE6qnLwH45TTCdg8WaGPzJ+dYBD6csj8c1TMuuxUMEf8m10dm4s1jGWupzJnzb1nGWeg358cEjPmyWEpRJ7Ab+0TBD5+9Tnkn61D+jWcujqOJfTWMo4Xe0raKXuz5XRdMEcmp5z5I+Q1PMsJqDFmHw768v31kp0VzIf4TpogNwWJms+aBblSsWe2xUtgKIjTcc73TiZ7IoviLA9Nh9wSXFf2E0K94XJ7j2j+ExiTtsZncAUYkmKPhZBJkONAztVW89WBd15m9jJvjtVPT8gEkxXk+UMpwhBtFBqmdvUdxBYBuq8gNTvJ4io3BmrOYbp50bkbgP4DyaLCQF16QjnOrElP92pg2+hZuOKnDEnrL2eNZzm7xnwM=",
+                  "MD5OfBody": "f1c4f46e5ddf38cd9c5d8186219c6ceb",
+                  "Body": "{\n  \"Type\" : \"Notification\",\n  \"MessageId\" : \"fc1aaae9-b727-56b4-a264-c9c87e780af9\",\n  \"TopicArn\" : \"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\",\n  \"Subject\" : \"stackd-denied-authorization\",\n  \"Message\" : \"{\\\"probe\\\":\\\"stackd-sns-failures-9ea1f5f0c27b487f\\\",\\\"phase\\\":\\\"denied\\\",\\\"payload\\\":\\\"Original body has Unicode: λ and a newline\\\\nend\\\"}\",\n  \"Timestamp\" : \"2026-09-14T10:06:23.636Z\",\n  \"SignatureVersion\" : \"1\",\n  \"Signature\" : \"XbLPqyZ4BinWLVRj0HVzTmQZgmDPofBPqYJCwbuhsrhi53S2Kod2Ygx+xFfPef2MD7XXfukeI0NwXYAYHUlQkyb4IKoosHvpMAbcTTNwvBC6JcQH2bqLLiCKlyCKIRo+TkuMcNXLHhhpmDT9OVOulAb/nSFy+8W2aWeiDrl7SZwyuatdnrQNtkLDUNsk8BgsUteW1him8WYvwNldoYb2QNm/2UQhxzCU0KtEP/Khz0XotY9j7PFEHMRk496d9bE++WromelxbqiZUSiy73PMJslwj8prLZBn7Vp7QmXsjigPHcP6fBVvJZUfT5YJtPYbHN6E1TqRylmPX7jxujTBqw==\",\n  \"SigningCertURL\" : \"https://sns.us-east-1.amazonaws.com/SimpleNotificationService-1e59c4574facfe41babdb2d652f8ebef.pem\",\n  \"UnsubscribeURL\" : \"https://sns.us-east-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6\",\n  \"MessageAttributes\" : {\n    \"phase\" : {\"Type\":\"String\",\"Value\":\"denied\"},\n    \"attempt\" : {\"Type\":\"Number\",\"Value\":\"1\"},\n    \"tags\" : {\"Type\":\"String.Array\",\"Value\":\"[\\\"failure\\\",\\\"dlq\\\"]\"}\n  }\n}",
+                  "Attributes": {
+                    "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                    "ApproximateFirstReceiveTimestamp": "1789380404763",
+                    "ApproximateReceiveCount": "1",
+                    "SentTimestamp": "1789380404754"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "label": "dlq-after-denial-2-delete",
+          "service": "sqs",
+          "operation": "delete-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "ReceiptHandle": "AQEBsfwhtvzm81DEMMSrLwCamSo70fX3kPuQlw+hQarjWP6j9EoBxQFt932AE6qnLwH45TTCdg8WaGPzJ+dYBD6csj8c1TMuuxUMEf8m10dm4s1jGWupzJnzb1nGWeg358cEjPmyWEpRJ7Ab+0TBD5+9Tnkn61D+jWcujqOJfTWMo4Xe0raKXuz5XRdMEcmp5z5I+Q1PMsJqDFmHw768v31kp0VzIf4TpogNwWJms+aBblSsWe2xUtgKIjTcc73TiZ7IoviLA9Nh9wSXFf2E0K94XJ7j2j+ExiTtsZncAUYkmKPhZBJkONAztVW89WBd15m9jJvjtVPT8gEkxXk+UMpwhBtFBqmdvUdxBYBuq8gNTvJ4io3BmrOYbp50bkbgP4DyaLCQF16QjnOrElP92pg2+hZuOKnDEnrL2eNZzm7xnwM="
+          },
+          "request_started_ms": 1789380404905,
+          "request_finished_ms": 1789380405654,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-before-repair-1",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380405655,
+          "request_finished_ms": 1789380416346,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-before-repair-2",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 1,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380416347,
+          "request_finished_ms": 1789380418086,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "inspect-subscription-after-denial",
+          "service": "sns",
+          "operation": "get-subscription-attributes",
+          "input": {
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+          },
+          "request_started_ms": 1789380418089,
+          "request_finished_ms": 1789380418849,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+                "Owner": "000000000000",
+                "RawMessageDelivery": "false",
+                "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f",
+                "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary",
+                "RedrivePolicy": "{\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-dlq\"}",
+                "Protocol": "sqs",
+                "PendingConfirmation": "false",
+                "ConfirmationWasAuthenticated": "true",
+                "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+              }
+            }
+          }
+        },
+        {
+          "label": "repair-primary-policy",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AllowOnlyOwnedSnsTopic\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\"}}}]}"
+            }
+          },
+          "request_started_ms": 1789380418850,
+          "request_finished_ms": 1789380419572,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "inspect-repaired-policy",
+          "service": "sqs",
+          "operation": "get-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "AttributeNames": [
+              "Policy"
+            ]
+          },
+          "request_started_ms": 1789380419573,
+          "request_finished_ms": 1789380420293,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AllowOnlyOwnedSnsTopic\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"sns.amazonaws.com\"},\"Action\":\"sqs:SendMessage\",\"Resource\":\"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary\",\"Condition\":{\"ArnEquals\":{\"aws:SourceArn\":\"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\"}}}]}"
+              }
+            }
+          }
+        },
+        {
+          "label": "publish-repaired-positive-control",
+          "service": "sns",
+          "operation": "publish",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f",
+            "Message": "{\"probe\":\"stackd-sns-failures-9ea1f5f0c27b487f\",\"phase\":\"repaired\",\"payload\":\"distinct positive control\"}",
+            "Subject": "stackd-repaired-positive-control",
+            "MessageAttributes": {
+              "phase": {
+                "DataType": "String",
+                "StringValue": "repaired"
+              },
+              "attempt": {
+                "DataType": "Number",
+                "StringValue": "2"
+              }
+            }
+          },
+          "request_started_ms": 1789380481295,
+          "request_finished_ms": 1789380482057,
+          "result": {
+            "code": "Success",
+            "output": {
+              "MessageId": "134f93d9-442c-56f6-bc66-f0f88dedbc9a"
+            }
+          }
+        },
+        {
+          "label": "primary-after-repair-1",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380482058,
+          "request_finished_ms": 1789380482889,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Messages": [
+                {
+                  "MessageId": "5a8ae37c-0434-4828-8114-732a3a05de89",
+                  "ReceiptHandle": "AQEBCEdXtNyEYPirOIzVtSlclcJU18VHAw/0eYOcVhnqS/rdoY3KDmSw8HxPrhnffSDvkr4AYbQ6zi93mY8VUalHZQQE3cM3efYb4iAHoOcXY4j0V5KfmNVsKpiuziTFAsWTGi5k8VAudj20XHEFt2leEbTZIL+/boOLKnHSRCm1o+XDq7oP/PuLRCBS1CoPMCehU5XRwGGa40FbUKuSkQqEG5kpiJloud0zt+c2RmdlaL3/52nVlPg8JBbb+6k3ogVUp5rAFawsDLJIkp3uE1aj648MjghCvYOoxS8eeYX2vDoSQILysbvD1vNEi4am1ZyAKspNqx2fDWoCvO3rNCA0FA4pVCqNFTxFWYLu23+FuTTisFbx7fRxNml4w6n1zdkY+Q9hoFjaNOnJg4Qo8d0W5TJGraDxdAgHyp4XxPTaHXbF38CsajW0Gj6QAKYb7bIZ",
+                  "MD5OfBody": "f88572732cb1d1749aae46e0c7ccb439",
+                  "Body": "{\n  \"Type\" : \"Notification\",\n  \"MessageId\" : \"134f93d9-442c-56f6-bc66-f0f88dedbc9a\",\n  \"TopicArn\" : \"arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f\",\n  \"Subject\" : \"stackd-repaired-positive-control\",\n  \"Message\" : \"{\\\"probe\\\":\\\"stackd-sns-failures-9ea1f5f0c27b487f\\\",\\\"phase\\\":\\\"repaired\\\",\\\"payload\\\":\\\"distinct positive control\\\"}\",\n  \"Timestamp\" : \"2026-09-14T10:08:01.945Z\",\n  \"SignatureVersion\" : \"1\",\n  \"Signature\" : \"o6AEPbPrM8fF+kyurizVuqXfgp2velQcpxgG4PPuqmxnGVgns30IJrUhNvQ4QQIkAM+DZ6wqvUUR5Gtjd38XkvPQWeSy0McDjWFy1k7lHmSuZ+AhnSIP0HhFxdL0wMDK2Bt6QqdH9Ns0/la3ePfKJ9mMwLLWHQ9CBfe3WR8+jfmBtmRQsT5aETC7Xw1p3O4bvz098QCOhjeCBDAKmgZXquQk95NnX0xIIjxRmI3HQvoAx8+07EI6udUH24kWuQA2DUoEJq4VRP7rHa+HsC3TaATPJpmUBbwALTVx9pAemlz2UBNGUb6NEkBzlKpV77hdT3cv47nLgNjiwD+6W+5iqA==\",\n  \"SigningCertURL\" : \"https://sns.us-east-1.amazonaws.com/SimpleNotificationService-1e59c4574facfe41babdb2d652f8ebef.pem\",\n  \"UnsubscribeURL\" : \"https://sns.us-east-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6\",\n  \"MessageAttributes\" : {\n    \"phase\" : {\"Type\":\"String\",\"Value\":\"repaired\"},\n    \"attempt\" : {\"Type\":\"Number\",\"Value\":\"2\"}\n  }\n}",
+                  "Attributes": {
+                    "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                    "ApproximateFirstReceiveTimestamp": "1789380482750",
+                    "ApproximateReceiveCount": "1",
+                    "SentTimestamp": "1789380481983"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "label": "primary-after-repair-1-delete",
+          "service": "sqs",
+          "operation": "delete-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "ReceiptHandle": "AQEBCEdXtNyEYPirOIzVtSlclcJU18VHAw/0eYOcVhnqS/rdoY3KDmSw8HxPrhnffSDvkr4AYbQ6zi93mY8VUalHZQQE3cM3efYb4iAHoOcXY4j0V5KfmNVsKpiuziTFAsWTGi5k8VAudj20XHEFt2leEbTZIL+/boOLKnHSRCm1o+XDq7oP/PuLRCBS1CoPMCehU5XRwGGa40FbUKuSkQqEG5kpiJloud0zt+c2RmdlaL3/52nVlPg8JBbb+6k3ogVUp5rAFawsDLJIkp3uE1aj648MjghCvYOoxS8eeYX2vDoSQILysbvD1vNEi4am1ZyAKspNqx2fDWoCvO3rNCA0FA4pVCqNFTxFWYLu23+FuTTisFbx7fRxNml4w6n1zdkY+Q9hoFjaNOnJg4Qo8d0W5TJGraDxdAgHyp4XxPTaHXbF38CsajW0Gj6QAKYb7bIZ"
+          },
+          "request_started_ms": 1789380482890,
+          "request_finished_ms": 1789380483586,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-after-repair-2",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380483586,
+          "request_finished_ms": 1789380494406,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-after-repair-3",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380494407,
+          "request_finished_ms": 1789380505178,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-after-repair-4",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380505179,
+          "request_finished_ms": 1789380516044,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-after-repair-5",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380516044,
+          "request_finished_ms": 1789380526768,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-after-repair-6",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380526769,
+          "request_finished_ms": 1789380537569,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-after-repair-7",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380537570,
+          "request_finished_ms": 1789380548323,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-after-repair-8",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380548323,
+          "request_finished_ms": 1789380559065,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "primary-after-repair-9",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 7,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380559065,
+          "request_finished_ms": 1789380566844,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "dlq-after-repair-1",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 10,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380566846,
+          "request_finished_ms": 1789380577671,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "dlq-after-repair-2",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 1,
+            "VisibilityTimeout": 30,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789380577672,
+          "request_finished_ms": 1789380580290,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "inspect-subscription-after-recovery",
+          "service": "sns",
+          "operation": "get-subscription-attributes",
+          "input": {
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+          },
+          "request_started_ms": 1789380580292,
+          "request_finished_ms": 1789380581061,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+                "Owner": "000000000000",
+                "RawMessageDelivery": "false",
+                "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f",
+                "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-primary",
+                "RedrivePolicy": "{\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f-dlq\"}",
+                "Protocol": "sqs",
+                "PendingConfirmation": "false",
+                "ConfirmationWasAuthenticated": "true",
+                "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+              }
+            }
+          }
+        },
+        {
+          "label": "cleanup-unsubscribe",
+          "service": "sns",
+          "operation": "unsubscribe",
+          "input": {
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+          },
+          "request_started_ms": 1789380581063,
+          "request_finished_ms": 1789380581963,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "cleanup-delete-topic",
+          "service": "sns",
+          "operation": "delete-topic",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f"
+          },
+          "request_started_ms": 1789380581964,
+          "request_finished_ms": 1789380582858,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "cleanup-delete-primary",
+          "service": "sqs",
+          "operation": "delete-queue",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary"
+          },
+          "request_started_ms": 1789380582859,
+          "request_finished_ms": 1789380583752,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "cleanup-delete-dlq",
+          "service": "sqs",
+          "operation": "delete-queue",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq"
+          },
+          "request_started_ms": 1789380583753,
+          "request_finished_ms": 1789380584578,
+          "result": {
+            "code": "Success",
+            "output": {}
+          }
+        },
+        {
+          "label": "verify-subscription-absent",
+          "service": "sns",
+          "operation": "get-subscription-attributes",
+          "input": {
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+          },
+          "request_started_ms": 1789380584579,
+          "request_finished_ms": 1789380585471,
+          "result": {
+            "code": "NotFound",
+            "message": "Subscription does not exist"
+          }
+        },
+        {
+          "label": "verify-topic-absent",
+          "service": "sns",
+          "operation": "get-topic-attributes",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f"
+          },
+          "request_started_ms": 1789380585471,
+          "request_finished_ms": 1789380586276,
+          "result": {
+            "code": "NotFound",
+            "message": "Topic does not exist"
+          }
+        },
+        {
+          "label": "verify-primary-absent",
+          "service": "sqs",
+          "operation": "get-queue-url",
+          "input": {
+            "QueueName": "stackd-sns-failures-9ea1f5f0c27b487f-primary",
+            "QueueOwnerAWSAccountId": "000000000000"
+          },
+          "request_started_ms": 1789380586276,
+          "request_finished_ms": 1789380586993,
+          "result": {
+            "code": "AWS.SimpleQueueService.NonExistentQueue",
+            "message": "The specified queue does not exist."
+          }
+        },
+        {
+          "label": "verify-dlq-absent",
+          "service": "sqs",
+          "operation": "get-queue-url",
+          "input": {
+            "QueueName": "stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+            "QueueOwnerAWSAccountId": "000000000000"
+          },
+          "request_started_ms": 1789380586993,
+          "request_finished_ms": 1789380587807,
+          "result": {
+            "code": "AWS.SimpleQueueService.NonExistentQueue",
+            "message": "The specified queue does not exist."
+          }
+        }
+      ],
+      "owned_resources": [
+        {
+          "type": "sns-topic",
+          "arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f",
+          "name": "stackd-sns-failures-9ea1f5f0c27b487f"
+        },
+        {
+          "type": "sqs-queue",
+          "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-primary",
+          "name": "stackd-sns-failures-9ea1f5f0c27b487f-primary"
+        },
+        {
+          "type": "sqs-queue",
+          "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-sns-failures-9ea1f5f0c27b487f-dlq",
+          "name": "stackd-sns-failures-9ea1f5f0c27b487f-dlq"
+        },
+        {
+          "type": "sns-subscription",
+          "arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+        }
+      ],
+      "cleanup": {
+        "started_ms": 1789380581063,
+        "absence_result_codes": {
+          "subscription": "NotFound",
+          "topic": "NotFound",
+          "primary": "AWS.SimpleQueueService.NonExistentQueue",
+          "dlq": "AWS.SimpleQueueService.NonExistentQueue"
+        },
+        "verified_absent": true,
+        "finished_ms": 1789380587807
+      },
+      "limitations": [
+        "Receive windows are bounded and do not establish permanent absence or indefinite no-retry.",
+        "Underlying SNS-to-SQS request/error is not exposed by these control-plane APIs; authorization-failure attribution uses the exact scoped explicit Deny, DLQ observation and repaired positive control.",
+        "No retry-duration or server-side retry behavior is experimentally tested.",
+        "CLI calls use one attempt; request_count counts CLI API invocations, not hidden SNS delivery attempts. No debug headers are collected."
+      ],
+      "receive_intervals": [
+        {
+          "label": "dlq-after-denial",
+          "queue": "dlq",
+          "started_ms": 1789380383747,
+          "finished_ms": 1789380405654,
+          "requested_max_seconds": 85,
+          "stop_on_message": true,
+          "observation_labels": [
+            "dlq-after-denial-1",
+            "dlq-after-denial-2"
+          ],
+          "received_count": 1
+        },
+        {
+          "label": "primary-before-repair",
+          "queue": "primary",
+          "started_ms": 1789380405655,
+          "finished_ms": 1789380418087,
+          "requested_max_seconds": 12,
+          "stop_on_message": false,
+          "observation_labels": [
+            "primary-before-repair-1",
+            "primary-before-repair-2"
+          ],
+          "received_count": 0
+        },
+        {
+          "label": "primary-after-repair",
+          "queue": "primary",
+          "started_ms": 1789380482058,
+          "finished_ms": 1789380566845,
+          "requested_max_seconds": 85,
+          "stop_on_message": false,
+          "observation_labels": [
+            "primary-after-repair-1",
+            "primary-after-repair-2",
+            "primary-after-repair-3",
+            "primary-after-repair-4",
+            "primary-after-repair-5",
+            "primary-after-repair-6",
+            "primary-after-repair-7",
+            "primary-after-repair-8",
+            "primary-after-repair-9"
+          ],
+          "received_count": 1
+        },
+        {
+          "label": "dlq-after-repair",
+          "queue": "dlq",
+          "started_ms": 1789380566846,
+          "finished_ms": 1789380580291,
+          "requested_max_seconds": 12,
+          "stop_on_message": false,
+          "observation_labels": [
+            "dlq-after-repair-1",
+            "dlq-after-repair-2"
+          ],
+          "received_count": 0
+        }
+      ],
+      "received_attribution": [
+        {
+          "receive_label": "dlq-after-denial-2",
+          "queue": "dlq",
+          "sqs_message_id": "5cc48b73-0a7d-48b5-9e93-06159bf80267",
+          "sqs_message_attribute_names": [],
+          "body_json_type": "dict",
+          "body_keys": [
+            "Type",
+            "MessageId",
+            "TopicArn",
+            "Subject",
+            "Message",
+            "Timestamp",
+            "SignatureVersion",
+            "Signature",
+            "SigningCertURL",
+            "UnsubscribeURL",
+            "MessageAttributes"
+          ],
+          "sns_message_id": "fc1aaae9-b727-56b4-a264-c9c87e780af9",
+          "sns_topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f",
+          "sns_subject": "stackd-denied-authorization",
+          "sns_message": "{\"probe\":\"stackd-sns-failures-9ea1f5f0c27b487f\",\"phase\":\"denied\",\"payload\":\"Original body has Unicode: λ and a newline\\nend\"}",
+          "sns_message_attributes": {
+            "phase": {
+              "Type": "String",
+              "Value": "denied"
+            },
+            "attempt": {
+              "Type": "Number",
+              "Value": "1"
+            },
+            "tags": {
+              "Type": "String.Array",
+              "Value": "[\"failure\",\"dlq\"]"
+            }
+          },
+          "unsubscribe_subscription_arn": [
+            "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+          ]
+        },
+        {
+          "receive_label": "primary-after-repair-1",
+          "queue": "primary",
+          "sqs_message_id": "5a8ae37c-0434-4828-8114-732a3a05de89",
+          "sqs_message_attribute_names": [],
+          "body_json_type": "dict",
+          "body_keys": [
+            "Type",
+            "MessageId",
+            "TopicArn",
+            "Subject",
+            "Message",
+            "Timestamp",
+            "SignatureVersion",
+            "Signature",
+            "SigningCertURL",
+            "UnsubscribeURL",
+            "MessageAttributes"
+          ],
+          "sns_message_id": "134f93d9-442c-56f6-bc66-f0f88dedbc9a",
+          "sns_topic_arn": "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f",
+          "sns_subject": "stackd-repaired-positive-control",
+          "sns_message": "{\"probe\":\"stackd-sns-failures-9ea1f5f0c27b487f\",\"phase\":\"repaired\",\"payload\":\"distinct positive control\"}",
+          "sns_message_attributes": {
+            "phase": {
+              "Type": "String",
+              "Value": "repaired"
+            },
+            "attempt": {
+              "Type": "Number",
+              "Value": "2"
+            }
+          },
+          "unsubscribe_subscription_arn": [
+            "arn:aws:sns:us-east-1:000000000000:stackd-sns-failures-9ea1f5f0c27b487f:6c526555-af79-484d-9d12-25401ca1c0d6"
+          ]
+        }
+      ],
+      "publications": {
+        "denied": {
+          "message_id": "fc1aaae9-b727-56b4-a264-c9c87e780af9",
+          "body": "{\"probe\":\"stackd-sns-failures-9ea1f5f0c27b487f\",\"phase\":\"denied\",\"payload\":\"Original body has Unicode: λ and a newline\\nend\"}",
+          "subject": "stackd-denied-authorization",
+          "attributes": {
+            "phase": {
+              "DataType": "String",
+              "StringValue": "denied"
+            },
+            "attempt": {
+              "DataType": "Number",
+              "StringValue": "1"
+            },
+            "tags": {
+              "DataType": "String.Array",
+              "StringValue": "[\"failure\",\"dlq\"]"
+            }
+          }
+        },
+        "repaired": {
+          "message_id": "134f93d9-442c-56f6-bc66-f0f88dedbc9a",
+          "body": "{\"probe\":\"stackd-sns-failures-9ea1f5f0c27b487f\",\"phase\":\"repaired\",\"payload\":\"distinct positive control\"}"
+        }
+      },
+      "probe_started_ms": 1789380312797,
+      "budget": {
+        "seconds": 475,
+        "max_api_calls": 180,
+        "cleanup_reserve_seconds": 50
+      },
+      "request_count": 43,
+      "elapsed_seconds": 275.01,
+      "settle_intervals": [
+        {
+          "label": "initial-policy-propagation",
+          "started_ms": 1789380321983,
+          "finished_ms": 1789380382983,
+          "requested_seconds": 61
+        },
+        {
+          "label": "repaired-policy-propagation",
+          "started_ms": 1789380420294,
+          "finished_ms": 1789380481294,
+          "requested_seconds": 61
+        }
+      ],
+      "outcome": "completed",
+      "probe_finished_ms": 1789380587807,
+      "supplemental_metric_queries": [
+        {
+          "label": "retained-delivery-outcome-metrics",
+          "service": "cloudwatch",
+          "operation": "get-metric-data",
+          "input": {
+            "MetricDataQueries": [
+              {
+                "Id": "m0",
+                "Label": "NumberOfMessagesPublished:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfMessagesPublished",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m1",
+                "Label": "NumberOfMessagesPublished:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfMessagesPublished",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m2",
+                "Label": "NumberOfNotificationsDelivered:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsDelivered",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m3",
+                "Label": "NumberOfNotificationsDelivered:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsDelivered",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m4",
+                "Label": "NumberOfNotificationsFailed:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsFailed",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m5",
+                "Label": "NumberOfNotificationsFailed:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsFailed",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m6",
+                "Label": "NumberOfNotificationsRedrivenToDlq:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsRedrivenToDlq",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m7",
+                "Label": "NumberOfNotificationsRedrivenToDlq:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsRedrivenToDlq",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m8",
+                "Label": "NumberOfNotificationsFailedToRedriveToDlq:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsFailedToRedriveToDlq",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m9",
+                "Label": "NumberOfNotificationsFailedToRedriveToDlq:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsFailedToRedriveToDlq",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m10",
+                "Label": "PublishSize:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "PublishSize",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m11",
+                "Label": "PublishSize:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "PublishSize",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-sns-failures-9ea1f5f0c27b487f"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              }
+            ],
+            "StartTime": "2026-09-14T10:00:00Z",
+            "EndTime": "2026-09-14T11:00:00Z"
+          },
+          "request_started_ms": 1789397265508,
+          "request_finished_ms": 1789397266601,
+          "result": {
+            "code": "Success",
+            "output": {
+              "MetricDataResults": [
+                {
+                  "Id": "m0",
+                  "Label": "NumberOfMessagesPublished:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    2
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m1",
+                  "Label": "NumberOfMessagesPublished:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    2
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m2",
+                  "Label": "NumberOfNotificationsDelivered:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m3",
+                  "Label": "NumberOfNotificationsDelivered:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m4",
+                  "Label": "NumberOfNotificationsFailed:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m5",
+                  "Label": "NumberOfNotificationsFailed:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    2
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m6",
+                  "Label": "NumberOfNotificationsRedrivenToDlq:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m7",
+                  "Label": "NumberOfNotificationsRedrivenToDlq:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m8",
+                  "Label": "NumberOfNotificationsFailedToRedriveToDlq:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    0
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m9",
+                  "Label": "NumberOfNotificationsFailedToRedriveToDlq:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m10",
+                  "Label": "PublishSize:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    328
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m11",
+                  "Label": "PublishSize:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    2
+                  ],
+                  "StatusCode": "Complete"
+                }
+              ],
+              "Messages": []
+            }
+          }
+        }
+      ]
+    },
+    "raw": {
+      "source": "Native AWS CLI through shared aws_cli.run/result",
+      "account": "000000000000",
+      "region": "us-east-1",
+      "started_ms": 1789383012874,
+      "limits": {
+        "seconds": 300,
+        "cleanup_reserve_seconds": 60,
+        "api_calls": 100,
+        "publishes": 3
+      },
+      "observations": [
+        {
+          "label": "verify-caller",
+          "service": "sts",
+          "operation": "get-caller-identity",
+          "input": {},
+          "request_started_ms": 1789383012874,
+          "request_finished_ms": 1789383013662,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Account": "000000000000"
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "create-topic",
+          "service": "sns",
+          "operation": "create-topic",
+          "input": {
+            "Name": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+          },
+          "request_started_ms": 1789383013663,
+          "request_finished_ms": 1789383014561,
+          "result": {
+            "code": "Success",
+            "output": {
+              "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a"
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "create-primary",
+          "service": "sqs",
+          "operation": "create-queue",
+          "input": {
+            "QueueName": "stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+            "Attributes": {
+              "MessageRetentionPeriod": "300"
+            }
+          },
+          "request_started_ms": 1789383014561,
+          "request_finished_ms": 1789383015397,
+          "result": {
+            "code": "Success",
+            "output": {
+              "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary"
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "get-primary-arn",
+          "service": "sqs",
+          "operation": "get-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+            "AttributeNames": [
+              "QueueArn"
+            ]
+          },
+          "request_started_ms": 1789383015397,
+          "request_finished_ms": 1789383016365,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-primary"
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "allow-primary-exact-topic",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"ExactOwnedTopicSend\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-primary\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a\"}}}]}"
+            }
+          },
+          "request_started_ms": 1789383016365,
+          "request_finished_ms": 1789383017082,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "create-dlq",
+          "service": "sqs",
+          "operation": "create-queue",
+          "input": {
+            "QueueName": "stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "Attributes": {
+              "MessageRetentionPeriod": "300"
+            }
+          },
+          "request_started_ms": 1789383017082,
+          "request_finished_ms": 1789383017862,
+          "result": {
+            "code": "Success",
+            "output": {
+              "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq"
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "get-dlq-arn",
+          "service": "sqs",
+          "operation": "get-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "AttributeNames": [
+              "QueueArn"
+            ]
+          },
+          "request_started_ms": 1789383017862,
+          "request_finished_ms": 1789383018568,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "QueueArn": "arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq"
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "allow-dlq-exact-topic",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"ExactOwnedTopicSend\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a\"}}}]}"
+            }
+          },
+          "request_started_ms": 1789383018568,
+          "request_finished_ms": 1789383019272,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "subscribe-raw-with-dlq",
+          "service": "sns",
+          "operation": "subscribe",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a",
+            "Protocol": "sqs",
+            "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+            "Attributes": {
+              "RawMessageDelivery": "true",
+              "RedrivePolicy": "{\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq\"}"
+            },
+            "ReturnSubscriptionArn": true
+          },
+          "request_started_ms": 1789383019272,
+          "request_finished_ms": 1789383020213,
+          "result": {
+            "code": "Success",
+            "output": {
+              "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a:bba69b8c-ccf7-43f5-b48c-315204fb733f"
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "verify-subscription-attributes",
+          "service": "sns",
+          "operation": "get-subscription-attributes",
+          "input": {
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a:bba69b8c-ccf7-43f5-b48c-315204fb733f"
+          },
+          "request_started_ms": 1789383020214,
+          "request_finished_ms": 1789383020937,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Attributes": {
+                "SubscriptionPrincipal": "arn:aws:iam::000000000000:user/Delegated",
+                "Owner": "000000000000",
+                "RawMessageDelivery": "true",
+                "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a",
+                "Endpoint": "arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+                "RedrivePolicy": "{\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq\"}",
+                "Protocol": "sqs",
+                "PendingConfirmation": "false",
+                "ConfirmationWasAuthenticated": "true",
+                "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a:bba69b8c-ccf7-43f5-b48c-315204fb733f"
+              }
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "deny-primary-exact-topic",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"ExactOwnedTopicSend\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-primary\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a\"}}}, {\"Sid\": \"ExactOwnedTopicDeny\", \"Effect\": \"Deny\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-primary\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a\"}}}]}"
+            }
+          },
+          "request_started_ms": 1789383020937,
+          "request_finished_ms": 1789383021708,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "publish-denied-primary",
+          "service": "sns",
+          "operation": "publish",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a",
+            "Message": "stackd raw denied body 1e3daa25487b4a",
+            "Subject": "stackd-raw-denied-subject",
+            "MessageAttributes": {
+              "probeString": {
+                "DataType": "String",
+                "StringValue": "raw-dlq-string-1e3daa25487b4a"
+              },
+              "probeNumber": {
+                "DataType": "Number",
+                "StringValue": "12.3400"
+              },
+              "probeBinary": {
+                "DataType": "Binary",
+                "BinaryValue": "cmF3LWRscS1iaW5hcnkA/w=="
+              }
+            }
+          },
+          "request_started_ms": 1789383029708,
+          "request_finished_ms": 1789383030428,
+          "result": {
+            "code": "Success",
+            "output": {
+              "MessageId": "32a0a09f-0ed0-5ea7-8d37-c3bedd664115"
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "denied-primary-dlq-receive-1",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383030428,
+          "request_finished_ms": 1789383036211,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "denied-primary-dlq-receive-2",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383036211,
+          "request_finished_ms": 1789383041916,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "denied-primary-dlq-receive-3",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383041917,
+          "request_finished_ms": 1789383047647,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "denied-primary-dlq-receive-4",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383047648,
+          "request_finished_ms": 1789383050566,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Messages": [
+                {
+                  "MessageId": "3c9a671a-8a11-4297-81dd-47c157d42bda",
+                  "ReceiptHandle": "AQEBnK0LIZWQkQv56WtAsjDQWRJOEJiB6C8+pWVR/zGQGAcMd76m9bBUhNWNuAMUUx0qPORxRMPMVJVXm6LacyOVh1IdWabbJygb1glvxnEI9XdEe5UBJjuBJpf3P7+jfdy5hQ1Mj65/PeprRaOsMsOS8NlhNFmM51qfvvbFdtu9OK6/q20xR1bustNnKknuNocN+7ScnWYw6pQJqQ0nVmTeh3diuLx/JlwTXInRBAgEdFvEXF6bjUV4iwkd4S8xXXwrRU76eLEAyzpV1GrsKXA3qA77BCE/rnmfEPMkg+Gt7lU4A3YHIFcZvoNn1uumut4ga1d3/KwBCnYz+/lyrlNRvB/Y5QnL+BkIcktYEwn1xlLBXgNA3TFptDZdbKrOO4ReFAzLh/XXZPDHRwq9kAtNj4fdkorY2XCHOoFpxbHklT3EPdaPd8r3TLUbY3xAREOy",
+                  "MD5OfBody": "5b41b37fa2bcf2ee8eef2baf79f97fe2",
+                  "Body": "stackd raw denied body 1e3daa25487b4a",
+                  "Attributes": {
+                    "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                    "ApproximateFirstReceiveTimestamp": "1789383050435",
+                    "ApproximateReceiveCount": "1",
+                    "SentTimestamp": "1789383050424"
+                  },
+                  "MD5OfMessageAttributes": "a431a601023a40e9eed535b86cf7edbf",
+                  "MessageAttributes": {
+                    "probeBinary": {
+                      "BinaryValue": "cmF3LWRscS1iaW5hcnkA/w==",
+                      "DataType": "Binary"
+                    },
+                    "probeNumber": {
+                      "StringValue": "12.34",
+                      "DataType": "Number"
+                    },
+                    "probeString": {
+                      "StringValue": "raw-dlq-string-1e3daa25487b4a",
+                      "DataType": "String"
+                    }
+                  }
+                }
+              ]
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "denied-primary-dlq-delete-4-1",
+          "service": "sqs",
+          "operation": "delete-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "ReceiptHandle": "AQEBnK0LIZWQkQv56WtAsjDQWRJOEJiB6C8+pWVR/zGQGAcMd76m9bBUhNWNuAMUUx0qPORxRMPMVJVXm6LacyOVh1IdWabbJygb1glvxnEI9XdEe5UBJjuBJpf3P7+jfdy5hQ1Mj65/PeprRaOsMsOS8NlhNFmM51qfvvbFdtu9OK6/q20xR1bustNnKknuNocN+7ScnWYw6pQJqQ0nVmTeh3diuLx/JlwTXInRBAgEdFvEXF6bjUV4iwkd4S8xXXwrRU76eLEAyzpV1GrsKXA3qA77BCE/rnmfEPMkg+Gt7lU4A3YHIFcZvoNn1uumut4ga1d3/KwBCnYz+/lyrlNRvB/Y5QnL+BkIcktYEwn1xlLBXgNA3TFptDZdbKrOO4ReFAzLh/XXZPDHRwq9kAtNj4fdkorY2XCHOoFpxbHklT3EPdaPd8r3TLUbY3xAREOy"
+          },
+          "request_started_ms": 1789383050566,
+          "request_finished_ms": 1789383051304,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "repair-primary-exact-topic-allow",
+          "service": "sqs",
+          "operation": "set-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+            "Attributes": {
+              "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"ExactOwnedTopicSend\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"sns.amazonaws.com\"}, \"Action\": \"sqs:SendMessage\", \"Resource\": \"arn:aws:sqs:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a-primary\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": \"arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a\"}}}]}"
+            }
+          },
+          "request_started_ms": 1789383051305,
+          "request_finished_ms": 1789383052051,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "publish-raw-eleven-attributes",
+          "service": "sns",
+          "operation": "publish",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a",
+            "Message": "stackd raw eleven body 1e3daa25487b4a",
+            "Subject": "stackd-raw-eleven-subject",
+            "MessageAttributes": {
+              "probeString": {
+                "DataType": "String",
+                "StringValue": "raw-dlq-string-1e3daa25487b4a"
+              },
+              "probeNumber": {
+                "DataType": "Number",
+                "StringValue": "12.3400"
+              },
+              "probeBinary": {
+                "DataType": "Binary",
+                "BinaryValue": "cmF3LWRscS1iaW5hcnkA/w=="
+              },
+              "extra0": {
+                "DataType": "String",
+                "StringValue": "value0"
+              },
+              "extra1": {
+                "DataType": "String",
+                "StringValue": "value1"
+              },
+              "extra2": {
+                "DataType": "String",
+                "StringValue": "value2"
+              },
+              "extra3": {
+                "DataType": "String",
+                "StringValue": "value3"
+              },
+              "extra4": {
+                "DataType": "String",
+                "StringValue": "value4"
+              },
+              "extra5": {
+                "DataType": "String",
+                "StringValue": "value5"
+              },
+              "extra6": {
+                "DataType": "String",
+                "StringValue": "value6"
+              },
+              "extra7": {
+                "DataType": "String",
+                "StringValue": "value7"
+              }
+            }
+          },
+          "request_started_ms": 1789383064051,
+          "request_finished_ms": 1789383064783,
+          "result": {
+            "code": "Success",
+            "output": {
+              "MessageId": "696b9819-f59b-551d-ac3b-fb382643cc67"
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-1",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383064784,
+          "request_finished_ms": 1789383070550,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-2",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383070550,
+          "request_finished_ms": 1789383076257,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-3",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383076258,
+          "request_finished_ms": 1789383082040,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-4",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383082040,
+          "request_finished_ms": 1789383087883,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-5",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383087884,
+          "request_finished_ms": 1789383093666,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-6",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383093667,
+          "request_finished_ms": 1789383099428,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-7",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383099429,
+          "request_finished_ms": 1789383105274,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-8",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383105274,
+          "request_finished_ms": 1789383111011,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-9",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383111011,
+          "request_finished_ms": 1789383116825,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-10",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383116825,
+          "request_finished_ms": 1789383122833,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-eleven-dlq-receive-11",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383122833,
+          "request_finished_ms": 1789383128549,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "publish-raw-three-attributes-positive",
+          "service": "sns",
+          "operation": "publish",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a",
+            "Message": "stackd raw positive body 1e3daa25487b4a",
+            "Subject": "stackd-raw-positive-subject",
+            "MessageAttributes": {
+              "probeString": {
+                "DataType": "String",
+                "StringValue": "raw-dlq-string-1e3daa25487b4a"
+              },
+              "probeNumber": {
+                "DataType": "Number",
+                "StringValue": "12.3400"
+              },
+              "probeBinary": {
+                "DataType": "Binary",
+                "BinaryValue": "cmF3LWRscS1iaW5hcnkA/w=="
+              }
+            }
+          },
+          "request_started_ms": 1789383128550,
+          "request_finished_ms": 1789383129292,
+          "result": {
+            "code": "Success",
+            "output": {
+              "MessageId": "a8b70a97-60b9-5bdc-856f-69b6b4a08247"
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-positive-primary-receive-1",
+          "service": "sqs",
+          "operation": "receive-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+            "MaxNumberOfMessages": 10,
+            "WaitTimeSeconds": 5,
+            "VisibilityTimeout": 20,
+            "MessageAttributeNames": [
+              "All"
+            ],
+            "MessageSystemAttributeNames": [
+              "All"
+            ]
+          },
+          "request_started_ms": 1789383129293,
+          "request_finished_ms": 1789383130079,
+          "result": {
+            "code": "Success",
+            "output": {
+              "Messages": [
+                {
+                  "MessageId": "a22303d8-87e5-4412-90fc-949a1f1ef9dc",
+                  "ReceiptHandle": "AQEB5HCYF8rHnUH7Dok2svZp9tH38JGyvWnQPB7uKM0R9/5iAR93XgcbdGv1qToxhqRm5tXhmYOHdJA9punkGDiFbEEtHwfzq7Df53cJH7L+DLvhjNA4XEGXFKkjh7kcgBTmqGb+TWP3sMMv2iHA+a3moDcvUnz0K1w+8LenhX///wbpiJlvM2uDIAGPsxE1BReO6buOczW8Mde4mPqtj5kw29DASvX94DDNv5LNQCnIpHDdtUFVvRLhRo0MPUrYHznrDDX1MLxzNye9XlaRFcNYxVSVARg58lMbp6Mu4E83f4xxJpkkEOnlVXlav018FG+loMpKzFxiV2rGIE6KF1tujRH2SDkEM2uo1yRf8HwULQPQLOrCrOuQLltf62JkAWg27ayB5doRrmVCAZOOpVNCJ5adzkLMtIMDtQB5hak2EwB7nv8EbiuA6gdAG4oAP8Zp",
+                  "MD5OfBody": "0c5aec73d5a2743fad58435139d9fb2f",
+                  "Body": "stackd raw positive body 1e3daa25487b4a",
+                  "Attributes": {
+                    "SenderId": "AROA3TYMO3BGGTBI3MZUH:AWS-CLOUDCAST",
+                    "ApproximateFirstReceiveTimestamp": "1789383129949",
+                    "ApproximateReceiveCount": "1",
+                    "SentTimestamp": "1789383129221"
+                  },
+                  "MD5OfMessageAttributes": "a431a601023a40e9eed535b86cf7edbf",
+                  "MessageAttributes": {
+                    "probeBinary": {
+                      "BinaryValue": "cmF3LWRscS1iaW5hcnkA/w==",
+                      "DataType": "Binary"
+                    },
+                    "probeNumber": {
+                      "StringValue": "12.34",
+                      "DataType": "Number"
+                    },
+                    "probeString": {
+                      "StringValue": "raw-dlq-string-1e3daa25487b4a",
+                      "DataType": "String"
+                    }
+                  }
+                }
+              ]
+            },
+            "http_status": 200
+          }
+        },
+        {
+          "label": "raw-positive-primary-delete-1-1",
+          "service": "sqs",
+          "operation": "delete-message",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+            "ReceiptHandle": "AQEB5HCYF8rHnUH7Dok2svZp9tH38JGyvWnQPB7uKM0R9/5iAR93XgcbdGv1qToxhqRm5tXhmYOHdJA9punkGDiFbEEtHwfzq7Df53cJH7L+DLvhjNA4XEGXFKkjh7kcgBTmqGb+TWP3sMMv2iHA+a3moDcvUnz0K1w+8LenhX///wbpiJlvM2uDIAGPsxE1BReO6buOczW8Mde4mPqtj5kw29DASvX94DDNv5LNQCnIpHDdtUFVvRLhRo0MPUrYHznrDDX1MLxzNye9XlaRFcNYxVSVARg58lMbp6Mu4E83f4xxJpkkEOnlVXlav018FG+loMpKzFxiV2rGIE6KF1tujRH2SDkEM2uo1yRf8HwULQPQLOrCrOuQLltf62JkAWg27ayB5doRrmVCAZOOpVNCJ5adzkLMtIMDtQB5hak2EwB7nv8EbiuA6gdAG4oAP8Zp"
+          },
+          "request_started_ms": 1789383130080,
+          "request_finished_ms": 1789383130766,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "delete-owned-subscription",
+          "service": "sns",
+          "operation": "unsubscribe",
+          "input": {
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a:bba69b8c-ccf7-43f5-b48c-315204fb733f"
+          },
+          "request_started_ms": 1789383130767,
+          "request_finished_ms": 1789383131565,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "verify-owned-subscription-absent",
+          "service": "sns",
+          "operation": "get-subscription-attributes",
+          "input": {
+            "SubscriptionArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a:bba69b8c-ccf7-43f5-b48c-315204fb733f"
+          },
+          "request_started_ms": 1789383131566,
+          "request_finished_ms": 1789383132306,
+          "result": {
+            "code": "NotFound",
+            "message": "Subscription does not exist",
+            "http_status": 404
+          }
+        },
+        {
+          "label": "delete-owned-topic",
+          "service": "sns",
+          "operation": "delete-topic",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a"
+          },
+          "request_started_ms": 1789383132307,
+          "request_finished_ms": 1789383133091,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "verify-owned-topic-absent",
+          "service": "sns",
+          "operation": "get-topic-attributes",
+          "input": {
+            "TopicArn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a"
+          },
+          "request_started_ms": 1789383133091,
+          "request_finished_ms": 1789383133825,
+          "result": {
+            "code": "NotFound",
+            "message": "Topic does not exist",
+            "http_status": 404
+          }
+        },
+        {
+          "label": "delete-owned-primary",
+          "service": "sqs",
+          "operation": "delete-queue",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary"
+          },
+          "request_started_ms": 1789383133826,
+          "request_finished_ms": 1789383134609,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "verify-owned-primary-absent",
+          "service": "sqs",
+          "operation": "get-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+            "AttributeNames": [
+              "QueueArn"
+            ]
+          },
+          "request_started_ms": 1789383134610,
+          "request_finished_ms": 1789383135464,
+          "result": {
+            "code": "AWS.SimpleQueueService.NonExistentQueue",
+            "message": "The specified queue does not exist.",
+            "http_status": 400
+          }
+        },
+        {
+          "label": "delete-owned-dlq",
+          "service": "sqs",
+          "operation": "delete-queue",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq"
+          },
+          "request_started_ms": 1789383135464,
+          "request_finished_ms": 1789383136246,
+          "result": {
+            "code": "Success",
+            "output": {},
+            "http_status": 200
+          }
+        },
+        {
+          "label": "verify-owned-dlq-absent",
+          "service": "sqs",
+          "operation": "get-queue-attributes",
+          "input": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+            "AttributeNames": [
+              "QueueArn"
+            ]
+          },
+          "request_started_ms": 1789383136247,
+          "request_finished_ms": 1789383137022,
+          "result": {
+            "code": "AWS.SimpleQueueService.NonExistentQueue",
+            "message": "The specified queue does not exist.",
+            "http_status": 400
+          }
+        }
+      ],
+      "owned_resources": [
+        {
+          "type": "sns-topic",
+          "arn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a"
+        },
+        {
+          "type": "sqs-queue",
+          "role": "primary",
+          "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary"
+        },
+        {
+          "type": "sqs-queue",
+          "role": "dlq",
+          "url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq"
+        },
+        {
+          "type": "sns-subscription",
+          "arn": "arn:aws:sns:us-east-1:000000000000:stackd-native-sns-raw-dlq-1e3daa25487b4a:bba69b8c-ccf7-43f5-b48c-315204fb733f"
+        }
+      ],
+      "receive_windows": [
+        {
+          "label": "denied-primary-dlq",
+          "queue_url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+          "requested_seconds": 70,
+          "started_ms": 1789383030428,
+          "message_count": 1,
+          "finished_ms": 1789383051304,
+          "elapsed_seconds": 20.876
+        },
+        {
+          "label": "raw-eleven-dlq",
+          "queue_url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-dlq",
+          "requested_seconds": 70,
+          "started_ms": 1789383064784,
+          "message_count": 0,
+          "finished_ms": 1789383128549,
+          "elapsed_seconds": 63.766
+        },
+        {
+          "label": "raw-positive-primary",
+          "queue_url": "https://sqs.us-east-1.amazonaws.com/000000000000/stackd-native-sns-raw-dlq-1e3daa25487b4a-primary",
+          "requested_seconds": 20,
+          "started_ms": 1789383129293,
+          "message_count": 1,
+          "finished_ms": 1789383130766,
+          "elapsed_seconds": 1.474
+        }
+      ],
+      "cleanup": {
+        "subscription_verified_absent": true,
+        "topic_verified_absent": true,
+        "primary_verified_absent": true,
+        "dlq_verified_absent": true
+      },
+      "api_calls": 41,
+      "elapsed_seconds": 124.149,
+      "finished_ms": 1789383137023,
+      "supplemental_metric_queries": [
+        {
+          "label": "retained-delivery-outcome-metrics",
+          "service": "cloudwatch",
+          "operation": "get-metric-data",
+          "input": {
+            "MetricDataQueries": [
+              {
+                "Id": "m0",
+                "Label": "NumberOfMessagesPublished:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfMessagesPublished",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m1",
+                "Label": "NumberOfMessagesPublished:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfMessagesPublished",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m2",
+                "Label": "NumberOfNotificationsDelivered:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsDelivered",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m3",
+                "Label": "NumberOfNotificationsDelivered:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsDelivered",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m4",
+                "Label": "NumberOfNotificationsFailed:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsFailed",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m5",
+                "Label": "NumberOfNotificationsFailed:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsFailed",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m6",
+                "Label": "NumberOfNotificationsRedrivenToDlq:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsRedrivenToDlq",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m7",
+                "Label": "NumberOfNotificationsRedrivenToDlq:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsRedrivenToDlq",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m8",
+                "Label": "NumberOfNotificationsFailedToRedriveToDlq:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsFailedToRedriveToDlq",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m9",
+                "Label": "NumberOfNotificationsFailedToRedriveToDlq:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "NumberOfNotificationsFailedToRedriveToDlq",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m10",
+                "Label": "PublishSize:Sum",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "PublishSize",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "Sum"
+                },
+                "ReturnData": true
+              },
+              {
+                "Id": "m11",
+                "Label": "PublishSize:SampleCount",
+                "MetricStat": {
+                  "Metric": {
+                    "Namespace": "AWS/SNS",
+                    "MetricName": "PublishSize",
+                    "Dimensions": [
+                      {
+                        "Name": "TopicName",
+                        "Value": "stackd-native-sns-raw-dlq-1e3daa25487b4a"
+                      }
+                    ]
+                  },
+                  "Period": 3600,
+                  "Stat": "SampleCount"
+                },
+                "ReturnData": true
+              }
+            ],
+            "StartTime": "2026-09-14T10:00:00Z",
+            "EndTime": "2026-09-14T11:00:00Z"
+          },
+          "request_started_ms": 1789397266601,
+          "request_finished_ms": 1789397267458,
+          "result": {
+            "code": "Success",
+            "output": {
+              "MetricDataResults": [
+                {
+                  "Id": "m0",
+                  "Label": "NumberOfMessagesPublished:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    3
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m1",
+                  "Label": "NumberOfMessagesPublished:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    3
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m2",
+                  "Label": "NumberOfNotificationsDelivered:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m3",
+                  "Label": "NumberOfNotificationsDelivered:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m4",
+                  "Label": "NumberOfNotificationsFailed:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    2
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m5",
+                  "Label": "NumberOfNotificationsFailed:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    3
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m6",
+                  "Label": "NumberOfNotificationsRedrivenToDlq:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m7",
+                  "Label": "NumberOfNotificationsRedrivenToDlq:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m8",
+                  "Label": "NumberOfNotificationsFailedToRedriveToDlq:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    1
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m9",
+                  "Label": "NumberOfNotificationsFailedToRedriveToDlq:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    2
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m10",
+                  "Label": "PublishSize:Sum",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    566
+                  ],
+                  "StatusCode": "Complete"
+                },
+                {
+                  "Id": "m11",
+                  "Label": "PublishSize:SampleCount",
+                  "Timestamps": [
+                    "2026-09-14T11:00:00+01:00"
+                  ],
+                  "Values": [
+                    3
+                  ],
+                  "StatusCode": "Complete"
+                }
+              ],
+              "Messages": []
+            }
+          }
+        }
+      ]
+    }
+  }
+}

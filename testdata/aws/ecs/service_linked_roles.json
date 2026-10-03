@@ -1,0 +1,912 @@
+{
+  "startedAt": "2026-09-16T16:58:24.018121+00:00",
+  "prefix": "stackd-ecs-slr-67eea670aa76",
+  "purpose": "Fresh-account ECS service-linked role creation authority and empty-cluster deletion dependencies",
+  "source": "https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using-service-linked-roles-for-clusters.html",
+  "accountChecks": [
+    {
+      "accountId": "917546008205",
+      "assumption": "arn:aws:sts::917546008205:assumed-role/OrganizationAccountAccessRole/stackd-ecs-slr-67eea670aa76",
+      "serviceRole": "NoSuchEntity"
+    }
+  ],
+  "calls": [
+    {
+      "sequence": 1,
+      "label": "initial-role-absent",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:58:28.328358+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "NoSuchEntity",
+      "message": "The role with name AWSServiceRoleForECS cannot be found.",
+      "http_status": 404
+    },
+    {
+      "sequence": 2,
+      "label": "create-owned-caller",
+      "service": "iam",
+      "operation": "create-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:58:29.041279+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-slr-67eea670aa76",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::917546008205:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/",
+          "RoleName": "stackd-ecs-slr-67eea670aa76",
+          "RoleId": "AROA5LIQA72GVVNREXHYP",
+          "Arn": "arn:aws:iam::917546008205:role/stackd-ecs-slr-67eea670aa76",
+          "CreateDate": "2026-09-16T16:58:28+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": "arn:aws:iam::917546008205:root"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 3,
+      "label": "deny-linked-role-creation",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:58:29.745395+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-slr-67eea670aa76",
+        "PolicyName": "Probe",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"ecs:CreateCluster\", \"ecs:DescribeClusters\", \"ecs:ListClusters\", \"ecs:DeleteCluster\"], \"Resource\": \"*\"}, {\"Effect\": \"Deny\", \"Action\": \"iam:CreateServiceLinkedRole\", \"Resource\": \"arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS\", \"Condition\": {\"StringEquals\": {\"iam:AWSServiceName\": \"ecs.amazonaws.com\"}}}]}"
+      },
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "sequence": 4,
+      "label": "create-with-denied-role-creation",
+      "service": "ecs",
+      "operation": "create-cluster",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:58:57.746511+00:00",
+      "actor": "probe-caller",
+      "input": {
+        "clusterName": "stackd-ecs-slr-67eea670aa76-east"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-slr-67eea670aa76-east",
+          "clusterName": "stackd-ecs-slr-67eea670aa76-east",
+          "status": "ACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 5,
+      "label": "role-after-denied-creation",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:58:58.465236+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "NoSuchEntity",
+      "message": "The role with name AWSServiceRoleForECS cannot be found.",
+      "http_status": 404
+    },
+    {
+      "sequence": 6,
+      "label": "allow-linked-role-creation",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:58:59.179855+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-slr-67eea670aa76",
+        "PolicyName": "Probe",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"ecs:CreateCluster\", \"ecs:DescribeClusters\", \"ecs:ListClusters\", \"ecs:DeleteCluster\"], \"Resource\": \"*\"}, {\"Effect\": \"Allow\", \"Action\": \"iam:CreateServiceLinkedRole\", \"Resource\": \"arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS\", \"Condition\": {\"StringEquals\": {\"iam:AWSServiceName\": \"ecs.amazonaws.com\"}}}]}"
+      },
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "sequence": 7,
+      "label": "create-with-allowed-role-creation-1",
+      "service": "ecs",
+      "operation": "create-cluster",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:10.166131+00:00",
+      "actor": "probe-caller",
+      "input": {
+        "clusterName": "stackd-ecs-slr-67eea670aa76-east"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-slr-67eea670aa76-east",
+          "clusterName": "stackd-ecs-slr-67eea670aa76-east",
+          "status": "ACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 8,
+      "label": "role-after-cluster-creation",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:10.872016+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/ecs.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForECS",
+          "RoleId": "AROA5LIQA72G5DS7D6RV6",
+          "Arn": "arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+          "CreateDate": "2026-09-16T16:59:09+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "Policy to enable Amazon ECS to manage your EC2 instances and related resources.",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {}
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 9,
+      "label": "create-second-region-cluster",
+      "service": "ecs",
+      "operation": "create-cluster",
+      "region": "us-west-2",
+      "at": "2026-09-16T16:59:12.136609+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "clusterName": "stackd-ecs-slr-67eea670aa76-west"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-west-2:917546008205:cluster/stackd-ecs-slr-67eea670aa76-west",
+          "clusterName": "stackd-ecs-slr-67eea670aa76-west",
+          "status": "ACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 10,
+      "label": "deny-role-creation-after-role-exists",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:12.898486+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-slr-67eea670aa76",
+        "PolicyName": "Probe",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"ecs:CreateCluster\", \"ecs:DescribeClusters\", \"ecs:ListClusters\", \"ecs:DeleteCluster\"], \"Resource\": \"*\"}, {\"Effect\": \"Deny\", \"Action\": \"iam:CreateServiceLinkedRole\", \"Resource\": \"arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS\", \"Condition\": {\"StringEquals\": {\"iam:AWSServiceName\": \"ecs.amazonaws.com\"}}}]}"
+      },
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "sequence": 11,
+      "label": "create-reusing-role-under-deny",
+      "service": "ecs",
+      "operation": "create-cluster",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:33.739170+00:00",
+      "actor": "probe-caller",
+      "input": {
+        "clusterName": "stackd-ecs-slr-67eea670aa76-reuse"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-slr-67eea670aa76-reuse",
+          "clusterName": "stackd-ecs-slr-67eea670aa76-reuse",
+          "status": "ACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 12,
+      "label": "delete-role-with-empty-active-clusters",
+      "service": "iam",
+      "operation": "delete-service-linked-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:34.470116+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/d28948ab-7a8e-462e-9e95-e71e3c1a18e1"
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 13,
+      "label": "deletion-with-active-clusters",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:35.152815+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/d28948ab-7a8e-462e-9e95-e71e3c1a18e1"
+      },
+      "code": "NoSuchEntity",
+      "message": "Cannot find deletion status for given id.",
+      "http_status": 404
+    },
+    {
+      "sequence": 14,
+      "label": "deletion-with-active-clusters",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:38.836016+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/d28948ab-7a8e-462e-9e95-e71e3c1a18e1"
+      },
+      "code": "NoSuchEntity",
+      "message": "Cannot find deletion status for given id.",
+      "http_status": 404
+    },
+    {
+      "sequence": 15,
+      "label": "deletion-with-active-clusters",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:42.540434+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/d28948ab-7a8e-462e-9e95-e71e3c1a18e1"
+      },
+      "code": "Success",
+      "output": {
+        "Status": "FAILED",
+        "Reason": {
+          "Reason": "Role in use.",
+          "RoleUsageList": [
+            {
+              "Region": "us-east-1",
+              "Resources": [
+                "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-slr-67eea670aa76-reuse",
+                "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-slr-67eea670aa76-east"
+              ]
+            }
+          ]
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 16,
+      "label": "role-after-active-cluster-deletion-attempt",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:43.275067+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/ecs.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForECS",
+          "RoleId": "AROA5LIQA72G5DS7D6RV6",
+          "Arn": "arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+          "CreateDate": "2026-09-16T16:59:09+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "Policy to enable Amazon ECS to manage your EC2 instances and related resources.",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {}
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 17,
+      "label": "delete-east-dependency-stackd-ecs-slr-67eea670aa76-east",
+      "service": "ecs",
+      "operation": "delete-cluster",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:44.152716+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "cluster": "stackd-ecs-slr-67eea670aa76-east"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-slr-67eea670aa76-east",
+          "clusterName": "stackd-ecs-slr-67eea670aa76-east",
+          "status": "INACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 18,
+      "label": "describe-deleted-east-stackd-ecs-slr-67eea670aa76-east",
+      "service": "ecs",
+      "operation": "describe-clusters",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:44.914828+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "clusters": [
+          "stackd-ecs-slr-67eea670aa76-east"
+        ]
+      },
+      "code": "Success",
+      "output": {
+        "clusters": [
+          {
+            "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-slr-67eea670aa76-east",
+            "clusterName": "stackd-ecs-slr-67eea670aa76-east",
+            "status": "INACTIVE",
+            "registeredContainerInstancesCount": 0,
+            "runningTasksCount": 0,
+            "pendingTasksCount": 0,
+            "activeServicesCount": 0,
+            "statistics": [],
+            "tags": [],
+            "settings": [],
+            "capacityProviders": [],
+            "defaultCapacityProviderStrategy": []
+          }
+        ],
+        "failures": []
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 19,
+      "label": "delete-east-dependency-stackd-ecs-slr-67eea670aa76-reuse",
+      "service": "ecs",
+      "operation": "delete-cluster",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:45.771759+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "cluster": "stackd-ecs-slr-67eea670aa76-reuse"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-slr-67eea670aa76-reuse",
+          "clusterName": "stackd-ecs-slr-67eea670aa76-reuse",
+          "status": "INACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 20,
+      "label": "describe-deleted-east-stackd-ecs-slr-67eea670aa76-reuse",
+      "service": "ecs",
+      "operation": "describe-clusters",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:46.517877+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "clusters": [
+          "stackd-ecs-slr-67eea670aa76-reuse"
+        ]
+      },
+      "code": "Success",
+      "output": {
+        "clusters": [
+          {
+            "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-slr-67eea670aa76-reuse",
+            "clusterName": "stackd-ecs-slr-67eea670aa76-reuse",
+            "status": "INACTIVE",
+            "registeredContainerInstancesCount": 0,
+            "runningTasksCount": 0,
+            "pendingTasksCount": 0,
+            "activeServicesCount": 0,
+            "statistics": [],
+            "tags": [],
+            "settings": [],
+            "capacityProviders": [],
+            "defaultCapacityProviderStrategy": []
+          }
+        ],
+        "failures": []
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 21,
+      "label": "delete-role-with-west-only-cluster",
+      "service": "iam",
+      "operation": "delete-service-linked-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:47.237001+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/65d41095-3df3-4325-ad52-237072f90bf9"
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 22,
+      "label": "deletion-with-west-only-cluster",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:47.971573+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/65d41095-3df3-4325-ad52-237072f90bf9"
+      },
+      "code": "NoSuchEntity",
+      "message": "Cannot find deletion status for given id.",
+      "http_status": 404
+    },
+    {
+      "sequence": 23,
+      "label": "deletion-with-west-only-cluster",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:51.688708+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/65d41095-3df3-4325-ad52-237072f90bf9"
+      },
+      "code": "Success",
+      "output": {
+        "Status": "IN_PROGRESS"
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 24,
+      "label": "deletion-with-west-only-cluster",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:55.402282+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/65d41095-3df3-4325-ad52-237072f90bf9"
+      },
+      "code": "Success",
+      "output": {
+        "Status": "FAILED",
+        "Reason": {
+          "Reason": "Role in use.",
+          "RoleUsageList": [
+            {
+              "Region": "us-west-2",
+              "Resources": [
+                "arn:aws:ecs:us-west-2:917546008205:cluster/stackd-ecs-slr-67eea670aa76-west"
+              ]
+            }
+          ]
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 25,
+      "label": "role-after-west-only-deletion-attempt",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T16:59:56.095436+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/ecs.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForECS",
+          "RoleId": "AROA5LIQA72G5DS7D6RV6",
+          "Arn": "arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+          "CreateDate": "2026-09-16T16:59:09+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "Policy to enable Amazon ECS to manage your EC2 instances and related resources.",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {}
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 26,
+      "label": "cleanup-delete-cluster-us-west-2-stackd-ecs-slr-67eea670aa76-west",
+      "service": "ecs",
+      "operation": "delete-cluster",
+      "region": "us-west-2",
+      "at": "2026-09-16T16:59:57.097249+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "cluster": "stackd-ecs-slr-67eea670aa76-west"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-west-2:917546008205:cluster/stackd-ecs-slr-67eea670aa76-west",
+          "clusterName": "stackd-ecs-slr-67eea670aa76-west",
+          "status": "INACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 27,
+      "label": "cleanup-describe-cluster-us-west-2-stackd-ecs-slr-67eea670aa76-west",
+      "service": "ecs",
+      "operation": "describe-clusters",
+      "region": "us-west-2",
+      "at": "2026-09-16T16:59:58.043484+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "clusters": [
+          "stackd-ecs-slr-67eea670aa76-west"
+        ]
+      },
+      "code": "Success",
+      "output": {
+        "clusters": [
+          {
+            "clusterArn": "arn:aws:ecs:us-west-2:917546008205:cluster/stackd-ecs-slr-67eea670aa76-west",
+            "clusterName": "stackd-ecs-slr-67eea670aa76-west",
+            "status": "INACTIVE",
+            "registeredContainerInstancesCount": 0,
+            "runningTasksCount": 0,
+            "pendingTasksCount": 0,
+            "activeServicesCount": 0,
+            "statistics": [],
+            "tags": [],
+            "settings": [],
+            "capacityProviders": [],
+            "defaultCapacityProviderStrategy": []
+          }
+        ],
+        "failures": []
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 28,
+      "label": "cleanup-role-after-clusters",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T17:00:08.732195+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/ecs.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForECS",
+          "RoleId": "AROA5LIQA72G5DS7D6RV6",
+          "Arn": "arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+          "CreateDate": "2026-09-16T16:59:09+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "Policy to enable Amazon ECS to manage your EC2 instances and related resources.",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {}
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 29,
+      "label": "cleanup-delete-service-role-1",
+      "service": "iam",
+      "operation": "delete-service-linked-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T17:00:09.427117+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/1cee634f-9010-4994-9aa0-6070e74bb206"
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 30,
+      "label": "cleanup-service-role-deletion",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "at": "2026-09-16T17:00:10.127947+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/1cee634f-9010-4994-9aa0-6070e74bb206"
+      },
+      "code": "NoSuchEntity",
+      "message": "Cannot find deletion status for given id.",
+      "http_status": 404
+    },
+    {
+      "sequence": 31,
+      "label": "cleanup-service-role-deletion",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "at": "2026-09-16T17:00:13.805588+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/1cee634f-9010-4994-9aa0-6070e74bb206"
+      },
+      "code": "Success",
+      "output": {
+        "Status": "SUCCEEDED"
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 32,
+      "label": "cleanup-service-role-existence",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T17:00:14.474998+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "NoSuchEntity",
+      "message": "The role with name AWSServiceRoleForECS cannot be found.",
+      "http_status": 404
+    },
+    {
+      "sequence": 33,
+      "label": "cleanup-delete-caller-policy",
+      "service": "iam",
+      "operation": "delete-role-policy",
+      "region": "us-east-1",
+      "at": "2026-09-16T17:00:15.215570+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-slr-67eea670aa76",
+        "PolicyName": "Probe"
+      },
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "sequence": 34,
+      "label": "cleanup-delete-caller-role",
+      "service": "iam",
+      "operation": "delete-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T17:00:16.017998+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-slr-67eea670aa76"
+      },
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "sequence": 35,
+      "label": "cleanup-caller-absent",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "at": "2026-09-16T17:00:16.700260+00:00",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-slr-67eea670aa76"
+      },
+      "code": "NoSuchEntity",
+      "message": "The role with name stackd-ecs-slr-67eea670aa76 cannot be found.",
+      "http_status": 404
+    }
+  ],
+  "cleanup": {
+    "exceptions": [],
+    "serviceRoleAbsent": true,
+    "callerAbsent": true
+  },
+  "actor": "arn:aws:sts::917546008205:assumed-role/OrganizationAccountAccessRole/stackd-ecs-slr-67eea670aa76",
+  "accountId": "917546008205",
+  "callerActor": "arn:aws:sts::917546008205:assumed-role/stackd-ecs-slr-67eea670aa76/stackd-ecs-slr-67eea670aa76",
+  "ownedClusters": [
+    [
+      "us-west-2",
+      "stackd-ecs-slr-67eea670aa76-west"
+    ]
+  ],
+  "finishedAt": "2026-09-16T17:00:16.700794+00:00"
+}

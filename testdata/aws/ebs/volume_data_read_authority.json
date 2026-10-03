@@ -1,0 +1,110 @@
+{
+  "account": "000000000000",
+  "member": "917546008205",
+  "region": "us-east-1",
+  "captured_at": "2026-09-25T16:38:41.564694+00:00",
+  "source_fixture": "testdata/aws/ebs/volume_data.json",
+  "source": "snap-0129a2cffb43638de",
+  "scope": "Read-only attempt after the main probe deleted its original source: ListSnapshotBlocks returned ResourceNotFoundException and CreateVolume dry-runs returned InvalidSnapshot.NotFound. This file does not establish live-source permission behavior; volume_data_source_authority.json does. No resources created.",
+  "owned": {
+    "snapshots": []
+  },
+  "calls": [
+    {
+      "label": "member-source-token",
+      "service": "ebs",
+      "operation": "ListSnapshotBlocks",
+      "input": {
+        "SnapshotId": "snap-0129a2cffb43638de"
+      },
+      "caller": "member",
+      "started_at": "2026-09-25T16:38:41.564709+00:00",
+      "code": "ResourceNotFoundException",
+      "error": {
+        "Message": "The snapshot 'snap-0129a2cffb43638de' does not exist.",
+        "Code": "ResourceNotFoundException"
+      },
+      "reason": "SNAPSHOT_NOT_FOUND",
+      "http_status": 404,
+      "request_id": "28ba79c0-b481-44da-975f-81fa4b6f0af8",
+      "finished_at": "2026-09-25T16:38:42.070210+00:00"
+    },
+    {
+      "label": "deny-get-create-volume",
+      "service": "ec2",
+      "operation": "CreateVolume",
+      "input": {
+        "SnapshotId": "snap-0129a2cffb43638de",
+        "AvailabilityZone": "us-east-1a",
+        "VolumeType": "gp3",
+        "DryRun": true
+      },
+      "caller": "deny-get",
+      "started_at": "2026-09-25T16:38:42.257565+00:00",
+      "code": "InvalidSnapshot.NotFound",
+      "error": {
+        "Code": "InvalidSnapshot.NotFound",
+        "Message": "Snapshot does not exist"
+      },
+      "http_status": 400,
+      "request_id": "06e68c4e-768e-47d6-af03-41d32b06a72b",
+      "finished_at": "2026-09-25T16:38:42.821387+00:00"
+    },
+    {
+      "label": "deny-describe-create-volume",
+      "service": "ec2",
+      "operation": "CreateVolume",
+      "input": {
+        "SnapshotId": "snap-0129a2cffb43638de",
+        "AvailabilityZone": "us-east-1a",
+        "VolumeType": "gp3",
+        "DryRun": true
+      },
+      "caller": "deny-describe",
+      "started_at": "2026-09-25T16:38:43.001914+00:00",
+      "code": "InvalidSnapshot.NotFound",
+      "error": {
+        "Code": "InvalidSnapshot.NotFound",
+        "Message": "Snapshot does not exist"
+      },
+      "http_status": 400,
+      "request_id": "01b7f67a-7c67-4761-99a6-2c8f24d18dcd",
+      "finished_at": "2026-09-25T16:38:43.529697+00:00"
+    }
+  ],
+  "sessions": {
+    "deny-get": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "*",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Deny",
+          "Action": "ebs:GetSnapshotBlock",
+          "Resource": "*"
+        }
+      ]
+    },
+    "deny-describe": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "*",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Deny",
+          "Action": "ec2:DescribeSnapshots",
+          "Resource": "*"
+        }
+      ]
+    }
+  },
+  "cleanup": {
+    "owned_resources_created": false
+  }
+}

@@ -1,0 +1,18 @@
+ALTER TABLE eventbridge_buses ADD COLUMN kms_key_identifier TEXT NOT NULL DEFAULT '';
+ALTER TABLE eventbridge_buses ADD COLUMN dead_letter_arn TEXT NOT NULL DEFAULT '';
+ALTER TABLE eventbridge_events ADD COLUMN encrypted_content BLOB NOT NULL DEFAULT X'';
+ALTER TABLE eventbridge_events ADD COLUMN encrypted_data_key BLOB NOT NULL DEFAULT X'';
+ALTER TABLE eventbridge_events ADD COLUMN key_arn TEXT NOT NULL DEFAULT '';
+ALTER TABLE eventbridge_events ADD COLUMN bus_dead_letter_arn TEXT NOT NULL DEFAULT '';
+ALTER TABLE eventbridge_deliveries ADD COLUMN bus_processing BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX eventbridge_event_deliveries ON eventbridge_deliveries(event_id, id);
+ALTER TABLE eventbridge_buses ADD COLUMN configuration_data_key BLOB NOT NULL DEFAULT X'';
+ALTER TABLE eventbridge_buses ADD COLUMN configuration_key_arn TEXT NOT NULL DEFAULT '';
+ALTER TABLE eventbridge_rules ADD COLUMN encrypted_pattern BLOB NOT NULL DEFAULT X'';
+ALTER TABLE eventbridge_targets ADD COLUMN encrypted_configuration BLOB NOT NULL DEFAULT X'';
+ALTER TABLE eventbridge_events ADD COLUMN configuration_data_key BLOB NOT NULL DEFAULT X'';
+ALTER TABLE eventbridge_events ADD COLUMN configuration_key_arn TEXT NOT NULL DEFAULT '';
+ALTER TABLE eventbridge_deliveries ADD COLUMN rule_pattern BLOB NOT NULL DEFAULT X'';
+ALTER TABLE eventbridge_deliveries ADD COLUMN target_configuration BLOB NOT NULL DEFAULT X'';
+ALTER TABLE eventbridge_deliveries ADD COLUMN rule_matched BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE eventbridge_deliveries ADD COLUMN match_only BOOLEAN NOT NULL DEFAULT FALSE;

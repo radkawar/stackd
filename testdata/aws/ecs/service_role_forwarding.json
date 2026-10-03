@@ -1,0 +1,598 @@
+{
+  "startedAt": "2026-09-16T17:14:46.082429+00:00",
+  "accountId": "917546008205",
+  "prefix": "stackd-ecs-fas-f43b13636ec5",
+  "purpose": "ECS service-linked role creation with actual IAM forwarding conditions",
+  "calls": [
+    {
+      "sequence": 1,
+      "label": "initial-role-absent",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "NoSuchEntity",
+      "message": "The role with name AWSServiceRoleForECS cannot be found.",
+      "http_status": 404
+    },
+    {
+      "sequence": 2,
+      "label": "create-caller",
+      "service": "iam",
+      "operation": "create-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-fas-f43b13636ec5",
+        "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::917546008205:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/",
+          "RoleName": "stackd-ecs-fas-f43b13636ec5",
+          "RoleId": "AROA5LIQA72GSIJC36MCA",
+          "Arn": "arn:aws:iam::917546008205:role/stackd-ecs-fas-f43b13636ec5",
+          "CreateDate": "2026-09-16T17:14:48+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": "arn:aws:iam::917546008205:root"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 3,
+      "label": "via-policy",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-fas-f43b13636ec5",
+        "PolicyName": "Probe",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"ecs:CreateCluster\", \"ecs:DeleteCluster\"], \"Resource\": \"*\"}, {\"Effect\": \"Allow\", \"Action\": \"iam:CreateServiceLinkedRole\", \"Resource\": \"arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS\", \"Condition\": {\"Bool\": {\"aws:ViaAWSService\": \"true\"}}}]}"
+      },
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "sequence": 4,
+      "label": "via-direct-iam",
+      "service": "iam",
+      "operation": "create-service-linked-role",
+      "region": "us-east-1",
+      "actor": "probe-caller",
+      "input": {
+        "AWSServiceName": "ecs.amazonaws.com"
+      },
+      "code": "AccessDenied",
+      "message": "User: arn:aws:sts::917546008205:assumed-role/stackd-ecs-fas-f43b13636ec5/stackd-ecs-fas-f43b13636ec5 is not authorized to perform: iam:CreateServiceLinkedRole on resource: arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS because no identity-based policy allows the iam:CreateServiceLinkedRole action",
+      "http_status": 403
+    },
+    {
+      "sequence": 5,
+      "label": "via-create-cluster",
+      "service": "ecs",
+      "operation": "create-cluster",
+      "region": "us-east-1",
+      "actor": "probe-caller",
+      "input": {
+        "clusterName": "stackd-ecs-fas-f43b13636ec5-via"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-fas-f43b13636ec5-via",
+          "clusterName": "stackd-ecs-fas-f43b13636ec5-via",
+          "status": "ACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 6,
+      "label": "via-role-after-cluster",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/ecs.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForECS",
+          "RoleId": "AROA5LIQA72G2YZGE5FQH",
+          "Arn": "arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+          "CreateDate": "2026-09-16T17:15:22+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "Policy to enable Amazon ECS to manage your EC2 instances and related resources.",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {}
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 7,
+      "label": "via-delete-cluster",
+      "service": "ecs",
+      "operation": "delete-cluster",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "cluster": "stackd-ecs-fas-f43b13636ec5-via"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-fas-f43b13636ec5-via",
+          "clusterName": "stackd-ecs-fas-f43b13636ec5-via",
+          "status": "INACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 8,
+      "label": "via-remove-role-existence",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/ecs.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForECS",
+          "RoleId": "AROA5LIQA72G2YZGE5FQH",
+          "Arn": "arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+          "CreateDate": "2026-09-16T17:15:22+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "Policy to enable Amazon ECS to manage your EC2 instances and related resources.",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {}
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 9,
+      "label": "via-remove-role-delete",
+      "service": "iam",
+      "operation": "delete-service-linked-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/77032b25-4a59-46e1-a6d8-314bdb4879d1"
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 10,
+      "label": "via-remove-role-status",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/77032b25-4a59-46e1-a6d8-314bdb4879d1"
+      },
+      "code": "NoSuchEntity",
+      "message": "Cannot find deletion status for given id.",
+      "http_status": 404
+    },
+    {
+      "sequence": 11,
+      "label": "via-remove-role-status",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/77032b25-4a59-46e1-a6d8-314bdb4879d1"
+      },
+      "code": "NoSuchEntity",
+      "message": "Cannot find deletion status for given id.",
+      "http_status": 404
+    },
+    {
+      "sequence": 12,
+      "label": "via-remove-role-status",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/77032b25-4a59-46e1-a6d8-314bdb4879d1"
+      },
+      "code": "Success",
+      "output": {
+        "Status": "SUCCEEDED"
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 13,
+      "label": "via-remove-role-absent",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "NoSuchEntity",
+      "message": "The role with name AWSServiceRoleForECS cannot be found.",
+      "http_status": 404
+    },
+    {
+      "sequence": 14,
+      "label": "chain-policy",
+      "service": "iam",
+      "operation": "put-role-policy",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-fas-f43b13636ec5",
+        "PolicyName": "Probe",
+        "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"ecs:CreateCluster\", \"ecs:DeleteCluster\"], \"Resource\": \"*\"}, {\"Effect\": \"Allow\", \"Action\": \"iam:CreateServiceLinkedRole\", \"Resource\": \"arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS\", \"Condition\": {\"ForAnyValue:StringEquals\": {\"aws:CalledVia\": \"ecs.amazonaws.com\"}}}]}"
+      },
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "sequence": 15,
+      "label": "chain-direct-iam",
+      "service": "iam",
+      "operation": "create-service-linked-role",
+      "region": "us-east-1",
+      "actor": "probe-caller",
+      "input": {
+        "AWSServiceName": "ecs.amazonaws.com"
+      },
+      "code": "AccessDenied",
+      "message": "User: arn:aws:sts::917546008205:assumed-role/stackd-ecs-fas-f43b13636ec5/stackd-ecs-fas-f43b13636ec5 is not authorized to perform: iam:CreateServiceLinkedRole on resource: arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS because no identity-based policy allows the iam:CreateServiceLinkedRole action",
+      "http_status": 403
+    },
+    {
+      "sequence": 16,
+      "label": "chain-create-cluster",
+      "service": "ecs",
+      "operation": "create-cluster",
+      "region": "us-east-1",
+      "actor": "probe-caller",
+      "input": {
+        "clusterName": "stackd-ecs-fas-f43b13636ec5-chain"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-fas-f43b13636ec5-chain",
+          "clusterName": "stackd-ecs-fas-f43b13636ec5-chain",
+          "status": "ACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 17,
+      "label": "chain-role-after-cluster",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/ecs.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForECS",
+          "RoleId": "AROA5LIQA72GUAXAW5ZK5",
+          "Arn": "arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+          "CreateDate": "2026-09-16T17:15:56+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "Policy to enable Amazon ECS to manage your EC2 instances and related resources.",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {}
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 18,
+      "label": "chain-delete-cluster",
+      "service": "ecs",
+      "operation": "delete-cluster",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "cluster": "stackd-ecs-fas-f43b13636ec5-chain"
+      },
+      "code": "Success",
+      "output": {
+        "cluster": {
+          "clusterArn": "arn:aws:ecs:us-east-1:917546008205:cluster/stackd-ecs-fas-f43b13636ec5-chain",
+          "clusterName": "stackd-ecs-fas-f43b13636ec5-chain",
+          "status": "INACTIVE",
+          "registeredContainerInstancesCount": 0,
+          "runningTasksCount": 0,
+          "pendingTasksCount": 0,
+          "activeServicesCount": 0,
+          "statistics": [],
+          "tags": [],
+          "settings": [
+            {
+              "name": "containerInsights",
+              "value": "disabled"
+            }
+          ],
+          "capacityProviders": [],
+          "defaultCapacityProviderStrategy": []
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 19,
+      "label": "chain-remove-role-existence",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "Role": {
+          "Path": "/aws-service-role/ecs.amazonaws.com/",
+          "RoleName": "AWSServiceRoleForECS",
+          "RoleId": "AROA5LIQA72GUAXAW5ZK5",
+          "Arn": "arn:aws:iam::917546008205:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+          "CreateDate": "2026-09-16T17:15:56+00:00",
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Description": "Policy to enable Amazon ECS to manage your EC2 instances and related resources.",
+          "MaxSessionDuration": 3600,
+          "RoleLastUsed": {}
+        }
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 20,
+      "label": "chain-remove-role-delete",
+      "service": "iam",
+      "operation": "delete-service-linked-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "Success",
+      "output": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/49b7ba1a-0473-43ba-90de-bef206566d54"
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 21,
+      "label": "chain-remove-role-status",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/49b7ba1a-0473-43ba-90de-bef206566d54"
+      },
+      "code": "NoSuchEntity",
+      "message": "Cannot find deletion status for given id.",
+      "http_status": 404
+    },
+    {
+      "sequence": 22,
+      "label": "chain-remove-role-status",
+      "service": "iam",
+      "operation": "get-service-linked-role-deletion-status",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "DeletionTaskId": "task/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS/49b7ba1a-0473-43ba-90de-bef206566d54"
+      },
+      "code": "Success",
+      "output": {
+        "Status": "SUCCEEDED"
+      },
+      "http_status": 200
+    },
+    {
+      "sequence": 23,
+      "label": "chain-remove-role-absent",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "NoSuchEntity",
+      "message": "The role with name AWSServiceRoleForECS cannot be found.",
+      "http_status": 404
+    },
+    {
+      "sequence": 24,
+      "label": "cleanup-role-existence",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "AWSServiceRoleForECS"
+      },
+      "code": "NoSuchEntity",
+      "message": "The role with name AWSServiceRoleForECS cannot be found.",
+      "http_status": 404
+    },
+    {
+      "sequence": 25,
+      "label": "cleanup-caller-policy",
+      "service": "iam",
+      "operation": "delete-role-policy",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-fas-f43b13636ec5",
+        "PolicyName": "Probe"
+      },
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "sequence": 26,
+      "label": "cleanup-caller-role",
+      "service": "iam",
+      "operation": "delete-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-fas-f43b13636ec5"
+      },
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "sequence": 27,
+      "label": "cleanup-caller-absent",
+      "service": "iam",
+      "operation": "get-role",
+      "region": "us-east-1",
+      "actor": "member-administrator",
+      "input": {
+        "RoleName": "stackd-ecs-fas-f43b13636ec5"
+      },
+      "code": "NoSuchEntity",
+      "message": "The role with name stackd-ecs-fas-f43b13636ec5 cannot be found.",
+      "http_status": 404
+    }
+  ],
+  "cleanup": {
+    "exceptions": [],
+    "serviceRoleAbsent": true,
+    "callerAbsent": true
+  },
+  "finishedAt": "2026-09-16T17:16:08.301464+00:00"
+}

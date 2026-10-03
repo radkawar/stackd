@@ -1,0 +1,61 @@
+{
+  "owner": "stackd-ipam-1a8d628618bf",
+  "network_id": "arn:aws:ec2:us-east-1:784561209873:vpc/vpc-53f583fd06c0468a8",
+  "scope": "Two independent native controllers using the same exact VPC identity; live exact-owned Docker TCP receiver; no parent or SSM bridge touched.",
+  "observations": {
+    "same_identity_matching_ipam_reused": {
+      "bridge": {
+        "Name": "stackd-ecs-network-d743cfaded2efbc56d6cd50257467fa7dc64837a9ededb81bfddb5298808adc5",
+        "Device": "br-5df22cc0a087"
+      },
+      "http_body": "stackd-ipam-1a8d628618bf"
+    },
+    "different_pool": {
+      "error": "admit/create compute network: native network-admission operation failed: stdout \"\", stderr \"native VPC bridge IPAM differs from requested pool/gateway: stackd-ecs-network-d743cfaded2efbc56d6cd50257467fa7dc64837a9ededb81bfddb5298808adc5 requested 10.252.238.0/24 gateway 10.252.238.1 observed {\\\"Driver\\\": \\\"default\\\", \\\"Options\\\": null, \\\"Config\\\": [{\\\"Subnet\\\": \\\"10.252.237.0/24\\\", \\\"Gateway\\\": \\\"10.252.237.1\\\", \\\"AuxiliaryAddresses\\\": {\\\"amazon-dns\\\": \\\"10.252.237.2\\\"}}]}\\n\"",
+      "attach_callback_reached": false,
+      "original_native_state_unchanged": true,
+      "http_body": "stackd-ipam-1a8d628618bf"
+    },
+    "different_prefix": {
+      "error": "admit/create compute network: native network-admission operation failed: stdout \"\", stderr \"native VPC bridge IPAM differs from requested pool/gateway: stackd-ecs-network-d743cfaded2efbc56d6cd50257467fa7dc64837a9ededb81bfddb5298808adc5 requested 10.252.237.0/25 gateway 10.252.237.1 observed {\\\"Driver\\\": \\\"default\\\", \\\"Options\\\": null, \\\"Config\\\": [{\\\"Subnet\\\": \\\"10.252.237.0/24\\\", \\\"Gateway\\\": \\\"10.252.237.1\\\", \\\"AuxiliaryAddresses\\\": {\\\"amazon-dns\\\": \\\"10.252.237.2\\\"}}]}\\n\"",
+      "attach_callback_reached": false,
+      "original_native_state_unchanged": true,
+      "http_body": "stackd-ipam-1a8d628618bf"
+    },
+    "different_gateway": {
+      "error": "admit/create compute network: native network-admission operation failed: stdout \"\", stderr \"native VPC bridge IPAM differs from requested pool/gateway: stackd-ecs-network-d743cfaded2efbc56d6cd50257467fa7dc64837a9ededb81bfddb5298808adc5 requested 10.252.237.0/24 gateway 10.252.237.3 observed {\\\"Driver\\\": \\\"default\\\", \\\"Options\\\": null, \\\"Config\\\": [{\\\"Subnet\\\": \\\"10.252.237.0/24\\\", \\\"Gateway\\\": \\\"10.252.237.1\\\", \\\"AuxiliaryAddresses\\\": {\\\"amazon-dns\\\": \\\"10.252.237.2\\\"}}]}\\n\"",
+      "attach_callback_reached": false,
+      "original_native_state_unchanged": true,
+      "http_body": "stackd-ipam-1a8d628618bf"
+    },
+    "matching_reuse_after_rejections": {
+      "http_body": "stackd-ipam-1a8d628618bf",
+      "ipam": {
+        "Driver": "default",
+        "Options": null,
+        "Config": [
+          {
+            "Subnet": "10.252.237.0/24",
+            "Gateway": "10.252.237.1",
+            "AuxiliaryAddresses": {
+              "amazon-dns": "10.252.237.2"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "cleanup": {
+    "receiver_absent": true,
+    "bridge_absent": true,
+    "controllers_exited_zero": true,
+    "exact_labelled_helpers_absent": true,
+    "owned_connected_route_absent": true
+  },
+  "reproduction_sources": {
+    "controller.go": "package main\n\nimport (\n\t\"bufio\"\n\t\"context\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"os\"\n\t\"time\"\n\n\t\"stackd/compute/docker\"\n\t\"stackd/compute/network\"\n)\n\nfunc main() {\n\tclient, err := docker.New(context.Background(), docker.Config{})\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\tdefer client.Close()\n\tbridges, err := network.NewBridges(client)\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\tscanner := bufio.NewScanner(os.Stdin)\n\tfor scanner.Scan() {\n\t\tvar input struct {\n\t\t\tOperation string\n\t\t\tSpec      network.Specification\n\t\t}\n\t\tvar output struct {\n\t\t\tBridge   network.Bridge\n\t\t\tAttached bool\n\t\t\tError    string\n\t\t}\n\t\terr := json.Unmarshal(scanner.Bytes(), &input)\n\t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)\n\t\tif err == nil {\n\t\t\tswitch input.Operation {\n\t\t\tcase \"prepare\":\n\t\t\t\terr = bridges.WithBridge(ctx, input.Spec, func(bridge network.Bridge) error {\n\t\t\t\t\toutput.Attached = true\n\t\t\t\t\toutput.Bridge = bridge\n\t\t\t\t\treturn nil\n\t\t\t\t})\n\t\t\tcase \"release\":\n\t\t\t\terr = bridges.Release(ctx, input.Spec.NetworkID)\n\t\t\tdefault:\n\t\t\t\terr = fmt.Errorf(\"unknown proof operation\")\n\t\t\t}\n\t\t}\n\t\tcancel()\n\t\tif err != nil {\n\t\t\toutput.Error = err.Error()\n\t\t}\n\t\tif err := json.NewEncoder(os.Stdout).Encode(output); err != nil {\n\t\t\tpanic(err)\n\t\t}\n\t}\n\tif err := scanner.Err(); err != nil {\n\t\tpanic(err)\n\t}\n}\n",
+    "smoke.py": "import copy, hashlib, json, socket, subprocess, time, uuid\nfrom pathlib import Path\nIMAGE = 'nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61'\nowner = 'stackd-ipam-' + uuid.uuid4().hex[:12]\nnetwork_id = 'arn:aws:ec2:us-east-1:784561209873:vpc/vpc-' + uuid.uuid4().hex[:17]\nspec = {'NetworkID':network_id,'Pool':'10.252.237.0/24','Gateway':'10.252.237.1','Address':'10.252.237.10','MAC':'02:00:00:ec:23:71'}\nreport = {'owner':owner,'network_id':network_id,'scope':'Two independent native controllers using the same exact VPC identity; live exact-owned Docker TCP receiver; no parent or SSM bridge touched.','observations':{},'cleanup':{}}\ncontrollers = []\ndef run(args, check=True):\n    result = subprocess.run(args, text=True, capture_output=True, timeout=40)\n    if check and result.returncode: raise RuntimeError(str(args) + ': ' + result.stdout + result.stderr)\n    return result\n\ndef controller():\n    process = subprocess.Popen(['/tmp/stackd-ipam-admission-controller'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)\n    controllers.append(process)\n    return process\n\ndef request(process, value, operation='prepare'):\n    process.stdin.write(json.dumps({'Operation':operation,'Spec':value})+'\\n'); process.stdin.flush()\n    result = json.loads(process.stdout.readline())\n    return result\n\ndef inspect(name): return json.loads(run(['docker','network','inspect',name]).stdout)[0]\ndef receive():\n    with socket.create_connection((spec['Address'],8080),timeout=2) as connection:\n        connection.sendall(b'GET / HTTP/1.0\\r\\nHost: owned-ipam-proof\\r\\n\\r\\n')\n        chunks=[]\n        while True:\n            chunk=connection.recv(4096)\n            if not chunk: break\n            chunks.append(chunk)\n    body=b''.join(chunks).split(b'\\r\\n\\r\\n',1)[1].decode()\n    assert body == owner, body\n    return body\n\nfirst, second = controller(), controller()\nbridge = None\ntry:\n    admitted = request(first,spec)\n    assert not admitted['Error'] and admitted['Attached'], admitted\n    bridge=admitted['Bridge']\n    source = 'from http.server import BaseHTTPRequestHandler,HTTPServer\\nclass Handler(BaseHTTPRequestHandler):\\n def do_GET(self):\\n  body='+repr(owner.encode())+'\\n  self.send_response(200);self.end_headers();self.wfile.write(body)\\nHTTPServer((\"0.0.0.0\",8080),Handler).serve_forever()'\n    run(['docker','run','-d','--name',owner,'--network',bridge['Name'],'--ip',spec['Address'],'--cap-drop','ALL','--security-opt','no-new-privileges:true','--entrypoint','python3',IMAGE,'-u','-c',source])\n    deadline=time.monotonic()+10\n    while True:\n        try: receive(); break\n        except (OSError,AssertionError):\n            if time.monotonic() >= deadline: raise\n            time.sleep(.05)\n    baseline=inspect(bridge['Name'])\n    reused=request(second,spec)\n    assert reused['Attached'] and not reused['Error'] and reused['Bridge']==bridge, reused\n    report['observations']['same_identity_matching_ipam_reused']={'bridge':bridge,'http_body':receive()}\n    for label, changes in [('different_pool',{'Pool':'10.252.238.0/24','Gateway':'10.252.238.1','Address':'10.252.238.10'}),('different_prefix',{'Pool':'10.252.237.0/25'}),('different_gateway',{'Gateway':'10.252.237.3'})]:\n        candidate=copy.deepcopy(spec);candidate.update(changes)\n        rejected=request(second,candidate)\n        assert not rejected['Attached'] and 'IPAM differs from requested pool/gateway' in rejected['Error'], rejected\n        current=inspect(bridge['Name'])\n        for field in ['Id','IPAM','Labels','Options','Containers']:\n            assert current[field]==baseline[field], (label,field,current[field],baseline[field])\n        report['observations'][label]={'error':rejected['Error'],'attach_callback_reached':rejected['Attached'],'original_native_state_unchanged':True,'http_body':receive()}\n    resumed=request(first,spec)\n    assert resumed['Attached'] and not resumed['Error'] and resumed['Bridge']==bridge\n    report['observations']['matching_reuse_after_rejections']={'http_body':receive(),'ipam':baseline['IPAM']}\nfinally:\n    result=run(['docker','rm','-f',owner],False)\n    report['cleanup']['receiver_absent']=run(['docker','inspect',owner],False).returncode!=0\n    if bridge:\n        result=request(first,spec,'release')\n        assert not result['Error'], result\n        report['cleanup']['bridge_absent']=run(['docker','network','inspect',bridge['Name']],False).returncode!=0\n    for process in controllers:\n        process.stdin.close();process.wait(timeout=10)\n        assert process.returncode==0, process.stderr.read()\n    report['cleanup']['controllers_exited_zero']=True\n    Path('/tmp/stackd-ipam-admission-result.json').write_text(json.dumps(report,indent=2))\nassert all(report['cleanup'].values())\nprint(json.dumps(report,indent=2))\n"
+  },
+  "root_cause": "VPC-ARN-derived native names are shared across controllers, not isolated by database. Driver and ARN alone admitted mismatched native IPAM; metadata listener then attempted a gateway not assigned to that bridge. Parent observation is retained as ground truth, not rerun.",
+  "implementation": "Validate default IPAM, exactly one matching IPv4 pool and requested gateway under daemon-held flock after inspect/create and before returning to attachment. Matching identities still reuse the bridge."
+}

@@ -1,0 +1,730 @@
+{
+  "retrieved_at": "2026-09-13T07:37:28.251718+00:00",
+  "scope": "Owned tag size and inactive backup configuration; no account moves",
+  "observations": [
+    {
+      "case": "enable-BACKUP_POLICY",
+      "action": "EnablePolicyType",
+      "input": {
+        "RootId": "r-example",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Root": {
+          "Arn": "arn:aws:organizations::111111111111:root/o-exampleorgid/r-example",
+          "Id": "r-example",
+          "Name": "Root",
+          "PolicyTypes": [
+            {
+              "Status": "ENABLED",
+              "Type": "BACKUP_POLICY"
+            },
+            {
+              "Status": "ENABLED",
+              "Type": "SERVICE_CONTROL_POLICY"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "backup-base",
+      "action": "CreatePolicy",
+      "input": {
+        "Name": "stackd-policy-limits-owned-backup-base",
+        "Description": "Owned policy limits capture",
+        "Type": "BACKUP_POLICY",
+        "Content": "{\"plans\":{\"stackd-policy-limits-owned\":{\"regions\":{\"@@assign\":[\"us-east-1\"]},\"rules\":{\"daily\":{\"target_backup_vault_name\":{\"@@assign\":\"stackd-policy-limits-owned\"}}},\"selections\":{\"tags\":{\"selection\":{\"iam_role_arn\":{\"@@assign\":\"arn:aws:iam::$account:role/stackd-policy-limits-owned\"},\"tag_key\":{\"@@assign\":\"stackd-policy-limits-owned\"},\"tag_value\":{\"@@assign\":[\"never-match-stackd-policy-limits-owned\"]}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\":{\"stackd-policy-limits-owned\":{\"regions\":{\"@@assign\":[\"us-east-1\"]},\"rules\":{\"daily\":{\"target_backup_vault_name\":{\"@@assign\":\"stackd-policy-limits-owned\"}}},\"selections\":{\"tags\":{\"selection\":{\"iam_role_arn\":{\"@@assign\":\"arn:aws:iam::$account:role/stackd-policy-limits-owned\"},\"tag_key\":{\"@@assign\":\"stackd-policy-limits-owned\"},\"tag_value\":{\"@@assign\":[\"never-match-stackd-policy-limits-owned\"]}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_1",
+            "AwsManaged": false,
+            "Description": "Owned policy limits capture",
+            "Id": "POLICY_1",
+            "Name": "stackd-policy-limits-owned-backup-base",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "backup-base-attach",
+      "action": "AttachPolicy",
+      "input": {
+        "PolicyId": "POLICY_1",
+        "TargetId": "r-example"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {}
+    },
+    {
+      "case": "backup-base-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [],
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "backup-child",
+      "action": "CreatePolicy",
+      "input": {
+        "Name": "stackd-policy-limits-owned-backup-child",
+        "Description": "Owned policy limits capture",
+        "Type": "BACKUP_POLICY",
+        "Content": "{\"plans\":{\"stackd-policy-limits-owned\":{}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\":{\"stackd-policy-limits-owned\":{}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Description": "Owned policy limits capture",
+            "Id": "POLICY_2",
+            "Name": "stackd-policy-limits-owned-backup-child",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "backup-child-attach",
+      "action": "AttachPolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "TargetId": "222222222222"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {}
+    },
+    {
+      "case": "continuous-long-retention-reset",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "continuous-long-retention-parent",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_1",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"enable_continuous_backup\": {\"@@assign\": \"true\"}, \"lifecycle\": {\"delete_after_days\": {\"@@assign\": \"35\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"enable_continuous_backup\": {\"@@assign\": \"true\"}, \"lifecycle\": {\"delete_after_days\": {\"@@assign\": \"35\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_1",
+            "AwsManaged": false,
+            "Id": "POLICY_1",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "continuous-long-retention-parent-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [],
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "continuous-long-retention-child",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"lifecycle\": {\"delete_after_days\": {\"@@assign\": \"45\"}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"lifecycle\": {\"delete_after_days\": {\"@@assign\": \"45\"}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "continuous-long-retention-child-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [
+          {
+            "ContributingPolicies": [
+              "POLICY_2",
+              "POLICY_1"
+            ],
+            "ErrorCode": "CROSS_ATTRIBUTE_VALIDATION",
+            "ErrorMessage": "Dependent fields enable_continuous_backup=true,delete_after_days=45 in policy block daily are invalid when used together",
+            "PathToError": "plans/stackd-policy-limits-owned/rules/daily"
+          }
+        ],
+        "EvaluationTimestamp": 1789285063.719,
+        "Path": "o-exampleorgid/r-example/222222222222/",
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "continuous-cold-reset",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "continuous-cold-parent",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_1",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"enable_continuous_backup\": {\"@@assign\": \"true\"}, \"lifecycle\": {\"delete_after_days\": {\"@@assign\": \"35\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"enable_continuous_backup\": {\"@@assign\": \"true\"}, \"lifecycle\": {\"delete_after_days\": {\"@@assign\": \"35\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_1",
+            "AwsManaged": false,
+            "Id": "POLICY_1",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "continuous-cold-parent-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [],
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "continuous-cold-child",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"1\"}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"1\"}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "continuous-cold-child-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [],
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "archive-daily-reset",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "archive-daily-parent",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_1",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"schedule_expression\": {\"@@assign\": \"cron(0 5 1 * ? *)\"}, \"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"30\"}, \"delete_after_days\": {\"@@assign\": \"120\"}, \"opt_in_to_archive_for_supported_resources\": {\"@@assign\": \"true\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"schedule_expression\": {\"@@assign\": \"cron(0 5 1 * ? *)\"}, \"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"30\"}, \"delete_after_days\": {\"@@assign\": \"120\"}, \"opt_in_to_archive_for_supported_resources\": {\"@@assign\": \"true\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_1",
+            "AwsManaged": false,
+            "Id": "POLICY_1",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "archive-daily-parent-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [],
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "archive-daily-child",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"schedule_expression\": {\"@@assign\": \"cron(0 5 ? * * *)\"}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"schedule_expression\": {\"@@assign\": \"cron(0 5 ? * * *)\"}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "archive-daily-child-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [
+          {
+            "ContributingPolicies": [
+              "POLICY_2",
+              "POLICY_1"
+            ],
+            "ErrorCode": "CROSS_ATTRIBUTE_VALIDATION",
+            "ErrorMessage": "Dependent fields opt_in_to_archive_for_supported_resources=true,schedule_expression=cron(0 5 ? * * *) in policy block daily are invalid when used together",
+            "PathToError": "plans/stackd-policy-limits-owned/rules/daily"
+          }
+        ],
+        "EvaluationTimestamp": 1789285083.194,
+        "Path": "o-exampleorgid/r-example/222222222222/",
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "archive-short-retention-reset",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "archive-short-retention-parent",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_1",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"schedule_expression\": {\"@@assign\": \"cron(0 5 1 * ? *)\"}, \"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"30\"}, \"delete_after_days\": {\"@@assign\": \"120\"}, \"opt_in_to_archive_for_supported_resources\": {\"@@assign\": \"true\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"schedule_expression\": {\"@@assign\": \"cron(0 5 1 * ? *)\"}, \"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"30\"}, \"delete_after_days\": {\"@@assign\": \"120\"}, \"opt_in_to_archive_for_supported_resources\": {\"@@assign\": \"true\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_1",
+            "AwsManaged": false,
+            "Id": "POLICY_1",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "archive-short-retention-parent-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [],
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "archive-short-retention-child",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"lifecycle\": {\"delete_after_days\": {\"@@assign\": \"60\"}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"lifecycle\": {\"delete_after_days\": {\"@@assign\": \"60\"}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "archive-short-retention-child-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [
+          {
+            "ContributingPolicies": [
+              "POLICY_2",
+              "POLICY_1"
+            ],
+            "ErrorCode": "CROSS_ATTRIBUTE_VALIDATION",
+            "ErrorMessage": "Dependent fields opt_in_to_archive_for_supported_resources=true,delete_after_days=60,move_to_cold_storage_after_days=30 in policy block daily are invalid when used together",
+            "PathToError": "plans/stackd-policy-limits-owned/rules/daily"
+          }
+        ],
+        "EvaluationTimestamp": 1789285094.458,
+        "Path": "o-exampleorgid/r-example/222222222222/",
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "archive-late-transition-reset",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "archive-late-transition-parent",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_1",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"schedule_expression\": {\"@@assign\": \"cron(0 5 1 * ? *)\"}, \"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"30\"}, \"delete_after_days\": {\"@@assign\": \"120\"}, \"opt_in_to_archive_for_supported_resources\": {\"@@assign\": \"true\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"schedule_expression\": {\"@@assign\": \"cron(0 5 1 * ? *)\"}, \"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"30\"}, \"delete_after_days\": {\"@@assign\": \"120\"}, \"opt_in_to_archive_for_supported_resources\": {\"@@assign\": \"true\"}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_1",
+            "AwsManaged": false,
+            "Id": "POLICY_1",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "archive-late-transition-parent-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [],
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "archive-late-transition-child",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"90\"}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"lifecycle\": {\"move_to_cold_storage_after_days\": {\"@@assign\": \"90\"}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "archive-late-transition-child-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [
+          {
+            "ContributingPolicies": [
+              "POLICY_2",
+              "POLICY_1"
+            ],
+            "ErrorCode": "CROSS_ATTRIBUTE_VALIDATION",
+            "ErrorMessage": "Dependent fields opt_in_to_archive_for_supported_resources=true,delete_after_days=120,move_to_cold_storage_after_days=90 in policy block daily are invalid when used together",
+            "PathToError": "plans/stackd-policy-limits-owned/rules/daily"
+          }
+        ],
+        "EvaluationTimestamp": 1789285103.628,
+        "Path": "o-exampleorgid/r-example/222222222222/",
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "empty-index-reset",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "empty-index-parent",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_1",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"index_actions\": {\"resource_types\": {\"@@assign\": [\"EBS\"]}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"regions\": {\"@@assign\": [\"us-east-1\"]}, \"rules\": {\"daily\": {\"target_backup_vault_name\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"index_actions\": {\"resource_types\": {\"@@assign\": [\"EBS\"]}}}}, \"selections\": {\"tags\": {\"selection\": {\"iam_role_arn\": {\"@@assign\": \"arn:aws:iam::$account:role/stackd-policy-limits-owned\"}, \"tag_key\": {\"@@assign\": \"stackd-policy-limits-owned\"}, \"tag_value\": {\"@@assign\": [\"never-match-stackd-policy-limits-owned\"]}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_1",
+            "AwsManaged": false,
+            "Id": "POLICY_1",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "empty-index-parent-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [],
+        "PolicyType": "BACKUP_POLICY"
+      }
+    },
+    {
+      "case": "empty-index-child",
+      "action": "UpdatePolicy",
+      "input": {
+        "PolicyId": "POLICY_2",
+        "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"index_actions\": {\"resource_types\": {\"@@remove\": [\"EBS\"]}}}}}}}"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "Policy": {
+          "Content": "{\"plans\": {\"stackd-policy-limits-owned\": {\"rules\": {\"daily\": {\"index_actions\": {\"resource_types\": {\"@@remove\": [\"EBS\"]}}}}}}}",
+          "PolicySummary": {
+            "Arn": "arn:aws:organizations::111111111111:policy/o-exampleorgid/backup_policy/POLICY_2",
+            "AwsManaged": false,
+            "Id": "POLICY_2",
+            "Type": "BACKUP_POLICY"
+          }
+        }
+      }
+    },
+    {
+      "case": "empty-index-child-report",
+      "action": "ListEffectivePolicyValidationErrors",
+      "input": {
+        "AccountId": "222222222222",
+        "PolicyType": "BACKUP_POLICY"
+      },
+      "code": "Success",
+      "status": 200,
+      "output": {
+        "AccountId": "222222222222",
+        "EffectivePolicyValidationErrors": [],
+        "PolicyType": "BACKUP_POLICY"
+      }
+    }
+  ],
+  "cleanup": true,
+  "memberships_unchanged": true,
+  "trusted_services_unchanged": true,
+  "cleanup_failures": []
+}

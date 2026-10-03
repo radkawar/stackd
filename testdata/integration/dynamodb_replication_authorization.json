@@ -1,0 +1,1450 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Caller permission scope and target Scan contrast: retained valid CLI conclusions in testdata/aws/dynamodb/global_tables_authorization.json. SLR denial/recovery, caller-only regional UpdateTable settings propagation, all-region TTL authorization, and MREC conversion after more than 20 hours follow https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/globaltables-security.html. Resource-policy denial and service-time expiry are local documented-contract extensions, not native captures. Expiry begins only after both replicas are settled ACTIVE; initial creation or settings-in-flight expiry is explicitly deferred.",
+  "steps": [
+    {
+      "name": "create-stackd-replication-authorization",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "source-ready-stackd-replication-authorization",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "seed-retained-data",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "seed-delete-target",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Item": {
+          "pk": {
+            "S": "delete-me"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "deny-original-caller-source-updatetable",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "AccessDeniedException",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": "dynamodb:UpdateTable",
+            "Resource": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-replication-authorization"
+          }
+        ]
+      }
+    },
+    {
+      "name": "source-get-remains-authorized",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "retained"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "denied-source-update-created-no-peer",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "deny-target-createtablereplica",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "AccessDeniedException",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": "dynamodb:CreateTableReplica",
+            "Resource": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary-source-update-is-unrelated-to-target-create-denial",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "OnDemandThroughput": {
+          "MaxWriteRequestUnits": 30
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "ordinary-source-update-settled",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput.MaxWriteRequestUnits": 30
+      },
+      "waitWant": true
+    },
+    {
+      "name": "deny-target-dependent-scan",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "AccessDeniedException",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": "dynamodb:Scan",
+            "Resource": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization"
+          }
+        ]
+      }
+    },
+    {
+      "name": "source-read-survives-target-scan-denial",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "retained"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "failed-target-admission-leaves-no-replica",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "source-replica-action-denial-does-not-block-target-creation",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": [
+              "dynamodb:CreateTableReplica",
+              "dynamodb:Scan"
+            ],
+            "Resource": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-replication-authorization"
+          }
+        ]
+      }
+    },
+    {
+      "name": "pair-ready-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "pair-ready-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "peer-baseline-ready",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "retained"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "peer-delete-baseline-ready",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "delete-me"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "delete-me"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "deny-target-deletetablereplica",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "code": "AccessDeniedException",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": "dynamodb:DeleteTableReplica",
+            "Resource": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization"
+          }
+        ]
+      }
+    },
+    {
+      "name": "source-read-survives-target-delete-denial",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "retained"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "denied-delete-preserves-peer-data",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "retained"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "restrict-updatetable-to-source-region",
+      "advance": "0s",
+      "region": "us-east-1",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": "dynamodb:UpdateTable",
+            "Resource": "*",
+            "Condition": {
+              "StringNotEquals": {
+                "aws:RequestedRegion": "us-east-1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "customer-cannot-update-peer-directly",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "OnDemandThroughput": {
+          "MaxWriteRequestUnits": 25
+        }
+      },
+      "want": {},
+      "code": "AccessDeniedException"
+    },
+    {
+      "name": "source-regional-settings-update",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "OnDemandThroughput": {
+          "MaxWriteRequestUnits": 25
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "regional-settings-propagate-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput.MaxWriteRequestUnits": 25
+      },
+      "waitWant": true
+    },
+    {
+      "name": "regional-settings-propagate-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput.MaxWriteRequestUnits": 25
+      },
+      "waitWant": true
+    },
+    {
+      "name": "ttl-peer-caller-denial-is-atomic",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTimeToLive",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "TimeToLiveSpecification": {
+          "Enabled": true,
+          "AttributeName": "expires"
+        }
+      },
+      "want": {},
+      "code": "AccessDeniedException",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": "dynamodb:UpdateTimeToLive",
+            "Resource": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ttl-unchanged-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTimeToLive",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "TimeToLiveDescription.TimeToLiveStatus": "DISABLED",
+        "TimeToLiveDescription.AttributeName": null
+      }
+    },
+    {
+      "name": "ttl-unchanged-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTimeToLive",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "TimeToLiveDescription.TimeToLiveStatus": "DISABLED",
+        "TimeToLiveDescription.AttributeName": null
+      }
+    },
+    {
+      "name": "restore-customer-policy-for-slr-contrast",
+      "advance": "0s",
+      "region": "us-east-1",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "name": "deny-peer-slr-item-writes",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutResourcePolicy",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization",
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"arn:aws:iam::000000000000:role/aws-service-role/replication.dynamodb.amazonaws.com/AWSServiceRoleForDynamoDBReplication\"},\"Action\":[\"dynamodb:PutItem\",\"dynamodb:DeleteItem\"],\"Resource\":\"arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization\"}]}"
+      },
+      "want": {}
+    },
+    {
+      "name": "customer-put-is-still-authorized-on-blocked-peer",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Item": {
+          "pk": {
+            "S": "customer-local"
+          },
+          "mark": {
+            "S": "allowed"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "source-put-awaits-slr-repair",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Item": {
+          "pk": {
+            "S": "queued-put"
+          },
+          "mark": {
+            "S": "repaired"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "source-delete-awaits-slr-repair",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "delete-me"
+          }
+        },
+        "ReturnValues": "ALL_OLD"
+      },
+      "want": {
+        "Attributes": {
+          "pk": {
+            "S": "delete-me"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "peer-authorization-failure-is-public",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "REPLICATION_NOT_AUTHORIZED"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "blocked-peer-has-no-queued-put",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "queued-put"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      }
+    },
+    {
+      "name": "blocked-peer-retains-queued-delete-target",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "delete-me"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "delete-me"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "blocked-peer-retains-customer-write",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "customer-local"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "customer-local"
+          },
+          "mark": {
+            "S": "allowed"
+          }
+        }
+      }
+    },
+    {
+      "name": "repair-peer-resource-policy",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DeleteResourcePolicy",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization"
+      },
+      "want": {}
+    },
+    {
+      "name": "queued-put-converges-after-repair",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "queued-put"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "queued-put"
+          },
+          "mark": {
+            "S": "repaired"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "queued-delete-converges-after-repair",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "delete-me"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "repaired-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "repaired-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "target-delete-does-not-require-source-replica-delete-permission",
+      "advance": "25h",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "ReplicaUpdates": [
+          {
+            "Delete": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {},
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Deny",
+            "Action": "dynamodb:DeleteTableReplica",
+            "Resource": "arn:aws:dynamodb:us-east-1:000000000000:table/stackd-replication-authorization"
+          }
+        ]
+      }
+    },
+    {
+      "name": "authorized-target-delete-removes-peer",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException",
+      "waitTableAbsent": true
+    },
+    {
+      "name": "last-table-survives-authorized-replica-removal",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "last-table-retains-real-data",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization",
+        "Key": {
+          "pk": {
+            "S": "retained"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "restore-customer-policy-before-cleanup",
+      "advance": "0s",
+      "region": "us-east-1",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "name": "delete-authorization-source",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {}
+    },
+    {
+      "name": "authorization-source-removed",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException",
+      "waitTableAbsent": true
+    },
+    {
+      "name": "create-stackd-replication-authorization-expiry",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "source-ready-stackd-replication-authorization-expiry",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "expiry-seed-data",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "expiry-create-peer",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "want": {}
+    },
+    {
+      "name": "expiry-settled-active-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "expiry-settled-active-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-1",
+        "Table.Replicas.0.ReplicaStatus": "ACTIVE",
+        "Table.Replicas.1": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "expiry-peer-baseline-ready",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "Key": {
+          "pk": {
+            "S": "retained"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      },
+      "waitWant": true
+    },
+    {
+      "name": "expiry-deny-slr-writes-only-after-active",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutResourcePolicy",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization-expiry",
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"arn:aws:iam::000000000000:role/aws-service-role/replication.dynamodb.amazonaws.com/AWSServiceRoleForDynamoDBReplication\"},\"Action\":[\"dynamodb:PutItem\",\"dynamodb:DeleteItem\"],\"Resource\":\"arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization-expiry\"}]}"
+      },
+      "want": {}
+    },
+    {
+      "name": "expiry-source-write-remains-undelivered",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "Item": {
+          "pk": {
+            "S": "source-only"
+          },
+          "mark": {
+            "S": "retained-at-source"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "expiry-customer-peer-write-survives",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "PutItem",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "Item": {
+          "pk": {
+            "S": "peer-local"
+          },
+          "mark": {
+            "S": "retained-at-peer"
+          }
+        }
+      },
+      "want": {}
+    },
+    {
+      "name": "expiry-observe-unauthorized-before-clock-jump",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "REPLICATION_NOT_AUTHORIZED"
+      },
+      "waitWant": true
+    },
+    {
+      "name": "replica-not-detached-before-twenty-hours",
+      "advance": "19h59m59s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {
+        "Table.GlobalTableVersion": "2019.11.21",
+        "Table.Replicas.0.RegionName": "us-east-2",
+        "Table.Replicas.0.ReplicaStatus": "REPLICATION_NOT_AUTHORIZED"
+      }
+    },
+    {
+      "name": "authorization-expiry-retains-source-table",
+      "advance": "2s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "authorization-expiry-retains-peer-table",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "expiry-baseline-data-survives-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "Key": {
+          "pk": {
+            "S": "retained"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "expiry-baseline-data-survives-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "Key": {
+          "pk": {
+            "S": "retained"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "retained"
+          },
+          "mark": {
+            "S": "baseline"
+          }
+        }
+      }
+    },
+    {
+      "name": "expiry-source-data-is-not-deleted",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "Key": {
+          "pk": {
+            "S": "source-only"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "source-only"
+          },
+          "mark": {
+            "S": "retained-at-source"
+          }
+        }
+      }
+    },
+    {
+      "name": "expiry-does-not-publish-blocked-source-data",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "Key": {
+          "pk": {
+            "S": "source-only"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": null
+      }
+    },
+    {
+      "name": "expiry-peer-data-is-not-deleted",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "GetItem",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry",
+        "Key": {
+          "pk": {
+            "S": "peer-local"
+          }
+        },
+        "ConsistentRead": true
+      },
+      "want": {
+        "Item": {
+          "pk": {
+            "S": "peer-local"
+          },
+          "mark": {
+            "S": "retained-at-peer"
+          }
+        }
+      }
+    },
+    {
+      "name": "expiry-repair-does-not-recreate-membership",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DeleteResourcePolicy",
+      "input": {
+        "ResourceArn": "arn:aws:dynamodb:us-east-2:000000000000:table/stackd-replication-authorization-expiry"
+      },
+      "want": {}
+    },
+    {
+      "name": "source-remains-standalone-after-policy-repair",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "peer-remains-standalone-after-policy-repair",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.GlobalTableVersion": null,
+        "Table.Replicas": null
+      },
+      "waitWant": true
+    },
+    {
+      "name": "restore-customer-policy-before-expiry-cleanup",
+      "advance": "0s",
+      "region": "us-east-1",
+      "userPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "name": "delete-expiry-standalone-us-east-1",
+      "advance": "25h",
+      "region": "us-east-1",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {}
+    },
+    {
+      "name": "expiry-standalone-removed-us-east-1",
+      "advance": "0s",
+      "region": "us-east-1",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException",
+      "waitTableAbsent": true
+    },
+    {
+      "name": "delete-expiry-standalone-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DeleteTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {}
+    },
+    {
+      "name": "expiry-standalone-removed-us-east-2",
+      "advance": "0s",
+      "region": "us-east-2",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-authorization-expiry"
+      },
+      "want": {},
+      "code": "ResourceNotFoundException",
+      "waitTableAbsent": true
+    }
+  ]
+}

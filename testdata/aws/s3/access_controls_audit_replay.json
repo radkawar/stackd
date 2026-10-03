@@ -1,0 +1,2718 @@
+{
+  "Source": "access_controls_audit_evidence.json.gz",
+  "AuditBucket": "access-audit-replay-logs",
+  "AuditPrefix": "owned/AWSLogs/123456789012/CloudTrail/",
+  "Notes": [
+    "Regional capture: 37 calls, 36 request-correlated outcomes in 38 delivered records after a bounded310.1-second observation. The two extra records are unrelated AWS-internal management reads.",
+    "Initial900-second window delivered only two unrelated internal reads. Its anonymous HTTP200 response was not request-correlated in native delivery and establishes no anonymous audit claim.",
+    "Regional wrong-expected-owner AccessDenied was not delivered during this bounded window; no permanent-absence assertion is made.",
+    "Record fields retain native observations. Account/bucket/canonical ID/version/issued caller ARN are rebound; request IDs, sizes and timestamps are correlated to actual replay responses, not constants.",
+    "Only access-control operations assert audit records here; other captured calls establish version/object/policy state, whose audit behavior is covered separately.",
+    "Native successful Writer ACL mutations (canned private/public-read, XML, explicit version) have aclRequired=Yes. Reads and BOE-denied mutation omit it; this capture makes no broader ACL-read authorization claim."
+  ],
+  "Payloads": {
+    "harmless": [
+      {
+        "Base64": "b3duZWQgbmF0aXZlIGFjY2VzcyBhdWRpdCBmaXh0dXJlCg==",
+        "Repeat": 1
+      }
+    ]
+  },
+  "Setup": [
+    {
+      "Label": "create-access-audit-replay",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "create-access-audit-replay-logs",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "CreateBucket",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay-logs"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "configure-trail-delivery-policy",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "access-audit-replay-logs",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"AWSCloudTrailAclCheck\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:GetBucketAcl\", \"Resource\": \"arn:aws:s3:::access-audit-replay-logs\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/access-audit-replay\"}}}, {\"Sid\": \"AWSCloudTrailWrite\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"cloudtrail.amazonaws.com\"}, \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::access-audit-replay-logs/owned/AWSLogs/123456789012/*\", \"Condition\": {\"StringEquals\": {\"aws:SourceArn\": \"arn:aws:cloudtrail:us-east-1:123456789012:trail/access-audit-replay\", \"s3:x-amz-acl\": \"bucket-owner-full-control\"}}}]}"
+      },
+      "Output": {}
+    }
+  ],
+  "Trail": [
+    {
+      "Label": "create-classic-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "CreateTrail",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EnableLogFileValidation": false,
+        "IncludeGlobalServiceEvents": false,
+        "IsMultiRegionTrail": false,
+        "IsOrganizationTrail": false,
+        "Name": "access-audit-replay",
+        "S3BucketName": "access-audit-replay-logs",
+        "S3KeyPrefix": "owned"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "scope-owned-object-data-and-write-management",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "PutEventSelectors",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "EventSelectors": [
+          {
+            "DataResources": [
+              {
+                "Type": "AWS::S3::Object",
+                "Values": [
+                  "arn:aws:s3:::access-audit-replay/"
+                ]
+              }
+            ],
+            "ExcludeManagementEventSources": [
+              "kms.amazonaws.com",
+              "rdsdata.amazonaws.com"
+            ],
+            "IncludeManagementEvents": true,
+            "ReadWriteType": "All"
+          }
+        ],
+        "TrailName": "access-audit-replay"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "start-trail",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "cloudtrail",
+      "Operation": "StartLogging",
+      "Actor": "caller",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Name": "access-audit-replay"
+      },
+      "Output": {}
+    }
+  ],
+  "Calls": [
+    {
+      "Label": "initial-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[0]",
+      "Sequence": 1,
+      "Service": "s3",
+      "Operation": "GetBucketAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ],
+        "Owner": {
+          "ID": "${ownerID}"
+        }
+      },
+      "Bind": {
+        "ownerID": "Owner.ID"
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 480,
+          "endTime": 1789904789335,
+          "httpStatusCode": 200,
+          "startTime": 1789904789317,
+          "x-amz-id-2": "CO3/u3BLQRVu/Zs3lRp99if3INm7azulshq3rHOfLg0iLR9oojBhZNNzoZAKYjAgdTUJNoRPT8hvJ4EGjOyjDBt86agYYujs"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "08c325a5-447a-4ced-a631-77ac6c4827e3",
+        "eventName": "GetBucketAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:29Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "S30HEZC1TY48APG0",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "initial-ownership",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[1]",
+      "Sequence": 2,
+      "Service": "s3",
+      "Operation": "GetBucketOwnershipControls",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 193,
+          "endTime": 1789904789464,
+          "httpStatusCode": 200,
+          "startTime": 1789904789434,
+          "turnAroundTime": 30,
+          "x-amz-id-2": "2Aftnb0XUOWF1E4PCyOo1iTpyeN+NkAzxnorrnsSVGHe0+dxvzCigTOAutBCLUiY8sgJGgKMqqedMdffGmVD3NPM7nEHewrb"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "d3916309-68d7-4182-bd48-fb3824e4c6be",
+        "eventName": "GetBucketOwnershipControls",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:29Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "S30YDGSKKE28A7AC",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "ownershipControls": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "initial-public-block",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[2]",
+      "Sequence": 3,
+      "Service": "s3",
+      "Operation": "GetPublicAccessBlock",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 326,
+          "endTime": 1789904789570,
+          "httpStatusCode": 200,
+          "startTime": 1789904789564,
+          "x-amz-id-2": "MD8ZIWjPmttSwxrAIgP/qH/hspkZYLqUFee1piw3GTBYOcTE97af7Q61wnZNgrYX4B5CHl8RV0Nh3/xo4rEnsrxrqVqw1Af7"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "3167cda1-245d-472b-9ef1-b51d8fca5551",
+        "eventName": "GetBucketPublicAccessBlock",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:29Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "S30QMW74CQF0BJW6",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "publicAccessBlock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "absent-policy-status",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[3]",
+      "Sequence": 4,
+      "Service": "s3",
+      "Operation": "GetBucketPolicyStatus",
+      "Actor": "audit-user",
+      "Code": "NoSuchBucketPolicy",
+      "Status": 404,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 347,
+          "endTime": 1789904789676,
+          "httpStatusCode": 404,
+          "startTime": 1789904789672,
+          "x-amz-id-2": "miak5PZVQWQrLOeGTHPnBBAM3eIc1FVAUF4uxAskSqBUfjaPr4iDgxihFgf7121P/BMZFMWrMiNZa9gWJIx6Q91Uhlp46yln"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchBucketPolicy",
+        "errorMessage": "The bucket policy does not exist",
+        "eventCategory": "Management",
+        "eventID": "209fc32c-f747-4ae9-b058-bac4be50b8ea",
+        "eventName": "GetBucketPolicyStatus",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:29Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "S30R9R7NPH050FCZ",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "policyStatus": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "writer-ownership",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[4]",
+      "Sequence": 5,
+      "Service": "s3",
+      "Operation": "PutBucketOwnershipControls",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "ObjectWriter"
+            }
+          ]
+        }
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 147,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904789890,
+          "httpStatusCode": 200,
+          "startTime": 1789904789773,
+          "turnAroundTime": 117,
+          "x-amz-id-2": "US1hin0eR/bKZMKndmnM/p0N9xHL4fN3AIMbF1dGXUYx/31Elc25H7Tl/O34NsQR2Ew/Vv4fRSOfuDSRdIQ0rfuJp53Hrxgo"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "b71f7533-cec4-4f93-9ec0-b16a36d01780",
+        "eventName": "PutBucketOwnershipControls",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:29Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "S30XVDQGPZ6Y0EP5",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "OwnershipControls": {
+            "Rule": {
+              "ObjectOwnership": "ObjectWriter"
+            },
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "bucketName": "access-audit-replay",
+          "ownershipControls": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "writer-read",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[5]",
+      "Sequence": 6,
+      "Service": "s3",
+      "Operation": "GetBucketOwnershipControls",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "ObjectWriter"
+            }
+          ]
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 186,
+          "endTime": 1789904790040,
+          "httpStatusCode": 200,
+          "startTime": 1789904790015,
+          "turnAroundTime": 24,
+          "x-amz-id-2": "5wxyBuugaD2V3Coih9JgBToxxsVANXC/PkRe2AGKjEywVuPizo/f/B7LV0FY3u+UeaaIGo40yWx1m1W9N6RLv6pR90/mbsT+"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "9cad08d3-88d5-4850-bc66-4a1e46909765",
+        "eventName": "GetBucketOwnershipControls",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:30Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "T3ZG8FREBR809PJW",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "ownershipControls": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "disable-public-block",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[6]",
+      "Sequence": 7,
+      "Service": "s3",
+      "Operation": "PutPublicAccessBlock",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": false,
+          "BlockPublicPolicy": false,
+          "IgnorePublicAcls": false,
+          "RestrictPublicBuckets": false
+        }
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 291,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904790233,
+          "httpStatusCode": 200,
+          "startTime": 1789904790137,
+          "x-amz-id-2": "jru8waGf4xMT5kW0rMn66PMC6/oNipiaUjRIEVzGV/RgqsarZVzp+7i/0Spy5/BcrQdBKFzMuouhFVNc87RO1VrdYwRA7oP3"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "37e14ee6-c606-4fb0-9e12-081cd2175da3",
+        "eventName": "PutBucketPublicAccessBlock",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:30Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "T3ZN4XZ6FE5ZE525",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "PublicAccessBlockConfiguration": {
+            "BlockPublicAcls": false,
+            "BlockPublicPolicy": false,
+            "IgnorePublicAcls": false,
+            "RestrictPublicBuckets": false,
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "bucketName": "access-audit-replay",
+          "publicAccessBlock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "read-disabled-public-block",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[7]",
+      "Sequence": 8,
+      "Service": "s3",
+      "Operation": "GetPublicAccessBlock",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": false,
+          "BlockPublicPolicy": false,
+          "IgnorePublicAcls": false,
+          "RestrictPublicBuckets": false
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 330,
+          "endTime": 1789904790364,
+          "httpStatusCode": 200,
+          "startTime": 1789904790359,
+          "x-amz-id-2": "hRaHLEG6WucVJ2Th6MFYuYGLRSyfT35wn2DxRl+iLlr9aW+5DJPuwo0y+snBC77Nxsj88nEPAVnC92C2LwyCypL4Io2aR457"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "128a3b4a-ef7e-4fb9-8d50-af1e89b4d761",
+        "eventName": "GetBucketPublicAccessBlock",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:30Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "T3ZGNFPXC3PJCT28",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "publicAccessBlock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "delete-public-block",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[8]",
+      "Sequence": 9,
+      "Service": "s3",
+      "Operation": "DeletePublicAccessBlock",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904790544,
+          "httpStatusCode": 204,
+          "startTime": 1789904790463,
+          "x-amz-id-2": "qtquhgf9r0RYrIfvKBBvCMKMGLq1aZJGHKfHL92/ueIVQDTYrwTh8GblCnXdI1V4j6Gxw9qX01TmcqGNeAKsi0+FqE52hxWu"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "8d1f75b3-7470-4592-831a-45acf0a4175b",
+        "eventName": "DeleteBucketPublicAccessBlock",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:30Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "T3ZP4N37PE9S5MTE",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "publicAccessBlock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "absent-public-block",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[9]",
+      "Sequence": 10,
+      "Service": "s3",
+      "Operation": "GetPublicAccessBlock",
+      "Actor": "audit-user",
+      "Code": "NoSuchPublicAccessBlockConfiguration",
+      "Status": 404,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 384,
+          "endTime": 1789904790645,
+          "httpStatusCode": 404,
+          "startTime": 1789904790641,
+          "x-amz-id-2": "b1mbKlhjetVVqbmKyZUZYOt8dtKP5WXrOyxKYmrByNLdsRDx+/QHS+pGvhhEW8oii7uG3IpN/JYj+659hcEuSFqjxrdSWjw6"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchPublicAccessBlockConfiguration",
+        "errorMessage": "The public access block configuration was not found",
+        "eventCategory": "Management",
+        "eventID": "e3c42726-1cd5-40f1-88f6-bae7414a490b",
+        "eventName": "GetBucketPublicAccessBlock",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:30Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "T3ZQXTN1E70QM207",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "publicAccessBlock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "private-bucket-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[10]",
+      "Sequence": 11,
+      "Service": "s3",
+      "Operation": "PutBucketAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ACL": "private",
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "aclRequired": "Yes",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904790793,
+          "httpStatusCode": 200,
+          "startTime": 1789904790743,
+          "x-amz-id-2": "b+efioFBmn0TIXT3NI0J3Tso9fVvrZ+UEjhAXFMoZH5zo5eVyU1iGHZA8ikmZ8xXkj/hhY3X6l4362APvzRAmRKeYEzEXrv1"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "213c949b-d64f-43cd-9e0c-f04f8cf8f8a1",
+        "eventName": "PutBucketAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:30Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "T3ZJRM96JR0CT1MV",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "x-amz-acl": "private"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "enable-versioning",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[11]",
+      "Sequence": 12,
+      "Service": "s3",
+      "Operation": "PutBucketVersioning",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "Output": {}
+    },
+    {
+      "Label": "put-harmless-object",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[12]",
+      "Sequence": 13,
+      "Service": "s3",
+      "Operation": "PutObject",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {
+        "ETag": "\"6bace8f54a765f83c8556f8f03083a67\"",
+        "ServerSideEncryption": "AES256",
+        "VersionId": "${objectVersion}"
+      },
+      "Payload": "harmless",
+      "Bind": {
+        "objectVersion": "VersionId"
+      }
+    },
+    {
+      "Label": "private-object-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[13]",
+      "Sequence": 14,
+      "Service": "s3",
+      "Operation": "PutObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ACL": "private",
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "aclRequired": "Yes",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904791358,
+          "httpStatusCode": 200,
+          "startTime": 1789904791332,
+          "x-amz-id-2": "y52gRlARGxzr0Vu9lIRytDlK39kuYQV8t/SQwgW3/yo9s3vZrEc7YQNEObDMXNNXoKhZvGNrj9YFrolBWKtcPWfu7M2c3XCX"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "cababad9-4753-4899-9732-4df4e3f8c73c",
+        "eventName": "PutObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "W3GEWAM29G712VF2",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless",
+          "x-amz-acl": "private"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "read-object-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[14]",
+      "Sequence": 15,
+      "Service": "s3",
+      "Operation": "GetObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ],
+        "Owner": {
+          "ID": "${ownerID}"
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 480,
+          "endTime": 1789904791469,
+          "httpStatusCode": 200,
+          "startTime": 1789904791455,
+          "x-amz-id-2": "hEzsBbbXfNYCpoko6saKgp3ZWzAjTgMGvElFjZblFtIJJIo9LdpVQGORMAwHaJeP6vv0J7+T/4IoDboyWwxJfzqBgEFzlf6/"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "cc025765-6fd3-4309-96f5-7f7c1e0da738",
+        "eventName": "GetObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "W3G1SCG5YCNR2MZC",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "explicit-owner-object-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[15]",
+      "Sequence": 16,
+      "Service": "s3",
+      "Operation": "PutObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "AccessControlPolicy": {
+          "Grants": [
+            {
+              "Grantee": {
+                "ID": "${ownerID}",
+                "Type": "CanonicalUser"
+              },
+              "Permission": "FULL_CONTROL"
+            }
+          ],
+          "Owner": {
+            "ID": "${ownerID}"
+          }
+        },
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "aclRequired": "Yes",
+          "bytesTransferredIn": 441,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904791582,
+          "httpStatusCode": 200,
+          "startTime": 1789904791566,
+          "x-amz-id-2": "F3u21TS2qK3y3YzBPy6iHqi3YMx5dO06pkbjtLZgjLX7mCZvHPVIH6P/ELlHivuH+Dra5XYuFU4dGQCfEbqUIbOGDfkiKDRP"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "90a89948-ace8-4c66-a2cd-b37b5be2b842",
+        "eventName": "PutObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "W3G7VM7D68REGEAP",
+        "requestParameters": {
+          "AccessControlPolicy": {
+            "AccessControlList": {
+              "Grant": {
+                "Grantee": {
+                  "ID": "${ownerID}",
+                  "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                  "xsi:type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            },
+            "Owner": {
+              "ID": "${ownerID}"
+            },
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "private-version-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[16]",
+      "Sequence": 17,
+      "Service": "s3",
+      "Operation": "PutObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ACL": "private",
+        "Bucket": "access-audit-replay",
+        "Key": "harmless",
+        "VersionId": "${objectVersion}"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "aclRequired": "Yes",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904791724,
+          "httpStatusCode": 200,
+          "startTime": 1789904791713,
+          "x-amz-id-2": "H8tg/tQlQhOOWJ1wxmmVyhWTOHn6uq05qhQJ3Y3o8mzl78Ii3WSQPOhQ8yWxhhLaSL22uUTAxh5g/vTzbpCscD/xwK3bLhdM"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "fdf292d4-8a30-4226-9b40-98e1a34c9e69",
+        "eventName": "PutObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "W3G4BJ2ADCZQBTAX",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless",
+          "versionId": "${objectVersion}",
+          "x-amz-acl": "private"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "read-version-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[17]",
+      "Sequence": 18,
+      "Service": "s3",
+      "Operation": "GetObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Key": "harmless",
+        "VersionId": "${objectVersion}"
+      },
+      "Output": {
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ],
+        "Owner": {
+          "ID": "${ownerID}"
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 480,
+          "endTime": 1789904791834,
+          "httpStatusCode": 200,
+          "startTime": 1789904791821,
+          "x-amz-id-2": "MItDBlYk7G9++P2rJG39AbmETCX++2sXgAphogCf0kQ+CpEita5SmO3sXg8khZ8b2gLC+TcB0EL+kui/NoMqzH2tEwjiD2hI"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "6c6d4c47-f471-4dd0-b17f-99f965e175c4",
+        "eventName": "GetObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "W3GEJSNCBP0C9ESX",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless",
+          "versionId": "${objectVersion}"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "public-read-object-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[18]",
+      "Sequence": 19,
+      "Service": "s3",
+      "Operation": "PutObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "ACL": "public-read",
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "aclRequired": "Yes",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904791954,
+          "httpStatusCode": 200,
+          "startTime": 1789904791931,
+          "x-amz-id-2": "1jrssT3bJl09nbicni6tYL6copCsLD/+nCPxCnIcXcuMWTcv7XIzpJEYMjjrqJp2Nzb4GOp1mlzGFCaT1eUWAqNmDyQT2Cnq"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "a56aad7b-4bc2-47e9-97a2-acfafb593151",
+        "eventName": "PutObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:31Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "W3G88M791EY73FG9",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless",
+          "x-amz-acl": "public-read"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "read-public-object-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[19]",
+      "Sequence": 20,
+      "Service": "s3",
+      "Operation": "GetObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          },
+          {
+            "Grantee": {
+              "Type": "Group",
+              "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+            },
+            "Permission": "READ"
+          }
+        ],
+        "Owner": {
+          "ID": "${ownerID}"
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 672,
+          "endTime": 1789904792066,
+          "httpStatusCode": 200,
+          "startTime": 1789904792051,
+          "x-amz-id-2": "H0oMcG+Ac3CZnpFM92C4u0rZNqUKdrc47F+P7ErSupBccQ//7waVb7djsZVni0fgXw+5jpWbdS7IdQ8cCg8HXmrPJV/daCd6"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "37f3d72b-9731-4ac7-ad33-e916721a38f9",
+        "eventName": "GetObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:32Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "9EQJCQ859MM4SYBR",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "ignore-public-acls",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[20]",
+      "Sequence": 21,
+      "Service": "s3",
+      "Operation": "PutPublicAccessBlock",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": false,
+          "BlockPublicPolicy": false,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": false
+        }
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 290,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904792233,
+          "httpStatusCode": 200,
+          "startTime": 1789904792163,
+          "x-amz-id-2": "7Zf+asAqm5ZYAIwPis56uC0vtPtwNEX9udGt1UYr/h/tXgykbm0XePAqTTXBhUsSEMZ+VNYvv8PDhtfODi3TThWh1gyrRGwm"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "08dacafc-9a04-4484-91fd-dfd3d20899b8",
+        "eventName": "PutBucketPublicAccessBlock",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:32Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "9EQSQV2DNS4XPDPC",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "PublicAccessBlockConfiguration": {
+            "BlockPublicAcls": false,
+            "BlockPublicPolicy": false,
+            "IgnorePublicAcls": true,
+            "RestrictPublicBuckets": false,
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "bucketName": "access-audit-replay",
+          "publicAccessBlock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "read-ignored-public-object-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[21]",
+      "Sequence": 22,
+      "Service": "s3",
+      "Operation": "GetObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ],
+        "Owner": {
+          "ID": "${ownerID}"
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 480,
+          "endTime": 1789904792379,
+          "httpStatusCode": 200,
+          "startTime": 1789904792365,
+          "x-amz-id-2": "sTBLRB0x1JROAxIRLjJR7gWtskTh+Rvev6cMJq1oKQAx8dMIXuX3C1Vo62Oo7mvZMXr3kx9yum7wVaMwhODpZsS6EmwAguYj"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "dd37d105-58df-4bfc-a143-69b6e7ecfa51",
+        "eventName": "GetObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:32Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "9EQPZQYQXWA1V8MF",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "restore-public-acls",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[22]",
+      "Sequence": 23,
+      "Service": "s3",
+      "Operation": "PutPublicAccessBlock",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": false,
+          "BlockPublicPolicy": false,
+          "IgnorePublicAcls": false,
+          "RestrictPublicBuckets": false
+        }
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 291,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904792563,
+          "httpStatusCode": 200,
+          "startTime": 1789904792475,
+          "x-amz-id-2": "J9DkPprt/v9Po14OsHtO61UrsZAo6WnEM7DdsbmsPUI+ngpucrC1ZxorxMFHlVgQJucZITHfSPvbNZCr5C+G7Xrs2x8kTcho"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "2b77c58e-b185-4172-8260-436e7790ef61",
+        "eventName": "PutBucketPublicAccessBlock",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:32Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "9EQG6B2Y7S50EEMF",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "PublicAccessBlockConfiguration": {
+            "BlockPublicAcls": false,
+            "BlockPublicPolicy": false,
+            "IgnorePublicAcls": false,
+            "RestrictPublicBuckets": false,
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "bucketName": "access-audit-replay",
+          "publicAccessBlock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "enforced-ownership",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[23]",
+      "Sequence": 24,
+      "Service": "s3",
+      "Operation": "PutBucketOwnershipControls",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        }
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 154,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904792790,
+          "httpStatusCode": 200,
+          "startTime": 1789904792697,
+          "turnAroundTime": 92,
+          "x-amz-id-2": "M0bIczgk8KYXMJo83xkTRxQWFMj0xqFgfpfLCBFABOlMCfZG4OhYtcOJI+YbReFBYBApUzHizHyZMlDiD9v2ZcovYce9WRMm"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "3ea68ce9-84c8-4c60-ac9c-1c8cb66fe49d",
+        "eventName": "PutBucketOwnershipControls",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:32Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "9EQHGH5715T81Q7E",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "OwnershipControls": {
+            "Rule": {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            },
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "bucketName": "access-audit-replay",
+          "ownershipControls": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "enforced-read-object-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[24]",
+      "Sequence": 25,
+      "Service": "s3",
+      "Operation": "GetObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          }
+        ],
+        "Owner": {
+          "ID": "${ownerID}"
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 480,
+          "endTime": 1789904792921,
+          "httpStatusCode": 200,
+          "startTime": 1789904792911,
+          "x-amz-id-2": "ceGHC84BzyyuXSo7aaVpR+XTfOUnHj6ipsiINKipxDoSVU7w7RTQ8/E3F/1cL8tX4+zJ3WGqlm3eQr0Tor3mCGDMVF8Fucg1"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "552634fe-3b0d-4e75-9f8f-1441221fab86",
+        "eventName": "GetObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:32Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "9EQN3AEQX7T54638",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "enforced-private-object-acl-denied",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[25]",
+      "Sequence": 26,
+      "Service": "s3",
+      "Operation": "PutObjectAcl",
+      "Actor": "audit-user",
+      "Code": "AccessControlListNotSupported",
+      "Status": 400,
+      "Input": {
+        "ACL": "private",
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 297,
+          "endTime": 1789904793022,
+          "httpStatusCode": 400,
+          "startTime": 1789904793019,
+          "x-amz-id-2": "CrPf3RMrYqL2td2VcR2sMc4zf0n0FAXsrziGP/3qSbZKeacQ1J5QoktvOFcot0vVqO0D2A1d+23BjWvNwWqlT2CEBDdOtXPf"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "AccessControlListNotSupported",
+        "errorMessage": "The bucket does not allow ACLs",
+        "eventCategory": "Data",
+        "eventID": "0e267aff-bc20-4191-b5ed-de12b5afb11f",
+        "eventName": "PutObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:33Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "EM0SRAQMTDK9TZVV",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless",
+          "x-amz-acl": "private"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "delete-ownership",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[26]",
+      "Sequence": 27,
+      "Service": "s3",
+      "Operation": "DeleteBucketOwnershipControls",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904793445,
+          "httpStatusCode": 204,
+          "startTime": 1789904793341,
+          "turnAroundTime": 104,
+          "x-amz-id-2": "84ef8TqnYfKaGWXqqp2r+UUQF9U53S05Zp5yLLBbmP3Jc5pZ4zG5cV71ofUah1eZ3Cadat5VKUxwBcXY0CNvxQ9Sd6dz0c+8"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "0dfde7b3-e8c1-4039-83db-e2f5f6eae34b",
+        "eventName": "DeleteBucketOwnershipControls",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:33Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "EM0YJ5B0RW5WBFP3",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "ownershipControls": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "absent-ownership",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[27]",
+      "Sequence": 28,
+      "Service": "s3",
+      "Operation": "GetBucketOwnershipControls",
+      "Actor": "audit-user",
+      "Code": "OwnershipControlsNotFoundError",
+      "Status": 404,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 332,
+          "endTime": 1789904793575,
+          "httpStatusCode": 404,
+          "startTime": 1789904793544,
+          "turnAroundTime": 31,
+          "x-amz-id-2": "njqZAx99qcQEXqmIIk5x4t25qnlovftaK9R4DYbzfONrRIpkrmeO9zC9IsUMISNnE2PTGxQMaSd4qSnN+6QwT9Z5e17OhQSh"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "OwnershipControlsNotFoundError",
+        "errorMessage": "The bucket ownership controls were not found",
+        "eventCategory": "Management",
+        "eventID": "ec8d7a46-9234-4a73-aab5-601f6a150c02",
+        "eventName": "GetBucketOwnershipControls",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:33Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "EM0M1PHCCVQE3GFJ",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "ownershipControls": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "restored-object-acl",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[28]",
+      "Sequence": 29,
+      "Service": "s3",
+      "Operation": "GetObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          },
+          {
+            "Grantee": {
+              "Type": "Group",
+              "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+            },
+            "Permission": "READ"
+          }
+        ],
+        "Owner": {
+          "ID": "${ownerID}"
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 672,
+          "endTime": 1789904793687,
+          "httpStatusCode": 200,
+          "startTime": 1789904793673,
+          "x-amz-id-2": "B+ybVYFHfd206Zp3I/lCm/U0dEtFtC3OQCw+mfqXd4SvDyeASaEL5DwaDtHdMv4ERlZcSj1g1HKokhbbKk1Y4y4+IHkZZ5K6"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Data",
+        "eventID": "a7a66e60-917e-4b53-8a7f-e67e059a21e8",
+        "eventName": "GetObjectAcl",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:33Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": false,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "EM0NR6QF443DPFVV",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "acl": "",
+          "bucketName": "access-audit-replay",
+          "key": "harmless"
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          },
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay/harmless",
+            "type": "AWS::S3::Object"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "public-read-policy",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[29]",
+      "Sequence": 30,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::access-audit-replay/harmless\"}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "public-policy-status",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[30]",
+      "Sequence": 31,
+      "Service": "s3",
+      "Operation": "GetBucketPolicyStatus",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {
+        "PolicyStatus": {
+          "IsPublic": true
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 141,
+          "endTime": 1789904794047,
+          "httpStatusCode": 200,
+          "startTime": 1789904794038,
+          "x-amz-id-2": "ZIQCG9tEp4NZsvYfov3/MFyf5AZ/G7vGZ3w/SjLfZfNR94XpzldcftAZsGLqicaUyQFp9ixC1WPOLY0v78TXdFLJZdZTUROO"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "fd591734-d325-43fe-9710-e288f02dd64e",
+        "eventName": "GetBucketPolicyStatus",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:34Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "B7XEZ7WNZ5HJDGAG",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "policyStatus": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "block-public-policy",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[31]",
+      "Sequence": 32,
+      "Service": "s3",
+      "Operation": "PutPublicAccessBlock",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": false,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": false,
+          "RestrictPublicBuckets": false
+        }
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 290,
+          "bytesTransferredOut": 0,
+          "endTime": 1789904794248,
+          "httpStatusCode": 200,
+          "startTime": 1789904794146,
+          "x-amz-id-2": "mkzX0osMMgn2piLhTXvvhDq44Q6wL2ToQukBzo1JyBh7b4kmR+TrOgqU3HdQCBrjABy4Wix4IWDFOTHL6L8ulBuA66u0RXGw"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "5a4d8e4e-7dcc-4856-b78e-0d010c043d97",
+        "eventName": "PutBucketPublicAccessBlock",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:34Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": false,
+        "recipientAccountId": "123456789012",
+        "requestID": "B7XDWYMSVQ0PP9DV",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "PublicAccessBlockConfiguration": {
+            "BlockPublicAcls": false,
+            "BlockPublicPolicy": true,
+            "IgnorePublicAcls": false,
+            "RestrictPublicBuckets": false,
+            "xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"
+          },
+          "bucketName": "access-audit-replay",
+          "publicAccessBlock": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/U,b,Z,D,n cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "public-policy-replacement-denied",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[32]",
+      "Sequence": 33,
+      "Service": "s3",
+      "Operation": "PutBucketPolicy",
+      "Actor": "audit-user",
+      "Code": "AccessDenied",
+      "Status": 403,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::access-audit-replay/harmless\"}]}"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "retained-public-policy-status",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[33]",
+      "Sequence": 34,
+      "Service": "s3",
+      "Operation": "GetBucketPolicyStatus",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {
+        "PolicyStatus": {
+          "IsPublic": true
+        }
+      },
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 141,
+          "endTime": 1789904794508,
+          "httpStatusCode": 200,
+          "startTime": 1789904794503,
+          "x-amz-id-2": "m1klTIZXhGeZbvnTZjYei//GPxsZqUNhGmb3UwCqXf5IsJMM9OnhJEYpr9fUXmCE9V/KTByhYisp5nV+g7GS73pDJCqQF7bb"
+        },
+        "awsRegion": "us-east-1",
+        "eventCategory": "Management",
+        "eventID": "bf06db95-70c9-4d7f-a62d-cc150fd0f05c",
+        "eventName": "GetBucketPolicyStatus",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:34Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "B7X667WA34T4G7EV",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "policyStatus": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    },
+    {
+      "Label": "delete-policy",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[34]",
+      "Sequence": 35,
+      "Service": "s3",
+      "Operation": "DeleteBucketPolicy",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 204,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {}
+    },
+    {
+      "Label": "deleted-policy-status",
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[35]",
+      "Sequence": 36,
+      "Service": "s3",
+      "Operation": "GetBucketPolicyStatus",
+      "Actor": "audit-user",
+      "Code": "NoSuchBucketPolicy",
+      "Status": 404,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {},
+      "Record": {
+        "additionalEventData": {
+          "AuthenticationMethod": "AuthHeader",
+          "CipherSuite": "TLS_AES_128_GCM_SHA256",
+          "SignatureVersion": "SigV4",
+          "bytesTransferredIn": 0,
+          "bytesTransferredOut": 347,
+          "endTime": 1789904794813,
+          "httpStatusCode": 404,
+          "startTime": 1789904794809,
+          "x-amz-id-2": "ZoerkAI70gAsS7XaKr5u1bYOo4OVowkcpqwmlT3cOWwgdGJIcWo2iZfNCRtF4s3VwEwkRCXPdQYlK+xwNlBcScqKwTw5Pt1C"
+        },
+        "awsRegion": "us-east-1",
+        "errorCode": "NoSuchBucketPolicy",
+        "errorMessage": "The bucket policy does not exist",
+        "eventCategory": "Management",
+        "eventID": "9f1dda40-e997-4981-9ef0-be78799583d0",
+        "eventName": "GetBucketPolicyStatus",
+        "eventSource": "s3.amazonaws.com",
+        "eventTime": "2026-09-20T11:46:34Z",
+        "eventType": "AwsApiCall",
+        "eventVersion": "1.11",
+        "managementEvent": true,
+        "readOnly": true,
+        "recipientAccountId": "123456789012",
+        "requestID": "B7X3EYGD8E5ZTMTP",
+        "requestParameters": {
+          "Host": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "bucketName": "access-audit-replay",
+          "policyStatus": ""
+        },
+        "resources": [
+          {
+            "ARN": "arn:aws:s3:::access-audit-replay",
+            "accountId": "123456789012",
+            "type": "AWS::S3::Bucket"
+          }
+        ],
+        "responseElements": null,
+        "sourceIPAddress": "92.234.107.50",
+        "tlsDetails": {
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "clientProvidedHostHeader": "access-audit-replay.s3.us-east-1.amazonaws.com",
+          "tlsVersion": "TLSv1.3"
+        },
+        "userAgent": "[Boto3/1.43.98 md/Botocore#1.43.98 ua/2.1 os/linux#6.17.0-35-generic md/arch#x86_64 lang/python#3.12.3 md/pyimpl#CPython m/b,n,D,Z cfg/retry-mode#legacy Botocore/1.43.98]",
+        "userIdentity": {
+          "accessKeyId": "<redacted>",
+          "accountId": "123456789012",
+          "arn": "${auditUserARN}",
+          "principalId": "AIDAQAAAAAAAMEZHRHAHY",
+          "type": "IAMUser",
+          "userName": "Delegated"
+        }
+      }
+    }
+  ],
+  "Omissions": [
+    {
+      "Source": "access_controls_audit_evidence.json.gz:regional.calls[36]",
+      "Label": "wrong-expected-owner",
+      "RequestID": "B7X2P0RHHGHRB067",
+      "Observation": "Not correlated in the bounded regional delivery window; excluded from delivery assertions."
+    }
+  ],
+  "Verify": [
+    {
+      "Label": "retained-object-acl-after-reopen",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "GetObjectAcl",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay",
+        "Key": "harmless"
+      },
+      "Output": {
+        "Grants": [
+          {
+            "Grantee": {
+              "ID": "${ownerID}",
+              "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+          },
+          {
+            "Grantee": {
+              "Type": "Group",
+              "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
+            },
+            "Permission": "READ"
+          }
+        ],
+        "Owner": {
+          "ID": "${ownerID}"
+        }
+      }
+    },
+    {
+      "Label": "retained-public-block-after-reopen",
+      "Source": "local-fixture",
+      "Sequence": 0,
+      "Service": "s3",
+      "Operation": "GetPublicAccessBlock",
+      "Actor": "audit-user",
+      "Code": "Success",
+      "Status": 200,
+      "Input": {
+        "Bucket": "access-audit-replay"
+      },
+      "Output": {
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": false,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": false,
+          "RestrictPublicBuckets": false
+        }
+      }
+    }
+  ]
+}

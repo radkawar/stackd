@@ -1,0 +1,597 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Native AWS testdata/aws/dynamodb/global_tables_billing.json: fresh provisioned transition, visible on-demand configurations, replaced policies and retained target identity. Memory/SQLite reopen exercises the retained control boundary.",
+  "steps": [
+    {
+      "name": "fresh-on-demand-table-with-index",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-global-billing",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "g",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "by-g",
+            "KeySchema": [
+              {
+                "AttributeName": "g",
+                "KeyType": "HASH"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ]
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "create-on-demand-replica",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-global-billing",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "source-replica-ready",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-billing"
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.BillingModeSummary.BillingMode": "PAY_PER_REQUEST"
+      }
+    },
+    {
+      "name": "peer-replica-ready",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-billing"
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.BillingModeSummary.BillingMode": "PAY_PER_REQUEST"
+      }
+    },
+    {
+      "name": "no-prior-scaling-history",
+      "operation": "DescribeScalableTargets",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-global-billing"
+        ]
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "want": {
+        "ScalableTargets": []
+      }
+    },
+    {
+      "name": "fresh-provisioned-admission-without-scaling",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-global-billing",
+        "BillingMode": "PROVISIONED",
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 2,
+          "WriteCapacityUnits": 2
+        },
+        "GlobalSecondaryIndexUpdates": [
+          {
+            "Update": {
+              "IndexName": "by-g",
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 2,
+                "WriteCapacityUnits": 2
+              }
+            }
+          }
+        ]
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "source-actually-provisioned",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-billing"
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.BillingModeSummary.BillingMode": "PROVISIONED",
+        "Table.ProvisionedThroughput.ReadCapacityUnits": 2,
+        "Table.ProvisionedThroughput.WriteCapacityUnits": 2
+      }
+    },
+    {
+      "name": "peer-actually-provisioned",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-billing"
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.BillingModeSummary.BillingMode": "PROVISIONED",
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.ReadCapacityUnits": 2,
+        "Table.GlobalSecondaryIndexes.0.ProvisionedThroughput.WriteCapacityUnits": 2
+      }
+    },
+    {
+      "name": "source-table-generated-targets",
+      "operation": "DescribeScalableTargets",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-global-billing"
+        ]
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "want": {
+        "ScalableTargets.0.MinCapacity": 2,
+        "ScalableTargets.0.MaxCapacity": 40000,
+        "ScalableTargets.1.MinCapacity": 2,
+        "ScalableTargets.1.MaxCapacity": 40000
+      },
+      "bind": {
+        "$SOURCE_TABLE_READ": "ScalableTargets.0.ScalableTargetARN"
+      }
+    },
+    {
+      "name": "source-index-generated-targets",
+      "operation": "DescribeScalableTargets",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-global-billing/index/by-g"
+        ]
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "want": {
+        "ScalableTargets.0.MinCapacity": 2,
+        "ScalableTargets.0.MaxCapacity": 40000,
+        "ScalableTargets.1.MinCapacity": 2,
+        "ScalableTargets.1.MaxCapacity": 40000
+      },
+      "bind": {
+        "$SOURCE_INDEX_READ": "ScalableTargets.0.ScalableTargetARN"
+      }
+    },
+    {
+      "name": "peer-table-generated-targets",
+      "operation": "DescribeScalableTargets",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-global-billing"
+        ]
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "want": {
+        "ScalableTargets.0.MinCapacity": 2,
+        "ScalableTargets.0.MaxCapacity": 40000,
+        "ScalableTargets.1.MinCapacity": 2,
+        "ScalableTargets.1.MaxCapacity": 40000
+      },
+      "bind": {
+        "$PEER_TABLE_READ": "ScalableTargets.0.ScalableTargetARN"
+      }
+    },
+    {
+      "name": "peer-index-generated-targets",
+      "operation": "DescribeScalableTargets",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-global-billing/index/by-g"
+        ]
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "want": {
+        "ScalableTargets.0.MinCapacity": 2,
+        "ScalableTargets.0.MaxCapacity": 40000,
+        "ScalableTargets.1.MinCapacity": 2,
+        "ScalableTargets.1.MaxCapacity": 40000
+      },
+      "bind": {
+        "$PEER_INDEX_READ": "ScalableTargets.0.ScalableTargetARN"
+      }
+    },
+    {
+      "name": "source-default-policy",
+      "operation": "DescribeScalingPolicies",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing",
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits"
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "want": {
+        "ScalingPolicies.0.PolicyName": "DynamoDBReadCapacityUtilization:table/stackd-global-billing",
+        "ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 70
+      },
+      "bind": {
+        "$ORIGINAL_POLICY": "ScalingPolicies.0.PolicyARN"
+      }
+    },
+    {
+      "name": "peer-index-default-policy",
+      "operation": "DescribeScalingPolicies",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing/index/by-g",
+        "ScalableDimension": "dynamodb:index:ReadCapacityUnits"
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "want": {
+        "ScalingPolicies.0.PolicyName": "DynamoDBReadCapacityUtilization:table/stackd-global-billing/index/by-g",
+        "ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 70
+      }
+    },
+    {
+      "name": "set-distinctive-source-target",
+      "operation": "RegisterScalableTarget",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing",
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits",
+        "MinCapacity": 2,
+        "MaxCapacity": 9,
+        "SuspendedState": {
+          "DynamicScalingInSuspended": true,
+          "DynamicScalingOutSuspended": true,
+          "ScheduledScalingSuspended": true
+        }
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "remove-generated-policy-before-custom-name",
+      "operation": "DeleteScalingPolicy",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing",
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits",
+        "PolicyName": "DynamoDBReadCapacityUtilization:table/stackd-global-billing"
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "custom-named-source-policy",
+      "operation": "PutScalingPolicy",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing",
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits",
+        "PolicyName": "custom-billing-read",
+        "PolicyType": "TargetTrackingScaling",
+        "TargetTrackingScalingPolicyConfiguration": {
+          "TargetValue": 59,
+          "ScaleInCooldown": 89,
+          "ScaleOutCooldown": 53,
+          "DisableScaleIn": true,
+          "PredefinedMetricSpecification": {
+            "PredefinedMetricType": "DynamoDBReadCapacityUtilization"
+          }
+        }
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "switch-global-table-to-on-demand",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-global-billing",
+        "BillingMode": "PAY_PER_REQUEST"
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "source-on-demand",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-billing"
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.BillingModeSummary.BillingMode": "PAY_PER_REQUEST"
+      }
+    },
+    {
+      "name": "peer-on-demand",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-billing"
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.BillingModeSummary.BillingMode": "PAY_PER_REQUEST"
+      }
+    },
+    {
+      "name": "reopen-on-demand-with-registered-scaling",
+      "operation": "",
+      "input": {},
+      "advance": "0s",
+      "reopen": true
+    },
+    {
+      "name": "on-demand-keeps-target-and-flags",
+      "operation": "DescribeScalableTargets",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-global-billing"
+        ]
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "want": {
+        "ScalableTargets.0.ScalableTargetARN": "$SOURCE_TABLE_READ",
+        "ScalableTargets.0.MinCapacity": 2,
+        "ScalableTargets.0.MaxCapacity": 9,
+        "ScalableTargets.0.SuspendedState": {
+          "DynamicScalingInSuspended": true,
+          "DynamicScalingOutSuspended": true,
+          "ScheduledScalingSuspended": true
+        }
+      }
+    },
+    {
+      "name": "on-demand-keeps-custom-policy",
+      "operation": "DescribeScalingPolicies",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing",
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits"
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "want": {
+        "ScalingPolicies.0.PolicyName": "custom-billing-read",
+        "ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 59
+      }
+    },
+    {
+      "name": "on-demand-rejects-target-update",
+      "operation": "RegisterScalableTarget",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing",
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits",
+        "MinCapacity": 2,
+        "MaxCapacity": 8
+      },
+      "advance": "0s",
+      "code": "ValidationException"
+    },
+    {
+      "name": "remove-peer-index-policy-while-on-demand",
+      "operation": "DeleteScalingPolicy",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing/index/by-g",
+        "ScalableDimension": "dynamodb:index:ReadCapacityUnits",
+        "PolicyName": "DynamoDBReadCapacityUtilization:table/stackd-global-billing/index/by-g"
+      },
+      "advance": "0s",
+      "region": "us-east-2"
+    },
+    {
+      "name": "deregister-peer-index-read-while-on-demand",
+      "operation": "DeregisterScalableTarget",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing/index/by-g",
+        "ScalableDimension": "dynamodb:index:ReadCapacityUnits"
+      },
+      "advance": "0s",
+      "region": "us-east-2"
+    },
+    {
+      "name": "return-to-provisioned-replaces-scaling-policies",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-global-billing",
+        "BillingMode": "PROVISIONED",
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 2,
+          "WriteCapacityUnits": 2
+        },
+        "GlobalSecondaryIndexUpdates": [
+          {
+            "Update": {
+              "IndexName": "by-g",
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 2,
+                "WriteCapacityUnits": 2
+              }
+            }
+          }
+        ]
+      },
+      "advance": "1m"
+    },
+    {
+      "name": "source-provisioned-again",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-billing"
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.BillingModeSummary.BillingMode": "PROVISIONED"
+      }
+    },
+    {
+      "name": "peer-provisioned-again",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-global-billing"
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.BillingModeSummary.BillingMode": "PROVISIONED"
+      }
+    },
+    {
+      "name": "same-target-restored-default-bounds-retained-flags",
+      "operation": "DescribeScalableTargets",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-global-billing"
+        ]
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "want": {
+        "ScalableTargets.0.ScalableTargetARN": "$SOURCE_TABLE_READ",
+        "ScalableTargets.0.MinCapacity": 2,
+        "ScalableTargets.0.MaxCapacity": 40000,
+        "ScalableTargets.0.SuspendedState": {
+          "DynamicScalingInSuspended": true,
+          "DynamicScalingOutSuspended": true,
+          "ScheduledScalingSuspended": true
+        }
+      }
+    },
+    {
+      "name": "default-policy-replaces-custom-name",
+      "operation": "DescribeScalingPolicies",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing",
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits"
+      },
+      "advance": "0s",
+      "region": "us-east-1",
+      "want": {
+        "ScalingPolicies.0.PolicyARN": "$ORIGINAL_POLICY",
+        "ScalingPolicies.0.PolicyName": "DynamoDBReadCapacityUtilization:table/stackd-global-billing",
+        "ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration": {
+          "TargetValue": 70,
+          "PredefinedMetricSpecification": {
+            "PredefinedMetricType": "DynamoDBReadCapacityUtilization"
+          }
+        }
+      }
+    },
+    {
+      "name": "custom-policy-is-absent",
+      "operation": "DescribeScalingPolicies",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing",
+        "ScalableDimension": "dynamodb:table:ReadCapacityUnits",
+        "PolicyNames": [
+          "custom-billing-read"
+        ]
+      },
+      "advance": "0s",
+      "want": {
+        "ScalingPolicies": []
+      }
+    },
+    {
+      "name": "deleted-peer-target-recreated-with-defaults",
+      "operation": "DescribeScalableTargets",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceIds": [
+          "table/stackd-global-billing/index/by-g"
+        ]
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "want": {
+        "ScalableTargets.0.MinCapacity": 2,
+        "ScalableTargets.0.MaxCapacity": 40000,
+        "ScalableTargets.0.SuspendedState": {
+          "DynamicScalingInSuspended": false,
+          "DynamicScalingOutSuspended": false,
+          "ScheduledScalingSuspended": false
+        }
+      }
+    },
+    {
+      "name": "reopen-after-provisioned-replacement",
+      "operation": "",
+      "input": {},
+      "advance": "0s",
+      "reopen": true
+    },
+    {
+      "name": "regenerated-peer-policy-survives-reopen",
+      "operation": "DescribeScalingPolicies",
+      "input": {
+        "ServiceNamespace": "dynamodb",
+        "ResourceId": "table/stackd-global-billing/index/by-g",
+        "ScalableDimension": "dynamodb:index:ReadCapacityUnits"
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "want": {
+        "ScalingPolicies.0.PolicyName": "DynamoDBReadCapacityUtilization:table/stackd-global-billing/index/by-g",
+        "ScalingPolicies.0.TargetTrackingScalingPolicyConfiguration.TargetValue": 70
+      }
+    }
+  ]
+}

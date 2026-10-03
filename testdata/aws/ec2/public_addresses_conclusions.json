@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "source_fixture": "public_addresses.json",
+  "source": "Observed native AWS controls only; primary documentation is cited separately",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "capture_complete_at": "2026-09-27T00:32:08.036683+00:00",
+  "cleanup_verified_at": "2026-09-27T00:32:18.900948+00:00",
+  "native_calls": 227,
+  "instance_launch_to_terminated_seconds": 147.894308,
+  "resource_counts": {"instances": 1, "eip_allocations": 2, "interfaces": 3, "root_volumes": 1, "vpcs": 1, "subnets": 1, "internet_gateways": 1},
+  "cleanup": "All exact-owned EIPs, ENIs, root volume, IGW, subnet and VPC verified absent; instance verified terminated. AWS retains terminated-instance descriptions and immutable provider history.",
+  "conclusions": [
+    {
+      "finding": "AllocateAddress with Domain=vpc and with omitted Domain both return domain vpc, PublicIpv4Pool amazon, NetworkBorderGroup us-east-1 and independent AllocationId/PublicIp values.",
+      "cases": ["allocate-eip_a", "allocate-eip_b"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateAddress.html"
+    },
+    {
+      "finding": "DescribeAddresses combines AllocationIds and PublicIps by UNION, not intersection; duplicate allocation IDs deduplicate. Unknown or malformed allocation IDs fail the whole request with InvalidAllocationID.NotFound, including mixed owned+missing selectors.",
+      "cases": ["describe-intersection-selectors", "describe-duplicate", "describe-malformed-actual", "describe-mixed-missing-actual"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html"
+    },
+    {
+      "finding": "Association without a VPC-attached IGW fails Gateway.NotAttached. Attaching the IGW admits association to an unattached ENI even without an IGW route. This is not evidence of packet reachability.",
+      "cases": ["associate-without-igw", "associate-unattached-primary"],
+      "url": "https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html"
+    },
+    {
+      "finding": "Reassociating the same EIP to the same primary target with AllowReassociation=false succeeds and retains its association ID. Moving to another ENI with false fails Resource.AlreadyAssociated without mutation. Omission and explicit true both permit moving.",
+      "cases": ["associate-same-target-false", "associate-different-target-false", "associate-different-target-default", "associate-back-explicit-true"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateAddress.html"
+    },
+    {
+      "finding": "A free EIP may replace the target's existing EIP even with AllowReassociation=false. The displaced EIP remains allocated and becomes unassociated. The flag protects the source EIP association, not the target's occupancy.",
+      "cases": ["replace-target-other-eip-false", "target-displaced-address-0", "target-displaced-address-1"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateAddress.html"
+    },
+    {
+      "finding": "One ENI can hold two EIPs on distinct primary/secondary private addresses. Unassigning the EIP-associated secondary private address SUCCEEDS and implicitly disassociates that EIP while retaining its allocation. The primary-address EIP is unchanged.",
+      "cases": ["associate-secondary", "unassign-eip-secondary", "after-secondary-unassign-address-0", "after-secondary-unassign-address-1"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_UnassignPrivateIpAddresses.html"
+    },
+    {
+      "finding": "Deleting an unattached ENI with an associated primary EIP SUCCEEDS and implicitly disassociates the EIP while retaining the allocation. Deleting an ENI attached to a stopped instance fails InvalidParameterValue ('currently in use').",
+      "cases": ["delete-unattached-eni-with-eip", "after-eni-delete-address-1", "delete-attached-stopped-eni"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteNetworkInterface.html"
+    },
+    {
+      "finding": "ReleaseAddress on an associated nondefault-VPC EIP fails InvalidIPAddress.InUse. After disassociation release succeeds. Repeating release by the old AllocationId fails InvalidAllocationID.NotFound.",
+      "cases": ["release-associated-nondefault", "release-eip-b", "release-eip-b-repeat"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReleaseAddress.html"
+    },
+    {
+      "finding": "Repeating DisassociateAddress immediately with the just-successfully-disassociated association ID returns InvalidAssociationID.NotFound. Preserve this observed divergence from the API documentation's unconditional idempotency statement.",
+      "cases": ["running-elastic-disassociate", "disassociate-running-repeat"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DisassociateAddress.html"
+    },
+    {
+      "finding": "The auto-public instance loses its ephemeral IPv4 on stop, gets a different ephemeral IPv4 on start, replaces it with the EIP on association, and gets another ephemeral IPv4 on EIP disassociation. Ephemeral ENI association has IpOwnerId amazon and no AllocationId/AssociationId. Elastic ENI association has the account owner and both IDs.",
+      "cases": ["ephemeral-initial-interfaces", "ephemeral-stopped-interfaces", "ephemeral-restarted-interfaces", "elastic-replaces-ephemeral-interfaces", "ephemeral-after-disassociate-interfaces"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-instance-addressing.html"
+    },
+    {
+      "finding": "EIP association and public IPv4 projection persist while stopped. Associating an EIP to a stopped instance succeeds. With two attached ENIs the InstanceId selector fails InvalidInstanceID; explicit ENI succeeds. Detaching a secondary ENI preserves its EIP association but removes InstanceId from the address projection.",
+      "cases": ["elastic-stopped-address-0", "associate-stopped-instance", "associate-multiple-eni-instance", "associate-stopped-secondary-eni", "detached-secondary-retains-eip-address-0"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-stop-start-works.html"
+    },
+    {
+      "finding": "Terminating the instance deletes its DeleteOnTermination primary ENI and root volume, and disassociates but does not release the primary EIP.",
+      "cases": ["terminate-with-elastic", "after-termination-address-0", "cleanup-verify-root-vol-0c870518cc55c623c"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html"
+    },
+    {
+      "finding": "Authorized DryRun bypasses missing parameters, missing/malformed allocation or association IDs, association conflicts, private-address validation, invalid Describe filter, invalid allocation Domain/PublicIpv4Pool and associated-release state: DryRunOperation. Exceptions observed before DryRun: malformed public IP in DescribeAddresses, malformed AllocateAddress.Address and malformed AllocateAddress.NetworkBorderGroup return InvalidParameterValue.",
+      "cases": ["associate-missing-all-dry", "describe-malformed-dry", "disassociate_address-malformed-dry", "associate-different-target-false-dry", "associate-malformed-private-dry", "describe-bad-filter-dry", "allocate-bad-domain-dry", "allocate-bad-pool-dry", "release-associated-nondefault-dry", "describe-bad-public-dry", "allocate-bad-address-dry", "allocate-bad-border-dry"],
+      "url": "https://docs.aws.amazon.com/ec2/latest/devguide/errors-overview.html"
+    },
+    {
+      "finding": "Actual AssociateAddress validates missing allocation before malformed ENI (InvalidAllocationID.NotFound); malformed/unassigned private address returns InvalidParameterValue even without IGW. Both AllocationId and PublicIp, or deprecated PublicIp alone, return InvalidParameterCombination. The both-target case used an all-zero instance ID, which AWS calls malformed, so it does NOT establish valid-target selector-conflict precedence.",
+      "cases": ["associate-missing-allocation-bad-eni-actual", "associate-unassigned-private-actual", "associate-malformed-private-actual", "associate-both-address-selectors-actual", "associate-public-selector-actual", "associate-both-targets-actual"],
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateAddress.html"
+    }
+  ],
+  "nonobservations": [
+    "Default-VPC associated release is documentation-only because only fresh owned nondefault VPC resources were authorized.",
+    "Quota exhaustion is documentation-only; default is five per Region, not a measurement of this account's quota.",
+    "No denied-principal IAM capture, BYOIP, IPAM, CoIP, Wavelength, transfer, address recovery or dual-stack DNS controls.",
+    "No native packet-reachability claim; no IGW route was installed.",
+    "IGW detach with an EIP on an unattached ENI versus a stopped-instance ENI was requested after capture and was not exercised before teardown.",
+    "No-auto-launch EIP disassociation and DescribeNetworkInterfaceAttribute associatePublicIpAddress were requested after capture and were not exercised; the one-instance-total safety bound precluded a replacement guest.",
+    "Secondary-private-address reassignment moving its EIP is primary-documentation-only; this capture exercised unassignment and ENI deletion instead."
+  ]
+}

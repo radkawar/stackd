@@ -1,0 +1,291 @@
+{
+  "account": "000000000000",
+  "start": "2026-09-18T00:00:00Z",
+  "source": "Native AWS testdata/aws/dynamodb/global_tables_combined_controls.json. Combined operations reject before lookup or either mutation; attributes are not a separate operation, but empty GSI update lists are invalid. Local engine readiness is not an AWS timing claim.",
+  "steps": [
+    {
+      "name": "combined-validation-precedes-source-lookup",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "OnDemandThroughput": {
+          "MaxReadRequestUnits": 5
+        },
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "advance": "0s",
+      "code": "ValidationException"
+    },
+    {
+      "name": "missing-source-with-only-replica-action",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "advance": "0s",
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "attributes-do-not-add-a-replica-operation",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}],
+        "ReplicaUpdates": [{"Create": {"RegionName": "us-east-2"}}]
+      },
+      "advance": "0s",
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "empty-index-list-rejected-before-source-lookup",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "GlobalSecondaryIndexUpdates": [],
+        "ReplicaUpdates": [{"Create": {"RegionName": "us-east-2"}}]
+      },
+      "advance": "0s",
+      "code": "ValidationException"
+    },
+    {
+      "name": "empty-index-list-alone-is-not-an-operation",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "GlobalSecondaryIndexUpdates": []
+      },
+      "advance": "0s",
+      "code": "ValidationException"
+    },
+    {
+      "name": "attributes-alone-are-not-an-operation",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}]
+      },
+      "advance": "0s",
+      "code": "ValidationException"
+    },
+    {
+      "name": "create-source-with-owned-limits",
+      "operation": "CreateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "OnDemandThroughput": {
+          "MaxReadRequestUnits": 2,
+          "MaxWriteRequestUnits": 2
+        }
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "reject-combined-source-limit-and-create",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "OnDemandThroughput": {
+          "MaxReadRequestUnits": 5,
+          "MaxWriteRequestUnits": 5
+        },
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "advance": "0s",
+      "code": "ValidationException"
+    },
+    {
+      "name": "source-unchanged-after-combined-rejection",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-combined"
+      },
+      "advance": "0s",
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 2,
+          "MaxWriteRequestUnits": 2
+        },
+        "Table.Replicas": null
+      }
+    },
+    {
+      "name": "peer-not-created-by-rejected-command",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-combined"
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "code": "ResourceNotFoundException"
+    },
+    {
+      "name": "standalone-limits-are-valid",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "OnDemandThroughput": {
+          "MaxReadRequestUnits": 3,
+          "MaxWriteRequestUnits": 3
+        }
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "replica-only-creation-is-valid",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "ReplicaUpdates": [
+          {
+            "Create": {
+              "RegionName": "us-east-2"
+            }
+          }
+        ]
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "source-membership-ready",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-combined"
+      },
+      "advance": "0s",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE"
+      }
+    },
+    {
+      "name": "peer-inherits-standalone-limits",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-combined"
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 3,
+          "MaxWriteRequestUnits": 3
+        }
+      }
+    },
+    {
+      "name": "empty-attributes-do-not-add-an-operation",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "AttributeDefinitions": [],
+        "ReplicaUpdates": [
+          {
+            "Update": {
+              "RegionName": "us-east-2",
+              "OnDemandThroughputOverride": {
+                "MaxReadRequestUnits": 4
+              }
+            }
+          }
+        ]
+      },
+      "advance": "0s"
+    },
+    {
+      "name": "replica-update-cannot-also-change-source-settings",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "OnDemandThroughput": {"MaxWriteRequestUnits": 5},
+        "ReplicaUpdates": [{
+          "Update": {
+            "RegionName": "us-east-2",
+            "OnDemandThroughputOverride": {"MaxReadRequestUnits": 7}
+          }
+        }]
+      },
+      "advance": "0s",
+      "code": "ValidationException"
+    },
+    {
+      "name": "replica-delete-cannot-also-change-source-settings",
+      "operation": "UpdateTable",
+      "input": {
+        "TableName": "stackd-replication-combined",
+        "OnDemandThroughput": {"MaxWriteRequestUnits": 9},
+        "ReplicaUpdates": [{"Delete": {"RegionName": "us-east-2"}}]
+      },
+      "advance": "0s",
+      "code": "ValidationException"
+    },
+    {
+      "name": "peer-read-override-applied",
+      "operation": "DescribeTable",
+      "reopen": true,
+      "input": {
+        "TableName": "stackd-replication-combined"
+      },
+      "advance": "0s",
+      "region": "us-east-2",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 4,
+          "MaxWriteRequestUnits": 3
+        }
+      }
+    },
+    {
+      "name": "source-not-overridden",
+      "operation": "DescribeTable",
+      "input": {
+        "TableName": "stackd-replication-combined"
+      },
+      "advance": "0s",
+      "waitWant": true,
+      "want": {
+        "Table.TableStatus": "ACTIVE",
+        "Table.OnDemandThroughput": {
+          "MaxReadRequestUnits": 3,
+          "MaxWriteRequestUnits": 3
+        }
+      }
+    }
+  ]
+}

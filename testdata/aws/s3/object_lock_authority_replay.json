@@ -1,0 +1,4448 @@
+{
+  "Source": "object_lock_authority_evidence.json.gz",
+  "ProjectionNotes": [
+    "Each Sequence is the one-based observation index within the cited native run. Original native labels remain intact; bucket/account/version/upload identities are rebound.",
+    "Local setup creates the captured role permissions and real STS sessions with native session policies. Owner Delegated user normalizes to owned root. Existing foreign OrganizationAccountAccessRole broad S3 identity authority is reconstructed locally; the native role was not mutated and its complete policy was not captured.",
+    "AWSHTTP calls only. Earlier CLI Body/GET preflight and post-cleanup NoSuchBucket repair are distinct non-authority evidence; no local preflight error is replayed as an AWS status.",
+    "Native time becomes manual service time at millisecond precision. Fixed explicit object headers keep captured wire seconds; retention XML body dates retain native milliseconds. Latency is removed. Default deadlines derive from local write/initiation; active event-hold horizons derive from the read instant.",
+    "Automatic checksums, provider request IDs, transport dates and error prose are excluded. GET bytes, optional retention/legal header presence, lock XML, SDK metadata, native codes/statuses and generated default deadlines remain consumer assertions.",
+    "Retained reopen boundaries preserve IAM roles, sessions, bucket policies, object lock metadata and pending multipart uploads. Same session and opaque resource identities are reused after reconstruction.",
+    "Run[2] audit-only traffic is omitted; remove-default-for-unlocked remains the prerequisite for unprotected event-condition targets. Positive audit delivery replay is owned separately.",
+    "Variable GET uses raw wire XML because the SDK does not model EventHold/EventHoldDuration. Raw native condition mutation requests retain checksums and object-lock headers; signed transport fields regenerate locally."
+  ],
+  "Limitations": [
+    "Earlier Body and GET CLI preflight failures are retained distinctly from actual AWS HTTP evidence; subsequent successful native captures complete the requested coverage.",
+    "GOVERNANCE only in owned authority resources; no compliance default, fixed compliance, or variable compliance was created.",
+    "Event-hold/default-duration IAM observations conflict with request-only wording in current Object Lock management guide: native effective defaults supply these keys to PutObject admission, while implicit defaults do not authorize PutObjectRetention.",
+    "CompleteMultipartUpload with explicit retention initiated under broader permissions then completed without retention/legal grants was not captured; initiation grant checks and same-actor completion observations are retained."
+  ],
+  "ExcludedObservations": [
+    {
+      "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+      "Sequence": 35,
+      "Label": "payload-get",
+      "EvidenceKind": "LocalCLIOrTransport",
+      "Code": "CLIError",
+      "Reason": "Local CLI preflight, not an AWS authorization response. Actual GET covered by focused-get-and-delivered-audit."
+    },
+    {
+      "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+      "Sequence": 39,
+      "Label": "retention-get",
+      "EvidenceKind": "LocalCLIOrTransport",
+      "Code": "CLIError",
+      "Reason": "Local CLI preflight, not an AWS authorization response. Actual GET covered by focused-get-and-delivered-audit."
+    },
+    {
+      "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+      "Sequence": 43,
+      "Label": "legal-get",
+      "EvidenceKind": "LocalCLIOrTransport",
+      "Code": "CLIError",
+      "Reason": "Local CLI preflight, not an AWS authorization response. Actual GET covered by focused-get-and-delivered-audit."
+    },
+    {
+      "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+      "Sequence": 47,
+      "Label": "metadata-get",
+      "EvidenceKind": "LocalCLIOrTransport",
+      "Code": "CLIError",
+      "Reason": "Local CLI preflight, not an AWS authorization response. Actual GET covered by focused-get-and-delivered-audit."
+    },
+    {
+      "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+      "Sequence": 51,
+      "Label": "full-get",
+      "EvidenceKind": "LocalCLIOrTransport",
+      "Code": "CLIError",
+      "Reason": "Local CLI preflight, not an AWS authorization response. Actual GET covered by focused-get-and-delivered-audit."
+    },
+    {
+      "Source": "object_lock_authority_evidence.json.gz:runs[0]/initial-body-cli-preflight",
+      "Reason": "Initial local Body preflight or post-cleanup GET repair; not replayed as lock authority. Later successful AWSHTTP observations supply coverage."
+    },
+    {
+      "Source": "object_lock_authority_evidence.json.gz:runs[4]/post-cleanup-get-transport-repair",
+      "Reason": "Initial local Body preflight or post-cleanup GET repair; not replayed as lock authority. Later successful AWSHTTP observations supply coverage."
+    }
+  ],
+  "Scenarios": [
+    {
+      "Name": "variable-authority-get-cli-preflight",
+      "Setup": [
+        {
+          "Label": "local-role-from-native-trust",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors",
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleName": "lock-authority-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${account}:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Bind": {
+            "role": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-native-role-grants",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors",
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleName": "lock-authority-role",
+            "PolicyName": "native-s3",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:*\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}]}"
+          }
+        },
+        {
+          "Label": "session-bucket-lock-actions",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/bucket-lock-actions",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "bucket-lock-actions",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetBucketObjectLockConfiguration\", \"s3:PutBucketObjectLockConfiguration\"], \"Effect\": \"Allow\", \"Resource\": \"arn:aws:s3:::lock-authority\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "bucket-lock-actions"
+        },
+        {
+          "Label": "session-bucket-lock-wrong-resource",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/bucket-lock-wrong-resource",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "bucket-lock-wrong-resource",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetBucketObjectLockConfiguration\", \"s3:PutBucketObjectLockConfiguration\"], \"Effect\": \"Allow\", \"Resource\": \"arn:aws:s3:::lock-authority/*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "bucket-lock-wrong-resource"
+        },
+        {
+          "Label": "session-cond-date",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/cond-date",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "cond-date",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObject\", \"s3:PutObjectRetention\", \"s3:PutObjectLegalHold\"], \"Condition\": {\"DateGreaterThan\": {\"s3:object-lock-retain-until-date\": \"2026-09-22T07:16:39.220349+00:00\"}}, \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "cond-date"
+        },
+        {
+          "Label": "session-cond-legalhold",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/cond-legalhold",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "cond-legalhold",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObject\", \"s3:PutObjectRetention\", \"s3:PutObjectLegalHold\"], \"Condition\": {\"StringEquals\": {\"s3:object-lock-legal-hold\": \"ON\"}}, \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "cond-legalhold"
+        },
+        {
+          "Label": "session-cond-mode",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/cond-mode",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "cond-mode",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObject\", \"s3:PutObjectRetention\", \"s3:PutObjectLegalHold\"], \"Condition\": {\"StringEquals\": {\"s3:object-lock-mode\": \"GOVERNANCE\"}}, \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "cond-mode"
+        },
+        {
+          "Label": "session-cond-remaining",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/cond-remaining",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "cond-remaining",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObject\", \"s3:PutObjectRetention\", \"s3:PutObjectLegalHold\"], \"Condition\": {\"NumericGreaterThan\": {\"s3:object-lock-remaining-retention-days\": \"2\"}}, \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "cond-remaining"
+        },
+        {
+          "Label": "session-create-all",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/create-all",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "create-all",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:CreateBucket\", \"s3:PutBucketVersioning\", \"s3:PutBucketObjectLockConfiguration\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "create-all"
+        },
+        {
+          "Label": "session-create-lock",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/create-lock",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "create-lock",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:CreateBucket\", \"s3:PutBucketObjectLockConfiguration\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "create-lock"
+        },
+        {
+          "Label": "session-create-only",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/create-only",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "create-only",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:CreateBucket\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "create-only"
+        },
+        {
+          "Label": "session-create-version",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/create-version",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "create-version",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:CreateBucket\", \"s3:PutBucketVersioning\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "create-version"
+        },
+        {
+          "Label": "session-deny-duration-over2",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/deny-duration-over2",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "deny-duration-over2",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObject\", \"s3:PutObjectRetention\"], \"Condition\": {\"NumericGreaterThan\": {\"s3:object-lock-event-hold-duration-days\": \"2\"}}, \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "deny-duration-over2"
+        },
+        {
+          "Label": "session-deny-duration365",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/deny-duration365",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "deny-duration365",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObject\", \"s3:PutObjectRetention\"], \"Condition\": {\"NumericEquals\": {\"s3:object-lock-event-hold-duration-days\": \"365\"}}, \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "deny-duration365"
+        },
+        {
+          "Label": "session-deny-event-on",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/deny-event-on",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "deny-event-on",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObject\", \"s3:PutObjectRetention\"], \"Condition\": {\"StringEquals\": {\"s3:object-lock-event-hold\": \"ON\"}}, \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "deny-event-on"
+        },
+        {
+          "Label": "session-full",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/full",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "full",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "full"
+        },
+        {
+          "Label": "session-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/legal",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "legal",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\", \"s3:GetObjectLegalHold\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "legal"
+        },
+        {
+          "Label": "session-lock-only",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/lock-only",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "lock-only",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:PutBucketObjectLockConfiguration\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "lock-only"
+        },
+        {
+          "Label": "session-metadata",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/metadata",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "metadata",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetObjectRetention\", \"s3:GetObjectLegalHold\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "metadata"
+        },
+        {
+          "Label": "session-no-bypass",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/no-bypass",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "no-bypass",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:BypassGovernanceRetention\"], \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "no-bypass"
+        },
+        {
+          "Label": "session-no-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/no-legal",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "no-legal",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObjectLegalHold\"], \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "no-legal"
+        },
+        {
+          "Label": "session-no-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/no-retention",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "no-retention",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObjectRetention\"], \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "no-retention"
+        },
+        {
+          "Label": "session-object-lock-wrong-resource",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/object-lock-wrong-resource",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "object-lock-wrong-resource",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetObjectRetention\", \"s3:PutObjectRetention\", \"s3:GetObjectLegalHold\", \"s3:PutObjectLegalHold\"], \"Effect\": \"Allow\", \"Resource\": \"arn:aws:s3:::lock-authority\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "object-lock-wrong-resource"
+        },
+        {
+          "Label": "session-payload",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/payload",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "payload",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "payload"
+        },
+        {
+          "Label": "session-put",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/put",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "put",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:PutObject\", \"s3:GetObject\", \"s3:GetObjectVersion\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "put"
+        },
+        {
+          "Label": "session-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/retention",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "retention",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\", \"s3:GetObjectRetention\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "retention"
+        },
+        {
+          "Label": "session-setters",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/setters",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "setters",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:PutObjectRetention\", \"s3:PutObjectLegalHold\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "setters"
+        },
+        {
+          "Label": "local-foreign-role-trust",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/foreign",
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "other",
+          "Code": "Success",
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${otherAccount}:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Bind": {
+            "foreignRole": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-foreign-role-identity-grant",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/foreign",
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "other",
+          "Code": "Success",
+          "Input": {
+            "RoleName": "OrganizationAccountAccessRole",
+            "PolicyName": "native-authority",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:*\", \"Resource\": \"*\"}]}"
+          }
+        },
+        {
+          "Label": "local-foreign-session",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight/actors/foreign",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "other",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${foreignRole}",
+            "RoleSessionName": "foreign"
+          },
+          "Session": "foreign"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "create-stackd-retention-authority-23c4610876dd",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 2,
+          "At": "2026-09-21T07:15:08.509Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Label": "create-only",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 11,
+          "At": "2026-09-21T07:15:38.785Z",
+          "Actor": "create-only",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority-create-only",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Label": "create-version",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 12,
+          "At": "2026-09-21T07:15:40.412Z",
+          "Actor": "create-version",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority-create-version",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Label": "create-lock",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 13,
+          "At": "2026-09-21T07:15:41.993Z",
+          "Actor": "create-lock",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority-create-lock",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Label": "create-all",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 14,
+          "At": "2026-09-21T07:15:43.677Z",
+          "Actor": "create-all",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority-create-all",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Label": "create-false-only",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 15,
+          "At": "2026-09-21T07:15:44.622Z",
+          "Actor": "create-only",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority-false",
+            "ObjectLockEnabledForBucket": false
+          }
+        },
+        {
+          "Label": "ordinary-existing-create",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 16,
+          "At": "2026-09-21T07:15:46.289Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority-existing"
+          }
+        },
+        {
+          "Label": "existing-enable-lock-only-False",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 17,
+          "At": "2026-09-21T07:15:47.073Z",
+          "Actor": "lock-only",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "InvalidBucketState",
+          "Status": 409,
+          "Input": {
+            "Bucket": "lock-authority-existing",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled"
+            }
+          }
+        },
+        {
+          "Label": "existing-versioning-observed-False",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 18,
+          "At": "2026-09-21T07:15:47.819Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetBucketVersioning",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority-existing"
+          },
+          "Output": {}
+        },
+        {
+          "Label": "ordinary-existing-create",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 19,
+          "At": "2026-09-21T07:15:48.755Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority-existing-versioned"
+          }
+        },
+        {
+          "Label": "ordinary-existing-versioning",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 20,
+          "At": "2026-09-21T07:15:49.651Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketVersioning",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority-existing-versioned",
+            "VersioningConfiguration": {
+              "Status": "Enabled"
+            }
+          }
+        },
+        {
+          "Label": "existing-enable-lock-only-True",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 21,
+          "At": "2026-09-21T07:15:50.543Z",
+          "Actor": "lock-only",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority-existing-versioned",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled"
+            }
+          }
+        },
+        {
+          "Label": "existing-versioning-observed-True",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 22,
+          "At": "2026-09-21T07:15:51.281Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetBucketVersioning",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority-existing-versioned"
+          },
+          "Output": {
+            "Status": "Enabled"
+          }
+        },
+        {
+          "Label": "default-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 23,
+          "At": "2026-09-21T07:15:52.221Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          }
+        },
+        {
+          "Label": "get-lock-config",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 24,
+          "At": "2026-09-21T07:15:52.982Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority"
+          },
+          "Output": {
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          }
+        },
+        {
+          "Label": "bucket-lock-actions-get",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 25,
+          "At": "2026-09-21T07:15:55.176Z",
+          "Actor": "bucket-lock-actions",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority"
+          },
+          "Output": {
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          }
+        },
+        {
+          "Label": "bucket-lock-actions-put",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 26,
+          "At": "2026-09-21T07:15:56.054Z",
+          "Actor": "bucket-lock-actions",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          }
+        },
+        {
+          "Label": "bucket-lock-wrong-resource-get",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 27,
+          "At": "2026-09-21T07:15:56.807Z",
+          "Actor": "bucket-lock-wrong-resource",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority"
+          }
+        },
+        {
+          "Label": "bucket-lock-wrong-resource-put",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 28,
+          "At": "2026-09-21T07:15:57.594Z",
+          "Actor": "bucket-lock-wrong-resource",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          }
+        },
+        {
+          "Label": "implicit-default-put",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 29,
+          "At": "2026-09-21T07:15:58.461Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version29": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "default",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "implicit-default-observed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 30,
+          "At": "2026-09-21T07:15:59.227Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "default",
+            "VersionId": "${version29}"
+          },
+          "Output": {
+            "Retention": {
+              "Mode": "GOVERNANCE"
+            }
+          },
+          "Deadline": {
+            "FromSequence": 29,
+            "Days": 2
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "explicit-retention-without-grant",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 31,
+          "At": "2026-09-21T07:15:59.959Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit-denied",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-24T07:15:59Z",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "explicit-legal-without-grant",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 32,
+          "At": "2026-09-21T07:16:00.777Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "legal-denied",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "explicit-retention-and-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 33,
+          "At": "2026-09-21T07:16:01.682Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version33": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-24T07:16:00Z",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "payload-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 34,
+          "At": "2026-09-21T07:16:02.481Z",
+          "Actor": "payload",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "VersionId": "${version33}"
+          },
+          "Headers": {},
+          "AbsentHeaders": [
+            "x-amz-object-lock-mode",
+            "x-amz-object-lock-retain-until-date",
+            "x-amz-object-lock-legal-hold"
+          ],
+          "Reopen": true
+        },
+        {
+          "Label": "payload-get-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 36,
+          "At": "2026-09-21T07:16:03.587Z",
+          "Actor": "payload",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "payload-get-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 37,
+          "At": "2026-09-21T07:16:04.319Z",
+          "Actor": "payload",
+          "Service": "s3",
+          "Operation": "GetObjectLegalHold",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "retention-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 38,
+          "At": "2026-09-21T07:16:05.049Z",
+          "Actor": "retention",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "ObjectLockMode": "GOVERNANCE",
+            "VersionId": "${version33}"
+          },
+          "Headers": {
+            "x-amz-object-lock-mode": "GOVERNANCE",
+            "x-amz-object-lock-retain-until-date": "2026-09-24T07:16:00Z"
+          },
+          "AbsentHeaders": [
+            "x-amz-object-lock-legal-hold"
+          ]
+        },
+        {
+          "Label": "retention-get-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 40,
+          "At": "2026-09-21T07:16:06.148Z",
+          "Actor": "retention",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "Retention": {
+              "Mode": "GOVERNANCE"
+            }
+          },
+          "Deadline": {
+            "At": "2026-09-24T07:16:00.000Z"
+          }
+        },
+        {
+          "Label": "retention-get-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 41,
+          "At": "2026-09-21T07:16:06.887Z",
+          "Actor": "retention",
+          "Service": "s3",
+          "Operation": "GetObjectLegalHold",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "legal-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 42,
+          "At": "2026-09-21T07:16:07.616Z",
+          "Actor": "legal",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "ObjectLockLegalHoldStatus": "ON",
+            "VersionId": "${version33}"
+          },
+          "Headers": {
+            "x-amz-object-lock-legal-hold": "ON"
+          },
+          "AbsentHeaders": [
+            "x-amz-object-lock-mode",
+            "x-amz-object-lock-retain-until-date"
+          ]
+        },
+        {
+          "Label": "legal-get-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 44,
+          "At": "2026-09-21T07:16:08.778Z",
+          "Actor": "legal",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "legal-get-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 45,
+          "At": "2026-09-21T07:16:09.591Z",
+          "Actor": "legal",
+          "Service": "s3",
+          "Operation": "GetObjectLegalHold",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "LegalHold": {
+              "Status": "ON"
+            }
+          }
+        },
+        {
+          "Label": "metadata-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 46,
+          "At": "2026-09-21T07:16:10.334Z",
+          "Actor": "metadata",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "metadata-get-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 48,
+          "At": "2026-09-21T07:16:11.526Z",
+          "Actor": "metadata",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "Retention": {
+              "Mode": "GOVERNANCE"
+            }
+          },
+          "Deadline": {
+            "At": "2026-09-24T07:16:00.000Z"
+          }
+        },
+        {
+          "Label": "metadata-get-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 49,
+          "At": "2026-09-21T07:16:12.295Z",
+          "Actor": "metadata",
+          "Service": "s3",
+          "Operation": "GetObjectLegalHold",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "LegalHold": {
+              "Status": "ON"
+            }
+          }
+        },
+        {
+          "Label": "full-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 50,
+          "At": "2026-09-21T07:16:13.048Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ObjectLockMode": "GOVERNANCE",
+            "VersionId": "${version33}"
+          },
+          "Headers": {
+            "x-amz-object-lock-mode": "GOVERNANCE",
+            "x-amz-object-lock-retain-until-date": "2026-09-24T07:16:00Z",
+            "x-amz-object-lock-legal-hold": "ON"
+          },
+          "AbsentHeaders": []
+        },
+        {
+          "Label": "full-get-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 52,
+          "At": "2026-09-21T07:16:14.196Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "Retention": {
+              "Mode": "GOVERNANCE"
+            }
+          },
+          "Deadline": {
+            "At": "2026-09-24T07:16:00.000Z"
+          }
+        },
+        {
+          "Label": "full-get-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 53,
+          "At": "2026-09-21T07:16:14.960Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "GetObjectLegalHold",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "LegalHold": {
+              "Status": "ON"
+            }
+          }
+        },
+        {
+          "Label": "wrong-object-resource-get-object-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 54,
+          "At": "2026-09-21T07:16:16.438Z",
+          "Actor": "object-lock-wrong-resource",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "wrong-object-resource-get-object-legal-hold",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 55,
+          "At": "2026-09-21T07:16:17.176Z",
+          "Actor": "object-lock-wrong-resource",
+          "Service": "s3",
+          "Operation": "GetObjectLegalHold",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "wrong-object-resource-put-object-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 56,
+          "At": "2026-09-21T07:16:17.949Z",
+          "Actor": "object-lock-wrong-resource",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-25T07:16:15.759Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "wrong-object-resource-put-object-legal-hold",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 57,
+          "At": "2026-09-21T07:16:18.704Z",
+          "Actor": "object-lock-wrong-resource",
+          "Service": "s3",
+          "Operation": "PutObjectLegalHold",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "LegalHold": {
+              "Status": "OFF"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "copy-implicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 58,
+          "At": "2026-09-21T07:16:19.502Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "CopyObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version58": "VersionId"
+          },
+          "Input": {
+            "Bucket": "lock-authority",
+            "CopySource": "lock-authority/default?versionId=${version29}",
+            "Key": "copy-implicit"
+          }
+        },
+        {
+          "Label": "copy-implicit-observed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 59,
+          "At": "2026-09-21T07:16:20.274Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "copy-implicit",
+            "VersionId": "${version58}"
+          },
+          "Output": {
+            "Retention": {
+              "Mode": "GOVERNANCE"
+            }
+          },
+          "Deadline": {
+            "FromSequence": 58,
+            "Days": 2
+          }
+        },
+        {
+          "Label": "mpu-implicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 60,
+          "At": "2026-09-21T07:16:21.050Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "upload60": "UploadId"
+          },
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-implicit"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "mpu-implicit-part",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 61,
+          "At": "2026-09-21T07:16:21.967Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Code": "Success",
+          "Status": 200,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-implicit",
+            "PartNumber": 1,
+            "UploadId": "${upload60}",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "mpu-implicit-complete",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 62,
+          "At": "2026-09-21T07:16:22.809Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "CompleteMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version62": "VersionId"
+          },
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-implicit",
+            "MultipartUpload": {
+              "Parts": [
+                {
+                  "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+                  "PartNumber": 1
+                }
+              ]
+            },
+            "UploadId": "${upload60}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "mpu-implicit-observed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 63,
+          "At": "2026-09-21T07:16:23.576Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-implicit",
+            "VersionId": "${version62}"
+          },
+          "Output": {
+            "Retention": {
+              "Mode": "GOVERNANCE"
+            }
+          },
+          "Deadline": {
+            "FromSequence": 60,
+            "Days": 2
+          }
+        },
+        {
+          "Label": "copy-retention-denied",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 64,
+          "At": "2026-09-21T07:16:24.335Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "CopyObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "CopySource": "lock-authority/default?versionId=${version29}",
+            "Key": "copy-retention-denied",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-24T07:16:18Z"
+          }
+        },
+        {
+          "Label": "mpu-retention-denied",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 65,
+          "At": "2026-09-21T07:16:25.102Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-retention-denied",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-24T07:16:18Z"
+          }
+        },
+        {
+          "Label": "copy-legal-denied",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 66,
+          "At": "2026-09-21T07:16:25.868Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "CopyObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "CopySource": "lock-authority/default?versionId=${version29}",
+            "Key": "copy-legal-denied",
+            "ObjectLockLegalHoldStatus": "ON"
+          }
+        },
+        {
+          "Label": "mpu-legal-denied",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 67,
+          "At": "2026-09-21T07:16:26.638Z",
+          "Actor": "put",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-legal-denied",
+            "ObjectLockLegalHoldStatus": "ON"
+          }
+        },
+        {
+          "Label": "copy-explicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 68,
+          "At": "2026-09-21T07:16:27.410Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "CopyObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version68": "VersionId"
+          },
+          "Input": {
+            "Bucket": "lock-authority",
+            "CopySource": "lock-authority/default?versionId=${version29}",
+            "Key": "copy-explicit",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-24T07:16:18Z"
+          }
+        },
+        {
+          "Label": "copy-explicit-observed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 69,
+          "At": "2026-09-21T07:16:28.184Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "copy-explicit",
+            "VersionId": "${version68}"
+          },
+          "Output": {
+            "Retention": {
+              "Mode": "GOVERNANCE"
+            }
+          },
+          "Deadline": {
+            "At": "2026-09-24T07:16:18.000Z"
+          }
+        },
+        {
+          "Label": "mpu-explicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 70,
+          "At": "2026-09-21T07:16:28.944Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "upload70": "UploadId"
+          },
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-explicit",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-24T07:16:18Z"
+          }
+        },
+        {
+          "Label": "mpu-explicit-part",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 71,
+          "At": "2026-09-21T07:16:29.850Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Code": "Success",
+          "Status": 200,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-explicit",
+            "PartNumber": 1,
+            "UploadId": "${upload70}",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "mpu-explicit-complete",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 72,
+          "At": "2026-09-21T07:16:30.689Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "CompleteMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version72": "VersionId"
+          },
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-explicit",
+            "MultipartUpload": {
+              "Parts": [
+                {
+                  "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+                  "PartNumber": 1
+                }
+              ]
+            },
+            "UploadId": "${upload70}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "mpu-explicit-observed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 73,
+          "At": "2026-09-21T07:16:31.434Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "mpu-explicit",
+            "VersionId": "${version72}"
+          },
+          "Output": {
+            "Retention": {
+              "Mode": "GOVERNANCE"
+            }
+          },
+          "Deadline": {
+            "At": "2026-09-24T07:16:18.000Z"
+          }
+        },
+        {
+          "Label": "setter-retention-without-putobject",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 74,
+          "At": "2026-09-21T07:16:33.057Z",
+          "Actor": "setters",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-25T07:16:32.229Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "setter-legal-without-putobject",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 75,
+          "At": "2026-09-21T07:16:33.824Z",
+          "Actor": "setters",
+          "Service": "s3",
+          "Operation": "PutObjectLegalHold",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "LegalHold": {
+              "Status": "OFF"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "bypass-action-without-header-delete",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 76,
+          "At": "2026-09-21T07:16:34.569Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "bypass-header-without-action-delete",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 77,
+          "At": "2026-09-21T07:16:35.317Z",
+          "Actor": "no-bypass",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "BypassGovernanceRetention": true,
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "shorten-action-no-header",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 78,
+          "At": "2026-09-21T07:16:36.104Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-22T07:16:35.372Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "shorten-header-no-action",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 79,
+          "At": "2026-09-21T07:16:36.856Z",
+          "Actor": "no-bypass",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "BypassGovernanceRetention": true,
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-22T07:16:36.158Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "shorten-both",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 80,
+          "At": "2026-09-21T07:16:37.636Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "BypassGovernanceRetention": true,
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-22T07:16:36.914Z"
+            },
+            "VersionId": "${version33}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "explicit-iam-deny-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 81,
+          "At": "2026-09-21T07:16:38.413Z",
+          "Actor": "no-retention",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-26T07:16:37.695Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "explicit-iam-deny-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 82,
+          "At": "2026-09-21T07:16:39.165Z",
+          "Actor": "no-legal",
+          "Service": "s3",
+          "Operation": "PutObjectLegalHold",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "LegalHold": {
+              "Status": "OFF"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "condition-mode-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 83,
+          "At": "2026-09-21T07:16:40.715Z",
+          "Actor": "cond-mode",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-26T07:16:39.990Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "condition-mode-explicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 84,
+          "At": "2026-09-21T07:16:41.503Z",
+          "Actor": "cond-mode",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "condition-mode",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-26T07:16:40Z",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "condition-mode-implicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 85,
+          "At": "2026-09-21T07:16:42.278Z",
+          "Actor": "cond-mode",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "condition-mode-default",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "condition-date-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 86,
+          "At": "2026-09-21T07:16:43.896Z",
+          "Actor": "cond-date",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-26T07:16:43.108Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "condition-date-explicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 87,
+          "At": "2026-09-21T07:16:44.673Z",
+          "Actor": "cond-date",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "condition-date",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-26T07:16:43Z",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "condition-date-implicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 88,
+          "At": "2026-09-21T07:16:45.422Z",
+          "Actor": "cond-date",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "condition-date-default",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "condition-remaining-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 89,
+          "At": "2026-09-21T07:16:46.985Z",
+          "Actor": "cond-remaining",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-26T07:16:46.245Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "condition-remaining-explicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 90,
+          "At": "2026-09-21T07:16:47.741Z",
+          "Actor": "cond-remaining",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "condition-remaining",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-26T07:16:47Z",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "condition-remaining-implicit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 91,
+          "At": "2026-09-21T07:16:48.639Z",
+          "Actor": "cond-remaining",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version91": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "condition-remaining-default",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "condition-legal-on",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 92,
+          "At": "2026-09-21T07:16:50.168Z",
+          "Actor": "cond-legalhold",
+          "Service": "s3",
+          "Operation": "PutObjectLegalHold",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "LegalHold": {
+              "Status": "ON"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "condition-legal-off",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 93,
+          "At": "2026-09-21T07:16:50.934Z",
+          "Actor": "cond-legalhold",
+          "Service": "s3",
+          "Operation": "PutObjectLegalHold",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "LegalHold": {
+              "Status": "OFF"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "condition-legal-put-on",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 94,
+          "At": "2026-09-21T07:16:51.671Z",
+          "Actor": "cond-legalhold",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "condition-legal",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "resource-explicit-deny",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 95,
+          "At": "2026-09-21T07:16:52.622Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": [\"s3:PutObjectRetention\", \"s3:PutObjectLegalHold\", \"s3:BypassGovernanceRetention\"], \"Resource\": \"arn:aws:s3:::lock-authority/*\"}]}"
+          }
+        },
+        {
+          "Label": "owner-resource-deny-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 96,
+          "At": "2026-09-21T07:16:53.388Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-26T07:16:52.685Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "owner-resource-deny-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 97,
+          "At": "2026-09-21T07:16:54.195Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectLegalHold",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "LegalHold": {
+              "Status": "ON"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "owner-resource-deny-bypass",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 98,
+          "At": "2026-09-21T07:16:54.949Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "BypassGovernanceRetention": true,
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "clear-resource-deny",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 99,
+          "At": "2026-09-21T07:16:55.852Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "DeleteBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority"
+          }
+        },
+        {
+          "Label": "resource-retention-condition",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 100,
+          "At": "2026-09-21T07:16:56.834Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObjectRetention\", \"Resource\": \"arn:aws:s3:::lock-authority/*\", \"Condition\": {\"NumericGreaterThan\": {\"s3:object-lock-remaining-retention-days\": \"2\"}}}]}"
+          }
+        },
+        {
+          "Label": "bucket-condition-over-limit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 101,
+          "At": "2026-09-21T07:16:57.628Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-26T07:16:56.897Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "bucket-condition-within-limit",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 102,
+          "At": "2026-09-21T07:16:58.468Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "BypassGovernanceRetention": true,
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-22T07:16:57.692Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "bucket-condition-implicit-default",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 103,
+          "At": "2026-09-21T07:16:59.346Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version103": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "bucket-condition-default",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "clear-condition-policy",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 104,
+          "At": "2026-09-21T07:17:00.187Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "DeleteBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority"
+          }
+        },
+        {
+          "Label": "foreign-no-resource-grant",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 105,
+          "At": "2026-09-21T07:17:01.674Z",
+          "Actor": "foreign",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "foreign-owned-resource-grant",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 106,
+          "At": "2026-09-21T07:17:02.593Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${otherAccount}:role/OrganizationAccountAccessRole\"}, \"Action\": [\"s3:GetBucketObjectLockConfiguration\", \"s3:PutBucketObjectLockConfiguration\", \"s3:GetObjectRetention\", \"s3:PutObjectRetention\", \"s3:GetObjectLegalHold\", \"s3:PutObjectLegalHold\", \"s3:GetObjectVersion\", \"s3:DeleteObjectVersion\", \"s3:BypassGovernanceRetention\"], \"Resource\": [\"arn:aws:s3:::lock-authority\", \"arn:aws:s3:::lock-authority/*\"]}]}"
+          }
+        },
+        {
+          "Label": "foreign-granted-get-object-lock-configuration",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 107,
+          "At": "2026-09-21T07:17:03.395Z",
+          "Actor": "foreign",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority"
+          },
+          "Output": {
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "foreign-granted-put-object-lock-configuration",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 108,
+          "At": "2026-09-21T07:17:04.289Z",
+          "Actor": "foreign",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          }
+        },
+        {
+          "Label": "foreign-granted-get-object-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 109,
+          "At": "2026-09-21T07:17:05.147Z",
+          "Actor": "foreign",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "Retention": {
+              "Mode": "GOVERNANCE"
+            }
+          },
+          "Deadline": {
+            "At": "2026-09-22T07:16:57.692Z"
+          }
+        },
+        {
+          "Label": "foreign-granted-put-object-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 110,
+          "At": "2026-09-21T07:17:05.930Z",
+          "Actor": "foreign",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-26T07:17:02.657Z"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "foreign-granted-get-object-legal-hold",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 111,
+          "At": "2026-09-21T07:17:06.709Z",
+          "Actor": "foreign",
+          "Service": "s3",
+          "Operation": "GetObjectLegalHold",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "VersionId": "${version33}"
+          },
+          "Output": {
+            "LegalHold": {
+              "Status": "OFF"
+            }
+          }
+        },
+        {
+          "Label": "foreign-granted-put-object-legal-hold",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 112,
+          "At": "2026-09-21T07:17:07.475Z",
+          "Actor": "foreign",
+          "Service": "s3",
+          "Operation": "PutObjectLegalHold",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "locked",
+            "LegalHold": {
+              "Status": "OFF"
+            },
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "foreign-bypass-delete",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 113,
+          "At": "2026-09-21T07:17:08.253Z",
+          "Actor": "foreign",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority",
+            "BypassGovernanceRetention": true,
+            "Key": "locked",
+            "VersionId": "${version33}"
+          }
+        },
+        {
+          "Label": "clear-foreign-grant",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 114,
+          "At": "2026-09-21T07:17:09.132Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "DeleteBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority"
+          }
+        },
+        {
+          "Label": "remove-default-for-unlocked",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 116,
+          "At": "2026-09-21T07:17:10.903Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled"
+            }
+          }
+        },
+        {
+          "Label": "event-condition-target",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 127,
+          "At": "2026-09-21T07:17:21.657Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version127": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "event-condition-target",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "event-condition-denied-put-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 128,
+          "At": "2026-09-21T07:17:22.117Z",
+          "Actor": "deny-event-on",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-condition-target?retention=&versionId=${version127}",
+            "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Days>1</Days></EventHoldDuration></Retention>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "event-condition-permitted-put-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 129,
+          "At": "2026-09-21T07:17:22.543Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-condition-target?retention=&versionId=${version127}",
+            "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Days>1</Days></EventHoldDuration></Retention>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "duration-one-day-allowed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 130,
+          "At": "2026-09-21T07:17:23.004Z",
+          "Actor": "deny-duration-over2",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-condition-target?retention=&versionId=${version127}",
+            "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Days>1</Days></EventHoldDuration></Retention>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "duration-three-days-denied",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 131,
+          "At": "2026-09-21T07:17:23.429Z",
+          "Actor": "deny-duration-over2",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-condition-target?retention=&versionId=${version127}",
+            "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Days>3</Days></EventHoldDuration></Retention>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "duration-one-year-equals365-denied",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 132,
+          "At": "2026-09-21T07:17:23.861Z",
+          "Actor": "deny-duration365",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-condition-target?retention=&versionId=${version127}",
+            "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Years>1</Years></EventHoldDuration></Retention>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "duration364-not365-allowed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 133,
+          "At": "2026-09-21T07:17:24.292Z",
+          "Actor": "deny-duration365",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-condition-target?retention=&versionId=${version127}",
+            "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Days>364</Days></EventHoldDuration></Retention>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "event-release-off-allowed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 134,
+          "At": "2026-09-21T07:17:24.731Z",
+          "Actor": "deny-event-on",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-condition-target?retention=&versionId=${version127}",
+            "Body": "<Retention xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Mode>GOVERNANCE</Mode><EventHold>OFF</EventHold></Retention>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "event-explicit-put-denied",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 135,
+          "At": "2026-09-21T07:17:25.143Z",
+          "Actor": "deny-event-on",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-explicit-denied",
+            "Body": "object-lock-native-authority\n",
+            "Headers": {
+              "x-amz-object-lock-event-hold": "ON",
+              "x-amz-object-lock-event-hold-duration-days": "1",
+              "x-amz-object-lock-mode": "GOVERNANCE",
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "event-explicit-put-allowed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 136,
+          "At": "2026-09-21T07:17:25.562Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-explicit-allowed",
+            "Body": "object-lock-native-authority\n",
+            "Headers": {
+              "x-amz-object-lock-event-hold": "ON",
+              "x-amz-object-lock-event-hold-duration-days": "1",
+              "x-amz-object-lock-mode": "GOVERNANCE",
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "event-duration-explicit-put-denied",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 137,
+          "At": "2026-09-21T07:17:26.005Z",
+          "Actor": "deny-duration-over2",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/event-duration-denied",
+            "Body": "object-lock-native-authority\n",
+            "Headers": {
+              "x-amz-object-lock-event-hold": "ON",
+              "x-amz-object-lock-event-hold-duration-days": "3",
+              "x-amz-object-lock-mode": "GOVERNANCE",
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "event-bucket-default",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 138,
+          "At": "2026-09-21T07:17:26.538Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/?object-lock=",
+            "Body": "<ObjectLockConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><DefaultEventHold><Days>1</Days></DefaultEventHold></DefaultRetention></Rule></ObjectLockConfiguration>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "event-default-implicit-deny-on-bypassed",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 139,
+          "At": "2026-09-21T07:17:27.361Z",
+          "Actor": "deny-event-on",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "event-default-implicit",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "remove-event-default",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 140,
+          "At": "2026-09-21T07:17:28.267Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled"
+            }
+          }
+        },
+        {
+          "Label": "unprotected-bypass-target",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 141,
+          "At": "2026-09-21T07:17:29.139Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version141": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "unprotected-bypass",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "unprotected-header-no-bypass-action",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 142,
+          "At": "2026-09-21T07:17:29.883Z",
+          "Actor": "no-bypass",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "BypassGovernanceRetention": true,
+            "Key": "unprotected-bypass",
+            "VersionId": "${version141}"
+          }
+        },
+        {
+          "Label": "unprotected-no-header-no-bypass-action",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 143,
+          "At": "2026-09-21T07:17:30.670Z",
+          "Actor": "no-bypass",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "unprotected-bypass",
+            "VersionId": "${version141}"
+          }
+        },
+        {
+          "Label": "expiring-governance-bypass-target",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 144,
+          "At": "2026-09-21T07:17:31.535Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version144": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "expired-bypass",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-21T07:17:38Z",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "expired-header-no-bypass-action",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 145,
+          "At": "2026-09-21T07:17:42.390Z",
+          "Actor": "no-bypass",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "BypassGovernanceRetention": true,
+            "Key": "expired-bypass",
+            "VersionId": "${version144}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "expired-no-header-no-bypass-action",
+          "Source": "object_lock_authority_evidence.json.gz:runs[2]/variable-authority-get-cli-preflight",
+          "Sequence": 146,
+          "At": "2026-09-21T07:17:43.335Z",
+          "Actor": "no-bypass",
+          "Service": "s3",
+          "Operation": "DeleteObject",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "expired-bypass",
+            "VersionId": "${version144}"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "remaining-day-rounding",
+      "Setup": [],
+      "Calls": [
+        {
+          "Label": "rounding-create-lock-bucket",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 2,
+          "At": "2026-09-21T07:17:17.784Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Label": "rounding-deny-remaining-over2",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 3,
+          "At": "2026-09-21T07:17:18.580Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObjectRetention\", \"Resource\": \"arn:aws:s3:::lock-authority/*\", \"Condition\": {\"NumericGreaterThan\": {\"s3:object-lock-remaining-retention-days\": \"2\"}}}]}"
+          }
+        },
+        {
+          "Label": "rounding-create-two-days-plus60",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 4,
+          "At": "2026-09-21T07:17:19.388Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version4": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "two-days-plus60",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "rounding-set-two-days-plus60",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 5,
+          "At": "2026-09-21T07:17:20.099Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "two-days-plus60",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-23T07:18:19.389Z"
+            },
+            "VersionId": "${version4}"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "rounding-create-two-days-minus60",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 6,
+          "At": "2026-09-21T07:17:20.887Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version6": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "two-days-minus60",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "rounding-set-two-days-minus60",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 7,
+          "At": "2026-09-21T07:17:21.598Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "two-days-minus60",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-23T07:16:20.888Z"
+            },
+            "VersionId": "${version6}"
+          }
+        },
+        {
+          "Label": "rounding-create-three-days-plus60",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 8,
+          "At": "2026-09-21T07:17:22.409Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version8": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "three-days-plus60",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "rounding-set-three-days-plus60",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 9,
+          "At": "2026-09-21T07:17:23.188Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "three-days-plus60",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-24T07:18:22.410Z"
+            },
+            "VersionId": "${version8}"
+          }
+        },
+        {
+          "Label": "rounding-create-one-day-plus60",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 10,
+          "At": "2026-09-21T07:17:24.012Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version10": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "one-day-plus60",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "rounding-set-one-day-plus60",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 11,
+          "At": "2026-09-21T07:17:24.748Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "one-day-plus60",
+            "Retention": {
+              "Mode": "GOVERNANCE",
+              "RetainUntilDate": "2026-09-22T07:18:24.013Z"
+            },
+            "VersionId": "${version10}"
+          }
+        },
+        {
+          "Label": "rounding-remove-policy",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 12,
+          "At": "2026-09-21T07:17:25.533Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "DeleteBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority"
+          }
+        },
+        {
+          "Label": "rounding-fixed-default2",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 13,
+          "At": "2026-09-21T07:17:26.373Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          }
+        },
+        {
+          "Label": "implicit-days-deny-key-present-s3:PutObject",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 14,
+          "At": "2026-09-21T07:17:27.148Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::lock-authority/*\", \"Condition\": {\"Null\": {\"s3:object-lock-remaining-retention-days\": \"false\"}}}]}"
+          }
+        },
+        {
+          "Label": "implicit-days-key-presence-s3:PutObject",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 15,
+          "At": "2026-09-21T07:17:27.846Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "s3-PutObject",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "implicit-days-deny-key-present-s3:PutObjectRetention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 16,
+          "At": "2026-09-21T07:17:28.661Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObjectRetention\", \"Resource\": \"arn:aws:s3:::lock-authority/*\", \"Condition\": {\"Null\": {\"s3:object-lock-remaining-retention-days\": \"false\"}}}]}"
+          }
+        },
+        {
+          "Label": "implicit-days-key-presence-s3:PutObjectRetention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 17,
+          "At": "2026-09-21T07:17:29.474Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version17": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "s3-PutObjectRetention",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "rounding-final-policy-clear",
+          "Source": "object_lock_authority_evidence.json.gz:runs[3]/remaining-day-rounding",
+          "Sequence": 18,
+          "At": "2026-09-21T07:17:30.249Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "DeleteBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "focused-get-and-delivered-audit",
+      "Setup": [
+        {
+          "Label": "local-role-from-native-trust",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit/actors",
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleName": "lock-authority-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${account}:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Bind": {
+            "role": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-native-role-grants",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit/actors",
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleName": "lock-authority-role",
+            "PolicyName": "native-s3",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:*\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}]}"
+          }
+        },
+        {
+          "Label": "session-event-PutObject",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit/actors/event-PutObject",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "event-PutObject",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObject\"], \"Condition\": {\"StringEquals\": {\"s3:object-lock-event-hold\": \"ON\"}}, \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "event-PutObject"
+        },
+        {
+          "Label": "session-event-PutObjectRetention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit/actors/event-PutObjectRetention",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "event-PutObjectRetention",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}, {\"Action\": [\"s3:PutObjectRetention\"], \"Condition\": {\"StringEquals\": {\"s3:object-lock-event-hold\": \"ON\"}}, \"Effect\": \"Deny\", \"Resource\": \"*\"}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "event-PutObjectRetention"
+        },
+        {
+          "Label": "session-full",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit/actors/full",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "full",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "full"
+        },
+        {
+          "Label": "session-legal",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit/actors/legal",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "legal",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\", \"s3:GetObjectLegalHold\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "legal"
+        },
+        {
+          "Label": "session-metadata",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit/actors/metadata",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "metadata",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetObjectRetention\", \"s3:GetObjectLegalHold\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "metadata"
+        },
+        {
+          "Label": "session-payload",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit/actors/payload",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "payload",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "payload"
+        },
+        {
+          "Label": "session-retention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit/actors/retention",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "retention",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:GetObject\", \"s3:GetObjectVersion\", \"s3:GetObjectRetention\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "retention"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "create-stackd-retention-authority-892d4c78652f",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 2,
+          "At": "2026-09-21T07:20:54.843Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Label": "audit-set-default",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 11,
+          "At": "2026-09-21T07:21:20.445Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          }
+        },
+        {
+          "Label": "audit-get-config",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 12,
+          "At": "2026-09-21T07:21:21.158Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority"
+          },
+          "Output": {
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled",
+              "Rule": {
+                "DefaultRetention": {
+                  "Days": 2,
+                  "Mode": "GOVERNANCE"
+                }
+              }
+            }
+          }
+        },
+        {
+          "Label": "audit-default-write",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 13,
+          "At": "2026-09-21T07:21:21.993Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version13": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "default",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "audit-explicit-write",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 14,
+          "At": "2026-09-21T07:21:22.806Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version14": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ObjectLockMode": "GOVERNANCE",
+            "ObjectLockRetainUntilDate": "2026-09-24T07:21:21Z",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "audit-payload-get",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 15,
+          "At": "2026-09-21T07:21:23.512Z",
+          "Actor": "payload",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "VersionId": "${version14}"
+          },
+          "Headers": {},
+          "AbsentHeaders": [
+            "x-amz-object-lock-mode",
+            "x-amz-object-lock-retain-until-date",
+            "x-amz-object-lock-legal-hold"
+          ],
+          "Plaintext": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Reopen": true
+        },
+        {
+          "Label": "audit-payload-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 16,
+          "At": "2026-09-21T07:21:24.226Z",
+          "Actor": "payload",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "VersionId": "${version14}"
+          },
+          "Headers": {},
+          "AbsentHeaders": [
+            "x-amz-object-lock-mode",
+            "x-amz-object-lock-retain-until-date",
+            "x-amz-object-lock-legal-hold"
+          ]
+        },
+        {
+          "Label": "audit-retention-get",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 17,
+          "At": "2026-09-21T07:21:24.948Z",
+          "Actor": "retention",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "ObjectLockMode": "GOVERNANCE",
+            "VersionId": "${version14}"
+          },
+          "Headers": {
+            "x-amz-object-lock-mode": "GOVERNANCE",
+            "x-amz-object-lock-retain-until-date": "2026-09-24T07:21:21Z"
+          },
+          "AbsentHeaders": [
+            "x-amz-object-lock-legal-hold"
+          ],
+          "Plaintext": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo="
+        },
+        {
+          "Label": "audit-retention-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 18,
+          "At": "2026-09-21T07:21:25.668Z",
+          "Actor": "retention",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "ObjectLockMode": "GOVERNANCE",
+            "VersionId": "${version14}"
+          },
+          "Headers": {
+            "x-amz-object-lock-mode": "GOVERNANCE",
+            "x-amz-object-lock-retain-until-date": "2026-09-24T07:21:21Z"
+          },
+          "AbsentHeaders": [
+            "x-amz-object-lock-legal-hold"
+          ]
+        },
+        {
+          "Label": "audit-legal-get",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 19,
+          "At": "2026-09-21T07:21:26.379Z",
+          "Actor": "legal",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "ObjectLockLegalHoldStatus": "ON",
+            "VersionId": "${version14}"
+          },
+          "Headers": {
+            "x-amz-object-lock-legal-hold": "ON"
+          },
+          "AbsentHeaders": [
+            "x-amz-object-lock-mode",
+            "x-amz-object-lock-retain-until-date"
+          ],
+          "Plaintext": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo="
+        },
+        {
+          "Label": "audit-legal-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 20,
+          "At": "2026-09-21T07:21:27.102Z",
+          "Actor": "legal",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "ObjectLockLegalHoldStatus": "ON",
+            "VersionId": "${version14}"
+          },
+          "Headers": {
+            "x-amz-object-lock-legal-hold": "ON"
+          },
+          "AbsentHeaders": [
+            "x-amz-object-lock-mode",
+            "x-amz-object-lock-retain-until-date"
+          ]
+        },
+        {
+          "Label": "audit-metadata-get",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 21,
+          "At": "2026-09-21T07:21:27.848Z",
+          "Actor": "metadata",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          }
+        },
+        {
+          "Label": "audit-metadata-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 22,
+          "At": "2026-09-21T07:21:28.539Z",
+          "Actor": "metadata",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "403",
+          "Status": 403,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          }
+        },
+        {
+          "Label": "audit-full-get",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 23,
+          "At": "2026-09-21T07:21:29.247Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "GetObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ObjectLockMode": "GOVERNANCE",
+            "VersionId": "${version14}"
+          },
+          "Headers": {
+            "x-amz-object-lock-mode": "GOVERNANCE",
+            "x-amz-object-lock-retain-until-date": "2026-09-24T07:21:21Z",
+            "x-amz-object-lock-legal-hold": "ON"
+          },
+          "AbsentHeaders": [],
+          "Plaintext": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo="
+        },
+        {
+          "Label": "audit-full-head",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 24,
+          "At": "2026-09-21T07:21:29.960Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "HeadObject",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "explicit",
+            "VersionId": "${version14}"
+          },
+          "Output": {
+            "ContentLength": 29,
+            "ContentType": "binary/octet-stream",
+            "ETag": "\"e8e523e3a8a7f0ae34f894057befd168\"",
+            "ObjectLockLegalHoldStatus": "ON",
+            "ObjectLockMode": "GOVERNANCE",
+            "VersionId": "${version14}"
+          },
+          "Headers": {
+            "x-amz-object-lock-mode": "GOVERNANCE",
+            "x-amz-object-lock-retain-until-date": "2026-09-24T07:21:21Z",
+            "x-amz-object-lock-legal-hold": "ON"
+          },
+          "AbsentHeaders": []
+        },
+        {
+          "Label": "isolated-event-default",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 33,
+          "At": "2026-09-21T07:21:38.070Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority/?object-lock=",
+            "Body": "<ObjectLockConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><DefaultEventHold><Days>1</Days></DefaultEventHold></DefaultRetention></Rule></ObjectLockConfiguration>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "isolated-variable-default-PutObject",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 34,
+          "At": "2026-09-21T07:21:38.769Z",
+          "Actor": "event-PutObject",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "variable-PutObject",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "isolated-variable-default-PutObjectRetention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 35,
+          "At": "2026-09-21T07:21:39.599Z",
+          "Actor": "event-PutObjectRetention",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version35": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority",
+            "Key": "variable-PutObjectRetention",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "isolated-variable-observed-PutObjectRetention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 36,
+          "At": "2026-09-21T07:21:40.322Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Deadline": {
+            "FromSequence": 36,
+            "Days": 1
+          },
+          "Reopen": true,
+          "Raw": {
+            "Method": "GET",
+            "Target": "/lock-authority/variable-PutObjectRetention?retention&versionId=${version35}",
+            "BodyContains": [
+              "<Mode>GOVERNANCE</Mode>",
+              "<EventHold>ON</EventHold>",
+              "<EventHoldDuration><Days>1</Days></EventHoldDuration>"
+            ]
+          }
+        },
+        {
+          "Label": "clear-variable-default",
+          "Source": "object_lock_authority_evidence.json.gz:runs[5]/focused-get-and-delivered-audit",
+          "Sequence": 37,
+          "At": "2026-09-21T07:21:41.191Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority",
+            "ObjectLockConfiguration": {
+              "ObjectLockEnabled": "Enabled"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "Name": "implicit-variable-duration",
+      "Setup": [
+        {
+          "Label": "local-role-from-native-trust",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration/actors",
+          "Service": "iam",
+          "Operation": "CreateRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleName": "lock-authority-role",
+            "AssumeRolePolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::${account}:root\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "Bind": {
+            "role": "Role.Arn"
+          }
+        },
+        {
+          "Label": "local-native-role-grants",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration/actors",
+          "Service": "iam",
+          "Operation": "PutRolePolicy",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleName": "lock-authority-role",
+            "PolicyName": "native-s3",
+            "PolicyDocument": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:*\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}]}"
+          }
+        },
+        {
+          "Label": "session-full",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration/actors/full",
+          "Service": "sts",
+          "Operation": "AssumeRole",
+          "Actor": "caller",
+          "Code": "Success",
+          "Input": {
+            "RoleArn": "${role}",
+            "RoleSessionName": "full",
+            "Policy": "{\"Statement\": [{\"Action\": [\"s3:*\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:aws:s3:::lock-authority*\", \"arn:aws:s3:::lock-authority*/*\"]}], \"Version\": \"2012-10-17\"}"
+          },
+          "Session": "full"
+        }
+      ],
+      "Calls": [
+        {
+          "Label": "duration-create-bucket",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration",
+          "Sequence": 1,
+          "At": "2026-09-21T07:23:15.319Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Input": {
+            "Bucket": "lock-authority-duration",
+            "ObjectLockEnabledForBucket": true
+          }
+        },
+        {
+          "Label": "duration-default3",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration",
+          "Sequence": 2,
+          "At": "2026-09-21T07:23:16.603Z",
+          "Actor": "full",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-authority-duration/?object-lock=",
+            "Body": "<ObjectLockConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><DefaultEventHold><Days>3</Days></DefaultEventHold></DefaultRetention></Rule></ObjectLockConfiguration>",
+            "Headers": {
+              "Content-MD5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Label": "duration-default-policy-s3:PutObject",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration",
+          "Sequence": 3,
+          "At": "2026-09-21T07:23:17.481Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority-duration",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObject\", \"Resource\": \"arn:aws:s3:::lock-authority-duration/*\", \"Condition\": {\"NumericGreaterThan\": {\"s3:object-lock-event-hold-duration-days\": \"2\"}}}]}"
+          }
+        },
+        {
+          "Label": "duration-default-implicit-s3:PutObject",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration",
+          "Sequence": 4,
+          "At": "2026-09-21T07:23:18.204Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority-duration",
+            "Key": "s3-PutObject",
+            "ChecksumAlgorithm": "CRC64NVME"
+          }
+        },
+        {
+          "Label": "duration-default-policy-s3:PutObjectRetention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration",
+          "Sequence": 5,
+          "At": "2026-09-21T07:23:19.014Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Input": {
+            "Bucket": "lock-authority-duration",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"s3:PutObjectRetention\", \"Resource\": \"arn:aws:s3:::lock-authority-duration/*\", \"Condition\": {\"NumericGreaterThan\": {\"s3:object-lock-event-hold-duration-days\": \"2\"}}}]}"
+          }
+        },
+        {
+          "Label": "duration-default-implicit-s3:PutObjectRetention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration",
+          "Sequence": 6,
+          "At": "2026-09-21T07:23:19.859Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Bind": {
+            "version6": "VersionId"
+          },
+          "Body": "b2JqZWN0LWxvY2stbmF0aXZlLWF1dGhvcml0eQo=",
+          "Input": {
+            "Bucket": "lock-authority-duration",
+            "Key": "s3-PutObjectRetention",
+            "ChecksumAlgorithm": "CRC64NVME"
+          },
+          "Reopen": true
+        },
+        {
+          "Label": "duration-default-observed-s3:PutObjectRetention",
+          "Source": "object_lock_authority_evidence.json.gz:runs[6]/implicit-variable-duration",
+          "Sequence": 7,
+          "At": "2026-09-21T07:23:20.564Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Deadline": {
+            "FromSequence": 7,
+            "Days": 3
+          },
+          "Reopen": true,
+          "Raw": {
+            "Method": "GET",
+            "Target": "/lock-authority-duration/s3-PutObjectRetention?retention&versionId=${version6}",
+            "BodyContains": [
+              "<Mode>GOVERNANCE</Mode>",
+              "<EventHold>ON</EventHold>",
+              "<EventHoldDuration><Days>3</Days></EventHoldDuration>"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "Name": "native-upload-and-computed-deadline-supplement",
+      "Setup": [],
+      "Calls": [
+        {
+          "Sequence": 1,
+          "Label": "create-lock",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:19.982594866Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateBucket",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement",
+            "Body": "",
+            "Headers": {
+              "X-Amz-Bucket-Object-Lock-Enabled": "true"
+            }
+          }
+        },
+        {
+          "Sequence": 2,
+          "Label": "plain-put-no-default-no-checksum",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:20.59948811Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/plain",
+            "Body": "probe",
+            "Headers": {}
+          }
+        },
+        {
+          "Sequence": 3,
+          "Label": "plain-mpu-init",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:20.713774879Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "POST",
+            "Target": "/lock-supplement/plain-mpu?uploads",
+            "Body": "",
+            "Headers": {},
+            "Bind": {
+              "supplement-upload-3": "UploadId"
+            }
+          }
+        },
+        {
+          "Sequence": 4,
+          "Label": "plain-part-no-checksum",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:20.835612851Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/plain-mpu?partNumber=1&uploadId=${supplement-upload-3}",
+            "Body": "probe",
+            "Headers": {}
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 5,
+          "Label": "plain-part-md5-control",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:20.966160527Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/plain-mpu?partNumber=1&uploadId=${supplement-upload-3}",
+            "Body": "probe",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Sequence": 6,
+          "Label": "explicit-mpu-init",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:21.127771069Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "POST",
+            "Target": "/lock-supplement/explicit-mpu?uploads",
+            "Body": "",
+            "Headers": {
+              "X-Amz-Object-Lock-Mode": "GOVERNANCE",
+              "X-Amz-Object-Lock-Retain-Until-Date": "2026-09-21T07:49:20Z"
+            },
+            "Bind": {
+              "supplement-upload-6": "UploadId"
+            }
+          }
+        },
+        {
+          "Sequence": 7,
+          "Label": "explicit-part-no-checksum",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:21.256646559Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Code": "InvalidRequest",
+          "Status": 400,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/explicit-mpu?partNumber=1&uploadId=${supplement-upload-6}",
+            "Body": "probe",
+            "Headers": {},
+            "ErrorDetails": {}
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 8,
+          "Label": "explicit-part-md5-control",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:21.368700066Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/explicit-mpu?partNumber=1&uploadId=${supplement-upload-6}",
+            "Body": "probe",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Sequence": 9,
+          "Label": "set-fixed-default",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:21.795850307Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement?object-lock",
+            "Body": "<ObjectLockConfiguration><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><Days>1</Days></DefaultRetention></Rule></ObjectLockConfiguration>",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Sequence": 10,
+          "Label": "default-mpu-init",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:22.035444232Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "CreateMultipartUpload",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "POST",
+            "Target": "/lock-supplement/default-mpu?uploads",
+            "Body": "",
+            "Headers": {},
+            "Bind": {
+              "supplement-upload-10": "UploadId"
+            }
+          }
+        },
+        {
+          "Sequence": 11,
+          "Label": "default-part-no-checksum",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:22.15534496Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Code": "InvalidRequest",
+          "Status": 400,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/default-mpu?partNumber=1&uploadId=${supplement-upload-10}",
+            "Body": "probe",
+            "Headers": {},
+            "ErrorDetails": {}
+          },
+          "Reopen": true
+        },
+        {
+          "Sequence": 12,
+          "Label": "default-part-md5-control",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:22.27458883Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "UploadPart",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/default-mpu?partNumber=1&uploadId=${supplement-upload-10}",
+            "Body": "probe",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Sequence": 13,
+          "Label": "invalid-mode-header",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:22.695288485Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "InvalidArgument",
+          "Status": 400,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/invalid-mode",
+            "Body": "probe",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}",
+              "X-Amz-Object-Lock-Mode": "INVALID",
+              "X-Amz-Object-Lock-Retain-Until-Date": "2026-09-21T07:49:20Z"
+            },
+            "ErrorDetails": {
+              "ArgumentName": "x-amz-object-lock-mode",
+              "ArgumentValue": "INVALID"
+            }
+          }
+        },
+        {
+          "Sequence": 14,
+          "Label": "invalid-event-header",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:22.800361768Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "InvalidArgument",
+          "Status": 400,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/invalid-event",
+            "Body": "probe",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}",
+              "X-Amz-Object-Lock-Event-Hold": "INVALID",
+              "X-Amz-Object-Lock-Event-Hold-Duration-Days": "1",
+              "X-Amz-Object-Lock-Mode": "GOVERNANCE"
+            },
+            "ErrorDetails": {
+              "ArgumentName": "x-amz-object-lock-event-hold",
+              "ArgumentValue": "INVALID"
+            }
+          }
+        },
+        {
+          "Sequence": 15,
+          "Label": "deny-computed-put-remaining-days",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:23.201672516Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement?policy",
+            "Body": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::lock-supplement/*\",\"Condition\":{\"Null\":{\"s3:object-lock-remaining-retention-days\":\"false\"}}}]}",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Sequence": 16,
+          "Label": "explicit-variable-remaining-key",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:23.727947903Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/explicit-variable",
+            "Body": "probe",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}",
+              "X-Amz-Object-Lock-Event-Hold": "ON",
+              "X-Amz-Object-Lock-Event-Hold-Duration-Days": "1",
+              "X-Amz-Object-Lock-Mode": "GOVERNANCE"
+            },
+            "ErrorDetails": {}
+          }
+        },
+        {
+          "Sequence": 17,
+          "Label": "set-variable-default",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:23.839631746Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectLockConfiguration",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement?object-lock",
+            "Body": "<ObjectLockConfiguration><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><DefaultEventHold><Days>1</Days></DefaultEventHold></DefaultRetention></Rule></ObjectLockConfiguration>",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Sequence": 18,
+          "Label": "implicit-variable-remaining-key",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:24.349421864Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/implicit-variable",
+            "Body": "probe",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            },
+            "ErrorDetails": {}
+          }
+        },
+        {
+          "Sequence": 19,
+          "Label": "deny-computed-retention-remaining-days",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:24.452362642Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement?policy",
+            "Body": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"s3:PutObjectRetention\",\"Resource\":\"arn:aws:s3:::lock-supplement/*\",\"Condition\":{\"Null\":{\"s3:object-lock-remaining-retention-days\":\"false\"}}}]}",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Sequence": 20,
+          "Label": "explicit-variable-retention-remaining-key",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:25.552767906Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "AccessDenied",
+          "Status": 403,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/plain?retention",
+            "Body": "<Retention><Mode>GOVERNANCE</Mode><EventHold>ON</EventHold><EventHoldDuration><Days>1</Days></EventHoldDuration></Retention>",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            },
+            "ErrorDetails": {}
+          }
+        },
+        {
+          "Sequence": 21,
+          "Label": "remove-policy",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:25.672358324Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "DeleteBucketPolicy",
+          "Code": "Success",
+          "Status": 204,
+          "Raw": {
+            "Method": "DELETE",
+            "Target": "/lock-supplement?policy",
+            "Body": "",
+            "Headers": {}
+          }
+        },
+        {
+          "Sequence": 22,
+          "Label": "fixed-for-off",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:25.86376162Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObject",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/fixed-off",
+            "Body": "probe",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}",
+              "X-Amz-Object-Lock-Mode": "GOVERNANCE",
+              "X-Amz-Object-Lock-Retain-Until-Date": "2026-09-21T07:49:20Z"
+            }
+          }
+        },
+        {
+          "Sequence": 23,
+          "Label": "fixed-to-off-without-date",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:25.994131022Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "PutObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "PUT",
+            "Target": "/lock-supplement/fixed-off?retention",
+            "Body": "<Retention><Mode>GOVERNANCE</Mode><EventHold>OFF</EventHold></Retention>",
+            "Headers": {
+              "Content-Md5": "${bodyMD5}"
+            }
+          }
+        },
+        {
+          "Sequence": 24,
+          "Label": "read-fixed-to-off",
+          "Source": "object_lock_supplement_evidence.json.gz",
+          "At": "2026-09-21T07:44:26.132577228Z",
+          "Actor": "caller",
+          "Service": "s3",
+          "Operation": "GetObjectRetention",
+          "Code": "Success",
+          "Status": 200,
+          "Raw": {
+            "Method": "GET",
+            "Target": "/lock-supplement/fixed-off?retention",
+            "Body": "",
+            "Headers": {},
+            "BodyContains": [
+              "<Mode>GOVERNANCE</Mode>",
+              "<EventHold>OFF</EventHold>"
+            ]
+          },
+          "Deadline": {
+            "At": "2026-09-21T07:49:20.000Z"
+          }
+        }
+      ]
+    }
+  ],
+  "SDKTransport": "Explicitly request CRC64NVME for SDK PutObject calls whose native CLI supplied an automatic transport checksum. Shared replay disables unsolicited SDK checksums; missing-checksum cases remain raw HTTP."
+}

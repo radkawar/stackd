@@ -1,0 +1,1327 @@
+{
+  "source": "Local assembled stackd executable and real installed broker engines; not a native AWS capture",
+  "observed_on": "2026-09-29",
+  "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-standalone",
+  "exit_code": 0,
+  "evidence_directory": "/tmp/stackd-mq-standalone-603288321",
+  "sha256": {
+    "executable": "8e2f0b87e8b51434280a7173847f45954982a3e6f365a0056f08cab0844d7356",
+    "scripts/mq_standalone_smoke/main.go": "7b2ca93113ac72068d75de3d5c7557b694193357a6618b03bdfff2dca6f61a9d",
+    "scripts/mq_standalone_smoke/ClientMQ.java": "791587032512eeaaf6f62a52a4f3d1482fdbcb1b67b2355ed206173574c65897"
+  },
+  "engines": {
+    "ACTIVEMQ": "apache/activemq-classic@sha256:65814d0a18a16bef9096ce7829fcb27e501e281e0ef1064857b9eded4927508c",
+    "RABBITMQ": "rabbitmq@sha256:87178a0ee3e2f52980ba356d38646ed1056705ff2d5ff281f8965456eaa0c1e3"
+  },
+  "stdout": [
+    "ACTIVEMQ signed lifecycle + real retained protocol effects: PASS",
+    "RABBITMQ signed lifecycle + real retained protocol effects: PASS",
+    "Standalone signed SDK configurations/users/tags/isolation + real protocol auth/ACL + retained executable restart + owned deletion: PASS"
+  ],
+  "observed_scenarios": [
+    "Signed AWS SDK v2 broker/configuration/revision/tag/user controls with cross-account and wrong-region rejection",
+    "Current configuration association prevents deletion; pending configuration becomes current only after real reboot",
+    "Pending ActiveMQ user cannot authenticate before reboot",
+    "Reader-first restrictive advisory ACL does not make a healthy broker unavailable; ordinary reader remains denied by that ACL",
+    "Subsequent advisory-disabled ACL allows retained queue consumption but denies reader publication",
+    "Password rotation takes effect on reboot; old password then fails; deleted user cannot authenticate",
+    "Real persistent JMS/OpenWire and AMQP messages survive controller replacement and are consumed with matching bytes",
+    "RabbitMQ protocol negotiation reports the applied 120-second heartbeat",
+    "Both broker deletions complete and both configurations become deletable"
+  ],
+  "journal_counts": [
+    {"operation":"CreateBroker","calls":2,"rejected":0},
+    {"operation":"CreateConfiguration","calls":2,"rejected":0},
+    {"operation":"CreateTags","calls":2,"rejected":0},
+    {"operation":"CreateUser","calls":1,"rejected":0},
+    {"operation":"DeleteBroker","calls":2,"rejected":0},
+    {"operation":"DeleteConfiguration","calls":4,"rejected":2},
+    {"operation":"DeleteUser","calls":1,"rejected":0},
+    {"operation":"DescribeBroker","calls":245,"rejected":6},
+    {"operation":"ListTags","calls":2,"rejected":0},
+    {"operation":"RebootBroker","calls":5,"rejected":0},
+    {"operation":"UpdateBroker","calls":3,"rejected":0},
+    {"operation":"UpdateConfiguration","calls":3,"rejected":0},
+    {"operation":"UpdateUser","calls":1,"rejected":0}
+  ],
+  "cleanup": {
+    "retained_brokers":0,
+    "retained_configurations":0,
+    "retained_users":0,
+    "retained_configuration_associations":0,
+    "docker_containers_and_volumes_absent_for_broker_ids":[
+      "b-3d585fee-5a1a-4379-8aa1-61fcac40a080",
+      "b-ebf12152-8e23-412c-91cc-e7c00e7765b3"
+    ],
+    "controller_stop_errors":0
+  },
+  "additional_exercised_commands": [
+    {"command":"go run ./scripts/mq_engine_smoke","exit_code":0,"result":"Both engines: native publication, failed-consumer redelivery, credential denial, retained controller/reboot progress; exact-owned containers and volumes removed"},
+    {"command":"go run ./scripts/lambda_mq_smoke -telemetry /home/r/dev/minor/stackd/bin/lambda-telemetry-amd64","exit_code":0,"result":"Both engines: signed source controls, current secret denial, failed real Python Lambda retries, SQLite restart, native redelivery and actual signed SQS effects"}
+  ],
+  "rabbitmq_timeout_evidence": {
+    "source": "AWS-documented zero/infinite semantics exercised against the pinned local RabbitMQ 3.13.7 engine; not a native AWS capture",
+    "aws_reference": "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/configurable-values.html",
+    "engine_reference": "https://www.rabbitmq.com/docs/consumers#acknowledgement-timeout",
+    "standalone_command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-infinite",
+    "standalone_exit_code": 0,
+    "standalone_evidence_directory": "/tmp/stackd-mq-standalone-3009252390",
+    "standalone_source_sha256": "434820c44632654d41873dc976b225806d36d7059c6d6fc85ec2f46232a992cb",
+    "observations": [
+      "Pending zero timeout leaves the running engine at {ok,1800000} until reboot",
+      "Reboot applies {ok,undefined}; a real manually acknowledged AMQP consumer remains open for 75 seconds and then successfully acknowledges its delivery",
+      "Infinite timeout and queued message bytes survive controller restart",
+      "Returning to {ok,1} closes an unacknowledged consumer channel with AMQP error 406",
+      "Zero with leading zeros and an inline comment applies {ok,undefined}",
+      "Omitting consumer_timeout restores the engine default {ok,1800000}"
+    ],
+    "upgrade_command": "go run /tmp/stackd-mq-timeout-upgrade-smoke/main.go",
+    "upgrade_source_sha256": "4afe73e31d8a8c78ecba5bdbc919932d11ff081db30f6180e8265abe70d44735",
+    "upgrade_exit_code": 0,
+    "upgrade_evidence_directory": "/tmp/stackd-mq-timeout-upgrade-4091774158",
+    "final_executable_sha256": "e46b62ebdfb5829928def08f85457a9472f67752eef817e9e6cc9c7f7f28a5e1",
+    "upgrade_observations": [
+      "The prior executable creates a finite-timeout broker without the advanced-config environment variable",
+      "The new executable replaces exactly that native container on configuration reboot",
+      "AMQP and management endpoints, customer authentication and pre-upgrade journal bytes remain intact",
+      "The upgraded broker retains infinite timeout and message bytes through another controller restart",
+      "A fresh broker created with an infinite-timeout configuration authenticates its initial user and publishes/consumes actual message bytes"
+    ],
+    "verification_note": "The full timeout-tick scenario preceded a buffer-allocation-only change; the final rebuild passed scoped race/vet/staticcheck checks and reran the upgrade/initial-bootstrap scenario.",
+    "cleanup": {
+      "standalone_and_both_upgrade_runs_retained_resource_rows": 0,
+      "native_containers_and_volumes_with_stackd_mq_id_label": 0,
+      "throwaway_upgrade_source_removed_after_verification": true
+    }
+  },
+  "maintenance_evidence": {
+    "source": "Local signed AWS SDK v2 requests against the assembled executable, SQLite and real RabbitMQ; not native AWS calibration",
+    "command": "go run /tmp/stackd-mq-maintenance-smoke/main.go",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-maintenance-2212791909",
+    "executable_sha256": "4b2fb41c7bdb597e45685428e03b3cac9c473174ff3dcaea7bfe720e09922a99",
+    "smoke_source_sha256": "31ffb1fccfff82272dfaa913af7f5772e57a82705de45b62807149b530d76ecd",
+    "observations": [
+      "Invalid window rejected without consuming budget; four changed windows accepted; fifth rejected",
+      "Two unchanged requests preserve available budget; an unchanged request at exhaustion is rejected, matching the separate native capture",
+      "Controller/SQLite reopen preserves the exhausted budget and actual queued message bytes",
+      "An actual manual broker reboot does not reset the exhausted budget",
+      "Pending configuration does not change the running native consumer timeout",
+      "Advancing the shared service clock admits scheduled maintenance; the real AMQP connection closes during broker reboot",
+      "Successful scheduled reboot commits the pending configuration; rabbitmqctl reports the new effective timeout",
+      "The endpoint and actual queued bytes survive maintenance",
+      "The reset budget accepts four new adjustments across another controller restart and rejects the next"
+    ],
+    "additional_verification": [
+      "Failing-before/passing-after maintenance-budget regressions",
+      "Scoped race tests cover concurrent admissions, failed native maintenance, completed reset and memory/SQLite rollback/reopen",
+      "Legacy schema migration preserves native identity and initializes an unused tracked budget",
+      "Affected package vet and staticcheck passed"
+    ],
+    "cleanup": {
+      "retained_brokers_configurations_users_and_associations": 0,
+      "native_containers_and_volumes_with_stackd_mq_id_label": 0
+    }
+  },
+  "activemq_console_evidence": {
+    "source": "Local signed AWS SDK v2, real native ActiveMQ web console and JMS clients; not an AWS capture",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-console",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-244299324",
+    "executable_sha256": "6f35880d38452c384dc101950f70347fbb1863ca0ba250b4854b5fc1863df789",
+    "main_source_sha256": "6a7632dba6e3b0d25012a4dd2b02e2afd1af241d15bdacac5d3d2e929df41756",
+    "console_source_sha256": "96ea62c73dd48c9e747ef34c7ffdce56eab0df59408ae2a11acaa02f5837da2c",
+    "observations": [
+      "Initial ConsoleAccess grants real queue-page access; anonymous and image-default admin credentials are denied",
+      "Pending console grants, revocations, password rotation and deletion do not change current authority before reboot",
+      "After reboot old credentials and revoked/deleted console users are denied; granted current credentials list the actual JMS queue",
+      "Console revocation does not revoke separately permitted JMS connections",
+      "Controller/SQLite restart preserves native console authority, queued message bytes and both endpoints",
+      "The existing restrictive JMS ACL and RabbitMQ infinite/finite timeout workflows still pass"
+    ],
+    "upgrade_browser": {
+      "command": "go run /tmp/stackd-mq-console-ui/main.go /tmp/stackd-mq-console-ui/console.go",
+      "exit_code": 0,
+      "evidence_directory": "/tmp/stackd-mq-console-ui-1351297489",
+      "source_sha256": "8e64f362a3046dd594b8380097ad643aeb71701893f90c910b78708306f2d9aa",
+      "observations": [
+        "A broker created by the pre-console executable gains the native console without losing JMS endpoint, credentials or queued bytes",
+        "Chromium renders browser-owned-message from the real queue",
+        "Native Send form publishes browser-ui-sent and the queue shows two pending messages",
+        "A direct JMS consumer subsequently receives both exact message bodies"
+      ],
+      "message_screenshot": "/tmp/omp-sshots-15923f04351f7b55.webp",
+      "message_screenshot_sha256": "34822cd5444627bd21fc67ca9a24aeece09732385baaa53900753be9475c9b45",
+      "send_screenshot": "/tmp/omp-sshots-15923f1e365f7b56.webp",
+      "send_screenshot_sha256": "74f33bddd6789773473b06a2705cf2a89aedb891b165aa19ad3cc8527f71dd6c"
+    },
+    "verification": "Affected service/storage/runtime race tests, vet and staticcheck passed; browser used an explicit self-signed-certificate exception while SDK HTTP checks trusted the generated CA",
+    "consumer_compatibility": [
+      {
+        "command": "go run ./scripts/mq_engine_smoke",
+        "exit_code": 0,
+        "result": "Both engines pass native publish, failed-consumer redelivery, credential denial and retained controller/reboot progress"
+      },
+      {
+        "command": "go run ./scripts/lambda_mq_smoke -telemetry /home/r/dev/minor/stackd/bin/lambda-telemetry-amd64",
+        "exit_code": 0,
+        "result": "Both engines pass signed controls, current secret denial, real Python Lambda failure/retry, SQLite source restart, native redelivery and actual signed SQS effects"
+      }
+    ],
+    "cleanup": {
+      "both_scenario_broker_configuration_and_user_rows": 0,
+      "native_containers_and_volumes_with_stackd_mq_id_label": 0
+    }
+  },
+  "activemq_dead_letter_evidence": {
+    "source": "Local signed AWS SDK v2, assembled executable, SQLite and real ActiveMQ 5.18.7 JMS clients; not a native AWS capture",
+    "command": "go run /tmp/stackd-mq-deadletter-smoke/main.go /tmp/stackd-mq-deadletter-smoke/console.go /tmp/stackd-mq-deadletter-smoke/scenario.go /tmp/stackd-mq-deadletter",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-deadletter-1649518917",
+    "executable_sha256": "d9221def53dadab7df2ec01e30be63b1e10dc0f0b766b66d99d973285a19748a",
+    "scenario_source_sha256": "587ac09fafcb51d12cba851577f5101570f131a6c279de70d358470e2f0176d8",
+    "java_consumer_source_sha256": "c39ee43c9de529fdde56b0552364d65336e83adaff7b13fc2f73c760542927a8",
+    "observations": [
+      "Transacted JMS rollbacks produce exact first/redelivery counts before native poison acknowledgement",
+      "Individual prefix/suffix and explicit shared DLQs contain exact message bytes and original source destinations",
+      "processNonPersistent=true routes nonpersistent poison messages; false discards them",
+      "processExpired=true routes expired messages; false discards them",
+      "The discarding strategy removes poison messages without publishing to ActiveMQ.DLQ",
+      "SQLite/controller restart retains current and pending revisions, stable endpoint and pending-policy DLQ bytes",
+      "Broker reboot replaces individual routing with default shared ActiveMQ.DLQ routing without retaining stale policy",
+      "A further native broker reboot preserves the DLQ journal and consumable exact payload"
+    ],
+    "verification": "Affected MQ service/runtime package tests, vet and staticcheck passed; actual executable scenario passed",
+    "cleanup": {
+      "broker_configuration_user_and_association_rows": 0,
+      "owned_native_containers_and_volumes": 0
+    },
+    "limitations": [
+      "Queue-based routing workflow only; no exhaustive topic, durable-subscriber, audit-capacity or DLQ-expiration calibration",
+      "An initial smoke listener setup failure occurred before broker creation and is not included as passing evidence",
+      "No AWS broker was created; AWS sanitization and managed-fleet semantics remain uncalibrated"
+    ]
+  },
+  "activemq_automatic_configuration_evidence": {
+    "source": "Automatic resource ownership follows testdata/aws/mq/maintenance.json; execution proof uses local signed AWS SDK v2, SQLite and real ActiveMQ 5.18.7",
+    "native_reference_engine": "ActiveMQ 5.19",
+    "command": "go run /tmp/stackd-mq-autoconfig-smoke/main.go /tmp/stackd-mq-autoconfig-smoke/console.go /tmp/stackd-mq-autoconfig-smoke/scenario.go /tmp/stackd-mq-autoconfig",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-autoconfig-2436017029",
+    "executable_sha256": "86836da39c05b1498c998b7baad85820773d8758c9b496dee89e43b9e008410a",
+    "scenario_source_sha256": "59cac89c3998e8044dfa84d8ee7a3469ae7efd1839cbb94c3c10b918e2c59857",
+    "observations": [
+      "CreateBroker without Configuration creates one scoped independent revision-1 configuration with no copied broker tags",
+      "An IAM user denied public CreateConfiguration can create a broker and its internally owned default configuration; the public API remains denied",
+      "Another account cannot describe the configuration; an attached current configuration cannot be deleted",
+      "Create-token replay preserves broker identity and does not allocate another configuration",
+      "SQLite/controller restart preserves configuration identity, current/pending revisions, native endpoint and exact JMS messages",
+      "Reboot promotes the revised default configuration and enforces native write denial while preserving authorized reads",
+      "Broker deletion leaves the configuration independently describable and explicitly deletable"
+    ],
+    "verification": "Failing-before/passing-after ownership regression, broker-write rollback and replay coverage, MQ service/SQLite race tests, affected vet/staticcheck and rebuilt executable workflow",
+    "consumer_compatibility": {
+      "command": "go run ./scripts/lambda_mq_smoke -telemetry /home/r/dev/minor/stackd/bin/lambda-telemetry-amd64",
+      "source_sha256": "9071f67252c4972b0319a0269c15ecac0f54afdb62f44280fe8741c450a99ec9",
+      "exit_code": 0,
+      "result": "Both engines pass signed controls, current secret denial, failed real Python Lambda retries, SQLite source restart, native redelivery and actual SQS effects; cleanup includes the automatic configuration"
+    },
+    "cleanup": {
+      "broker_configuration_user_and_association_rows": 0,
+      "scenario_iam_user_and_inline_policy_rows": 0,
+      "native_containers_and_volumes_with_stackd_mq_id_label": 0
+    },
+    "limitations": [
+      "New ActiveMQ brokers only; legacy records and RabbitMQ bootstrap behavior are unchanged",
+      "The retained AWS capture establishes resource ownership, not identical default XML or comprehensive IAM semantics",
+      "An initial harness assertion expected AccessDeniedException instead of the observed AccessDenied; it failed before broker creation and is not included as passing evidence",
+      "No new AWS resources were created for this local workflow"
+    ]
+  },
+  "activemq_logging_evidence": {
+    "source": "Local signed AWS SDK v2, assembled executable, shared SQLite state and real ActiveMQ 5.18.7; not an AWS logging capture",
+    "aws_reference": "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/configure-logging-monitoring-activemq.html",
+    "command": "go run /tmp/stackd-mq-logs-smoke/main.go /tmp/stackd-mq-logs-smoke/console.go /tmp/stackd-mq-logs-smoke/scenario.go /tmp/stackd-mq-logs",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-logs-2077685492",
+    "owned_broker": "b-c8e0a875-9b56-40bf-a2a4-162ea5037fdd",
+    "executable_sha256": "49b9299a632d6e6349d3884563fdc7ef7f07ad06dfe82abf809301d941120282",
+    "helper_sha256": "37076cb691092af8d772ee1877231e08628a5a74f1d805fa27e8d974f2b62dd5",
+    "console_helper_sha256": "96ea62c73dd48c9e747ef34c7ffdce56eab0df59408ae2a11acaa02f5837da2c",
+    "scenario_sha256": "1e0354801dcd63f4cbb4b713e4c5f85cc48e16f3eadc6347bb5215096ebaf76e",
+    "jms_client_sha256": "791587032512eeaaf6f62a52a4f3d1482fdbcb1b67b2355ed206173574c65897",
+    "observations": [
+      "A caller explicitly denied logs:CreateLogGroup creates a real enabled broker but no CloudWatch log groups",
+      "A wrong aws:SourceArn resource condition denies delivery and retains zero native byte positions after an observed collection attempt",
+      "Restoring the correct resource policy delivers actual Apache ActiveMQ startup INFO records",
+      "Authenticated sendMessage.action publishes multiline Unicode payloads consumed unchanged by a direct JMS client",
+      "CloudWatch receives the real native HTTP audit record, including the submitted message body",
+      "Explicit delivery revocation retains the audit cursor and withholds the newly produced record",
+      "SQLite/controller restart preserves denied source position, broker endpoints and native state",
+      "Authority restoration publishes retained source records exactly once; the accepted message bytes and timestamp match the real audit.log file",
+      "Pending logging disable remains inactive until successful native reboot",
+      "Reboot disables both flags; a later audit-only enable leaves general logging disabled and does not publish actions performed while native auditing was disabled",
+      "Accepted audit records are not replayed across reboot and JMS journal bytes survive the logging changes"
+    ],
+    "verification": [
+      "Affected MQ/runtime/SQLite/Logs/integrations package tests passed",
+      "Scoped MQ/runtime/SQLite/integrations race tests passed",
+      "Logs SDK integration fixtures selected by Logs|LogGroup|LogStream|LogEvents|LogSubscription|LogMetric passed",
+      "Affected package go vet and staticcheck passed",
+      "Memory and SQLite scheduler regressions verify cursor-write rollback of accepted events/new streams, retry without duplication and version/state fencing"
+    ],
+    "cleanup": {
+      "broker_configuration_user_association_rows": 0,
+      "log_group_and_resource_policy_rows": 0,
+      "iam_user_and_inline_policy_rows": 0,
+      "native_containers_and_volumes_with_stackd_mq_id_label": 0
+    },
+    "limitations": [
+      "Public single-instance ActiveMQ only; RabbitMQ logging and broker metrics remain unimplemented",
+      "AWS-managed timing is uncalibrated; physical source retention/rotation/truncation is exercised separately below, not through end-to-end CloudWatch overflow",
+      "An initial read-only JSP audit assertion timed out; installed native AuditFilter maps only *.action. That failed harness run was cleaned and is not counted as passing evidence",
+      "No AWS resources were created; local engine effects do not establish complete AWS logging or IAM conformance"
+    ]
+  },
+  "activemq_log_source_boundaries": {
+    "source": "Direct Go native runtime ReadLogs against real ActiveMQ 5.18.7 management audit records; no fabricated file records",
+    "implementation_commit": "575a3c36",
+    "command": "go run /tmp/stackd-mq-log-boundaries.go",
+    "exit_code": 0,
+    "scenario_sha256": "27e5c2ce1ee6670a9f3d6aa1a114a1c93a2c55c96920907c657757a69c6193ae",
+    "evidence_directory": "/tmp/stackd-mq-log-boundaries-2539868273",
+    "owned_broker": "b-53c88267-fe43-41c3-a4aa-b57710563ad2",
+    "observations": [
+      "Authenticated native createDestination.action calls generated the audit records; actual Log4j2 rollover produced audit.log.1",
+      "A retained cursor crossed physical file identities and returned records 1..110 in order over 18 bounded reads without loss or replay",
+      "650 further large native requests exhausted seven archives; the source reported prefix loss and returned surviving records 257..760 in order",
+      "Truncating the active file below the retained offset preserved its inode, reported source loss and recovered newly generated record 800",
+      "Truncating and regrowing the same inode beyond its previous offset triggered boundary-digest detection and recovered records 801..803"
+    ],
+    "cleanup": {
+      "owned_native_containers": 0,
+      "owned_native_volumes": 0,
+      "owned_native_configuration_removed": true
+    },
+    "limitations": [
+      "Direct native-source proof, complementary to the signed SDK delivery scenario; no new claim about CloudWatch overflow recovery",
+      "Finite source retention intentionally cannot recover physically retired records",
+      "No AWS resources created and no AWS-managed log format, retention or timing calibration"
+    ]
+  },
+  "rabbitmq_service_linked_role_evidence": {
+    "source": "Local signed SDK and real RabbitMQ executable workflow; AWS-documented role lifecycle, not native AWS capture",
+    "aws_reference": "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/using-service-linked-roles.html",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-roles roles",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-331550186",
+    "observed_at": "2026-09-29T09:41:36Z",
+    "observations": [
+      "Denied first role creation retained neither broker nor role and recorded rejected IAM and MQ calls",
+      "Authorized RabbitMQ admission created the protected role with captured managed policy and started a real native broker",
+      "Role identity and native broker survived executable replacement",
+      "Caller explicitly denied iam:CreateServiceLinkedRole could create a second broker using the existing role",
+      "Three role-deletion tasks failed with live broker dependencies; deletion succeeded after both native brokers were removed",
+      "Exactly one successful and one rejected IAM CreateServiceLinkedRole event were retained"
+    ],
+    "initial_failure": {
+      "evidence_directory": "/tmp/stackd-mq-standalone-1407998184",
+      "cause": "Read-only usage snapshot prevented the IAM deletion decision from committing",
+      "correction": "Writable MQ snapshot spans usage inspection and IAM completion",
+      "retained_job_recovered": true,
+      "retained_broker_deleted": true,
+      "final_role_deletion_status": "SUCCEEDED"
+    },
+    "limitations": [
+      "No new native AWS error-precedence or audit-projection calibration",
+      "Commercial partition role template only",
+      "This role-admission scenario did not exercise logs; see the later rabbitmq_logging_evidence"
+    ]
+  },
+  "rabbitmq_logging_evidence": {
+    "source": "Local assembled executable, signed AWS SDK v2 and installed RabbitMQ 3.13.7; not a native AWS capture",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-rabbit-logs rabbit-logs",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-4180627018",
+    "sha256": {
+      "executable": "fe0af1a2f2becf71052190616b039a176624ddc46a08bfaec8bb4fe6f504b585",
+      "smoke_source": "7278e10c494458ed4ff8eed692918a8ff24b10d55a03e54bcbcd4b53e6870da1",
+      "rabbit-logs-evidence.jsonl": "67d70985ce0f0fee99eb01b300ca4344e5ab9e090bc42d17c4bf5a839b289496",
+      "rabbit-native.log": "e2164ad0d7faddf448eca9f965e28b3f33ebd4913e71365c87d354f3e956393d"
+    },
+    "aws_references": [
+      "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/amazon-mq-rabbitmq-editing-broker-preferences.html",
+      "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonMQServiceRolePolicy.html"
+    ],
+    "observations": [
+      "Audit=true create retains no broker; audit=true update leaves general logging unchanged",
+      "Actual AMQP NOT_FOUND channel errors produce native RabbitMQ messages delivered through the current protected service-linked role without a Logs resource policy",
+      "Delivered marker bytes and millisecond timestamps exactly match captured native JSON",
+      "Pending disable remains inactive until successful native reboot; disabled delivery retains its cursor; reboot re-enables actual delivery",
+      "Live broker prevents legitimate service-linked-role deletion without interrupting subsequent log delivery",
+      "SQLite native byte offset is 62864 before and after controller restart, then advances to 65171 after new native activity",
+      "CloudWatch event IDs, messages and timestamps survive restart without replaying acknowledged markers; a persistent AMQP message remains consumable",
+      "Deleting the exact destination group permits recreation through current role authority for new native activity, without replaying acknowledged records",
+      "Exact-owned broker, log group, container and volume are removed; the private evidence database retains the service-linked role and normal active sessions"
+    ],
+    "checks": [
+      "go test ./compute/mq ./internal/services/mq",
+      "go test -race ./internal/integrations -run 'Test(MQ|RabbitMQ).*Log' -count=1",
+      "go vet ./compute/mq ./internal/services/mq ./internal/integrations ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./compute/mq ./internal/services/mq ./internal/integrations ./scripts/mq_standalone_smoke"
+    ],
+    "corrected_failures": [
+      {"evidence_directory": "/tmp/stackd-mq-standalone-3708067268", "cause": "DescribeBroker still omitted RabbitMQ log settings; removed stale engine guard and added pending/effective response regression"},
+      {"evidence_directory": "/tmp/stackd-mq-standalone-779528439", "cause": "Callerless scheduler context lacked broker scope for IAM role resolution; adapter now derives scope from broker ownership"},
+      {"evidence_directory": "/tmp/stackd-mq-standalone-4246744606", "cause": "Smoke incorrectly required opaque cursor identity equality after progress, although its boundary digest changes; checks now prove retained positions and actual event identity/no replay"}
+    ],
+    "limitations": [
+      "Protected-role policy/trust denial and recovery are repository-level regressions, not public-SDK mutation claims",
+      "Commercial aws partition role template only; no AWS-managed fleet, timing or stream-name parity claim",
+      "File-level archive order/truncation/symlink regressions passed; physical RabbitMQ archive exhaustion was not exercised by this scenario",
+      "No repository-wide test or race checkpoint was run; MQ inventory remains 24 partial operations and unimplemented Promote"
+    ],
+    "cleanup": {
+      "broker_id": "b-0d8972bc-6a72-4472-8745-25ae739d68d0",
+      "broker_and_log_group_absent": true,
+      "exact_native_container_and_volume_absent": true,
+      "service_linked_role_retained_in_private_database": true
+    }
+  },
+  "rabbitmq_management_evidence": {
+    "source": "Local assembled executable, signed AWS SDK v2, actual RabbitMQ management HTTPS and AMQP; not native AWS calibration",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-rabbit-management rabbit-management",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-3150995761",
+    "sha256": {
+      "executable": "133e6e241d4137ce2a1879ff08da5f08cff3f7980fb4f192deb0c58aef277cf3",
+      "smoke_source": "18efa181dc7fa7a292e48fb660222acbdb25a6ad7c151bc63cb75f4f824c5d3d",
+      "rabbit-management-evidence.jsonl": "548c4fb19347b32533c4be5380a63597b968d4047d16e1720f9f158fe2dd4846"
+    },
+    "aws_reference": "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/configurable-values.html",
+    "observations": [
+      "Default operator-policy PUT/DELETE denied by native RabbitMQ; API and actual console responses contain exact AWS-documented security headers",
+      "Both invalid boolean inputs reject without creating or altering configuration revisions",
+      "Pending false revision leaves native restrictions and headers unchanged until successful reboot",
+      "Applied false permits real policy creation/deletion and removes the three security headers",
+      "Policy metadata and effect survive SQLite/controller restart and actual native reboot",
+      "Six actual AMQP checks publish 0,1,2,3 under max-length=3 and consume exactly 1,2,3, including after editing is restricted again",
+      "Separate durable AMQP messages survive controller restart and native reboots",
+      "False-to-explicit-true and false-to-omitted-key revisions restore restrictions and exact headers; five immutable revisions retain their original bytes",
+      "SDK-owned broker and configuration are deleted; exact native container and volume are absent"
+    ],
+    "checks": [
+      "go test ./internal/services/mq ./compute/mq",
+      "go vet ./internal/services/mq ./compute/mq ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./internal/services/mq ./compute/mq ./scripts/mq_standalone_smoke"
+    ],
+    "corrected_smoke_assumption": {
+      "evidence_directory": "/tmp/stackd-mq-standalone-1166985097",
+      "cause": "Pinned image management responses omit optional effective-policy statistics; the initial smoke waited for absent fields",
+      "correction": "Verify real AMQP queue-limit enforcement instead of assuming statistics fields are exposed",
+      "cleanup": "Exact-owned broker and configuration deletion completed after the failed assertion"
+    },
+    "limitations": [
+      "Native HTTP 405 responses are RabbitMQ 3.13.7 behavior, not calibrated AWS error fidelity",
+      "No replicated HA policy or full AWS configuration/sanitization claim",
+      "Queue-limit probes use a dedicated transient queue; durable message retention is exercised separately",
+      "No concurrency boundary changed; no additional race or repository-wide checkpoint was run"
+    ],
+    "cleanup": {
+      "broker_id": "b-fbe0282e-7411-4a88-8498-3a496cc99f43",
+      "configuration_id": "c-9d889b6a-fd12-4690-8ba7-a5ec4e33a77e",
+      "broker_configuration_container_and_volume_absent": true
+    }
+  },
+  "rabbitmq_quorum_redeclaration_evidence": {
+    "source": "AWS-documented default exercised with signed SDK revisions and real pinned RabbitMQ 3.13.7 AMQP; not a native AWS capture",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-rabbit-quorum rabbit-quorum",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-3313748641",
+    "sha256": {
+      "executable": "92aeb14cff4eb1a76f69179905e323ef40a2ef0d39cc4bd0c4122228ca3c4c68",
+      "smoke_source": "fd3250ad6124c67d660ba7d54c59358628ecfbcf6b1b3778dce6061a62be1e4c",
+      "rabbit-quorum-evidence.jsonl": "de67f7063dd98266a6f28bf901142b81c428ae054b230492f4c9ae7ed2cbdc4d"
+    },
+    "references": [
+      "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/configurable-values.html",
+      "https://github.com/rabbitmq/rabbitmq-server/blob/v3.13.7/deps/rabbit/src/rabbit_amqqueue.erl"
+    ],
+    "observations": [
+      "An actual quorum queue accepts migrated classic declarations by default without changing its native type or durability",
+      "Explicit false rejects classic redeclaration with AMQP 406; explicit true and later omitted configuration restore acceptance",
+      "Pending configurations remain inactive across SQLite/controller restart and apply only after successful real broker reboot",
+      "Native 3.13.7 relaxed checks accept classic non-durable redeclaration of the existing durable quorum queue; explicit quorum non-durable declarations still reject with 406",
+      "One publisher-confirmed persistent quorum message survives four native reboots and controller restarts, is consumed with exact bytes, and is not duplicated",
+      "Exact-owned broker and configuration are deleted; native container and volume are absent"
+    ],
+    "checks": [
+      "go test ./compute/mq ./internal/services/mq",
+      "go vet ./compute/mq ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./compute/mq ./scripts/mq_standalone_smoke"
+    ],
+    "failing_before": {
+      "evidence_directory": "/tmp/stackd-mq-standalone-2817413350",
+      "observation": "Omitted default rejected migrated classic client with PRECONDITION_FAILED inequivalent x-queue-type, AMQP 406",
+      "cleanup": "Owned broker/configuration removed"
+    },
+    "corrected_smoke_assumption": {
+      "evidence_directory": "/tmp/stackd-mq-standalone-747759763",
+      "observation": "Pinned relaxed equivalence also skips durable comparison for quorum-to-classic redeclaration; smoke now records actual native semantics and independently verifies queue durability and strict quorum rejection",
+      "cleanup": "Owned broker/configuration removed"
+    },
+    "limitations": [
+      "No multi-node quorum HA or native AWS calibration of all property-equivalence checks",
+      "No repository-wide or additional race checkpoint; shared concurrency boundaries unchanged"
+    ],
+    "cleanup": {
+      "broker_id": "b-62f45fa1-bc7a-4180-866a-7fd7b22cb33c",
+      "configuration_id": "c-17c270ce-5a9a-4138-b416-9422207ef53f",
+      "broker_configuration_container_and_volume_absent": true
+    }
+  },
+  "rabbitmq_queue_metric_evidence": {
+    "source": "Local assembled executable, signed AWS SDK v2 CloudWatch/MQ and actual RabbitMQ 3.13.7 classic/quorum counters; not a native AWS capture",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-rabbit-metrics rabbit-metrics",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-3511547911",
+    "sha256": {
+      "executable": "56a27497bf8a57aa753876eb51be77031474b9ab8f212ca7f7072667963df290",
+      "smoke_source": "ec6dee5d4431a7f19d1188ea4218095dc48da4d2ba63ae1fcd86c652d543382e",
+      "rabbit-metrics-evidence.jsonl": "47867c7e1380b12bdb250cd96af423bd08822b6869a1446d1ff36abffc29648b"
+    },
+    "references": [
+      "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/rabbitmq-logging-monitoring.html",
+      "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/best-practices-rabbitmq.html",
+      "https://github.com/rabbitmq/rabbitmq-server/tree/v3.13.7/deps/rabbit/src"
+    ],
+    "observations": [
+      "Confirmed traffic in one quorum queue and two classic queues produces broker QueueCount=3, MessageCount=12, MessageReadyCount=10, MessageUnacknowledgedCount=2 and ConsumerCount=1",
+      "Live quorum FIFO state yields queue MessageCount=7, ready=5, unacknowledged=2 and consumers=1 without relying on missing management statistics",
+      "All nine metric identities have exact AWS/AmazonMQ namespace, Broker and optional Queue/VirtualHost dimensions and Count units",
+      "Whitespace and Unicode classic queue names contribute to broker totals but have no per-queue series",
+      "Acknowledgement, drain and cancel yield zero message/consumer counts while the three queues remain",
+      "Signed GetMetricData and GetMetricStatistics agree in closed minute windows; historical values and sample counts survive SQLite/controller reopen",
+      "Distinct post-restart physical traffic produces later observations; foreign account and region return empty data, statistics and lists",
+      "Exact-owned SDK broker deletion completes and native container/volume are absent"
+    ],
+    "checks": [
+      "go test ./internal/services/mq ./compute/mq",
+      "go test -race ./internal/services/mq ./internal/integrations -run 'TestMetric|TestNewerReconciliation|TestMQMetrics' -count=1",
+      "go vet ./internal/services/mq ./internal/integrations ./compute/mq ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./internal/services/mq ./internal/integrations ./compute/mq ./scripts/mq_standalone_smoke",
+      "go build -o /tmp/stackd-mq-rabbit-metrics ./cmd/stackd"
+    ],
+    "regression_boundaries": [
+      "Native reads outside resource transactions, stale/deleted/rebooted/overlapped observation exclusion and healthy readiness retained after metric failures",
+      "Partial publication across multiple real CloudWatch batches rolls back in the shared transaction domain",
+      "Malformed/missing/null/negative/fractional/overflow counters and incomplete/duplicate or oversized inventories reject rather than fabricate zero"
+    ],
+    "limitations": [
+      "No native AWS fleet, metric cadence or cluster-wide snapshot calibration",
+      "Executable uses default virtual host only; multi-vhost native workflow not exercised",
+      "This capture predates exchange/connection/channel metrics; see rabbitmq_inventory_metric_evidence for subsequent coverage. ActiveMQ, node, rate and network families remain unimplemented",
+      "Unsupported stream queues reject the complete observation, never use stale management counters",
+      "No repository-wide integration or race checkpoint"
+    ],
+    "cleanup": {
+      "broker_id": "b-5f27aa4a-167f-4438-8111-4e866bc6a656",
+      "broker_container_and_volume_absent": true,
+      "cloudwatch_history_retained_in_private_database": true
+    }
+  },
+  "rabbitmq_inventory_metric_evidence": {
+    "source": "Local assembled executable, signed AWS SDK v2 and actual pinned RabbitMQ 3.13.7 AMQP/HTTPS; not native AWS fleet calibration",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-rabbit-inventory rabbit-metrics",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-3564097701",
+    "sha256": {
+      "executable": "fc6af89df3a9053293d64891712bc3748544c927d31e749152be4822d5f34716",
+      "smoke_source": "7568a003da6f8f115788cbd300357e7ab548ebf1d8a1c168df39036e8d23f8fd",
+      "inventory_smoke_source": "a15396af839a2d5a0ebf59c2fda045c15e99616e7b84cd9d65debc6131ea31d2",
+      "rabbit-metrics-evidence.jsonl": "a85d05204af92bb54733e92a8b069651f2a88340871d4292a450352cb12e3576"
+    },
+    "references": [
+      "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/rabbitmq-logging-monitoring.html",
+      "https://github.com/rabbitmq/rabbitmq-server/blob/v3.13.7/deps/rabbit/src/rabbit_db_exchange.erl",
+      "https://github.com/rabbitmq/rabbitmq-server/blob/v3.13.7/deps/rabbit/src/rabbit_networking.erl",
+      "https://github.com/rabbitmq/rabbitmq-server/blob/v3.13.7/deps/rabbit/src/rabbit_channel.erl",
+      "https://github.com/rabbitmq/rabbitmq-server/blob/v3.13.7/deps/rabbit/src/pg_local.erl"
+    ],
+    "observations": [
+      "Independent native HTTPS exchange inventory sees seven default exchanges in each of two virtual hosts, including both nameless exchanges",
+      "Real AMQP declarations and distinct sockets/channels produce ExchangeCount=16, ConnectionCount=3, ChannelCount=6",
+      "Deleting one custom exchange, closing one connection and independently closing a channel produces 15/2/3 while held quorum message counters remain unchanged",
+      "Deleting the remaining custom exchange and closing all AMQP connections produces 14/0/0; all message/consumer gauges are zero and QueueCount remains three",
+      "Closed historical GetMetricData/GetMetricStatistics values and sample counts survive SQLite/controller restart",
+      "New post-restart AMQP activity produces 15/2/3 followed by 14/0/0 after exact deletion/closure",
+      "Signed statistics verify Count units; filtered and unfiltered ListMetrics verify all twelve consumed identities and broker-only dimensions for new gauges",
+      "Quorum ready/unacknowledged counters, unsupported queue-name exclusion and foreign account/region isolation continue to pass",
+      "Owned broker deletion completes; its native container, volume and both virtual hosts are removed"
+    ],
+    "checks": [
+      "go test ./compute/mq ./internal/services/mq",
+      "go test ./internal/integrations -run TestMQMetricsBatchRollbackAndFilteredTotals -count=1",
+      "go vet ./compute/mq ./internal/services/mq ./internal/integrations ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./compute/mq ./internal/services/mq ./internal/integrations ./scripts/mq_standalone_smoke",
+      "go build -o /tmp/stackd-mq-rabbit-inventory ./cmd/stackd"
+    ],
+    "native_source_inspection": {
+      "runtime": "RabbitMQ 3.13.7 with collect_statistics=none",
+      "cold_start": "Exact evaluator returned measured 7/0/0 on a fresh broker with pg_local absent, leaving the registry uninitialized",
+      "unavailable_registry": "Unregistering the native registry with an active AMQP reader rejected the whole snapshot; restoring it recovered actual counts",
+      "missing_table": "Native Mnesia key inventory raises no_exists for an unavailable table; the table-size helper returns zero and is deliberately not used",
+      "cleanup": "Exact-owned disposable inspection containers and anonymous volumes removed"
+    },
+    "limitations": [
+      "Pinned local single-node Mnesia runtime only; enabled/changing Khepri and multi-node membership reject rather than silently return incomplete counts",
+      "Native AMQP registry joins/leaves are asynchronous and include handshakes; no atomic cross-inventory or native AWS timing claim",
+      "Queue traffic uses the default virtual host; only exchange inventory spans two virtual hosts",
+      "This capture predates ActiveMQ gauges; see activemq_metric_evidence for subsequent coverage. RabbitMQ node, rate and network families remain unimplemented",
+      "No new repository-wide or race checkpoint; prior scheduler/publication fencing race evidence retained"
+    ],
+    "cleanup": {
+      "broker_id": "b-8df7f8c1-ffc7-4853-95cb-8b35dbed12d7",
+      "broker_container_and_volume_absent": true,
+      "cloudwatch_history_retained_in_private_database": true
+    }
+  },
+  "activemq_metric_evidence": {
+    "source": "Local assembled executable, signed AWS SDK v2 and actual ActiveMQ 5.18.7 JMS/JMX; not native AWS fleet calibration",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-active-metrics active-metrics",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-3458915498",
+    "sha256": {
+      "executable": "4c979f63e419e61ffc43907e1c59e804760f33a26f9c0b6b725748c5e42143ee",
+      "smoke_source": "c7bf92aa1441b3c6775c2a4d0e765d3f98025c9acbf645bc6fead6cd4b6e9d45",
+      "jms_client": "e25111a9f836aa146471757948dbabadcc1befd87086fe63db1a474d41539237",
+      "native_reader": "68541f4a5c5a61e2160c14c13be876f7e26217bffe1c433e017bee300a4920e7",
+      "active-metrics-evidence.jsonl": "0ec80b7fb22ab0407f4ee23ba6f6ce6206cca543f91a246ffa0757b9bd30fcf8"
+    },
+    "references": [
+      "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/activemq-logging-monitoring.html",
+      "https://github.com/apache/activemq/blob/activemq-5.18.7/activemq-broker/src/main/java/org/apache/activemq/broker/jmx/BrokerView.java",
+      "https://github.com/apache/activemq/blob/activemq-5.18.7/activemq-broker/src/main/java/org/apache/activemq/broker/jmx/DestinationViewMBean.java",
+      "https://github.com/openjdk/jdk11u/blob/jdk-11.0.26-ga/src/hotspot/os/linux/attachListener_linux.cpp",
+      "https://github.com/openjdk/jdk11u/blob/jdk-11.0.26-ga/src/jdk.management.agent/share/classes/sun/management/jmxremote/LocalRMIServerSocketFactory.java"
+    ],
+    "observations": [
+      "Held queue/topic JMS producers and consumers with seven persistent messages produce CurrentConnectionsCount/TotalConsumerCount/TotalMessageCount/TotalProducerCount = 2/2/7/2",
+      "Closing the topic connection, producer and consumer produces 1/1/7/1 while the queue stays loaded",
+      "Committing the queue drain and closing all JMS clients produces 0/0/0/0",
+      "A queue and topic with the same physical name have distinct ConsumerCount/ProducerCount identities; QueueSize applies only to the queue",
+      "Signed GetMetricData/GetMetricStatistics and filtered/unfiltered ListMetrics verify Count units and Broker=name-1 dimensions",
+      "Unsuffixed broker dimensions, topic QueueSize and mixed Queue/Topic dimensions return no data",
+      "Closed-minute history and sample counts survive SQLite/controller restart; fresh four-message traffic produces 2/2/4/2 and then all-zero gauges",
+      "Foreign account/region metrics are empty and DescribeBroker returns NotFoundException",
+      "Automatic configuration deletion conflicts while the broker owns it; exact-owned broker and subsequent configuration deletion finish with NotFoundException",
+      "Exact-owned native container and volume are absent after cleanup"
+    ],
+    "checks": [
+      "go test ./compute/mq ./internal/services/mq",
+      "go test -race ./internal/services/mq ./internal/integrations -run 'TestMetric|TestNewerReconciliation|TestMQMetrics' -count=1",
+      "go vet ./compute/mq ./internal/services/mq ./internal/integrations ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./compute/mq ./internal/services/mq ./internal/integrations ./scripts/mq_standalone_smoke",
+      "go build -o /tmp/stackd-mq-active-metrics ./cmd/stackd"
+    ],
+    "rabbitmq_cutover_regression": {
+      "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-active-metrics rabbit-metrics",
+      "exit_code": 0,
+      "evidence_directory": "/tmp/stackd-mq-standalone-3355613742",
+      "sha256": {
+        "smoke_source": "7568a003da6f8f115788cbd300357e7ab548ebf1d8a1c168df39036e8d23f8fd",
+        "inventory_smoke_source": "a15396af839a2d5a0ebf59c2fda045c15e99616e7b84cd9d65debc6131ea31d2",
+        "rabbit-metrics-evidence.jsonl": "756cb0ba376b5931da42351257bb3f3dccc334825a66159f369ce288e9f7d354"
+      },
+      "result": "All-vhost exchange inventory, distinct AMQP connections/channels, live quorum counts, decreases/zero transitions, closed-minute history/restart and account/region isolation pass after typed snapshot cutover",
+      "broker_id": "b-0505959b-4ae2-4919-ae56-f2e95685d756",
+      "broker_container_and_volume_absent": true
+    },
+    "limitations": [
+      "Instantaneous gauges only; remaining ActiveMQ gauges and calibrated per-minute activity counters remain unimplemented",
+      "Sequential JMX reads are not an atomic cross-destination snapshot; unavailable counters or changed inventory reject the whole sample",
+      "Temporary destinations are included by the collector but this executable workflow exercises ordinary queue/topic destinations",
+      "No new AWS broker, AWS-managed timing/HA claim or repository-wide integration/race checkpoint"
+    ],
+    "cleanup": {
+      "broker_id": "b-608342a6-aa81-492f-82e7-761326328f42",
+      "configuration_id": "c-f8ab09b0-f7ac-418e-be4f-2a0f5b4c8bd7",
+      "broker_configuration_container_and_volume_absent": true,
+      "cloudwatch_history_retained_in_private_database": true
+    }
+  },
+  "activemq_durable_metric_evidence": {
+    "source": "Local assembled executable, signed AWS SDK v2 and actual ActiveMQ 5.18.7 JMS durable subscriptions/JMX; not native AWS fleet calibration",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-durable-metrics active-metrics",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-1593536179",
+    "sha256": {
+      "executable": "0f0e2297e4d1b2a701fde568d4bf471cfa2b4a2efc54e3896713d526133d694b",
+      "smoke_source": "095fd94fbe56ee6fae0672d72f194dad1871177e4b3a656d10658d748c5fd930",
+      "jms_client": "c7b80afb3f127a7363cd98b55ce111bbaeb8b9155c13742f97da5fb01e3ff194",
+      "native_reader": "b0d93972f092a342db778622a01cfd0ed85ed1d1ea9e35ffbea813edcf2d2d38",
+      "active-metrics-evidence.jsonl": "de4e594813869d83dedbe524574d53f87fd56b6c6f7efc498ed9e79d2f32c594"
+    },
+    "references": [
+      "https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/activemq-logging-monitoring.html",
+      "https://github.com/apache/activemq/blob/activemq-5.18.7/activemq-broker/src/main/java/org/apache/activemq/broker/jmx/BrokerView.java",
+      "https://github.com/apache/activemq/blob/activemq-5.18.7/activemq-broker/src/main/java/org/apache/activemq/broker/jmx/ManagedRegionBroker.java",
+      "https://github.com/apache/activemq/blob/activemq-5.18.7/activemq-broker/src/main/java/org/apache/activemq/broker/jmx/BrokerMBeanSupport.java",
+      "https://github.com/apache/activemq/blob/activemq-5.18.7/activemq-broker/src/main/java/org/apache/activemq/broker/region/Topic.java"
+    ],
+    "observations": [
+      "Actual createDurableSubscriber with stable JMS client ID/subscription name produces InactiveDurableTopicSubscribersCount=0",
+      "Closing the topic client produces inactive count 1; native topic ConsumerCount stays 1 and broker TotalConsumerCount stays 2 with the queue consumer still active",
+      "Draining the queue and closing all clients leaves inactive count 1 and TotalConsumerCount=1 despite CurrentConnectionsCount=0",
+      "Closed-minute data/statistics survive SQLite/controller restart; a fresh sample before JMS reactivation still has inactive count 1",
+      "Reactivating the same durable identity produces inactive count 0 without duplicating its native consumer",
+      "Actual unsubscribe removes the durable subscription; closing clients produces zero inactive subscribers and zero broker/destination consumer gauges",
+      "Signed GetMetricData/GetMetricStatistics and filtered/unfiltered ListMetrics verify all ten metric identities and Count units",
+      "Unsuffixed broker, namespace-only, Queue, Topic and mixed destination identities have no inactive-subscriber metric; foreign account/region reads remain empty",
+      "Owned broker, automatic configuration, native container and volume are absent after cleanup"
+    ],
+    "checks": [
+      "go test ./compute/mq ./internal/services/mq",
+      "go test ./internal/integrations -run 'TestMQMetrics|TestMQInactiveDurable' -count=1",
+      "go vet ./compute/mq ./internal/services/mq ./internal/integrations ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./compute/mq ./internal/services/mq ./internal/integrations ./scripts/mq_standalone_smoke",
+      "go build -o /tmp/stackd-mq-durable-metrics ./cmd/stackd"
+    ],
+    "limitations": [
+      "Executable uses one durable subscription; 1999/2000/2001/3000/0 projection boundaries are repository regression cases, not native load calibration",
+      "Sequential native inventory reads are not an atomic broker snapshot; missing/malformed/duplicate/foreign entries or observed churn reject publication",
+      "This capture exercises controller restart only; see activemq_durable_reboot_evidence for subsequent native reboot and offline payload coverage",
+      "No new AWS broker, managed-fleet conformance claim or repository-wide integration/race checkpoint"
+    ],
+    "cleanup": {
+      "broker_id": "b-854c9e9c-bdc3-4d11-894d-c00a5a5e732a",
+      "configuration_id": "c-44e7b246-516c-4065-b4ab-3cee08add5a1",
+      "broker_configuration_container_and_volume_absent": true,
+      "cloudwatch_history_retained_in_private_database": true
+    }
+  },
+  "activemq_durable_reboot_evidence": {
+    "source": "Local assembled executable, signed AWS SDK v2, actual ActiveMQ 5.18.7 durable JMS/KahaDB and exact-owned Docker restart observation; not native AWS calibration",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-durable-metrics active-metrics",
+    "exit_code": 0,
+    "evidence_directory": "/tmp/stackd-mq-standalone-3001526744",
+    "sha256": {
+      "executable": "0f0e2297e4d1b2a701fde568d4bf471cfa2b4a2efc54e3896713d526133d694b",
+      "smoke_source": "df8085cb72eeffb43ca07e72219af211d560c10b40a058b80d3ab4ec7efd8760",
+      "jms_client": "b95329348a1e3a9d466b073f89b85618ead81d5fff5c6c45127afe10fd7ff9f8",
+      "main_source": "49b3613682d72b537710030f1e2c3dfa3346dc70933e517890e7be97e20f16fc",
+      "active-metrics-evidence.jsonl": "a7d26fc84cb769036fdd5cd157b278279f3bf669acac319278b16140b2e362de"
+    },
+    "observations": [
+      "Committed a persistent JMS topic message while its durable subscriber was offline",
+      "Restarted controller/SQLite and observed a fresh inactive subscriber metric before any JMS reactivation",
+      "Signed RebootBroker completed and the exact-owned native container start time advanced",
+      "A closed-minute sample after actual broker reboot still reports one inactive durable subscription and its retained consumer contribution",
+      "Same-client/subscription reactivation receives and acknowledges the exact offline topic payload; no extra duplicate is available",
+      "Fresh queue traffic, durable reactivation, unsubscribe, broker/destination counters, historical metrics and account/region isolation all pass",
+      "Native BrokerView TotalMessageCount is zero with queues drained even while the durable topic message remains deliverable; no synthetic count is substituted",
+      "Exact-owned broker, automatic configuration, native container and volume are removed"
+    ],
+    "native_restart": {
+      "started_before": "2026-09-30T01:07:10.89308471Z",
+      "started_after": "2026-09-30T01:15:10.713998246Z"
+    },
+    "checks": [
+      "go vet ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./scripts/mq_standalone_smoke",
+      "Previously verified production executable reused unchanged; only smoke behavior extended"
+    ],
+    "limitations": [
+      "Local single-instance native restart, not AWS-managed failover or crash-recovery calibration",
+      "Upstream Topic.java deliberately excludes topic message counts; AWS TotalMessageCount behavior for offline durable backlog remains uncalibrated",
+      "No new repository-wide integration/race checkpoint"
+    ],
+    "cleanup": {
+      "broker_id": "b-6aee2265-0d4b-4471-a923-085d7b6db4f5",
+      "configuration_id": "c-fe6901d7-8918-4d78-9149-712cebd8e6e5",
+      "broker_configuration_container_and_volume_absent": true,
+      "cloudwatch_history_retained_in_private_database": true
+    }
+  },
+  "missing_resource_error_evidence": {
+    "source": "Read-only native AWS calibration plus local assembled executable and signed Go SDK v2",
+    "native_capture": "testdata/aws/mq/missing_resources.json",
+    "native_capture_sha256": "a626ca0c98b0936e46bebec595a5c2beccda00c45750ab8a25404758d8a894b3",
+    "executable": "/tmp/stackd-mq-missing-errors",
+    "executable_sha256": "08a43ae438477a4186ba622c1fc41631c300ba2bffa5cc835e022ebc014dc63a",
+    "regression": "integration/mq_missing_test.go",
+    "regression_sha256": "c0b45e155ee782fdf2b94d602ae97e50bbd79109e8e5f18e85959d5e83566d2a",
+    "checks": [
+      "All eight native requests replayed through the Go SDK: modeled NotFoundException, HTTP 404, exact attribute presence and value",
+      "DescribeBroker, DescribeUser and ListUsers: broker-id",
+      "DescribeConfiguration and ListConfigurationRevisions: configuration-id",
+      "DescribeConfigurationRevision with missing parent: configuration-revision",
+      "ListTags for missing broker/configuration: attribute absent",
+      "Actual local configuration remains owner-readable after foreign-account and foreign-region configuration/revision/tag rejections",
+      "go test ./internal/services/mq",
+      "go test ./integration -run '^TestMQNativeMissingResourceErrors$' -count=1: memory and SQLite",
+      "go vet ./internal/services/mq ./integration",
+      "go tool staticcheck ./internal/services/mq ./integration",
+      "go build -o /tmp/stackd-mq-missing-errors ./cmd/stackd"
+    ],
+    "cleanup": {
+      "native_resources_created": [],
+      "local_configuration_id": "c-e55db8b7-1383-47b0-ace4-4baa9b38206b",
+      "local_configuration_deleted_and_describe_returns_not_found": true,
+      "broker_containers_created": []
+    },
+    "limitations": [
+      "Read-only missing-ID calibration, not full MQ error conformance",
+      "Missing-user and broker configuration-reference error attributes remain uncalibrated",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "configuration_revision_evidence": {
+    "source": "Native AWS configuration lifecycle captures, signed Go SDK regression and actual SQLite-backed executable restart",
+    "native_captures": {
+      "testdata/aws/mq/configuration_revisions.json": "7263fefec11c7b7154da7798f4115419fe14fe59b5c802492edba2f3454124a2",
+      "testdata/aws/mq/configuration_revision_boundaries.json": "b2098c8079167fe21720911048558b2fef2f54e2c44faf8af298b8489aa2bf1d",
+      "testdata/aws/mq/configuration_revision_precedence.json": "b4c1c24ac861cb2e42eb8081527c1f40e4c3b1503a29124852759ec65d3afe54"
+    },
+    "executable": "/tmp/stackd-mq-revisions",
+    "executable_sha256": "7179e3e7653d5fe95217fc576f516ecf89d8c6877c09eb0e96a2fdb4a1f62e61",
+    "regression": "integration/mq_revisions_test.go",
+    "regression_sha256": "91e5f99fcad727c746e3668d372a8beaffd3709b476289875953ae6347de3396",
+    "sqlite_smoke_directory": "/tmp/stackd-mq-revisions.XTojhJ",
+    "observed_pages": [[1, 2, 3, 4, 5], [6, 7, 8], []],
+    "checks": [
+      "First-page token survives actual controller restart and subsequent revision append",
+      "All nonempty pages have continuation; empty page terminates the SDK pagination loop",
+      "Signed 32-bit revision boundaries, plus-sign rejection, negative missing IDs and modeled attributes",
+      "Malformed revision syntax takes precedence over absent parent in native capture and memory/SQLite regression",
+      "go test ./internal/services/mq",
+      "go test ./integration -run '^TestMQNative(MissingResourceErrors|ConfigurationRevisionBoundaries)$' -count=1",
+      "go vet ./internal/services/mq ./integration",
+      "go tool staticcheck ./internal/services/mq ./integration",
+      "go build -o /tmp/stackd-mq-revisions ./cmd/stackd"
+    ],
+    "cleanup": {
+      "native_configurations_deleted": [
+        "c-95564a73-3700-4abd-8747-137374af3ea6",
+        "c-798058ef-af4e-42cc-956d-c23036537955"
+      ],
+      "local_configuration_deleted": "c-1f9a5d28-e904-4983-bf08-65f52c57d4dd",
+      "deletion_verified_by_describe_not_found": true,
+      "both_local_controller_processes_exited_zero": true,
+      "brokers_created": []
+    },
+    "limitations": [
+      "Native configuration version 5.18; local runtime contract remains pinned to 5.18.7",
+      "No XML sanitization, engine-version, broker, user or full service conformance claim",
+      "Native max-results-0 observation is CLI-side validation, excluded from service regressions",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "activemq_api_version_evidence": {
+    "source": "Native AWS configuration-only admission, signed Go SDK regression and prior/new executable migration with actual ActiveMQ JMS bytes",
+    "public_api_version": "5.18",
+    "native_runtime_version": "5.18.7",
+    "fresh_broker_workflow_directory": "/tmp/stackd-mq-standalone-1024605955",
+    "checksums": {
+      "/tmp/stackd-mq-api-version": "333b69ca2b1aa1783cf401f2bac5af83320e272361fd25b258946fd87d44884f",
+      "/tmp/stackd-mq-revisions": "7179e3e7653d5fe95217fc576f516ecf89d8c6877c09eb0e96a2fdb4a1f62e61",
+      "/tmp/stackd-mq-standalone-2059862976/engine-versions-evidence.jsonl": "bc6bf19e8e1166225125ad4dec6f891b7d950a38feb42ea37af5410d190261ed",
+      "testdata/aws/mq/engine_version_admission.json": "f2e4726b9e966ecf3738635e12b81183bc408e6b4bd1230a0fb808b6d2c7c91b",
+      "integration/mq_engine_version_test.go": "8fc46b0a89213f65ce7e979d2b9c8af11583ebee6161326b41dd98b0e3cb07a2",
+      "integration/mq_revisions_test.go": "db0597f6542b70b6ecdea109daab2eaa6f3132b947c418ba1c310cab9298e9a4",
+      "storage/sqlite/schema/295_mq_activemq_api_version.sql": "a9958935fea8aa313d2212d68b887ccd79ff3be8b6b2bb0d529c726e9d3c54ba",
+      "storage/sqlite/mq_engine_version_migration_test.go": "1150c91140a0e93e684f66745c9634037790ff7ad33b395697be5a5fe25c8779",
+      "scripts/mq_standalone_smoke/engine_versions.go": "762213a646aced8dc0e3754b119a01aa0f979cfda3d873f2475718b5bcd1407c",
+      "scripts/mq_standalone_smoke/ClientMQ.java": "37dd35c1b61de88a035ce4b616d43418ce138d48c41d8379b2b0bdbf7db74a24",
+      "scripts/mq_standalone_smoke/main.go": "5b2bc8545cfafbb94a34babbea74fd8c59eab23d2cb001a6019db898611f21fe"
+    },
+    "checks": [
+      "Pre-fix executable rejected CreateConfiguration EngineVersion=5.18",
+      "Native AWS rejects configuration versions 5.18.7 and 5.18.99 with BadRequestException/ErrorAttribute engineVersion",
+      "Memory/SQLite SDK regression rejects the former patch label without creating a resource and accepts public 5.18",
+      "Migration preserves every retained broker/configuration column and child row except the targeted ActiveMQ API value across two opens",
+      "Prior executable created broker/configuration using 5.18.7; new executable described both as 5.18",
+      "Container ID, image, start time and journal volume identity remained unchanged",
+      "Exact 72-byte persistent JMS BytesMessage containing NUL/non-UTF-8 bytes survived the executable cutover",
+      "Signed CreateBroker and CreateConfiguration reject 5.18.7 with modeled engineVersion error attribute",
+      "Both broker discovery APIs advertise installed public release 5.18",
+      "go test ./internal/services/mq ./storage/sqlite ./storage/sqlite/mq ./compute/mq",
+      "go test ./integration -run '^TestMQ(NativeMissingResourceErrors|NativeConfigurationRevisionBoundaries|ActiveMQPublicVersionAdmission)$' -count=1",
+      "go vet ./internal/services/mq ./storage/sqlite ./storage/sqlite/mq ./integration ./scripts/mq_standalone_smoke ./scripts/lambda_mq_smoke",
+      "go tool staticcheck ./internal/services/mq ./storage/sqlite ./storage/sqlite/mq ./integration ./scripts/mq_standalone_smoke ./scripts/lambda_mq_smoke",
+      "go build -o /tmp/stackd-mq-api-version ./cmd/stackd",
+      "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-api-version engine-versions /tmp/stackd-mq-revisions",
+      "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-api-version: fresh ActiveMQ 5.18 and RabbitMQ lifecycle, actual JMS/AMQP auth/ACL, HTTPS console controls, configuration effects, retained restart and owned SDK deletion passed"
+    ],
+    "cleanup": {
+      "broker": "b-6c430e74-d2bd-4283-88a5-d2590fed6660",
+      "configuration": "c-63024f14-be35-4f2b-ac92-295fe8568286",
+      "broker_configuration_container_and_volume_absent": true
+    },
+    "limitations": [
+      "API label correction only; native runtime remains 5.18.7, not an engine upgrade",
+      "Native calibration provisions no AWS broker; broker rejection and journal continuity are local executable evidence",
+      "AWS 5.19 is not advertised without an integrated runtime",
+      "RabbitMQ API version calibration and broader engine rollout semantics remain outside this slice",
+      "Historical captures and their checksums remain historical, not rewritten for the new API contract",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "activemq_sanitization_evidence": {
+    "source": "Native AWS configuration-only captures, retained official XSD, signed Go SDK and actual native broker configuration/JMS workflow",
+    "checksums": {
+      "/tmp/stackd-mq-sanitization": "4f3049713036ba8b377b85f87a13a77751e336a6d50c508121ba35515c188495",
+      "/tmp/stackd-mq-standalone-3504005694/configuration-sanitization-evidence.jsonl": "4f87e8ada5706033429c5131cc52d6da736dd26d56d08b1b329f2ef006b826bb",
+      "testdata/aws/mq/amazon-mq-active-mq-5.18.4.xsd": "f794b52e291e1ea60456946d5d0b056772cc3ed8dab95c85fcae3f6d4004569f",
+      "testdata/aws/mq/configuration_sanitization.json": "d26efc6a00283fddfdf94aa2aec6e489d914f5b456cebd7d6f8da8974afb516c",
+      "testdata/aws/mq/configuration_sanitization_boundaries.json": "a941b67175549d4b4b923ca89c14a57fef31433578f4b59af00b1391874db2df",
+      "cmd/mqschemagen/main.go": "c4071ed6d011dea7ad51e651af13cfb321ab092f19cd1aad0a4c398c70ae5aab",
+      "internal/services/mq/configuration_schema_generated.go": "f7ecc7a05b692fa8d097c4929b5f7d3f079fbc0ea5986266734850f8297e8342",
+      "internal/services/mq/configuration_sanitization.go": "c50ec69ee1e58f223988895f8969858b42fa5556180683e785e006213c31cfd6",
+      "integration/mq_sanitization_test.go": "b586291b54264f48d58a20aa32eed2d677aee6506ae6a358a975f215c7bda4a3",
+      "scripts/mq_standalone_smoke/configuration_sanitization.go": "7251488f57a9063a9bd5af9bdf0185551c1281df0ba28448da0e28f9290a76b1"
+    },
+    "checks": [
+      "Pre-fix executable rejects unknownSetting instead of sanitizing it",
+      "Native captured modeled attribute/subtree/expression warnings and lexical attribute warning order",
+      "Memory/SQLite SDK replay matches warning fields/order and semantic retained XML, including SQLite reopen",
+      "Unsupported permitted settings and invalid primitives are rejected locally without advancing revisions",
+      "Directives, processing instructions, duplicate attributes, foreign roots and required-value removal fail closed",
+      "Real broker applies pending sanitized revision only after reboot",
+      "Effective native XML and authenticated console show kept predeclared queue without removed subtree destinations",
+      "Retained native ACL permits reader connection but denies publication",
+      "Persistent JMS payload survives another native broker reboot and controller restart",
+      "make generate-mq-schema-check",
+      "go test ./internal/services/mq ./compute/mq ./cmd/mqschemagen",
+      "go test ./integration -run '^TestMQ(NativeConfigurationSanitization|NativeConfigurationRevisionBoundaries|ActiveMQPublicVersionAdmission)$' -count=1",
+      "go vet ./cmd/mqschemagen ./internal/services/mq ./integration ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./cmd/mqschemagen ./internal/services/mq ./integration ./scripts/mq_standalone_smoke",
+      "go build -o /tmp/stackd-mq-sanitization ./cmd/stackd",
+      "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-sanitization configuration-sanitization"
+    ],
+    "cleanup": {
+      "native_configurations_deleted": [
+        "c-fd8f382a-1001-4541-be7b-ca50ef1540f6",
+        "c-d511a888-088f-4d82-a56d-a10b8d12ace4"
+      ],
+      "native_configuration_absence_observed": true,
+      "local_broker": "b-7c917729-5c9c-4272-9d74-1431261f14b8",
+      "local_configuration": "c-6fe3fd3a-a158-4175-b0e8-97e6dbdedabc",
+      "local_broker_configuration_container_and_volume_absent": true,
+      "aws_brokers_created": []
+    },
+    "limitations": [
+      "Generated membership is not a general XSD validator or full configuration implementation",
+      "AWS retains invalid advisorySupport primitive value; local native-capability validation still rejects it",
+      "Remaining permitted effects, references, primitive coercion, XML byte serialization and RabbitMQ sanitization remain gaps",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "activemq_scheduling_evidence": {
+    "source": "Native AWS configuration-only admission and real ActiveMQ persistent scheduled JMS delivery",
+    "checksums": {
+      "/tmp/stackd-mq-scheduling": "dab4dc3a20de4151b5fe5539c78e3bc6708c85022e0be5b94ef6eb72b1dfea94",
+      "/tmp/stackd-mq-standalone-2853964205/active-scheduling-evidence.jsonl": "1eddd697eefc7c7a469d8d4b54e5a5a1aaf39f62c0160a81b59803656f99c6c1",
+      "testdata/aws/mq/configuration_scheduling.json": "2fbfee3cf66420138630a7a5303ba6cd8c45163c368da948594ba31f904ce303",
+      "compute/mq/configuration.go": "af80907688e35d5bca82e18288f0e77f65817f1c3f5a900cf08ee91e547e0ba7",
+      "internal/services/mq/configuration_validation.go": "3db3348a098efc3fbfa481bda8eb1250d9cd85b98156dabb44b02b6704a5ad27",
+      "integration/mq_sanitization_test.go": "980a68d2fd731b6bc5cdb68f5805e616437c817bf683a0f99ae94695869b4f17",
+      "scripts/mq_standalone_smoke/active_scheduling.go": "1948e97386649d680e0cc9edffd46f74dc1325f108a76850128de0ef97e36e6a",
+      "scripts/mq_standalone_smoke/ClientMQ.java": "0a0bce2f7a1412613032df1ebf19d47328245e028b69ee1f59bbb3ec6e53e6bf"
+    },
+    "checks": [
+      "Native AWS retains schedulerSupport true/false without sanitization warnings",
+      "Memory/SQLite SDK fixture replay verifies both values and reopened revisions",
+      "Real native reboot applies pending schedulerSupport without duplicate broker XML attributes",
+      "60-second delayed persistent JMS message with 2-second period and two repeats remains unavailable before due time",
+      "Scheduled job survives native broker reboot and actual controller/SQLite restart on the same journal volume",
+      "Live JMS observer receives exactly three matching persistent messages after the lower bound with native scheduledJobId and at least one-second spacing",
+      "Disabled scheduling delivers the same header-bearing message immediately once without scheduledJobId",
+      "go test ./internal/services/mq ./compute/mq",
+      "go test ./integration -run '^TestMQNativeConfigurationSanitization$' -count=1",
+      "go vet ./compute/mq ./internal/services/mq ./integration ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./compute/mq ./internal/services/mq ./integration ./scripts/mq_standalone_smoke",
+      "go build -o /tmp/stackd-mq-scheduling ./cmd/stackd",
+      "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-scheduling active-scheduling"
+    ],
+    "cleanup": {
+      "native_configuration": "c-6e54c6aa-7f8c-4da3-8a45-daf64b523e7c",
+      "native_configuration_absent": true,
+      "local_broker": "b-fc1de9b4-2cf6-4a1e-a461-1bd480cfc57d",
+      "local_configuration": "c-f0ffd6df-de83-4ba2-9170-78b4ca2cfc4d",
+      "local_broker_configuration_container_and_volume_absent": true,
+      "aws_brokers_created": []
+    },
+    "limitations": [
+      "Real engine clock, not deterministic control-plane time",
+      "No native AWS broker scheduling timing calibration or replicated scheduler failover claim",
+      "CRON boundary behavior was not exercised",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "activemq_repeat_limit_evidence": {
+    "source": "Native AWS configuration-only admission and real ActiveMQ scheduler producer rejection",
+    "checksums": {
+      "/tmp/stackd-mq-repeat-limit": "95813b1de0bc5602e85f58733461b2764f889dd1b19edf374ddceb9b1c5a9867",
+      "/tmp/stackd-mq-standalone-3131796031/active-scheduling-evidence.jsonl": "db424009e746d4b2d11e9009464d70d2e81dbb1cbd9943e710e83571e3075820",
+      "testdata/aws/mq/configuration_repeat_limit.json": "555fd935730ddc2736816e1760342bcb3f79765e038ee82528343029e9ad4a57",
+      "internal/services/mq/configuration_validation.go": "83044d8ab9eb266a3f72e2c75060364f94d3584dc9643961d46aca5568e8fca6",
+      "integration/mq_sanitization_test.go": "345653990c1d2f41391340a3c337eaee9cc342230980db91b73343f14d3eac9f",
+      "scripts/mq_standalone_smoke/active_scheduling.go": "c528baac6716db9ef146bc2844411a04dab45530cee112560c80875d88b13661",
+      "scripts/mq_standalone_smoke/ClientMQ.java": "a2ca323ae9d6926250ad36ba3e869fc517621dac198c2d76aebbba7173f8fcd2"
+    },
+    "checks": [
+      "AWS admits limits 2 and 0 without warnings and retains both revisions",
+      "Memory/SQLite Go SDK fixture replay verifies configured values across reopen",
+      "Real JMS producer receives MessageFormatException for repeat 3 under ceiling 2 before and after broker/controller restart; no rejected message is delivered",
+      "Persistent message at repeat ceiling 2 yields exactly three scheduled deliveries after restart with native job identity, timing and exact payload checks",
+      "Updated ceiling 0 rejects repeat 1 but permits exactly one scheduled delivery with repeat 0",
+      "Disabling scheduling with ceiling 0 delivers a repeat-header-bearing message once immediately without scheduled job identity",
+      "go test ./internal/services/mq ./compute/mq",
+      "go test ./integration -run '^TestMQNativeConfigurationSanitization$' -count=1",
+      "go vet ./internal/services/mq ./compute/mq ./integration ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./internal/services/mq ./compute/mq ./integration ./scripts/mq_standalone_smoke",
+      "go build -o /tmp/stackd-mq-repeat-limit ./cmd/stackd",
+      "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-repeat-limit active-scheduling"
+    ],
+    "cleanup": {
+      "native_configuration": "c-aa88a6a5-8dd9-43c6-8075-906980e80ced",
+      "native_configuration_absent": true,
+      "local_broker": "b-7f748ce4-31cb-4ad3-a43b-5278aeccdf54",
+      "local_configuration": "c-dc529583-6f9d-4278-a537-9bd21ff1aac9",
+      "local_broker_configuration_container_and_volume_absent": true,
+      "aws_brokers_created": []
+    },
+    "limitations": [
+      "Real engine clock; not deterministic control-plane time",
+      "No AWS broker producer-error or scheduling-timing calibration",
+      "No CRON boundary or replicated scheduler failover proof",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "pagination_default_evidence": {
+    "source": "Read-only native MQ page-size calibration and actual local executable pagination",
+    "checksums": {
+      "/tmp/stackd-mq-pagination": "652f0633127f75f66c26d3605029c6c965aa65f8ebb1a7b95a4e2019a6e0d933",
+      "/tmp/stackd-mq-pagination-evidence.json": "ea8d6f86429cebfc1926446becc2ba92062379eb9426df72a54a513917fa8fb4",
+      "testdata/aws/mq/pagination_defaults.json": "3864dc54164ab9da8caf1d5e58f04ff994af7792e44b8dd3a2b393af85273365",
+      "internal/services/mq/configurations.go": "8461bcb1ed41024a30168ff69a81e4e28e5a458d36792f60695beb455301637a",
+      "integration/mq_revisions_test.go": "d1a05b4898af0af3aa1ba7f472f75de51b9b8f9bd426cd5387970b0f99f42d51"
+    },
+    "checks": [
+      "Native catalog/configuration/user-list responses report MaxResults=20 when omitted",
+      "Prior executable reported catalog MaxResults=100; memory/SQLite 21-configuration SDK regression failed before correction",
+      "Corrected SDK pagination preserves exact 20/1 configuration pages and SQLite-reopened continuation",
+      "Actual executable honors omitted 20-item limit, explicit 100-item override and catalog default",
+      "go test ./internal/services/mq",
+      "go test ./integration -run '^TestMQ(NativeConfigurationRevisionBoundaries|ConfigurationPaginationOmittedLimit)$' -count=1",
+      "go vet ./internal/services/mq ./integration ./scripts/mq_standalone_smoke",
+      "go tool staticcheck ./internal/services/mq ./integration ./scripts/mq_standalone_smoke",
+      "go build -o /tmp/stackd-mq-pagination ./cmd/stackd"
+    ],
+    "cleanup": {
+      "local_configurations_deleted": 21,
+      "remaining_local_configuration_inventory_empty": true,
+      "local_controllers_exited_cleanly": true
+    },
+    "limitations": [
+      "Read-only user-list observation used the separately owned create-identity native broker",
+      "No native 21-broker provisioning or claim about AWS opaque cursor encoding",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "create_identity_evidence": {
+    "source": "Native AWS twelve-case CreateBroker replay capture, signed Go SDK memory/SQLite replay and actual ActiveMQ JMS lifecycle",
+    "checksums": {
+      "/tmp/stackd-mq-create-identity": "32cc4f85459d2335a9852aeece5269fcc0557c99de561505c3ce520461ad6a8a",
+      "/tmp/stackd-mq-standalone-4192926075/create-identity-evidence.jsonl": "eac7a3d8d16aef6ae0941f21e5805c0d0e3d3bf067530a95be310bab846b8b48",
+      "testdata/aws/mq/create_identity.json": "430904de581348f51e8c1861972a8ab40cea14cebe269cc59d9ad7ef5713eea8",
+      "internal/services/mq/brokers.go": "dff78d862fd9a91d091390ec66d9e059af5c4e123e5852b055c34f49b4044220",
+      "internal/services/mq/service.go": "29675404803c25f224e8eeb5cdacbb1ca3cae0cac7a8330712bdfbdf0d665b0d",
+      "integration/mq_create_identity_test.go": "5c81905180e268529f40394f484186569f294c70c876931d70a0a170ed7f0ea6",
+      "scripts/mq_standalone_smoke/create_identity.go": "231e2e7dd3188f11f036ac6911f9eb48499f0bb52c38293a1b4620b76dc2efe5",
+      "scripts/aws/mq_create_identity.py": "68bd259da87e9d1c026791c3ebe43cabeaba1be4aa663bd2018f6fda6681e43b",
+      "scripts/aws/mq_maintenance_probe.py": "cbe2708e4a77f379e8d6bca6fcf0e54c5bcac7baab6f8cf66748c5ac7f296166"
+    },
+    "checks": [
+      "Twelve native replay outcomes matched, including modeled status and brokerName conflict attribute",
+      "Same-token changed password, console, tags and maintenance requests returned original identity without mutating state",
+      "Explicit mutations and pending password survived original/current-value replay and SQLite controller restart",
+      "Replay and restart preserved native container, volume, endpoints and broker/configuration inventory",
+      "Exact persistent JMS bytes consumed once after replay, mutation and restart",
+      "Original password remained active until actual reboot; reboot applied only the explicit pending password",
+      "CreateTags emitted native/model HTTP 204 rather than generic HTTP 200",
+      "Affected package tests, MQ integration tests, vet, staticcheck, executable build and actual broker smoke passed"
+    ],
+    "cleanup": {
+      "broker": "b-9d10ee17-c013-439c-8ce8-25635ffc7979",
+      "configuration": "c-653cc427-418b-48a2-8719-53d16806204c",
+      "broker_configuration_container_and_volume_absent": true,
+      "native_aws_capture_cleanup_verified": true
+    },
+    "limitations": [
+      "Local public ActiveMQ 5.18 subset adapts captured AWS 5.19 private network setup",
+      "Cross-name token reuse, remaining creation fields, engine/instance rollout and post-deletion token reuse remain uncalibrated",
+      "Native capture incurred a broker charge; its exact-owned cleanup includes detached replay-created interfaces",
+      "Earlier failed smoke with CreateTags HTTP 200 is not passing evidence",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "broker_engine_label_evidence": {
+    "source": "Retained AWS broker descriptions and actual signed SDK broker/catalog discovery",
+    "checksums": {
+      "/tmp/stackd-mq-engine-labels": "d7546eac5487840496fcae31fc45fd9291e33904c206c385ac62f082e19a6f90",
+      "/tmp/stackd-mq-standalone-636006913/create-identity-evidence.jsonl": "1652e471b896e2cc66920579d7c532e67e23a228341480cb729b040ec8773a3e",
+      "internal/services/mq/brokers.go": "d6f0de28b02d773da0bfc574425afdd70843726bbe4d1c71b9335eb26cc28761",
+      "integration/mq_create_identity_test.go": "040a719e313419a59c2cace628ec0781b591ca1fada81ef822248fbba0bb72e7",
+      "scripts/mq_standalone_smoke/create_identity.go": "f8da32b466047eb0025d88f2354b4f457f5b32078b56c18a3ad4449fb16c422c"
+    },
+    "checks": [
+      "Memory SDK regression failed before correction: local ACTIVEMQ versus retained native ActiveMQ",
+      "DescribeBroker and ListBrokers return ActiveMQ while DescribeBrokerEngineTypes retains ACTIVEMQ",
+      "MQ integration tests passed on memory and SQLite",
+      "Real replay, pending credentials, persistent JMS, native reboot and controller restart workflow passed",
+      "Affected package tests, vet, staticcheck and executable build passed"
+    ],
+    "cleanup": {
+      "broker": "b-aae35c95-2578-436f-bb4b-3f11596cbf8e",
+      "configuration": "c-952ff08a-920f-4c07-9968-5a1f3da0a9e9",
+      "broker_configuration_container_and_volume_absent": true
+    },
+    "limitations": [
+      "ActiveMQ response projection only; no new RabbitMQ engine-label calibration",
+      "Prior create_identity_evidence checksums remain historical, not rewritten for this change",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "durable_consumer_policy_evidence": {
+    "source": "Native AWS configuration-only admission and actual ActiveMQ durable/non-durable JMS delivery",
+    "checksums": {
+      "/tmp/stackd-mq-durable-policy": "640cc5fa2be94331514931b8f69a2d5478df29e2ff00105b559932de12f4a1e1",
+      "/tmp/stackd-mq-standalone-1622776752/durable-policy-evidence.jsonl": "874d72d544b009616c659be44a630d3de2f9900966615cde9754570fb7f6fcab",
+      "testdata/aws/mq/configuration_durable_consumers.json": "4728bd1a6c3148a53eafcd4d668f485ffa404c76cecb3a2dc792812d108b22b7",
+      "internal/services/mq/configuration_validation.go": "42d2618c3793ccb2b2a508ff6171e25fee8c3505a25db2312d2cb319422b3d1c",
+      "integration/mq_sanitization_test.go": "fda143cd48dccd577c04a8de637ab31f7ce3f11820d4783261b2bb488893b4b9",
+      "scripts/mq_standalone_smoke/durable_policy.go": "d1de875eae4e005933c825ff08ceee80f0a047bb7293dd433852cd40cc30af90",
+      "scripts/mq_standalone_smoke/ClientMQ.java": "b2cec4983ea6802c2a108abc606998de1be63e935cda10c6745fe178a1654f00"
+    },
+    "checks": [
+      "AWS accepted and retained true and false without warnings; exact-owned configuration deletion verified",
+      "Memory/SQLite SDK regressions failed before admission change and passed afterward",
+      "Pending policy preserves previous native durable admission until broker reboot",
+      "New and retained durable consumers rejected while non-durable topic messages still delivered",
+      "Controller restart retains actual rejection and native container/volume identity",
+      "Re-enabling durable consumers recovers exact persistent offline topic payload once and accepts a new durable delivery",
+      "Affected package tests, configuration integration regressions, vet, staticcheck, executable build and real broker smoke passed"
+    ],
+    "cleanup": {
+      "broker": "b-b7a02269-213f-4ee7-a36c-35d612a24bbf",
+      "configuration": "c-9e9d23fd-735a-45ec-9a17-aea96e1b77db",
+      "broker_configuration_container_and_volume_absent": true,
+      "native_configuration_absent": true
+    },
+    "limitations": [
+      "Native AWS capture created no broker and calibrates configuration admission only",
+      "Local public single-instance ActiveMQ 5.18 behavior; no replicated-journal claim",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "exclusive_consumer_policy_evidence": {
+    "source": "Native AWS configuration-only admission plus signed SDK and actual local JMS consumption",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-exclusive-policy exclusive-policy",
+    "checksums": {
+      "/tmp/stackd-mq-exclusive-policy": "73399db4700d0d463655e517cfa1e38915833f85771d2c02be4068e7849fc7a4",
+      "/tmp/stackd-mq-standalone-2820708799/exclusive-policy-evidence.jsonl": "a26e105c4cec39bc29084f06f4c48b10cf825b45303eeaa90e80f2d5781d0a67",
+      "testdata/aws/mq/configuration_exclusive_consumers.json": "9da3094343965b8a3401172e74d16df1b9346996afbae535ddc85c035bbc6590",
+      "internal/services/mq/configuration_validation.go": "fd91e1e89e2e2768a366eba93fb8715848dce748d0531cc75c01decaa1b145c3",
+      "integration/mq_sanitization_test.go": "fc6db5d457f6d2786a449e8bca44a0e9183eb254cb8ed87dacbcae6687fd88a0",
+      "scripts/mq_standalone_smoke/exclusive_policy.go": "78a671d6e9536d620a63ef61dc93db50072ca4f3c01a09e2b889db823bd896ce",
+      "scripts/mq_standalone_smoke/ClientMQ.java": "66dc2f05e70d59d54396aeb2f3c5910340c460f3375a5cdb01a5ad2089b05a5f"
+    },
+    "checks": [
+      "AWS accepted and retained true and false; exact-owned configuration deletion verified",
+      "Memory/SQLite admission regressions failed before the implementation and passed afterward",
+      "Default sharing distributes two exact payloads to two JMS consumers",
+      "Exclusive policy delivers ordered payloads to one consumer, with exact standby handoff after orderly closure",
+      "Unmatched queues retain shared delivery; pending updates do not change effective policy",
+      "Native reboot applies both enabling and disabling; controller restart retains policy and container/volume identity",
+      "Affected package tests, configuration SDK regressions, vet, staticcheck, build and real broker smoke passed"
+    ],
+    "cleanup": {
+      "broker": "b-f320cbd8-adea-4b02-a7ff-8f724eb5e8da",
+      "configuration": "c-6534f050-4109-4614-bba4-51e3c8ac2126",
+      "broker_configuration_container_and_volume_absent": true,
+      "native_configuration_absent": true
+    },
+    "limitations": [
+      "Native AWS calibration covers configuration admission only",
+      "Orderly consumer closure, not process-crash or replicated-broker failover",
+      "Local public single-instance ActiveMQ 5.18; no whole-service equivalence",
+      "Earlier evidence checksums remain historical",
+      "No repository-wide integration or race checkpoint"
+    ]
+  },
+  "producer_backpressure_evidence": {
+    "source": "Native AWS configuration admission and actual local JMS resource exhaustion and recovery",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-producer-pressure producer-pressure",
+    "checksums": {
+      "/tmp/stackd-mq-producer-pressure": "71be921f82abdff242a8b6c97b8d756379bdf34d4d0eab10fd318ea8e99ab321",
+      "/tmp/stackd-mq-standalone-371536786/producer-pressure-evidence.jsonl": "1b3ae8acd6b139edb35ae9db9f11664eb4bab95ef114af509c38674189edb6b4",
+      "testdata/aws/mq/configuration_producer_backpressure.json": "87fbb3e20aae882564645291a356f01fbfb4f0e58aed7edbb644ab8756634dae",
+      "testdata/aws/mq/configuration_memory_cursor.json": "c9bbe0c5586e994ad664793274559a197491ba79402703d39bbefc7b4485bb75",
+      "internal/services/mq/configuration_validation.go": "5b0b20839cce9936c0aa0329a2c6a04a59c9f5172efa340dd7d36010c7bd70f2",
+      "integration/mq_sanitization_test.go": "2c9aff3817f18639431aa85f97423925e1cf0b65587f5efe40a0fd37f31b3283",
+      "scripts/mq_standalone_smoke/producer_pressure.go": "b876ae0b0a8aae6caa1f3c27aa7818c5d991268e9598acc8f690888d150f1ba0",
+      "scripts/mq_standalone_smoke/ClientMQ.java": "8aace65a519315a95ea4ff783ea0ed74f287c999a9fa3024aa3d1e5c0f1332f8"
+    },
+    "checks": [
+      "AWS retained true/false and zero, positive, negative and signed-64-bit maximum timeout values; owned configuration deletion verified",
+      "Memory/SQLite SDK admission regressions failed before implementation and passed afterward",
+      "Real unacknowledged persistent deliveries cause native ResourceAllocationException with immediate or one-second delayed policy",
+      "Accepted bytes match in persistent and non-persistent modes; rejected sends leave no message; acknowledgement permits new delivery without duplication",
+      "Unmatched queues remain usable, pending policy preserves current behavior, reboot applies new policy, controller restart preserves native identity and timed rejection",
+      "Affected package tests, configuration SDK regressions, vet, staticcheck, executable build and actual broker smoke passed"
+    ],
+    "cleanup": {
+      "broker": "b-bbe4a591-7093-44a8-b10e-4e44347c05ef",
+      "configuration": "c-b2fed8bb-b89f-49d3-ba79-f10f4ad675ea",
+      "broker_configuration_container_and_volume_absent": true,
+      "native_configurations_absent": true
+    },
+    "failed_harness_attempts": [
+      "/tmp/stackd-mq-standalone-2838241451: default cursor offloaded queued messages instead of exhausting memory",
+      "/tmp/stackd-mq-standalone-3795701869: VM cursor experiment blocked a persistent send until client timeout",
+      "/tmp/stackd-mq-standalone-367748726: synchronous non-persistent VM cursor experiment also blocked",
+      "/tmp/stackd-mq-standalone-4251745054: logs and effective XML confirmed saturation with per-destination settings present; upstream VM cursor replaces destination SystemUsage",
+      "/tmp/stackd-mq-standalone-2782009022: persistent rejection passed, but the harness incorrectly required non-persistent file-cursor exhaustion too",
+      "Owned broker, container, volume and configuration cleanup passed in every attempt; none of these failed attempts is passing evidence"
+    ],
+    "limitations": [
+      "Native AWS capture covers configuration admission only; no AWS-managed broker deadline or resource-exhaustion calibration",
+      "Default cursor may offload non-persistent messages; exact delivery/recovery is verified, exhaustion is required only for persistent sends",
+      "VM queue cursor remains unsupported despite captured AWS admission; no global-policy workaround",
+      "Disk-store exhaustion, broker-global limits, process-crash and replicated backpressure are not verified",
+      "Earlier checksum blocks remain historical; no repository-wide integration or race checkpoint"
+    ]
+  },
+  "composite_destination_evidence": {
+    "source": "Native AWS configuration admission and real local ActiveMQ queue/topic fanout and persistence",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-composite-destinations composite-destinations",
+    "checksums": {
+      "/tmp/stackd-mq-composite-destinations": "1cb366ff1ab7aba4fd11027a82828954f732618bcfd88fb600c53e54ba39d2a8",
+      "/tmp/stackd-mq-standalone-1654680869/composite-destinations-evidence.jsonl": "ae1d204be517c5c2e492bcf139caa963d28174f92bcaee86bc44bf3d5d8b58bb",
+      "testdata/aws/mq/configuration_composite_destinations.json": "403e18111c6075761fa8b85e4768db8b87e98f8dc6ac7ddc09945235dbc5e0dc",
+      "internal/services/mq/configuration_validation.go": "b366f067cb00bbd9b0ba18cde4baf08f9e6f41f65edd45ef935cf21e5bda0439",
+      "internal/services/mq/configuration_validation_test.go": "8af72f04fca17232fdc6597b67719ab06c645b75eac988e84d12bf34815bfe3c",
+      "internal/services/mq/configuration_sanitization_test.go": "95a39ff9165a8717ef5a77317beb7f992dc775acc46c3f5af7c577bc1e6f80c9",
+      "integration/mq_sanitization_test.go": "bb63517d0eded68afb25f8094eb1ff2aa73e85a0df27323ae534718928ab91d1",
+      "scripts/mq_standalone_smoke/composite_destinations.go": "cc2046c506f4f7b4a97137dc04075517c76d0da090321e2d23b4718f8012322c",
+      "scripts/mq_standalone_smoke/ClientMQ.java": "4acdb5537e50a6a635d536f8063f53bbdab79e92a8050a0b2ab1fa840f45b8b3",
+      "scripts/mq_standalone_smoke/main.go": "79b1b2c7cb3a8a8383eed68423c1371e8d9c19233f74a2de477a9424e65b8007"
+    },
+    "checks": [
+      "Four native configuration cases retain queue/topic composites and both forwardOnly values without warnings; native configuration deletion verified",
+      "Memory/SQLite SDK admission and revision retention failed before implementation and passed afterward",
+      "Both source types deliver exact persistent payloads and custom properties to two physical queues and a live topic subscriber without duplicate delivery",
+      "Source consumers receive copies only for forwardOnly=false; unmatched queues remain unaffected",
+      "Pending configuration preserves routing; native reboot changes new-send behavior while preserving previously forwarded queue copies and any retained source queue message",
+      "Controller restart preserves native identity, queued copies and configured routing",
+      "Object references, arbitrary classes, expressions, missing names/targets and transport URLs are rejected at the native object boundary",
+      "Affected package tests, SDK regressions, vet, staticcheck, executable build and actual broker smoke passed"
+    ],
+    "cleanup": {
+      "broker": "b-14e80d2a-c2dd-4be7-a651-645232cbe112",
+      "configuration": "c-0a876b4b-44fd-4c20-be6d-0366c6d28329",
+      "broker_configuration_container_and_volume_absent": true,
+      "native_configuration_absent": true
+    },
+    "limitations": [
+      "Native AWS capture establishes configuration admission, not AWS-managed runtime routing or topology equivalence",
+      "Runtime smoke uses copyMessage=true and concurrentSend=false; concurrent dispatch, partial-target failure and replicated routing are not exercised",
+      "Filtered destinations, custom virtual-topic policies and wildcard composite names remain unsupported",
+      "Earlier checksum blocks remain historical; no repository-wide integration or race checkpoint"
+    ]
+  },
+  "filtered_destination_evidence": {
+    "source": "Native AWS configuration admission and actual local ActiveMQ selector routing and unmatched fallback",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-filtered-destinations composite-destinations",
+    "checksums": {
+      "/tmp/stackd-mq-filtered-destinations": "072a01ecaccdbe11ec118147af66f37fb112dfbf7f9d9636855a0ced8d2c4653",
+      "/tmp/stackd-mq-standalone-683986735/composite-destinations-evidence.jsonl": "ed5e511bcb2bbfd1cb7a510388e4282f216e6ff7491a6e21cea7ce1c11a2abdb",
+      "testdata/aws/mq/configuration_filtered_destinations.json": "b8ebc3249babd68b3dc6c8c54874102b38cee6ae6528559da6c52573726153a5",
+      "internal/services/mq/configuration_validation.go": "373671275cd9c6a4849ea58af1e49a108f3cbe309583064efa43b0000ac1115a",
+      "internal/services/mq/configuration_validation_test.go": "7e41c0b7c0969f78a63ba09116b23ffa52d8c5e0d201eb8d38dfe172ef7d494d",
+      "integration/mq_sanitization_test.go": "e1c307b1579551b0189f20f6e5861935b1d095c4d917fd07ef0df170c8a93262",
+      "scripts/mq_standalone_smoke/composite_destinations.go": "28a8386aa0e4c033fa541cc4603061eca375a4101981aae85b6623195530dfdc",
+      "scripts/mq_standalone_smoke/ClientMQ.java": "31806f94a99b60e24f240a9340d7c569a0cbe241682bed64994b1844ea2bad56"
+    },
+    "checks": [
+      "Eight native admission cases retain both source types and all forwardOnly/sendWhenNotMatched boolean combinations without warnings",
+      "Signed SDK memory/SQLite regressions fail before support and pass after, including retained revision reads",
+      "Native string equality and numeric conjunction route matching persistent messages only to the selected queue/topic",
+      "Nonmatching numeric values and absent selector properties do not reach filtered targets",
+      "With forwardOnly=false, sendWhenNotMatched=true suppresses matched source copies but preserves unmatched ones; false restores all source copies",
+      "Previously filtered queue copies and source backlog survive native reboot and controller restart with exact payloads/properties and no duplicate or re-routed delivery",
+      "Pending configuration preserves current behavior; reboot applies fallback policy in both directions; native identity remains unchanged across controller restart",
+      "Unfiltered composite fanout, source delivery/suppression and unaffected queues still pass",
+      "Affected package tests, SDK regressions, vet, staticcheck, executable build and actual broker smoke passed"
+    ],
+    "cleanup": {
+      "broker": "b-988ecbdf-9c90-4b5a-b8aa-ca507b2ae1c0",
+      "configuration": "c-d0af8fc5-b9f4-4fe4-8a47-2fe11779be62",
+      "broker_configuration_container_and_volume_absent": true,
+      "native_configuration_absent": true
+    },
+    "limitations": [
+      "Native AWS capture establishes admission only, not AWS-managed data-plane equivalence",
+      "Filtered runtime cases hold forwardOnly=false to exercise fallback precedence; unfiltered entries exercise both forwardOnly values",
+      "Selector evaluation and syntax errors remain native-engine owned; this is not an exhaustive selector grammar test",
+      "Custom virtual-topic policies, wildcard composite names, concurrent/replicated fanout and target-failure behavior remain open",
+      "Earlier evidence and checksums remain historical; no repository-wide integration or race checkpoint"
+    ]
+  },
+  "virtual_topic_evidence": {
+    "source": "Native AWS configuration admission and actual local ActiveMQ consumer-group routing",
+    "command": "go run ./scripts/mq_standalone_smoke /tmp/stackd-mq-virtual-topics composite-destinations",
+    "checksums": {
+      "/tmp/stackd-mq-virtual-topics": "8a014d90c6fbd19936919ec366463535631e21763f0155b9aee35a3b852f3468",
+      "/tmp/stackd-mq-standalone-515428431/composite-destinations-evidence.jsonl": "f039b23d1b02b7f31d0a1d1d21a8d4fb03ac42c9661fc6dd9eefb02600420cab",
+      "testdata/aws/mq/configuration_virtual_topics.json": "f0f472578acba44fdd497bc19a14ccf154b33401d3e14739d60d2517ef322cc5",
+      "internal/services/mq/configuration_validation.go": "c0f32a5bc7d0baf291d55a6a67da5df60b9a8163a4d13c0f6d0a98a543409eeb",
+      "internal/services/mq/configuration_validation_test.go": "0a7a3c03c8abde2d9a4844d8eb014ece1fd15012361c33c72aa2c7cc52b63c8d",
+      "integration/mq_sanitization_test.go": "6c645018e3731d44ea5e027725a11be9a6b2edb9f2963c6ec4e942424de54e83",
+      "scripts/mq_standalone_smoke/composite_destinations.go": "bbcfa058f8030c03444a323698896b2c3bf65025445537b56e11fb739abf223f",
+      "scripts/mq_standalone_smoke/ClientMQ.java": "12c111eb968b5bb758e0d39da871b6de3b564185df9b897d7717264d0b3f292d"
+    },
+    "checks": [
+      "Native AWS retains wildcard topic names, consumer-queue prefix/postfix and both selectorAware values without sanitization warnings",
+      "Signed SDK memory/SQLite admission regressions fail before support and pass afterward, including durable revision reads",
+      "Two consumers share red-group matching messages while a separate blue group independently receives its match; direct topic subscribers receive all publications",
+      "Wrong-prefix and wrong-suffix queues receive no messages",
+      "Selector awareness excludes nonmatches and missing-property messages from group backlogs; disabled awareness preserves exact unmatched payloads",
+      "Offline established queues receive persistent publications only when selector awareness is disabled",
+      "Queued copies survive native broker reboot and controller restart without replay; pending configuration preserves current routing and reboot changes new-send policy in both directions",
+      "Composite and filtered destination cases continue passing on the same actual broker",
+      "Affected package tests, SDK regressions, vet, staticcheck, executable build and actual broker smoke passed"
+    ],
+    "cleanup": {
+      "broker": "b-18d5fefd-8e8d-46b6-9d31-c176f4470142",
+      "configuration": "c-203663ce-6819-455f-aaf6-f638820461bd",
+      "broker_configuration_container_and_volume_absent": true,
+      "native_configuration_absent": true
+    },
+    "limitations": [
+      "AWS capture proves configuration admission only; runtime evidence uses the pinned local engine",
+      "Runtime uses transactedSend=true and concurrentSend=false; no transaction-failure, concurrent-fanout or replicated-topology claim",
+      "Network-local routing, resource-limit dropping, selector-cache persistence and wildcard composite destinations remain open",
+      "Earlier evidence blocks and checksums remain historical; no repository-wide integration or race checkpoint"
+    ]
+  },
+  "limitations": [
+    "Public SINGLE_INSTANCE subset only; no full Amazon MQ service or native AWS conformance claim",
+    "These local executable scenarios created no AWS broker; the separate native maintenance capture is testdata/aws/mq/maintenance.json and did incur a broker charge",
+    "Successful engine effects do not calibrate AWS-managed topology, timing, error precedence or unexercised operation semantics",
+    "Operation counts identify requests, not behavioral completeness",
+    "An initial controller-launch failure and the pre-fix ActiveMQ readiness failure are not included as passing evidence"
+  ]
+}

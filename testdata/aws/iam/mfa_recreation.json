@@ -1,0 +1,329 @@
+{
+  "schema_version": 1,
+  "source": "Real AWS IAM and STS APIs, commercial partition",
+  "probe": "scripts/aws/iam_mfa_propagation_probe.py",
+  "aws_cli_version": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+  "started_at": "2026-09-11T20:44:20.631928+00:00",
+  "finished_at": "2026-09-11T20:45:46.649660+00:00",
+  "documentation": [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateVirtualMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_EnableMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeactivateMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ResyncMFADevice.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListVirtualMFADevices.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetMFADevice.html"
+  ],
+  "model_source": "clones/aws-sdk-go-v2/codegen/sdk-codegen/aws-models/{iam,sts}.json",
+  "eligibility": {},
+  "setup": [
+    {
+      "service": "iam",
+      "operation": "CreateUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "Path": "/org-access/"
+      },
+      "output": {
+        "User": {
+          "Path": "/org-access/",
+          "UserName": "stackd-mfa-fixture-recreate",
+          "UserId": "<user-id:recreate>",
+          "Arn": "arn:aws:iam::123456789012:user/org-access/stackd-mfa-fixture-recreate",
+          "CreateDate": "2026-09-11T20:44:22+00:00"
+        }
+      }
+    },
+    {
+      "service": "iam",
+      "operation": "CreateAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate"
+      },
+      "output": {
+        "AccessKey": {
+          "UserName": "stackd-mfa-fixture-recreate",
+          "AccessKeyId": "<access-key:recreate>",
+          "Status": "Active",
+          "CreateDate": "2026-09-11T20:44:23+00:00"
+        }
+      }
+    }
+  ],
+  "observations": [
+    {
+      "case": "create_original",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-recreate"
+      },
+      "observed_at": "2026-09-11T20:44:34.485783+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "enable_original",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "observed_at": "2026-09-11T20:44:35.335973+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "before_recreate",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:44:51.060491+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638650,
+      "code_step_offset": 1
+    },
+    {
+      "case": "deactivate_original",
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "observed_at": "2026-09-11T20:44:51.906032+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "delete_original",
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "observed_at": "2026-09-11T20:44:52.695720+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200
+    },
+    {
+      "case": "create_replacement",
+      "service": "iam",
+      "operation": "CreateVirtualMFADevice",
+      "input": {
+        "VirtualMFADeviceName": "stackd-mfa-fixture-recreate"
+      },
+      "observed_at": "2026-09-11T20:44:53.461092+00:00",
+      "code": "Success",
+      "output": {
+        "VirtualMFADevice": {
+          "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+        },
+        "device_fields": [
+          "Base32StringSeed",
+          "QRCodePNG",
+          "SerialNumber"
+        ]
+      },
+      "http_status": 200,
+      "transport": "signed_query"
+    },
+    {
+      "case": "enable_replacement",
+      "service": "iam",
+      "operation": "EnableMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "observed_at": "2026-09-11T20:44:54.208205+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "second_step_offset": 0,
+      "duplicate_codes": false,
+      "reversed_codes": false
+    },
+    {
+      "case": "old_immediate",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:44:54.883912+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638651,
+      "code_step_offset": 2
+    },
+    {
+      "case": "new_immediate",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:44:55.569596+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638650,
+      "code_step_offset": 1
+    },
+    {
+      "case": "old_later",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:45:08.308733+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638652,
+      "code_step_offset": 2
+    },
+    {
+      "case": "new_later",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:45:09.090004+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638651,
+      "code_step_offset": 1
+    },
+    {
+      "case": "new_unspent_later",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:45:10.226841+00:00",
+      "code": "AccessDenied",
+      "message": "MultiFactorAuthentication failed with invalid MFA one time pass code. ",
+      "http_status": 403,
+      "code_step": 59638649,
+      "code_step_offset": -1
+    },
+    {
+      "case": "new_recovered",
+      "service": "sts",
+      "operation": "GetSessionToken",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate",
+        "DurationSeconds": 900
+      },
+      "observed_at": "2026-09-11T20:45:41.008639+00:00",
+      "code": "Success",
+      "output": {},
+      "http_status": 200,
+      "code_step": 59638652,
+      "code_step_offset": 1
+    }
+  ],
+  "cleanup": [
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeactivateMFADevice",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteVirtualMFADevice",
+      "input": {
+        "SerialNumber": "arn:aws:iam::123456789012:mfa/stackd-mfa-fixture-recreate"
+      },
+      "code": "NoSuchEntity"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteAccessKey",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate",
+        "AccessKeyId": "<access-key:recreate>"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "DeleteUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate"
+      },
+      "code": "Success"
+    },
+    {
+      "service": "iam",
+      "operation": "GetUser",
+      "input": {
+        "UserName": "stackd-mfa-fixture-recreate"
+      },
+      "code": "NoSuchEntity"
+    }
+  ],
+  "capture_complete": true,
+  "cleanup_verified": true,
+  "sanitization": "Owned names/IDs/account normalized; original caller identity redacted; no bearer tokens, credential secrets or debug logs retained.",
+  "limitations": [
+    "Only uniquely owned users, keys and virtual devices are changed. Root MFA and existing devices are unchanged.",
+    "Seeds, QR payloads, authentication codes and issued credentials remain in memory. List results retain only owned devices.",
+    "Hardware and FIDO registration are not covered. Time windows are observations, not undocumented latency guarantees."
+  ]
+}

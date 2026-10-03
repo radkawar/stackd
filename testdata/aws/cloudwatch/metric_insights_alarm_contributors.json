@@ -1,0 +1,3506 @@
+{
+  "caller_account": "000000000000",
+  "actor_arn": "arn:aws:iam::000000000000:user/Delegated",
+  "region": "us-west-2",
+  "started_at": "2026-09-23T19:18:15.823411+00:00",
+  "cli_version": "aws-cli/2.36.28 Python/3.14.6 Linux/6.17.0-35-generic exe/x86_64.ubuntu.24",
+  "sources": [
+    {
+      "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-metrics-insights-alarms.html"
+    },
+    {
+      "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/multi-time-series-alarm.html"
+    },
+    {
+      "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html"
+    },
+    {
+      "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_DescribeAlarmContributors.html"
+    },
+    {
+      "url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_DescribeAlarmHistory.html"
+    },
+    {
+      "path": "/tmp/stackd_metric_insights_alarm_contributors.py",
+      "content": "import ast\nfrom datetime import datetime, timezone\nimport json\nimport os\nfrom pathlib import Path\nimport re\nimport subprocess\nimport sys\nimport time\nimport uuid\n\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom aws_cli import run, result\n\nROOT = Path('/home/r/dev/minor/stackd')\nOUT = ROOT / 'testdata/aws/cloudwatch/metric_insights_alarm_contributors.json'\nSOURCE = Path(__file__).read_text()\nPREFIX = 'sd-mi-contrib-' + uuid.uuid4().hex[:12]\nNAMESPACE = 'Stackd/InsightsContributors/' + PREFIX\nALARMS = [PREFIX + '-ranked', PREFIX + '-empty']\nENV = dict(os.environ, AWS_DEFAULT_REGION='us-west-2', AWS_REGION='us-west-2', AWS_MAX_ATTEMPTS='1', AWS_PAGER='', AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true')\nfor key in list(ENV):\n    if key.startswith('AWS_ENDPOINT_URL'):\n        del ENV[key]\nBASE = 'SELECT MAX(Load) FROM \"' + NAMESPACE + '\"'\nRANKED = BASE + ' GROUP BY Team ORDER BY MAX() DESC LIMIT 1'\nEMPTY = BASE + \" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1\"\nURLS = [\n    'https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-metrics-insights-alarms.html',\n    'https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/multi-time-series-alarm.html',\n    'https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html',\n    'https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_DescribeAlarmContributors.html',\n    'https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_DescribeAlarmHistory.html',\n]\nCAPTURE = {\n    'caller_account': '000000000000', 'actor_arn': 'arn:aws:iam::000000000000:user/Delegated', 'region': 'us-west-2',\n    'started_at': datetime.now(timezone.utc).isoformat(),\n    'cli_version': subprocess.run(['aws', '--version'], capture_output=True, text=True, check=False).stdout.strip(),\n    'sources': [{'url': url} for url in URLS] + [{'path': __file__, 'content': SOURCE}],\n    'owned_resources': {'alarms': ALARMS, 'namespace': NAMESPACE, 'metric_name': 'Load', 'published_group_identities': ['a', 'b', 'c']},\n    'protocol': {'period_seconds': 60, 'evaluation_periods': 1, 'datapoints_to_alarm': 1, 'threshold': 10, 'comparison': 'GreaterThanThreshold', 'actions_enabled': False, 'phase_poll_timeout_seconds': 240, 'poll_interval_seconds': 25, 'maximum_metric_samples': 90, 'account_telemetry_settings_modified': False, 'data_publication': 'Current timestamp, one sample per active group per wall-clock minute. No future points or manual SetAlarmState.'},\n    'observations': [], 'phases': [], 'cleanup': [], 'published_metric_samples': 0,\n    'untested_boundaries': ['No actions or EventBridge delivery tested.', 'Only one-minute 1-of-1 GreaterThanThreshold alarms and notBreaching/breaching missing-data modes.', 'Only three custom-metric dimension groups, not resource tags, cross-account metrics, 500-contributor limits, or pagination.', 'Rank displacement is tested by introducing a higher-valued group; final empty selection is an explicit query update, not natural metric expiry.'],\n}\nCONTRIBUTOR_IDS = set()\nLAST_PUBLICATION_MINUTE = None\n\ndef save():\n    OUT.write_text(json.dumps(CAPTURE, indent=2) + '\\n')\n\ndef call(label, operation, parameters, service='cloudwatch', cleanup=False):\n    started = time.time()\n    process = run(service, operation, parameters, ENV, options=('--debug', '--no-paginate'), timeout=35)\n    decoded = result(process, debug=True, cli_message=None)\n    # Preserve only the service request ID, never signed request headers/debug logs.\n    for line in reversed(process.stderr.splitlines()):\n        if 'Response headers:' in line:\n            try:\n                headers = ast.literal_eval(line.split('Response headers:', 1)[1].strip())\n                for key, value in headers.items():\n                    if key.lower() in ('x-amzn-requestid', 'x-amzn-request-id'):\n                        decoded['request_id'] = value\n            except (ValueError, SyntaxError):\n                pass\n            break\n    if service == 'sts' and decoded['code'] == 'Success':\n        decoded['output'].pop('UserId', None)\n    observation = {'label': label, 'service': service, 'operation': operation, 'input': parameters, 'request_started_ms': round(started * 1000), 'request_finished_ms': round(time.time() * 1000), 'result': decoded}\n    CAPTURE['cleanup' if cleanup else 'observations'].append(observation)\n    save()\n    return decoded\n\ndef publish(label, values):\n    global LAST_PUBLICATION_MINUTE\n    minute = int(time.time() // 60)\n    if minute == LAST_PUBLICATION_MINUTE:\n        return\n    if CAPTURE['published_metric_samples'] + len(values) > CAPTURE['protocol']['maximum_metric_samples']:\n        raise RuntimeError('Owned publication cap reached')\n    timestamp = datetime.now(timezone.utc).isoformat()\n    points = [{'MetricName': 'Load', 'Dimensions': [{'Name': 'Team', 'Value': group}], 'Timestamp': timestamp, 'Value': value, 'Unit': 'Count'} for group, value in values.items()]\n    response = call(label + '-publish', 'put-metric-data', {'Namespace': NAMESPACE, 'MetricData': points})\n    if response['code'] != 'Success':\n        raise RuntimeError('Publication failed: ' + response['code'])\n    CAPTURE['published_metric_samples'] += len(points)\n    LAST_PUBLICATION_MINUTE = minute\n    save()\n\ndef configure(label, name, expression, missing):\n    return call(label, 'put-metric-alarm', {'AlarmName': name, 'ComparisonOperator': 'GreaterThanThreshold', 'EvaluationPeriods': 1, 'DatapointsToAlarm': 1, 'Threshold': 10, 'ActionsEnabled': False, 'OKActions': [], 'AlarmActions': [], 'InsufficientDataActions': [], 'TreatMissingData': missing, 'Metrics': [{'Id': 'q', 'Expression': expression, 'Period': 60, 'ReturnData': True}]})\n\ndef query(label, expression):\n    end = int(time.time() // 60) * 60\n    return call(label, 'get-metric-data', {'StartTime': datetime.fromtimestamp(end - 180, timezone.utc).isoformat(), 'EndTime': datetime.fromtimestamp(end, timezone.utc).isoformat(), 'MetricDataQueries': [{'Id': 'q', 'Expression': expression, 'Period': 60, 'ReturnData': True}], 'ScanBy': 'TimestampAscending'})\n\ndef poll(label, expression, values, target_group=None, target_state=None, require_empty_alarm=False):\n    phase = {'name': label, 'started_at': datetime.now(timezone.utc).isoformat(), 'expression': expression, 'published_values': values, 'target_group': target_group, 'target_alarm_state': target_state, 'outcome': 'inconclusive'}\n    CAPTURE['phases'].append(phase)\n    deadline = time.monotonic() + 240\n    iteration = 0\n    while time.monotonic() < deadline:\n        iteration += 1\n        prefix = label + '-poll-' + str(iteration)\n        if values:\n            publish(prefix, values)\n        alarms = call(prefix + '-alarms', 'describe-alarms', {'AlarmNames': ALARMS})\n        contributors = call(prefix + '-contributors', 'describe-alarm-contributors', {'AlarmName': ALARMS[0]})\n        empty_contributors = call(prefix + '-empty-contributors', 'describe-alarm-contributors', {'AlarmName': ALARMS[1]}) if iteration == 1 else None\n        data = query(prefix + '-query', expression)\n        entries = contributors.get('output', {}).get('AlarmContributors', [])\n        for entry in entries:\n            identifier = entry.get('ContributorId') or entry.get('AlarmContributorId')\n            if identifier:\n                CONTRIBUTOR_IDS.add(identifier)\n        states = {entry['AlarmName']: entry.get('StateValue') for entry in alarms.get('output', {}).get('MetricAlarms', [])}\n        groups = {entry.get('ContributorAttributes', {}).get('Team') for entry in entries}\n        rows = data.get('output', {}).get('MetricDataResults', [])\n        phase['last_observed'] = {'alarm_states': states, 'contributor_groups': sorted(group for group in groups if group), 'query_labels': [row.get('Label') for row in rows], 'contributor_api_code': contributors['code']}\n        matches = states.get(ALARMS[0]) == target_state if target_state else True\n        if target_group is not None:\n            matches = matches and groups == {target_group}\n        if target_state == 'OK':\n            matches = matches and contributors['code'] == 'Success' and not entries\n        if require_empty_alarm:\n            matches = matches and states.get(ALARMS[1]) == 'ALARM' and not rows\n        if matches and iteration >= 2:\n            phase['outcome'] = 'observed'\n            break\n        remaining = deadline - time.monotonic()\n        if remaining > 0:\n            time.sleep(min(25, remaining))\n    phase['ended_at'] = datetime.now(timezone.utc).isoformat()\n    phase['polls'] = iteration\n    save()\n\ndef history(label):\n    for name in ALARMS:\n        call(label + '-alarm-' + name, 'describe-alarm-history', {'AlarmName': name, 'HistoryItemType': 'StateUpdate', 'MaxRecords': 50, 'ScanBy': 'TimestampAscending'})\n        call(label + '-contributors-' + name, 'describe-alarm-history', {'AlarmName': name, 'HistoryItemType': 'AlarmContributorStateUpdate', 'MaxRecords': 50, 'ScanBy': 'TimestampAscending'})\n    for identifier in sorted(CONTRIBUTOR_IDS):\n        call(label + '-specific-' + identifier, 'describe-alarm-history', {'AlarmName': ALARMS[0], 'AlarmContributorId': identifier, 'HistoryItemType': 'AlarmContributorStateUpdate', 'MaxRecords': 50, 'ScanBy': 'TimestampAscending'})\n\ntry:\n    identity = call('identity', 'get-caller-identity', {}, 'sts')\n    if identity.get('output', {}).get('Account') != CAPTURE['caller_account'] or identity.get('output', {}).get('Arn') != CAPTURE['actor_arn']:\n        raise RuntimeError('Native identity mismatch')\n    publish('initial', {'a': 20, 'b': 5})\n    for label, name, expression, missing in [('create-ranked', ALARMS[0], RANKED, 'notBreaching'), ('create-empty-breaching', ALARMS[1], EMPTY, 'breaching')]:\n        response = configure(label, name, expression, missing)\n        if response['code'] != 'Success':\n            raise RuntimeError(label + ': ' + response['code'])\n    poll('initial-threshold-breach', RANKED, {'a': 20, 'b': 5}, target_group='a', target_state='ALARM')\n    history('initial')\n    poll('higher-new-group-displaces-a', RANKED, {'a': 20, 'b': 5, 'c': 40}, target_group='c', target_state='ALARM')\n    history('rank-displacement')\n    below = BASE + \" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1\"\n    configure('select-below-threshold-b', ALARMS[0], below, 'notBreaching')\n    poll('below-threshold-only-b', below, {'b': 5}, target_state='OK')\n    configure('select-empty-not-breaching', ALARMS[0], EMPTY, 'notBreaching')\n    poll('empty-selection-missing-treatment', EMPTY, {}, target_state='OK', require_empty_alarm=True)\n    history('final')\nexcept Exception as error:\n    CAPTURE['probe_error'] = type(error).__name__ + ': ' + str(error)\nfinally:\n    for attempt in range(1, 4):\n        deleted = call('delete-owned-attempt-' + str(attempt), 'delete-alarms', {'AlarmNames': ALARMS}, cleanup=True)\n        check = call('verify-owned-absent-attempt-' + str(attempt), 'describe-alarms', {'AlarmNames': ALARMS}, cleanup=True)\n        absent = check['code'] == 'Success' and not check.get('output', {}).get('MetricAlarms') and not check.get('output', {}).get('CompositeAlarms')\n        if absent:\n            break\n        time.sleep(2)\n    CAPTURE['cleanup_verification'] = {'owned_alarms_absent': absent, 'namespace': NAMESPACE, 'published_metric_samples': CAPTURE['published_metric_samples'], 'custom_metric_points_deletable': False, 'temporary_probe_removed_after_embedding': True}\n    CAPTURE['finished_at'] = datetime.now(timezone.utc).isoformat()\n    save()\n    if absent:\n        Path(__file__).unlink()\n    else:\n        CAPTURE['cleanup_verification']['temporary_probe_removed_after_embedding'] = False\n        save()\n    print(json.dumps({'fixture': str(OUT), 'phases': CAPTURE['phases'], 'cleanup': CAPTURE['cleanup_verification'], 'probe_error': CAPTURE.get('probe_error')}, indent=2))\n"
+    }
+  ],
+  "owned_resources": {
+    "alarms": [
+      "sd-mi-contrib-52d1a4046c2a-ranked",
+      "sd-mi-contrib-52d1a4046c2a-empty"
+    ],
+    "namespace": "Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a",
+    "metric_name": "Load",
+    "published_group_identities": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "protocol": {
+    "period_seconds": 60,
+    "evaluation_periods": 1,
+    "datapoints_to_alarm": 1,
+    "threshold": 10,
+    "comparison": "GreaterThanThreshold",
+    "actions_enabled": false,
+    "phase_poll_timeout_seconds": 240,
+    "poll_interval_seconds": 25,
+    "maximum_metric_samples": 90,
+    "account_telemetry_settings_modified": false,
+    "data_publication": "Current timestamp, one sample per active group per wall-clock minute. No future points or manual SetAlarmState."
+  },
+  "observations": [
+    {
+      "label": "identity",
+      "service": "sts",
+      "operation": "get-caller-identity",
+      "input": {},
+      "request_started_ms": 1790191096124,
+      "request_finished_ms": 1790191097057,
+      "result": {
+        "code": "Success",
+        "output": {
+          "Account": "000000000000",
+          "Arn": "arn:aws:iam::000000000000:user/Delegated"
+        },
+        "http_status": 200,
+        "request_id": "66f133e6-cbe0-4e3e-8a9b-2810964f52ee"
+      }
+    },
+    {
+      "label": "initial-publish",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a",
+        "MetricData": [
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "a"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:18:17.057429+00:00",
+            "Value": 20,
+            "Unit": "Count"
+          },
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "b"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:18:17.057429+00:00",
+            "Value": 5,
+            "Unit": "Count"
+          }
+        ]
+      },
+      "request_started_ms": 1790191097057,
+      "request_finished_ms": 1790191098018,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "7b0d8c73-5fdc-4aa2-a020-7c07b2157272"
+      }
+    },
+    {
+      "label": "create-ranked",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "OKActions": [],
+        "AlarmActions": [],
+        "InsufficientDataActions": [],
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1790191098019,
+      "request_finished_ms": 1790191100088,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "3b3276f0-94a5-4cc1-a77f-acb10df90cb5"
+      }
+    },
+    {
+      "label": "create-empty-breaching",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "OKActions": [],
+        "AlarmActions": [],
+        "InsufficientDataActions": [],
+        "TreatMissingData": "breaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1790191100089,
+      "request_finished_ms": 1790191101133,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "73665161-1afa-4d8e-bfb6-97aa77486606"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-1-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191101134,
+      "request_finished_ms": 1790191102097,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:20.942000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:19.900000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "bfe7ded4-b038-4f22-abf0-7e667ac3fdf4"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-1-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191102097,
+      "request_finished_ms": 1790191103084,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "fc5f40fd-306b-4dbf-aab3-92f6ec98ba28"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-1-empty-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty"
+      },
+      "request_started_ms": 1790191103084,
+      "request_finished_ms": 1790191104095,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "126a13b5-b930-4529-b22b-14172af8beec"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-1-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:15:00+00:00",
+        "EndTime": "2026-09-23T19:18:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191104095,
+      "request_finished_ms": 1790191105170,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "d334e16b-a671-49d8-aee2-ebbd8056f6d7"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-2-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191130171,
+      "request_finished_ms": 1790191131193,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:20.942000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:19.900000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "523a2439-a87a-4560-94fa-cf3b8a7ac536"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-2-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191131194,
+      "request_finished_ms": 1790191132233,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "091d18e2-ded6-4f43-93ed-e1378b185bfe"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-2-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:15:00+00:00",
+        "EndTime": "2026-09-23T19:18:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191132233,
+      "request_finished_ms": 1790191133386,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "b84e393a-e62f-48e6-8877-733861a6717b"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-3-publish",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a",
+        "MetricData": [
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "a"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:19:18.386749+00:00",
+            "Value": 20,
+            "Unit": "Count"
+          },
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "b"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:19:18.386749+00:00",
+            "Value": 5,
+            "Unit": "Count"
+          }
+        ]
+      },
+      "request_started_ms": 1790191158387,
+      "request_finished_ms": 1790191159347,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "9976138d-4cad-492f-8241-b224b98f8795"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-3-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191159349,
+      "request_finished_ms": 1790191160375,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "INSUFFICIENT_DATA",
+              "StateReason": "Unchecked: Initial alarm creation",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:19.900000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "83dd9ec0-f692-4be2-b855-d7fc49d8f070"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-3-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191160376,
+      "request_finished_ms": 1790191161320,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "44327ae1-e33b-4414-a18e-6c2df5583436"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-3-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:16:00+00:00",
+        "EndTime": "2026-09-23T19:19:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191161320,
+      "request_finished_ms": 1790191162228,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "1 - a",
+              "Timestamps": [
+                "2026-09-23T20:18:00+01:00"
+              ],
+              "Values": [
+                20.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "19956777-ba26-4193-8de6-6cb8f996b518"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-4-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191187229,
+      "request_finished_ms": 1790191188252,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "1 out of 1 time series evaluated to ALARM",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:19:44.456000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "31a56c83-dc58-49f5-bd8f-1343cde45530"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-4-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191188253,
+      "request_finished_ms": 1790191189383,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": [
+            {
+              "ContributorId": "a29eb44b20c4362e",
+              "ContributorAttributes": {
+                "Team": "a"
+              },
+              "StateReason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).",
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "f3f1edc0-6f79-449c-897e-a1a0ad2dec88"
+      }
+    },
+    {
+      "label": "initial-threshold-breach-poll-4-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:16:00+00:00",
+        "EndTime": "2026-09-23T19:19:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191189384,
+      "request_finished_ms": 1790191190425,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "1 - a",
+              "Timestamps": [
+                "2026-09-23T20:18:00+01:00"
+              ],
+              "Values": [
+                20.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "9970a53e-de91-4e1a-99b2-653fe1189145"
+      }
+    },
+    {
+      "label": "initial-alarm-sd-mi-contrib-52d1a4046c2a-ranked",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191190426,
+      "request_finished_ms": 1790191191411,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:19:44.456000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"1 out of 1 time series evaluated to ALARM\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}}}"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "164bce30-6b34-4efd-8a2e-092475d5c4a9"
+      }
+    },
+    {
+      "label": "initial-contributors-sd-mi-contrib-52d1a4046c2a-ranked",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191191436,
+      "request_finished_ms": 1790191192358,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:19:44.456000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "c8b1de9d-c7d4-47da-b1b3-69e13ddffc5d"
+      }
+    },
+    {
+      "label": "initial-alarm-sd-mi-contrib-52d1a4046c2a-empty",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191192359,
+      "request_finished_ms": 1790191193287,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:18:53.918000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"No time series were returned by the query. Treat missing data is configured as [Breaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}}}"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "7438311d-39e4-4898-9689-a7a36eba73d0"
+      }
+    },
+    {
+      "label": "initial-contributors-sd-mi-contrib-52d1a4046c2a-empty",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191193287,
+      "request_finished_ms": 1790191194206,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": []
+        },
+        "http_status": 200,
+        "request_id": "ec5a7244-c0d7-4cde-ab10-b892326cbd5a"
+      }
+    },
+    {
+      "label": "initial-specific-a29eb44b20c4362e",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "AlarmContributorId": "a29eb44b20c4362e",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191194207,
+      "request_finished_ms": 1790191195175,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:19:44.456000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "38cc40dc-2b2c-4b10-b628-1e32e648e7b0"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-1-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191195176,
+      "request_finished_ms": 1790191196227,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "1 out of 1 time series evaluated to ALARM",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:19:44.456000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "816bd776-d305-40a7-8097-ea9c4c7d3b76"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-1-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191196228,
+      "request_finished_ms": 1790191198725,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": [
+            {
+              "ContributorId": "a29eb44b20c4362e",
+              "ContributorAttributes": {
+                "Team": "a"
+              },
+              "StateReason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).",
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "bbd36b46-a658-43e2-b630-3d5a46d083bc"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-1-empty-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty"
+      },
+      "request_started_ms": 1790191198726,
+      "request_finished_ms": 1790191199726,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "65539ebe-23c4-42f3-844a-a6088ac41ebe"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-1-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:16:00+00:00",
+        "EndTime": "2026-09-23T19:19:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191199727,
+      "request_finished_ms": 1790191200690,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "1 - a",
+              "Timestamps": [
+                "2026-09-23T20:18:00+01:00"
+              ],
+              "Values": [
+                20.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "269d7981-6b32-4f14-98af-3bf3183fe4a5"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-2-publish",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a",
+        "MetricData": [
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "a"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:20:25.690738+00:00",
+            "Value": 20,
+            "Unit": "Count"
+          },
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "b"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:20:25.690738+00:00",
+            "Value": 5,
+            "Unit": "Count"
+          },
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "c"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:20:25.690738+00:00",
+            "Value": 40,
+            "Unit": "Count"
+          }
+        ]
+      },
+      "request_started_ms": 1790191225691,
+      "request_finished_ms": 1790191226626,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "0664f02c-8011-43f9-a211-3c701b73df03"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-2-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191226628,
+      "request_finished_ms": 1790191227538,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "1 out of 1 time series evaluated to ALARM",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:19:44.456000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "3b79e5f6-1959-42b5-b4ac-92c97725fed4"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-2-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191227539,
+      "request_finished_ms": 1790191228510,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": [
+            {
+              "ContributorId": "a29eb44b20c4362e",
+              "ContributorAttributes": {
+                "Team": "a"
+              },
+              "StateReason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).",
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "84295a1e-c462-44d2-b27e-6ace97602201"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-2-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:17:00+00:00",
+        "EndTime": "2026-09-23T19:20:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191228511,
+      "request_finished_ms": 1790191229472,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "1 - a",
+              "Timestamps": [
+                "2026-09-23T20:18:00+01:00",
+                "2026-09-23T20:19:00+01:00"
+              ],
+              "Values": [
+                20.0,
+                20.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "ac7405b7-4dc0-4800-9f0e-f7b016495afc"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-3-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191254474,
+      "request_finished_ms": 1790191255473,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "1 out of 1 time series evaluated to ALARM",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:19:44.456000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "eb5fe9ed-0aa5-472f-bb7b-b6b82a158209"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-3-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191255474,
+      "request_finished_ms": 1790191256430,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": [
+            {
+              "ContributorId": "a29eb44b20c4362e",
+              "ContributorAttributes": {
+                "Team": "a"
+              },
+              "StateReason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).",
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "12653b85-d7c5-4fbc-96cd-8fc20464a541"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-3-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:17:00+00:00",
+        "EndTime": "2026-09-23T19:20:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191256431,
+      "request_finished_ms": 1790191257402,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "1 - a",
+              "Timestamps": [
+                "2026-09-23T20:18:00+01:00",
+                "2026-09-23T20:19:00+01:00"
+              ],
+              "Values": [
+                20.0,
+                20.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "341f9d6c-7d1f-489d-9099-f4ebf7e416b0"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-4-publish",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a",
+        "MetricData": [
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "a"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:21:22.402856+00:00",
+            "Value": 20,
+            "Unit": "Count"
+          },
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "b"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:21:22.402856+00:00",
+            "Value": 5,
+            "Unit": "Count"
+          },
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "c"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:21:22.402856+00:00",
+            "Value": 40,
+            "Unit": "Count"
+          }
+        ]
+      },
+      "request_started_ms": 1790191282403,
+      "request_finished_ms": 1790191283435,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "a6786255-d7c7-4061-92d4-1cefa5db7056"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-4-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191283438,
+      "request_finished_ms": 1790191284481,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "1 out of 1 time series evaluated to ALARM",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:19:44.456000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "e6c2218b-8ead-4084-a49e-664fe0d347bc"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-4-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191284482,
+      "request_finished_ms": 1790191285416,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": [
+            {
+              "ContributorId": "a29eb44b20c4362e",
+              "ContributorAttributes": {
+                "Team": "a"
+              },
+              "StateReason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).",
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "2747ab1f-ef1c-43e5-ae93-0ae3d36c0dfd"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-4-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:18:00+00:00",
+        "EndTime": "2026-09-23T19:21:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191285417,
+      "request_finished_ms": 1790191286408,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "1 - c",
+              "Timestamps": [
+                "2026-09-23T20:20:00+01:00"
+              ],
+              "Values": [
+                40.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "34241c18-0a5c-40ff-b8ea-f6299f057b79"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-5-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191311410,
+      "request_finished_ms": 1790191312370,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:19.900000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "1 out of 2 time series evaluated to ALARM",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:21:44.463+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:21:44.465000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "2b6a15f4-8682-42a3-a994-1a9f0fcacfcc"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-5-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191312372,
+      "request_finished_ms": 1790191313276,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": [
+            {
+              "ContributorId": "9916d378bff14ec4",
+              "ContributorAttributes": {
+                "Team": "c"
+              },
+              "StateReason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [40.0 (23/09/26 19:20:00)] (minimum 1 datapoint for OK -> ALARM transition).",
+              "StateTransitionedTimestamp": "2026-09-23T20:21:44.465000+01:00"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "45d91002-c4a9-42ad-beb5-bf653b0aa1f4"
+      }
+    },
+    {
+      "label": "higher-new-group-displaces-a-poll-5-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:18:00+00:00",
+        "EndTime": "2026-09-23T19:21:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191313278,
+      "request_finished_ms": 1790191314195,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "1 - c",
+              "Timestamps": [
+                "2026-09-23T20:20:00+01:00"
+              ],
+              "Values": [
+                40.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "ad4084ca-3500-4752-abd8-b30a486566e7"
+      }
+    },
+    {
+      "label": "rank-displacement-alarm-sd-mi-contrib-52d1a4046c2a-ranked",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191314199,
+      "request_finished_ms": 1790191315113,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:19:44.456000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"1 out of 1 time series evaluated to ALARM\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}}}"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "State Reason changed from \"1 out of 1 time series evaluated to ALARM\" to \"1 out of 2 time series evaluated to ALARM\"",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"1 out of 1 time series evaluated to ALARM\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"1 out of 2 time series evaluated to ALARM\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:21:44.463+0000\"}}}"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "517d322e-1e91-4a04-96d3-a3407f799047"
+      }
+    },
+    {
+      "label": "rank-displacement-contributors-sd-mi-contrib-52d1a4046c2a-ranked",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191315114,
+      "request_finished_ms": 1790191316967,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:19:44.456000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "9916d378bff14ec4",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [40.0 (23/09/26 19:20:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "c"
+              }
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"No data was returned for this contributor\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "de0da32e-30cb-4629-bbf3-ae877185a3bc"
+      }
+    },
+    {
+      "label": "rank-displacement-alarm-sd-mi-contrib-52d1a4046c2a-empty",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191316968,
+      "request_finished_ms": 1790191318220,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:18:53.918000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"No time series were returned by the query. Treat missing data is configured as [Breaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}}}"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "66caa25b-df51-49a3-b460-ca373de43076"
+      }
+    },
+    {
+      "label": "rank-displacement-contributors-sd-mi-contrib-52d1a4046c2a-empty",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191318221,
+      "request_finished_ms": 1790191319141,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": []
+        },
+        "http_status": 200,
+        "request_id": "66eb952e-bcb1-46e5-8701-7312bdac083c"
+      }
+    },
+    {
+      "label": "rank-displacement-specific-9916d378bff14ec4",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "AlarmContributorId": "9916d378bff14ec4",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191319143,
+      "request_finished_ms": 1790191320079,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "9916d378bff14ec4",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [40.0 (23/09/26 19:20:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "c"
+              }
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "9b3abb85-0199-4539-9161-771ac4ad7c4b"
+      }
+    },
+    {
+      "label": "rank-displacement-specific-a29eb44b20c4362e",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "AlarmContributorId": "a29eb44b20c4362e",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191320080,
+      "request_finished_ms": 1790191321049,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:19:44.456000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"No data was returned for this contributor\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "b9eda657-e468-41c8-8941-22494242f593"
+      }
+    },
+    {
+      "label": "select-below-threshold-b",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "OKActions": [],
+        "AlarmActions": [],
+        "InsufficientDataActions": [],
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1790191321050,
+      "request_finished_ms": 1790191322064,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "b9417406-b01d-404b-9862-b581b6cd9f6b"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-1-publish",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a",
+        "MetricData": [
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "b"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:22:02.065976+00:00",
+            "Value": 5,
+            "Unit": "Count"
+          }
+        ]
+      },
+      "request_started_ms": 1790191322066,
+      "request_finished_ms": 1790191323940,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "96ccf2e1-84b9-4a51-84b7-9a21f8f2cd10"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-1-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191323944,
+      "request_finished_ms": 1790191324947,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:22:01.916000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "1 out of 2 time series evaluated to ALARM",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:21:44.463+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:21:44.465000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "ee811c88-a72b-45ca-8e98-88942bf0b813"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-1-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191324948,
+      "request_finished_ms": 1790191325927,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": [
+            {
+              "ContributorId": "9916d378bff14ec4",
+              "ContributorAttributes": {
+                "Team": "c"
+              },
+              "StateReason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [40.0 (23/09/26 19:20:00)] (minimum 1 datapoint for OK -> ALARM transition).",
+              "StateTransitionedTimestamp": "2026-09-23T20:21:44.465000+01:00"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "48b54990-b5ce-4b47-9449-85c3b45b3b2e"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-1-empty-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty"
+      },
+      "request_started_ms": 1790191325928,
+      "request_finished_ms": 1790191326892,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "a0bfe353-e1b2-4189-8555-1f0f437fd6d1"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-1-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:19:00+00:00",
+        "EndTime": "2026-09-23T19:22:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191326895,
+      "request_finished_ms": 1790191328723,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "b",
+              "Timestamps": [
+                "2026-09-23T20:19:00+01:00",
+                "2026-09-23T20:20:00+01:00",
+                "2026-09-23T20:21:00+01:00"
+              ],
+              "Values": [
+                5.0,
+                5.0,
+                5.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "163fc337-30d7-4f0e-9a0e-f1a8bf42eac6"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-2-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191353725,
+      "request_finished_ms": 1790191354728,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:22:01.916000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "1 out of 2 time series evaluated to ALARM",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:21:44.463+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:21:44.465000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "70c97ca9-0f49-4a3a-b4ce-e248ae87a2d0"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-2-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191354730,
+      "request_finished_ms": 1790191355701,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": [
+            {
+              "ContributorId": "9916d378bff14ec4",
+              "ContributorAttributes": {
+                "Team": "c"
+              },
+              "StateReason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [40.0 (23/09/26 19:20:00)] (minimum 1 datapoint for OK -> ALARM transition).",
+              "StateTransitionedTimestamp": "2026-09-23T20:21:44.465000+01:00"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "3aae13b1-f36c-4008-b7fa-ab995481f701"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-2-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:19:00+00:00",
+        "EndTime": "2026-09-23T19:22:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191355703,
+      "request_finished_ms": 1790191356735,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "b",
+              "Timestamps": [
+                "2026-09-23T20:19:00+01:00",
+                "2026-09-23T20:20:00+01:00",
+                "2026-09-23T20:21:00+01:00"
+              ],
+              "Values": [
+                5.0,
+                5.0,
+                5.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "fed9b5fb-838d-4d73-beb8-29b58baad2af"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-3-publish",
+      "service": "cloudwatch",
+      "operation": "put-metric-data",
+      "input": {
+        "Namespace": "Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a",
+        "MetricData": [
+          {
+            "MetricName": "Load",
+            "Dimensions": [
+              {
+                "Name": "Team",
+                "Value": "b"
+              }
+            ],
+            "Timestamp": "2026-09-23T19:23:01.737487+00:00",
+            "Value": 5,
+            "Unit": "Count"
+          }
+        ]
+      },
+      "request_started_ms": 1790191381738,
+      "request_finished_ms": 1790191382902,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "325e2547-c7ed-4053-8aa5-acd4ac8c2cf6"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-3-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191382906,
+      "request_finished_ms": 1790191384024,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:22:01.916000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "1 out of 2 time series evaluated to ALARM",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:21:44.463+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:21:44.465000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:19:44.456000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "2c0b5658-1ab8-4b39-b48d-03fd7e96ff5c"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-3-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191384026,
+      "request_finished_ms": 1790191385171,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": [
+            {
+              "ContributorId": "9916d378bff14ec4",
+              "ContributorAttributes": {
+                "Team": "c"
+              },
+              "StateReason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [40.0 (23/09/26 19:20:00)] (minimum 1 datapoint for OK -> ALARM transition).",
+              "StateTransitionedTimestamp": "2026-09-23T20:21:44.465000+01:00"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "f413422c-1d3e-4f17-a802-b78685a1f9c6"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-3-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:20:00+00:00",
+        "EndTime": "2026-09-23T19:23:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191385172,
+      "request_finished_ms": 1790191386361,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "b",
+              "Timestamps": [
+                "2026-09-23T20:20:00+01:00",
+                "2026-09-23T20:21:00+01:00",
+                "2026-09-23T20:22:00+01:00"
+              ],
+              "Values": [
+                5.0,
+                5.0,
+                5.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "ee7ed1c2-8627-4169-abb7-a2016113ee8a"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-4-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191411363,
+      "request_finished_ms": 1790191412440,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:22:01.916000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReason": "2 time series evaluated to OK",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:23:10.371+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:23:10.373000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:23:10.373000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "f7d57d1f-4154-44d6-9a8c-37128638f48f"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-4-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191412442,
+      "request_finished_ms": 1790191415809,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "4ee14fcf-8bc2-4346-9b86-6b07282996fe"
+      }
+    },
+    {
+      "label": "below-threshold-only-b-poll-4-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:20:00+00:00",
+        "EndTime": "2026-09-23T19:23:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191415811,
+      "request_finished_ms": 1790191416782,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [
+            {
+              "Id": "q",
+              "Label": "b",
+              "Timestamps": [
+                "2026-09-23T20:20:00+01:00",
+                "2026-09-23T20:21:00+01:00",
+                "2026-09-23T20:22:00+01:00"
+              ],
+              "Values": [
+                5.0,
+                5.0,
+                5.0
+              ],
+              "StatusCode": "Complete"
+            }
+          ],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "0bdfbed6-6720-445f-9f3f-bc2008219765"
+      }
+    },
+    {
+      "label": "select-empty-not-breaching",
+      "service": "cloudwatch",
+      "operation": "put-metric-alarm",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "Threshold": 10,
+        "ActionsEnabled": false,
+        "OKActions": [],
+        "AlarmActions": [],
+        "InsufficientDataActions": [],
+        "TreatMissingData": "notBreaching",
+        "Metrics": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ]
+      },
+      "request_started_ms": 1790191416785,
+      "request_finished_ms": 1790191417786,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "b78984b0-b5cb-45c2-a877-b0411b680dae"
+      }
+    },
+    {
+      "label": "empty-selection-missing-treatment-poll-1-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191417787,
+      "request_finished_ms": 1790191418740,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:23:37.637000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReason": "2 time series evaluated to OK",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:23:10.371+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:23:10.373000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:23:10.373000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "e824cb51-2bf7-4a68-9147-a2acc4dab614"
+      }
+    },
+    {
+      "label": "empty-selection-missing-treatment-poll-1-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191418743,
+      "request_finished_ms": 1790191419740,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "863cda44-f412-4d58-904f-0c69f004308f"
+      }
+    },
+    {
+      "label": "empty-selection-missing-treatment-poll-1-empty-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty"
+      },
+      "request_started_ms": 1790191419742,
+      "request_finished_ms": 1790191420723,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "b0f3af53-256e-45a7-ab9e-54d11ad099c2"
+      }
+    },
+    {
+      "label": "empty-selection-missing-treatment-poll-1-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:20:00+00:00",
+        "EndTime": "2026-09-23T19:23:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191420725,
+      "request_finished_ms": 1790191421756,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "052db526-331b-4712-b95f-706e294f469f"
+      }
+    },
+    {
+      "label": "empty-selection-missing-treatment-poll-2-alarms",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191446759,
+      "request_finished_ms": 1790191447803,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:18:20.942000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "ALARM",
+              "StateReason": "No time series were returned by the query. Treat missing data is configured as [Breaching].",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:18:53.918000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "breaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:18:53.918000+01:00"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmArn": "arn:aws:cloudwatch:us-west-2:000000000000:alarm:sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmConfigurationUpdatedTimestamp": "2026-09-23T20:23:37.637000+01:00",
+              "ActionsEnabled": false,
+              "OKActions": [],
+              "AlarmActions": [],
+              "InsufficientDataActions": [],
+              "StateValue": "OK",
+              "StateReason": "2 time series evaluated to OK",
+              "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:23:10.371+0000\"}",
+              "StateUpdatedTimestamp": "2026-09-23T20:23:10.373000+01:00",
+              "Dimensions": [],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Threshold": 10.0,
+              "ComparisonOperator": "GreaterThanThreshold",
+              "TreatMissingData": "notBreaching",
+              "Metrics": [
+                {
+                  "Id": "q",
+                  "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+                  "ReturnData": true,
+                  "Period": 60
+                }
+              ],
+              "StateTransitionedTimestamp": "2026-09-23T20:23:10.373000+01:00"
+            }
+          ],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "87daaf77-3b34-459c-a9dc-60cc00e6dd20"
+      }
+    },
+    {
+      "label": "empty-selection-missing-treatment-poll-2-contributors",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-contributors",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked"
+      },
+      "request_started_ms": 1790191447804,
+      "request_finished_ms": 1790191448715,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmContributors": []
+        },
+        "http_status": 200,
+        "request_id": "afd62927-e99c-4078-bbe5-0895d6c409fe"
+      }
+    },
+    {
+      "label": "empty-selection-missing-treatment-poll-2-query",
+      "service": "cloudwatch",
+      "operation": "get-metric-data",
+      "input": {
+        "StartTime": "2026-09-23T19:21:00+00:00",
+        "EndTime": "2026-09-23T19:24:00+00:00",
+        "MetricDataQueries": [
+          {
+            "Id": "q",
+            "Expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+            "Period": 60,
+            "ReturnData": true
+          }
+        ],
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191448718,
+      "request_finished_ms": 1790191449708,
+      "result": {
+        "code": "Success",
+        "output": {
+          "MetricDataResults": [],
+          "Messages": []
+        },
+        "http_status": 200,
+        "request_id": "298fad10-8983-4ad4-8c6d-26d980903c28"
+      }
+    },
+    {
+      "label": "final-alarm-sd-mi-contrib-52d1a4046c2a-ranked",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191449712,
+      "request_finished_ms": 1790191450623,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:19:44.456000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"1 out of 1 time series evaluated to ALARM\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}}}"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "State Reason changed from \"1 out of 1 time series evaluated to ALARM\" to \"1 out of 2 time series evaluated to ALARM\"",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"1 out of 1 time series evaluated to ALARM\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:19:44.454+0000\"}},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"1 out of 2 time series evaluated to ALARM\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:21:44.463+0000\"}}}"
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:23:10.373000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from ALARM to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"1 out of 2 time series evaluated to ALARM\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:21:44.463+0000\"}},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"2 time series evaluated to OK\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:23:10.371+0000\"}}}"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "2c588b01-de7e-449d-8830-2c4a874da0c3"
+      }
+    },
+    {
+      "label": "final-contributors-sd-mi-contrib-52d1a4046c2a-ranked",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191450625,
+      "request_finished_ms": 1790191451578,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:19:44.456000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "9916d378bff14ec4",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [40.0 (23/09/26 19:20:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "c"
+              }
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"No data was returned for this contributor\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "9916d378bff14ec4",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:23:10.373000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"No data was returned for this contributor\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "c"
+              }
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "42cf682c-2a48-4c12-9670-5565422ea6ad"
+      }
+    },
+    {
+      "label": "final-alarm-sd-mi-contrib-52d1a4046c2a-empty",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+        "HistoryItemType": "StateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191451581,
+      "request_finished_ms": 1790191452543,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:18:53.918000+01:00",
+              "HistoryItemType": "StateUpdate",
+              "HistorySummary": "Alarm updated from INSUFFICIENT_DATA to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"INSUFFICIENT_DATA\",\"stateReason\":\"Unchecked: Initial alarm creation\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"No time series were returned by the query. Treat missing data is configured as [Breaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T19:18:53.917+0000\"}}}"
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "ded47196-8c01-4b8a-a1a1-0f7d50d6c49f"
+      }
+    },
+    {
+      "label": "final-contributors-sd-mi-contrib-52d1a4046c2a-empty",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-empty",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191452545,
+      "request_finished_ms": 1790191453478,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": []
+        },
+        "http_status": 200,
+        "request_id": "6e519604-1b5f-473d-808e-044543841542"
+      }
+    },
+    {
+      "label": "final-specific-9916d378bff14ec4",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "AlarmContributorId": "9916d378bff14ec4",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191453481,
+      "request_finished_ms": 1790191454451,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "9916d378bff14ec4",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [40.0 (23/09/26 19:20:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "c"
+              }
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "9916d378bff14ec4",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:23:10.373000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"No data was returned for this contributor\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "c"
+              }
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "3a7d1e3b-8d15-445e-a418-018df80c2c42"
+      }
+    },
+    {
+      "label": "final-specific-a29eb44b20c4362e",
+      "service": "cloudwatch",
+      "operation": "describe-alarm-history",
+      "input": {
+        "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+        "AlarmContributorId": "a29eb44b20c4362e",
+        "HistoryItemType": "AlarmContributorStateUpdate",
+        "MaxRecords": 50,
+        "ScanBy": "TimestampAscending"
+      },
+      "request_started_ms": 1790191454452,
+      "request_finished_ms": 1790191455419,
+      "result": {
+        "code": "Success",
+        "output": {
+          "AlarmHistoryItems": [
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:19:44.456000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to ALARM",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold (10.0). The most recent datapoint which crossed the threshold: [20.0 (23/09/26 19:18:00)] (minimum 1 datapoint for OK -> ALARM transition).\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            },
+            {
+              "AlarmName": "sd-mi-contrib-52d1a4046c2a-ranked",
+              "AlarmContributorId": "a29eb44b20c4362e",
+              "AlarmType": "MetricAlarm",
+              "Timestamp": "2026-09-23T20:21:44.465000+01:00",
+              "HistoryItemType": "AlarmContributorStateUpdate",
+              "HistorySummary": "Contributor state updated to OK",
+              "HistoryData": "{\"version\":\"1.0\",\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"No data was returned for this contributor\"}}",
+              "AlarmContributorAttributes": {
+                "Team": "a"
+              }
+            }
+          ]
+        },
+        "http_status": 200,
+        "request_id": "9c578fcf-4f89-4a35-b441-f95e297a4c8c"
+      }
+    }
+  ],
+  "phases": [
+    {
+      "name": "initial-threshold-breach",
+      "started_at": "2026-09-23T19:18:21.133666+00:00",
+      "expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+      "published_values": {
+        "a": 20,
+        "b": 5
+      },
+      "target_group": "a",
+      "target_alarm_state": "ALARM",
+      "outcome": "observed",
+      "last_observed": {
+        "alarm_states": {
+          "sd-mi-contrib-52d1a4046c2a-empty": "ALARM",
+          "sd-mi-contrib-52d1a4046c2a-ranked": "ALARM"
+        },
+        "contributor_groups": [
+          "a"
+        ],
+        "query_labels": [
+          "1 - a"
+        ],
+        "contributor_api_code": "Success"
+      },
+      "ended_at": "2026-09-23T19:19:50.425410+00:00",
+      "polls": 4
+    },
+    {
+      "name": "higher-new-group-displaces-a",
+      "started_at": "2026-09-23T19:19:55.175954+00:00",
+      "expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+      "published_values": {
+        "a": 20,
+        "b": 5,
+        "c": 40
+      },
+      "target_group": "c",
+      "target_alarm_state": "ALARM",
+      "outcome": "observed",
+      "last_observed": {
+        "alarm_states": {
+          "sd-mi-contrib-52d1a4046c2a-empty": "ALARM",
+          "sd-mi-contrib-52d1a4046c2a-ranked": "ALARM"
+        },
+        "contributor_groups": [
+          "c"
+        ],
+        "query_labels": [
+          "1 - c"
+        ],
+        "contributor_api_code": "Success"
+      },
+      "ended_at": "2026-09-23T19:21:54.196989+00:00",
+      "polls": 5
+    },
+    {
+      "name": "below-threshold-only-b",
+      "started_at": "2026-09-23T19:22:02.065951+00:00",
+      "expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'b' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+      "published_values": {
+        "b": 5
+      },
+      "target_group": null,
+      "target_alarm_state": "OK",
+      "outcome": "observed",
+      "last_observed": {
+        "alarm_states": {
+          "sd-mi-contrib-52d1a4046c2a-empty": "ALARM",
+          "sd-mi-contrib-52d1a4046c2a-ranked": "OK"
+        },
+        "contributor_groups": [],
+        "query_labels": [
+          "b"
+        ],
+        "contributor_api_code": "Success"
+      },
+      "ended_at": "2026-09-23T19:23:36.784160+00:00",
+      "polls": 4
+    },
+    {
+      "name": "empty-selection-missing-treatment",
+      "started_at": "2026-09-23T19:23:37.787192+00:00",
+      "expression": "SELECT MAX(Load) FROM \"Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a\" WHERE Team = 'absent' GROUP BY Team ORDER BY MAX() DESC LIMIT 1",
+      "published_values": {},
+      "target_group": null,
+      "target_alarm_state": "OK",
+      "outcome": "inconclusive",
+      "review_note": "The probe stopped after two polls because the alarm was already OK. GetMetricData confirmed the updated query was empty, but the final StateReasonData.queryDate (19:23:10.371Z) preceded the configuration update (19:23:37.637Z). This does not prove a new empty/notBreaching evaluation; the automated observed label was corrected during evidence review. The separate empty/breaching alarm has conclusive native evaluation evidence.",
+      "last_observed": {
+        "alarm_states": {
+          "sd-mi-contrib-52d1a4046c2a-empty": "ALARM",
+          "sd-mi-contrib-52d1a4046c2a-ranked": "OK"
+        },
+        "contributor_groups": [],
+        "query_labels": [],
+        "contributor_api_code": "Success"
+      },
+      "ended_at": "2026-09-23T19:24:09.710209+00:00",
+      "polls": 2
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "delete-owned-attempt-1",
+      "service": "cloudwatch",
+      "operation": "delete-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191455422,
+      "request_finished_ms": 1790191456601,
+      "result": {
+        "code": "Success",
+        "output": {},
+        "http_status": 200,
+        "request_id": "bc13b757-255c-4f1d-9536-12dd09ec54ef"
+      }
+    },
+    {
+      "label": "verify-owned-absent-attempt-1",
+      "service": "cloudwatch",
+      "operation": "describe-alarms",
+      "input": {
+        "AlarmNames": [
+          "sd-mi-contrib-52d1a4046c2a-ranked",
+          "sd-mi-contrib-52d1a4046c2a-empty"
+        ]
+      },
+      "request_started_ms": 1790191456603,
+      "request_finished_ms": 1790191457757,
+      "result": {
+        "code": "Success",
+        "output": {
+          "CompositeAlarms": [],
+          "MetricAlarms": [],
+          "LogAlarms": []
+        },
+        "http_status": 200,
+        "request_id": "a2a57d9e-17c7-42b2-804b-328a8d3fe911"
+      }
+    }
+  ],
+  "published_metric_samples": 12,
+  "untested_boundaries": [
+    "No actions or EventBridge delivery tested.",
+    "Only one-minute 1-of-1 GreaterThanThreshold alarms and notBreaching/breaching missing-data modes.",
+    "Only three custom-metric dimension groups, not resource tags, cross-account metrics, 500-contributor limits, or pagination.",
+    "Individual missing datapoints inside a retained contributor were not isolated; only result disappearance and an entirely empty query were exercised.",
+    "The final empty/notBreaching phase ended before a post-update evaluation was visible; its retained OK state is not evidence of evaluating the new query.",
+    "Rank displacement is tested by introducing a higher-valued group; final empty selection is an explicit query update, not natural metric expiry."
+  ],
+  "cleanup_verification": {
+    "owned_alarms_absent": true,
+    "namespace": "Stackd/InsightsContributors/sd-mi-contrib-52d1a4046c2a",
+    "published_metric_samples": 12,
+    "custom_metric_points_deletable": false,
+    "temporary_probe_removed_after_embedding": true
+  },
+  "finished_at": "2026-09-23T19:24:17.759578+00:00",
+  "findings": [
+    {
+      "kind": "native",
+      "claim": "The ordered grouped LIMIT 1 alarm evaluated Team=a at 20 > 10, then Team=c at 40 > 10 after c entered the published data. DescribeAlarmContributors returned only the active ALARM contributor.",
+      "evidence_labels": ["initial-threshold-breach-poll-4-contributors", "higher-new-group-displaces-a-poll-5-contributors"]
+    },
+    {
+      "kind": "native",
+      "claim": "Ranking displaced Team=a despite continued publication of a=20. Its contributor history transitioned to OK with 'No data was returned for this contributor'. The parent stayed ALARM while c was ALARM.",
+      "evidence_labels": ["rank-displacement-contributors-sd-mi-contrib-52d1a4046c2a-ranked", "higher-new-group-displaces-a-poll-5-alarms"]
+    },
+    {
+      "kind": "native",
+      "claim": "Contributor replacement changed the parent reason from '1 out of 1 time series evaluated to ALARM' to '1 out of 2 time series evaluated to ALARM', generated StateUpdate history without a state-value change, advanced StateUpdatedTimestamp, and retained StateTransitionedTimestamp. The observed denominator included the departing contributor despite LIMIT 1.",
+      "evidence_labels": ["rank-displacement-alarm-sd-mi-contrib-52d1a4046c2a-ranked", "higher-new-group-displaces-a-poll-5-alarms"]
+    },
+    {
+      "kind": "native",
+      "claim": "Changing selection to Team=b returned b=5 and eventually parent OK, with no current ALARM contributors; c separately transitioned to OK for disappearance. No contributor-state history for the always nonbreaching b was returned in this capture.",
+      "evidence_labels": ["below-threshold-only-b-poll-4-query", "below-threshold-only-b-poll-4-alarms", "final-contributors-sd-mi-contrib-52d1a4046c2a-ranked"]
+    },
+    {
+      "kind": "native",
+      "claim": "The empty-selection breaching alarm transitioned from INSUFFICIENT_DATA to ALARM with no contributors. Its reason was 'No time series were returned by the query. Treat missing data is configured as [Breaching].'. Thus ALARM does not imply at least one returned contributor.",
+      "evidence_labels": ["initial-alarm-sd-mi-contrib-52d1a4046c2a-empty", "empty-selection-missing-treatment-poll-1-empty-contributors"]
+    },
+    {
+      "kind": "native",
+      "claim": "Contributor responses contained ContributorId (opaque 16-character values), ContributorAttributes, StateReason and StateTransitionedTimestamp, without a StateValue field. Contributor histories contained AlarmContributorId, AlarmContributorAttributes and HistoryData.newState; ID-filtered history was available through the installed CLI.",
+      "evidence_labels": ["initial-threshold-breach-poll-4-contributors", "final-specific-a29eb44b20c4362e", "final-specific-9916d378bff14ec4"]
+    },
+    {
+      "kind": "design_inference",
+      "claim": "State storage needs separate per-alarm contributor identity/state/history from aggregate alarm state, must retire disappearing contributors, must preserve reason-only parent updates without advancing transition time, and must apply empty-query missing-data behavior independently of current contributor count. Do not use CLI display labels such as '1 - a' as contributor identities."
+    },
+    {
+      "kind": "documented_not_native_verified",
+      "claim": "Primary missing-data documentation says a disappearing contributor becomes OK regardless of TreatMissingData and an entirely empty result applies TreatMissingData at alarm level. This capture observed disappearance with notBreaching and an empty result with breaching; it does not independently verify disappearance under breaching, individual missing datapoints, ignore/missing modes, or a completed empty/notBreaching evaluation.",
+      "source_url": "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html"
+    }
+  ]
+}

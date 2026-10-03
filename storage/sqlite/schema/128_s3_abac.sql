@@ -1,0 +1,1 @@
+ALTER TABLE s3_buckets ADD COLUMN abac_enabled BOOLEAN NOT NULL DEFAULT false;

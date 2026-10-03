@@ -1,0 +1,1437 @@
+{
+  "service": "stepfunctions",
+  "region": "us-east-1",
+  "captured_at": "2026-09-23T22:52:43.753658+00:00",
+  "protocol": {
+    "operation": "TestState",
+    "maximum_calls": 30,
+    "resource_creation": false,
+    "real_tasks": false,
+    "all_task_and_branch_cases_explicitly_mocked": true
+  },
+  "sources": [
+    {
+      "path": "/tmp/stackd_sfn_teststate_mock_probe.py",
+      "content": "import json\nimport sys\nfrom datetime import datetime, timezone\nfrom pathlib import Path\nsys.path.insert(0, '/home/r/dev/minor/stackd/scripts/aws')\nfrom signed_requests import observe_json\n\nROOT = Path('/home/r/dev/minor/stackd')\nSOURCE = Path(__file__).read_text()\nTASK = {'Type':'Task','Resource':'arn:aws:states:::lambda:invoke','Parameters':{'FunctionName':'stackd-teststate-mock-no-resource'},'End':True}\nMAP = {'Type':'Map','ItemsPath':'$.items','ItemSelector':{'i.$':'$$.Map.Item.Index','v.$':'$$.Map.Item.Value'},'ItemProcessor':{'ProcessorConfig':{'Mode':'INLINE'},'StartAt':'Child','States':{'Child':{'Type':'Pass','End':True}}},'End':True}\nPARALLEL = {'Type':'Parallel','Branches':[{'StartAt':'A','States':{'A':{'Type':'Pass','End':True}}},{'StartAt':'B','States':{'B':{'Type':'Pass','End':True}}}],'End':True}\nCASES = []\ndef add(label, definition, mock=None, **kwargs):\n    data={'definition':json.dumps(definition,separators=(',',':')),'input':'{\"items\":[1,2,3]}','inspectionLevel':'DEBUG'}\n    if mock is not None: data['mock']=mock\n    data.update(kwargs)\n    CASES.append((label,data))\nadd('mock-task-empty',TASK,{})\nadd('mock-task-null',TASK,{'result':'null'})\nadd('mock-task-object',TASK,{'result':'{\"Payload\":{\"ok\":true}}'})\nadd('mock-task-schema-type',TASK,{'result':'{\"StatusCode\":\"wrong\"}'})\nadd('mock-task-schema-present',TASK,{'result':'{\"StatusCode\":\"wrong\"}','fieldValidationMode':'PRESENT'})\nadd('mock-task-schema-none',TASK,{'result':'{\"StatusCode\":\"wrong\"}','fieldValidationMode':'NONE'})\nadd('mock-task-both',TASK,{'result':'{}','errorOutput':{'error':'Owned.Error','cause':'mock'}})\nadd('mock-error-empty',TASK,{'errorOutput':{}})\nadd('mock-error-retry',dict(TASK,Retry=[{'ErrorEquals':['Owned.Error'],'IntervalSeconds':2,'MaxAttempts':3,'BackoffRate':2}]),{'errorOutput':{'error':'Owned.Error','cause':'mock'}},stateConfiguration={'retrierRetryCount':1})\nadd('mock-error-catch',dict(TASK,Catch=[{'ErrorEquals':['Owned.Error'],'ResultPath':'$.error','Next':'Caught'}]),{'errorOutput':{'error':'Owned.Error','cause':'mock'}})\nadd('mock-pass-rejected',{'Type':'Pass','End':True},{'result':'{}'})\nadd('pass-no-role',{'Type':'Pass','End':True})\nadd('trace-pass',{'Type':'Pass','End':True},inspectionLevel='TRACE')\nadd('mock-reveal-false',TASK,{'result':'{}'},revealSecrets=False)\nadd('mock-context-partial',dict(TASK,Parameters={'FunctionName':'stackd-teststate-mock-no-resource','Payload.$':'$$'}),{'result':'{}'},context='{\"State\":{\"Name\":\"Configured\"}}')\nadd('mock-map-default',MAP,{'result':'[10,20,30]'})\nadd('mock-map-shape',MAP,{'result':'{}'})\nadd('mock-map-error-source-absent',MAP,{'errorOutput':{'error':'Owned.Error','cause':'mock'}})\nadd('mock-map-error-source',MAP,{'errorOutput':{'error':'Owned.Error','cause':'mock'}},stateConfiguration={'errorCausedByState':'Child'})\nadd('mock-parallel',PARALLEL,{'result':'[1,2]'})\nadd('mock-parallel-short',PARALLEL,{'result':'[1]'})\nadd('mock-parallel-object',PARALLEL,{'result':'{}'})\nDISTRIBUTED = dict(MAP,ItemProcessor={'ProcessorConfig':{'Mode':'DISTRIBUTED'},'StartAt':'Child','States':{'Child':{'Type':'Pass','End':True}}},ItemBatcher={'MaxItemsPerBatch':2},MaxConcurrency=2,ToleratedFailureCount=1)\nadd('mock-map-batch',DISTRIBUTED,{'result':'[10,20,30]'})\nadd('mock-map-failure-count',DISTRIBUTED,{'result':'[10,20,30]'},stateConfiguration={'mapIterationFailureCount':2})\nadd('mock-map-excess-failure-count',DISTRIBUTED,{'result':'[10,20,30]'},stateConfiguration={'mapIterationFailureCount':4})\nREADER = dict(DISTRIBUTED,ItemReader={'Resource':'arn:aws:states:::s3:getObject','ReaderConfig':{'InputType':'JSON','ItemsPointer':'/items'},'Parameters':{'Bucket':'stackd-teststate-no-resource','Key':'none.json'}})\nREADER.pop('ItemsPath')\nadd('mock-map-reader',READER,{'result':'[10,20]'},stateConfiguration={'mapItemReaderData':'{\"items\":[4,5]}'})\nadd('mock-map-reader-missing-data',READER,{'result':'[10,20]'})\nassert len(CASES)<=30\ncapture={'service':'stepfunctions','region':'us-east-1','captured_at':datetime.now(timezone.utc).isoformat(),'protocol':{'operation':'TestState','maximum_calls':30,'resource_creation':False,'real_tasks':False,'all_task_and_branch_cases_explicitly_mocked':True},'sources':[{'path':__file__,'content':SOURCE},{'path':'scripts/aws/signed_requests.py','content':(ROOT/'scripts/aws/signed_requests.py').read_text()},{'url':'https://docs.aws.amazon.com/step-functions/latest/dg/test-state-isolation.html'}],'observations':[]}\nfor label, data in CASES:\n    result=observe_json('states.us-east-1.amazonaws.com','states','AWSStepFunctions.TestState',data)\n    capture['observations'].append({'label':label,'operation':'TestState','input':data,'result':result})\n    print(label,json.dumps(result),flush=True)\n    (ROOT/'testdata/aws/stepfunctions/test_state_mock.json').write_text(json.dumps(capture,indent=2)+'\\n')\n"
+    },
+    {
+      "path": "scripts/aws/signed_requests.py",
+      "content": "\"\"\"Signed AWS requests for behavior probes that bypass CLI shape validation.\"\"\"\nimport datetime\nimport hashlib\nimport hmac\nimport json\nimport subprocess\nimport urllib.error\nimport urllib.request\nfrom collections.abc import Mapping\nfrom typing import Any\n\nfrom aws_cli import ProbeResult\n\n_RAW_CREDENTIALS = None\n\n\ndef signed_post(endpoint, service, body, headers, environment=None):\n    global _RAW_CREDENTIALS\n    credentials = _RAW_CREDENTIALS if environment is None else None\n    if credentials is None:\n        process = subprocess.run([\"aws\", \"configure\", \"export-credentials\", \"--format\", \"process\"],\n                                 capture_output=True, text=True, timeout=30, env=environment)\n        if process.returncode:\n            raise RuntimeError(\"Unable to load AWS credentials for signed requests; diagnostics discarded\")\n        credentials = json.loads(process.stdout)\n        if environment is None:\n            _RAW_CREDENTIALS = credentials\n    now = datetime.datetime.now(datetime.timezone.utc)\n    date, instant = now.strftime(\"%Y%m%d\"), now.strftime(\"%Y%m%dT%H%M%SZ\")\n    headers = dict(headers, host=endpoint)\n    headers[\"x-amz-date\"] = instant\n    if credentials.get(\"SessionToken\"):\n        headers[\"x-amz-security-token\"] = credentials[\"SessionToken\"]\n    names = \";\".join(sorted(headers))\n    canonical = \"POST\\n/\\n\\n\" + \"\".join(name + \":\" + headers[name] + \"\\n\" for name in sorted(headers)) + \"\\n\" + names + \"\\n\" + hashlib.sha256(body).hexdigest()\n    scope = date + \"/us-east-1/\" + service + \"/aws4_request\"\n    signing_key = (\"AWS4\" + credentials[\"SecretAccessKey\"]).encode()\n    for item in (date, \"us-east-1\", service, \"aws4_request\"):\n        signing_key = hmac.new(signing_key, item.encode(), hashlib.sha256).digest()\n    signature = hmac.new(signing_key, (\"AWS4-HMAC-SHA256\\n\" + instant + \"\\n\" + scope + \"\\n\" + hashlib.sha256(canonical.encode()).hexdigest()).encode(), hashlib.sha256).hexdigest()\n    headers[\"Authorization\"] = \"AWS4-HMAC-SHA256 Credential=\" + credentials[\"AccessKeyId\"] + \"/\" + scope + \", SignedHeaders=\" + names + \", Signature=\" + signature\n    request = urllib.request.Request(\"https://\" + endpoint + \"/\", data=body, headers=headers)\n    try:\n        response = urllib.request.urlopen(request, timeout=30)\n    except urllib.error.HTTPError as error:\n        response = error\n    with response:\n        return response.status, response.read()\n\n\ndef observe_json(endpoint: str, service: str, target: str,\n                 parameters: Mapping[str, Any], environment: Mapping[str, str] | None = None) -> ProbeResult:\n    \"\"\"Observe one AWS JSON call, retaining native error fields and HTTP status.\n\n    Like signed_post, this signs for us-east-1 without retrying. Non-JSON or\n    unmodeled errors raise rather than becoming invented AWS observations.\n    \"\"\"\n    status, body = signed_post(endpoint, service, json.dumps(parameters).encode(),\n                               {\"content-type\": \"application/x-amz-json-1.0\", \"x-amz-target\": target},\n                               environment)\n    output = json.loads(body)\n    if 200 <= status < 300:\n        return {\"code\": \"Success\", \"output\": output, \"http_status\": status}\n    return {\"code\": output[\"__type\"].split(\"#\")[-1], \"error\": output, \"http_status\": status}\n"
+    },
+    {
+      "url": "https://docs.aws.amazon.com/step-functions/latest/dg/test-state-isolation.html"
+    },
+    {
+      "followup": "Native us-west-2 CLI retry of only mock-task-object, mock-map-default, mock-map-failure-count; AWS_MAX_ATTEMPTS=1, --endpoint-url https://states.us-west-2.amazonaws.com, --no-cli-pager; no new resources or nonmock task effects."
+    },
+    {
+      "path": "/tmp/stackd_sfn_teststate_mock_followup.py",
+      "content": "import json\nimport os\nimport sys\nimport time\nfrom pathlib import Path\nROOT=Path('/home/r/dev/minor/stackd')\nsys.path.insert(0,str(ROOT/'scripts/aws'))\nfrom aws_cli import run,result\ncapture=json.loads((ROOT/'testdata/aws/stepfunctions/test_state_mock.json').read_text())\nsource=Path('/tmp/stackd_sfn_teststate_mock_probe.py').read_text()\nnamespace={'__file__':'/tmp/stackd_sfn_teststate_mock_probe.py'}\nexec(source.split('assert len(CASES)')[0],namespace)\ncases=dict(namespace['CASES'])\nselected=['mock-task-empty','mock-task-null','mock-error-empty','mock-error-retry','mock-error-catch','pass-no-role','trace-pass','mock-reveal-false','mock-context-partial','mock-map-shape','mock-map-error-source-absent','mock-map-error-source','mock-parallel-short','mock-parallel-object','mock-map-batch','mock-map-failure-count','mock-map-excess-failure-count','mock-map-reader','mock-map-reader-missing-data']\nfor label in selected:\n data=cases[label]\n definition=json.loads(data['definition'])\n if definition.get('Type')=='Map' and definition['ItemProcessor']['ProcessorConfig']['Mode']=='DISTRIBUTED':\n  definition['ItemProcessor']['ProcessorConfig']['ExecutionType']='STANDARD'\n  data['definition']=json.dumps(definition,separators=(',',':'))\nstring_payload=dict(cases['mock-task-object'],mock={'result':'{\"Payload\":\"{\\\\\"ok\\\\\":true}\"}'})\nwork=[(label,cases[label]) for label in selected]+[('mock-task-string-payload',string_payload)]\nassert len(work)<=20\nenvironment=dict(os.environ,AWS_REGION='us-west-2',AWS_DEFAULT_REGION='us-west-2',AWS_MAX_ATTEMPTS='1',AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true',AWS_PAGER='')\nfor key in list(environment):\n if key.startswith('AWS_ENDPOINT_URL'): del environment[key]\ncapture['sources'].append({'path':__file__,'content':Path(__file__).read_text()})\ncapture['followup_protocol']={'region':'us-west-2','maximum_calls':20,'retry':False,'resource_creation':False,'real_tasks':False}\nfor index,(label,data) in enumerate(work):\n if index: time.sleep(1.05)\n observed=result(run('stepfunctions','test-state',data,environment,options=['--endpoint-url','https://states.us-west-2.amazonaws.com'],timeout=30))\n capture['observations'].append({'label':'paced-west-'+label,'region':'us-west-2','operation':'TestState','input':data,'result':observed})\n print(label,json.dumps(observed),flush=True)\n (ROOT/'testdata/aws/stepfunctions/test_state_mock.json').write_text(json.dumps(capture,indent=2)+'\\n')\n"
+    },
+    {
+      "path": "/tmp/stackd_sfn_teststate_mock_edges.py",
+      "content": "import json,os,sys,time\nfrom pathlib import Path\nROOT=Path('/home/r/dev/minor/stackd')\nsys.path.insert(0,str(ROOT/'scripts/aws'))\nfrom aws_cli import run,result\ncapture=json.loads((ROOT/'testdata/aws/stepfunctions/test_state_mock.json').read_text())\nchild={'Type':'Task','Resource':'arn:aws:states:::lambda:invoke','Parameters':{'FunctionName':'stackd-no-task-effect','Payload.$':'$$'},'End':True}\nouter={'Type':'Map','ItemsPath':'$.items','ItemProcessor':{'StartAt':'Child','States':{'Child':child}},'End':True}\nworkflow={'StartAt':'Outer','States':{'Outer':outer}}\ndef request(definition,mocked,**extra):\n data={'definition':json.dumps(definition,separators=(',',':')),'input':'{\"items\":[1,2,3]}','inspectionLevel':'DEBUG','mock':{'result':mocked}}\n data.update(extra)\n return data\ncases=[('nested-task-default-context',request(workflow,'{}',stateName='Child')),('nested-task-failure-count',request(workflow,'{}',stateName='Child',stateConfiguration={'mapIterationFailureCount':1})),('nested-task-failure-count-all',request(workflow,'{}',stateName='Child',stateConfiguration={'mapIterationFailureCount':3})),('map-no-selector-inspection',request(outer,'[1,2,3]'))]\nfor source,label,newresult in [('paced-west-mock-map-batch','map-batch-success','[10,20]'),('paced-west-mock-map-reader','map-reader-success','[10]')]:\n data=dict(next(r['input'] for r in capture['observations'] if r['label']==source));data['mock']={'result':newresult};cases.append((label,data))\nfor mode in ['PRESENT','NONE']:\n cases.append(('mock-payload-object-'+mode,request(child,'{\"Payload\":{\"k\":1}}',mock={'result':'{\"Payload\":{\"k\":1}}','fieldValidationMode':mode})))\nassert len(cases)==8\nenvironment=dict(os.environ,AWS_REGION='us-west-2',AWS_DEFAULT_REGION='us-west-2',AWS_MAX_ATTEMPTS='1',AWS_IGNORE_CONFIGURED_ENDPOINT_URLS='true',AWS_PAGER='')\nfor key in list(environment):\n if key.startswith('AWS_ENDPOINT_URL'):del environment[key]\ncapture['sources'].append({'path':__file__,'content':Path(__file__).read_text()})\nfor index,(label,data) in enumerate(cases):\n if index:time.sleep(1.05)\n observed=result(run('stepfunctions','test-state',data,environment,options=['--endpoint-url','https://states.us-west-2.amazonaws.com'],timeout=30))\n capture['observations'].append({'label':label,'region':'us-west-2','operation':'TestState','input':data,'result':observed})\n print(label,json.dumps(observed),flush=True)\n (ROOT/'testdata/aws/stepfunctions/test_state_mock.json').write_text(json.dumps(capture,indent=2)+'\\n')\n"
+    },
+    {
+      "path": "scripts/aws/aws_cli.py",
+      "content": "\"\"\"AWS CLI transport shared by native behavior probes.\n\nCallers own endpoint/retry choices, observations and resource cleanup. JSON shapes\nremain open because probes deliberately exercise invalid and newly added inputs.\n\"\"\"\nimport ast\nimport json\nimport re\nimport subprocess\nfrom collections.abc import Mapping, Sequence\nfrom typing import Any, NotRequired, TypedDict\n\n\nclass ProbeResult(TypedDict):\n    code: str\n    output: NotRequired[dict[str, Any]]\n    error: NotRequired[dict[str, Any]]\n    message: NotRequired[str]\n    http_status: NotRequired[int]\n\n\nclass CLITimeout(RuntimeError):\n    \"\"\"A bounded CLI call expired; command arguments may contain secrets.\"\"\"\n\n\nclass AWSCLIError(RuntimeError):\n    \"\"\"A failed strict call, retaining native JSON error fields for its caller.\"\"\"\n\n    def __init__(self, service: str, operation: str, stderr: str, details: dict[str, Any]):\n        super().__init__(f\"{service}:{operation}: {stderr.strip()}\")\n        self.details = details\n\n\ndef run(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n        env: Mapping[str, str] | None = None, *, options: Sequence[str] = (),\n        timeout: float | None = None) -> subprocess.CompletedProcess[str]:\n    \"\"\"Execute one CLI command without interpreting service or client failures.\"\"\"\n    command = [\"aws\", service, operation, \"--output\", \"json\", \"--no-cli-pager\"]\n    if parameters is not None:\n        command += [\"--cli-input-json\", json.dumps(parameters)]\n    try:\n        return subprocess.run(command + list(options), env=env, capture_output=True,\n                              text=True, check=False, timeout=timeout)\n    except subprocess.TimeoutExpired:\n        raise CLITimeout(\"AWS CLI timed out during \" + operation) from None\n\n\ndef call(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n         env: Mapping[str, str] | None = None, *, paginate: bool = True,\n         error_format: str | None = None) -> dict[str, Any]:\n    \"\"\"Return JSON output; service and CLI-validation errors retain typed details.\n\n    Configuration and transport failures abort capture instead of becoming\n    observations of AWS behavior. AWS CLI uses 252 for input errors and 254\n    for service errors.\n    \"\"\"\n    options = [\"--cli-connect-timeout\", \"10\", \"--cli-read-timeout\", \"30\"]\n    if error_format is not None:\n        options += [\"--cli-error-format\", error_format]\n    if not paginate:\n        options.append(\"--no-paginate\")\n    process = run(service, operation, parameters or None, env, options=options)\n    if process.returncode:\n        diagnosis = f\"{service}:{operation}: {process.stderr.strip()}\"\n        if error_format == \"json\" and process.returncode in (252, 254):\n            try:\n                details = json.loads(process.stderr)\n            except json.JSONDecodeError:\n                raise RuntimeError(diagnosis) from None\n            if isinstance(details, dict) and isinstance(details.get(\"Code\"), str):\n                raise AWSCLIError(service, operation, process.stderr, details)\n        raise RuntimeError(diagnosis)\n    return result(process)[\"output\"]\n\n\ndef observe(service: str, operation: str, parameters: Mapping[str, Any] | None = None,\n            env: Mapping[str, str] | None = None, *, paginate: bool = True) -> ProbeResult:\n    \"\"\"Capture native JSON success/error fields; callers own output redaction.\"\"\"\n    try:\n        output = call(service, operation, parameters, env, paginate=paginate, error_format=\"json\")\n    except AWSCLIError as error:\n        return {\"code\": error.details[\"Code\"], \"error\": error.details}\n    return {\"code\": \"Success\", \"output\": output}\n\n\ndef _text_error(stderr: str) -> tuple[str, str | None]:\n    match = re.search(r\"An error occurred \\(([^)]+)\\)(?:.*?operation(?: \\([^)]*\\))?: (.*))?\", stderr)\n    return (match[1], match[2]) if match else (\"CLIError\", None)\n\n\ndef result(process: subprocess.CompletedProcess[str], *, cli_error: str = \"CLIError\",\n           cli_message: str | None = \"AWS CLI failed; raw diagnostics discarded\",\n           debug: bool = False) -> ProbeResult:\n    \"\"\"Decode an observation, separating modeled errors from CLI rejection.\n\n    A None client message retains the final three diagnostic lines for probes\n    whose captured CLI-validation observations include those lines.\n    \"\"\"\n    if process.returncode:\n        code, message = _text_error(process.stderr)\n        decoded: ProbeResult = {\n            \"code\": code if message is not None else cli_error,\n            \"message\": message if message is not None else cli_message if cli_message is not None\n            else \" \".join(process.stderr.splitlines()[-3:]),\n        }\n    else:\n        decoded = {\"code\": \"Success\", \"output\": json.loads(process.stdout) if process.stdout.strip() else {}}\n    if debug:\n        statuses = re.findall(r'\"[A-Z]+ [^\"\\r\\n]* HTTP/1\\.[01]\" (\\d{3})', process.stderr)\n        if statuses:\n            decoded[\"http_status\"] = int(statuses[-1])\n    return decoded\n\n\ndef error_code(process: subprocess.CompletedProcess[str]) -> str:\n    \"\"\"Decode code-only observations, including CLI ParamValidation errors.\"\"\"\n    return _text_error(process.stderr)[0]\n\n\ndef raw_xml(process: subprocess.CompletedProcess[str]) -> bytes | None:\n    \"\"\"Extract the last XML response from CLI debug output; discard other logs.\"\"\"\n    raw = None\n    for line in process.stderr.splitlines():\n        if line.startswith((\"b'<\", 'b\"<')):\n            try:\n                candidate = ast.literal_eval(line)\n                if candidate.startswith(b\"<\"):\n                    raw = candidate\n            except (ValueError, SyntaxError):\n                pass\n    return raw\n"
+    }
+  ],
+  "observations": [
+    {
+      "label": "mock-task-empty",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {}
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-task-null",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "null"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-task-object",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{\"Payload\":{\"ok\":true}}"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-task-schema-type",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{\"StatusCode\":\"wrong\"}"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-task-schema-present",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{\"StatusCode\":\"wrong\"}",
+          "fieldValidationMode": "PRESENT"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-task-schema-none",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{\"StatusCode\":\"wrong\"}",
+          "fieldValidationMode": "NONE"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-task-both",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}",
+          "errorOutput": {
+            "error": "Owned.Error",
+            "cause": "mock"
+          }
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-error-empty",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {}
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-error-retry",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Owned.Error\"],\"IntervalSeconds\":2,\"MaxAttempts\":3,\"BackoffRate\":2}]}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {
+            "error": "Owned.Error",
+            "cause": "mock"
+          }
+        },
+        "stateConfiguration": {
+          "retrierRetryCount": 1
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-error-catch",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true,\"Catch\":[{\"ErrorEquals\":[\"Owned.Error\"],\"ResultPath\":\"$.error\",\"Next\":\"Caught\"}]}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {
+            "error": "Owned.Error",
+            "cause": "mock"
+          }
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-pass-rejected",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Pass\",\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "pass-no-role",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Pass\",\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG"
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "trace-pass",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Pass\",\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "TRACE"
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-reveal-false",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        },
+        "revealSecrets": false
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-context-partial",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\",\"Payload.$\":\"$$\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        },
+        "context": "{\"State\":{\"Name\":\"Configured\"}}"
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-map-default",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"INLINE\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20,30]"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-map-shape",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"INLINE\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-map-error-source-absent",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"INLINE\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {
+            "error": "Owned.Error",
+            "cause": "mock"
+          }
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-map-error-source",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"INLINE\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {
+            "error": "Owned.Error",
+            "cause": "mock"
+          }
+        },
+        "stateConfiguration": {
+          "errorCausedByState": "Child"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-parallel",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Parallel\",\"Branches\":[{\"StartAt\":\"A\",\"States\":{\"A\":{\"Type\":\"Pass\",\"End\":true}}},{\"StartAt\":\"B\",\"States\":{\"B\":{\"Type\":\"Pass\",\"End\":true}}}],\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[1,2]"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-parallel-short",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Parallel\",\"Branches\":[{\"StartAt\":\"A\",\"States\":{\"A\":{\"Type\":\"Pass\",\"End\":true}}},{\"StartAt\":\"B\",\"States\":{\"B\":{\"Type\":\"Pass\",\"End\":true}}}],\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[1]"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-parallel-object",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Parallel\",\"Branches\":[{\"StartAt\":\"A\",\"States\":{\"A\":{\"Type\":\"Pass\",\"End\":true}}},{\"StartAt\":\"B\",\"States\":{\"B\":{\"Type\":\"Pass\",\"End\":true}}}],\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-map-batch",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20,30]"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-map-failure-count",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20,30]"
+        },
+        "stateConfiguration": {
+          "mapIterationFailureCount": 2
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-map-excess-failure-count",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20,30]"
+        },
+        "stateConfiguration": {
+          "mapIterationFailureCount": 4
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-map-reader",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1,\"ItemReader\":{\"Resource\":\"arn:aws:states:::s3:getObject\",\"ReaderConfig\":{\"InputType\":\"JSON\",\"ItemsPointer\":\"/items\"},\"Parameters\":{\"Bucket\":\"stackd-teststate-no-resource\",\"Key\":\"none.json\"}}}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20]"
+        },
+        "stateConfiguration": {
+          "mapItemReaderData": "{\"items\":[4,5]}"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "mock-map-reader-missing-data",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1,\"ItemReader\":{\"Resource\":\"arn:aws:states:::s3:getObject\",\"ReaderConfig\":{\"InputType\":\"JSON\",\"ItemsPointer\":\"/items\"},\"Parameters\":{\"Bucket\":\"stackd-teststate-no-resource\",\"Key\":\"none.json\"}}}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20]"
+        }
+      },
+      "result": {
+        "code": "ThrottlingException",
+        "error": {
+          "__type": "com.amazon.coral.availability#ThrottlingException",
+          "message": "Rate exceeded"
+        },
+        "http_status": 400
+      }
+    },
+    {
+      "label": "west-mock-task-object",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{\"Payload\":{\"ok\":true}}"
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "Mock result schema validation error: Field 'Payload' must be a string"
+      }
+    },
+    {
+      "label": "west-mock-map-default",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"INLINE\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20,30]"
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "[10,20,30]",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterResultSelector": "[10,20,30]",
+            "afterResultPath": "[10,20,30]",
+            "afterItemsPath": "[1, 2, 3]",
+            "afterItemSelector": "[{\"v\":1,\"i\":0}, {\"v\":2,\"i\":1}, {\"v\":3,\"i\":2}]",
+            "maxConcurrency": 0
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "west-mock-map-failure-count",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20,30]"
+        },
+        "stateConfiguration": {
+          "mapIterationFailureCount": 2
+        }
+      },
+      "result": {
+        "code": "InvalidDefinition",
+        "message": "Invalid State Machine Definition: 'SCHEMA_VALIDATION_FAILED: These fields are required: [ExecutionType] at /States/StateName/ItemProcessor/ProcessorConfig'"
+      }
+    },
+    {
+      "label": "paced-west-mock-task-empty",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {}
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "One of the following fields is required for a test mock: [result, errorOutput]."
+      }
+    },
+    {
+      "label": "paced-west-mock-task-null",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "null"
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "Mocked result must be a valid JSON object."
+      }
+    },
+    {
+      "label": "paced-west-mock-error-empty",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {}
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "An error was not specified in the mocked error output."
+      }
+    },
+    {
+      "label": "paced-west-mock-error-retry",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Owned.Error\"],\"IntervalSeconds\":2,\"MaxAttempts\":3,\"BackoffRate\":2}]}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {
+            "error": "Owned.Error",
+            "cause": "mock"
+          }
+        },
+        "stateConfiguration": {
+          "retrierRetryCount": 1
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "Owned.Error",
+          "cause": "mock",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterParameters": "{\"FunctionName\":\"stackd-teststate-mock-no-resource\"}",
+            "errorDetails": {
+              "retryIndex": 0,
+              "retryBackoffIntervalSeconds": 4
+            }
+          },
+          "status": "RETRIABLE"
+        }
+      }
+    },
+    {
+      "label": "paced-west-mock-error-catch",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true,\"Catch\":[{\"ErrorEquals\":[\"Owned.Error\"],\"ResultPath\":\"$.error\",\"Next\":\"Caught\"}]}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {
+            "error": "Owned.Error",
+            "cause": "mock"
+          }
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"items\":[1,2,3],\"error\":{\"Error\":\"Owned.Error\",\"Cause\":\"mock\"}}",
+          "error": "Owned.Error",
+          "cause": "mock",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterParameters": "{\"FunctionName\":\"stackd-teststate-mock-no-resource\"}",
+            "afterResultPath": "{\"items\":[1,2,3],\"error\":{\"Error\":\"Owned.Error\",\"Cause\":\"mock\"}}",
+            "errorDetails": {
+              "catchIndex": 0
+            }
+          },
+          "nextState": "Caught",
+          "status": "CAUGHT_ERROR"
+        }
+      }
+    },
+    {
+      "label": "paced-west-pass-no-role",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Pass\",\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG"
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"items\":[1,2,3]}",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterParameters": "{\"items\":[1,2,3]}",
+            "afterResultSelector": "{\"items\":[1,2,3]}",
+            "afterResultPath": "{\"items\":[1,2,3]}"
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "paced-west-trace-pass",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Pass\",\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "TRACE"
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"items\":[1,2,3]}",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterParameters": "{\"items\":[1,2,3]}",
+            "afterResultSelector": "{\"items\":[1,2,3]}",
+            "afterResultPath": "{\"items\":[1,2,3]}"
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "paced-west-mock-reveal-false",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        },
+        "revealSecrets": false
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{}",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterParameters": "{\"FunctionName\":\"stackd-teststate-mock-no-resource\"}",
+            "result": "{}",
+            "afterResultSelector": "{}",
+            "afterResultPath": "{}"
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "paced-west-mock-context-partial",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\",\"Payload.$\":\"$$\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        },
+        "context": "{\"State\":{\"Name\":\"Configured\"}}"
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{}",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterParameters": "{\"FunctionName\":\"stackd-teststate-mock-no-resource\",\"Payload\":{\"State\":{\"Name\":\"Configured\"}}}",
+            "result": "{}",
+            "afterResultSelector": "{}",
+            "afterResultPath": "{}"
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "paced-west-mock-map-shape",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"INLINE\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "Mocked result must be an array."
+      }
+    },
+    {
+      "label": "paced-west-mock-map-error-source-absent",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"INLINE\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {
+            "error": "Owned.Error",
+            "cause": "mock"
+          }
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "Owned.Error",
+          "cause": "mock",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterItemsPath": "[1, 2, 3]",
+            "afterItemSelector": "[{\"v\":1,\"i\":0}, {\"v\":2,\"i\":1}, {\"v\":3,\"i\":2}]",
+            "maxConcurrency": 0
+          },
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "paced-west-mock-map-error-source",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"INLINE\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "errorOutput": {
+            "error": "Owned.Error",
+            "cause": "mock"
+          }
+        },
+        "stateConfiguration": {
+          "errorCausedByState": "Child"
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "Owned.Error",
+          "cause": "mock",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterItemsPath": "[1, 2, 3]",
+            "afterItemSelector": "[{\"v\":1,\"i\":0}, {\"v\":2,\"i\":1}, {\"v\":3,\"i\":2}]",
+            "maxConcurrency": 0
+          },
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "paced-west-mock-parallel-short",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Parallel\",\"Branches\":[{\"StartAt\":\"A\",\"States\":{\"A\":{\"Type\":\"Pass\",\"End\":true}}},{\"StartAt\":\"B\",\"States\":{\"B\":{\"Type\":\"Pass\",\"End\":true}}}],\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[1]"
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "Mocked result must contain the same number of items as number of Parallel branches."
+      }
+    },
+    {
+      "label": "paced-west-mock-parallel-object",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Parallel\",\"Branches\":[{\"StartAt\":\"A\",\"States\":{\"A\":{\"Type\":\"Pass\",\"End\":true}}},{\"StartAt\":\"B\",\"States\":{\"B\":{\"Type\":\"Pass\",\"End\":true}}}],\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "Mocked result must be an array."
+      }
+    },
+    {
+      "label": "paced-west-mock-map-batch",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\",\"ExecutionType\":\"STANDARD\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20,30]"
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "Input array does not equal the mocked result array's size"
+      }
+    },
+    {
+      "label": "paced-west-mock-map-failure-count",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\",\"ExecutionType\":\"STANDARD\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20,30]"
+        },
+        "stateConfiguration": {
+          "mapIterationFailureCount": 2
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "error": "States.ExceedToleratedFailureThreshold",
+          "cause": "The specified tolerated failure threshold was exceeded",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterItemsPath": "[1, 2, 3]",
+            "afterItemSelector": "[{\"v\":1,\"i\":0}, {\"v\":2,\"i\":1}, {\"v\":3,\"i\":2}]",
+            "afterItemBatcher": "[{\"Items\":[\"{\\\"v\\\":1,\\\"i\\\":0}\",\"{\\\"v\\\":2,\\\"i\\\":1}\"]}, {\"Items\":[\"{\\\"v\\\":3,\\\"i\\\":2}\"]}]",
+            "toleratedFailureCount": 1,
+            "maxConcurrency": 2
+          },
+          "status": "FAILED"
+        }
+      }
+    },
+    {
+      "label": "paced-west-mock-map-excess-failure-count",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\",\"ExecutionType\":\"STANDARD\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20,30]"
+        },
+        "stateConfiguration": {
+          "mapIterationFailureCount": 4
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "Map iteration failure count must be less than or equal to the number of Map iterations"
+      }
+    },
+    {
+      "label": "paced-west-mock-map-reader",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\",\"ExecutionType\":\"STANDARD\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1,\"ItemReader\":{\"Resource\":\"arn:aws:states:::s3:getObject\",\"ReaderConfig\":{\"InputType\":\"JSON\",\"ItemsPointer\":\"/items\"},\"Parameters\":{\"Bucket\":\"stackd-teststate-no-resource\",\"Key\":\"none.json\"}}}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20]"
+        },
+        "stateConfiguration": {
+          "mapItemReaderData": "{\"items\":[4,5]}"
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "Input array does not equal the mocked result array's size"
+      }
+    },
+    {
+      "label": "paced-west-mock-map-reader-missing-data",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\",\"ExecutionType\":\"STANDARD\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1,\"ItemReader\":{\"Resource\":\"arn:aws:states:::s3:getObject\",\"ReaderConfig\":{\"InputType\":\"JSON\",\"ItemsPointer\":\"/items\"},\"Parameters\":{\"Bucket\":\"stackd-teststate-no-resource\",\"Key\":\"none.json\"}}}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20]"
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "ItemReader data must be specified when testing a Map state with ItemReader specified."
+      }
+    },
+    {
+      "label": "paced-west-mock-task-string-payload",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-teststate-mock-no-resource\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{\"Payload\":\"{\\\"ok\\\":true}\"}"
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Payload\":\"{\\\"ok\\\":true}\"}",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterParameters": "{\"FunctionName\":\"stackd-teststate-mock-no-resource\"}",
+            "result": "{\"Payload\":\"{\\\"ok\\\":true}\"}",
+            "afterResultSelector": "{\"Payload\":\"{\\\"ok\\\":true}\"}",
+            "afterResultPath": "{\"Payload\":\"{\\\"ok\\\":true}\"}"
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "nested-task-default-context",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"StartAt\":\"Outer\",\"States\":{\"Outer\":{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemProcessor\":{\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-no-task-effect\",\"Payload.$\":\"$$\"},\"End\":true}}},\"End\":true}}}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        },
+        "stateName": "Child"
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{}",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterParameters": "{\"FunctionName\":\"stackd-no-task-effect\",\"Payload\":{\"Execution\":{\"Id\":\"arn:aws:states:us-west-2:000000000000:express:86400c97-1807-41f6-8721-5575f408614b:d917a2ca-5386-4905-ab5f-4ca299f4b6c1\",\"Input\":{\"items\":[1,2,3]},\"Name\":\"d917a2ca-5386-4905-ab5f-4ca299f4b6c1\",\"RoleArn\":null,\"StartTime\":\"2026-09-23T23:01:59.495Z\"},\"StateMachine\":{\"Id\":\"arn:aws:states:us-west-2:000000000000:stateMachine:86400c97-1807-41f6-8721-5575f408614b\",\"Name\":\"86400c97-1807-41f6-8721-5575f408614b\"},\"State\":{\"Name\":\"StateName\",\"EnteredTime\":\"2026-09-23T23:01:59.495Z\",\"RetryCount\":0}}}",
+            "result": "{}",
+            "afterResultSelector": "{}",
+            "afterResultPath": "{}"
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "nested-task-failure-count",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"StartAt\":\"Outer\",\"States\":{\"Outer\":{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemProcessor\":{\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-no-task-effect\",\"Payload.$\":\"$$\"},\"End\":true}}},\"End\":true}}}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        },
+        "stateName": "Child",
+        "stateConfiguration": {
+          "mapIterationFailureCount": 1
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "MapIterationFailureCount is only supported when testing a Map state."
+      }
+    },
+    {
+      "label": "nested-task-failure-count-all",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"StartAt\":\"Outer\",\"States\":{\"Outer\":{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemProcessor\":{\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-no-task-effect\",\"Payload.$\":\"$$\"},\"End\":true}}},\"End\":true}}}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{}"
+        },
+        "stateName": "Child",
+        "stateConfiguration": {
+          "mapIterationFailureCount": 3
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "MapIterationFailureCount is only supported when testing a Map state."
+      }
+    },
+    {
+      "label": "map-no-selector-inspection",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemProcessor\":{\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-no-task-effect\",\"Payload.$\":\"$$\"},\"End\":true}}},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[1,2,3]"
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "[1,2,3]",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterResultSelector": "[1,2,3]",
+            "afterResultPath": "[1,2,3]",
+            "afterItemsPath": "[1, 2, 3]",
+            "maxConcurrency": 0
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "map-batch-success",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemsPath\":\"$.items\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\",\"ExecutionType\":\"STANDARD\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10,20]"
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "[10,20]",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterResultSelector": "[10,20]",
+            "afterResultPath": "[10,20]",
+            "afterItemsPath": "[1, 2, 3]",
+            "afterItemSelector": "[{\"v\":1,\"i\":0}, {\"v\":2,\"i\":1}, {\"v\":3,\"i\":2}]",
+            "afterItemBatcher": "[{\"Items\":[\"{\\\"v\\\":1,\\\"i\\\":0}\",\"{\\\"v\\\":2,\\\"i\\\":1}\"]}, {\"Items\":[\"{\\\"v\\\":3,\\\"i\\\":2}\"]}]",
+            "toleratedFailureCount": 1,
+            "maxConcurrency": 2
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "map-reader-success",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Map\",\"ItemSelector\":{\"i.$\":\"$$.Map.Item.Index\",\"v.$\":\"$$.Map.Item.Value\"},\"ItemProcessor\":{\"ProcessorConfig\":{\"Mode\":\"DISTRIBUTED\",\"ExecutionType\":\"STANDARD\"},\"StartAt\":\"Child\",\"States\":{\"Child\":{\"Type\":\"Pass\",\"End\":true}}},\"End\":true,\"ItemBatcher\":{\"MaxItemsPerBatch\":2},\"MaxConcurrency\":2,\"ToleratedFailureCount\":1,\"ItemReader\":{\"Resource\":\"arn:aws:states:::s3:getObject\",\"ReaderConfig\":{\"InputType\":\"JSON\",\"ItemsPointer\":\"/items\"},\"Parameters\":{\"Bucket\":\"stackd-teststate-no-resource\",\"Key\":\"none.json\"}}}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "[10]"
+        },
+        "stateConfiguration": {
+          "mapItemReaderData": "{\"items\":[4,5]}"
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "[10]",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterResultSelector": "[10]",
+            "afterResultPath": "[10]",
+            "afterItemSelector": "[{\"v\":4,\"i\":0}, {\"v\":5,\"i\":1}]",
+            "afterItemBatcher": "[{\"Items\":[\"{\\\"v\\\":4,\\\"i\\\":0}\",\"{\\\"v\\\":5,\\\"i\\\":1}\"]}]",
+            "afterItemsPointer": "[4,5]",
+            "toleratedFailureCount": 1,
+            "maxConcurrency": 2
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    {
+      "label": "mock-payload-object-PRESENT",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-no-task-effect\",\"Payload.$\":\"$$\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{\"Payload\":{\"k\":1}}",
+          "fieldValidationMode": "PRESENT"
+        }
+      },
+      "result": {
+        "code": "ValidationException",
+        "message": "Mock result schema validation error: Field 'Payload' must be a string"
+      }
+    },
+    {
+      "label": "mock-payload-object-NONE",
+      "region": "us-west-2",
+      "operation": "TestState",
+      "input": {
+        "definition": "{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"stackd-no-task-effect\",\"Payload.$\":\"$$\"},\"End\":true}",
+        "input": "{\"items\":[1,2,3]}",
+        "inspectionLevel": "DEBUG",
+        "mock": {
+          "result": "{\"Payload\":{\"k\":1}}",
+          "fieldValidationMode": "NONE"
+        }
+      },
+      "result": {
+        "code": "Success",
+        "output": {
+          "output": "{\"Payload\":{\"k\":1}}",
+          "inspectionData": {
+            "input": "{\"items\":[1,2,3]}",
+            "afterInputPath": "{\"items\":[1,2,3]}",
+            "afterParameters": "{\"FunctionName\":\"stackd-no-task-effect\",\"Payload\":{\"Execution\":{\"Id\":\"arn:aws:states:us-west-2:000000000000:express:0930548b-4034-4b9c-8957-f7dc9ba59096:19589426-98d9-428f-8720-1bcac57754cf\",\"Input\":{\"items\":[1,2,3]},\"Name\":\"19589426-98d9-428f-8720-1bcac57754cf\",\"RoleArn\":null,\"StartTime\":\"2026-09-23T23:02:13.122Z\"},\"StateMachine\":{\"Id\":\"arn:aws:states:us-west-2:000000000000:stateMachine:0930548b-4034-4b9c-8957-f7dc9ba59096\",\"Name\":\"0930548b-4034-4b9c-8957-f7dc9ba59096\"},\"State\":{\"Name\":\"StateName\",\"EnteredTime\":\"2026-09-23T23:02:13.122Z\",\"RetryCount\":0}}}",
+            "result": "{\"Payload\":{\"k\":1}}",
+            "afterResultSelector": "{\"Payload\":{\"k\":1}}",
+            "afterResultPath": "{\"Payload\":{\"k\":1}}"
+          },
+          "status": "SUCCEEDED"
+        }
+      }
+    }
+  ],
+  "followup_protocol": {
+    "region": "us-west-2",
+    "maximum_calls": 20,
+    "retry": false,
+    "resource_creation": false,
+    "real_tasks": false
+  },
+  "capture_totals": {
+    "calls": 58,
+    "throttled": 27,
+    "resources_created": 0,
+    "real_tasks": 0
+  },
+  "findings": [
+    {
+      "finding": "Native us-west-2 accepts TRACE on a Pass state and revealSecrets:false with an explicit mock, contrary to stricter documentation wording.",
+      "evidence": [
+        "paced-west-trace-pass",
+        "paced-west-mock-reveal-false"
+      ]
+    },
+    {
+      "finding": "A provided Context replaces the generated Context object, rather than merging missing default sections. Native nested stateName tests still expose State.Name=StateName and do not automatically expose Map.Item.",
+      "evidence": [
+        "paced-west-mock-context-partial",
+        "nested-task-default-context"
+      ]
+    },
+    {
+      "finding": "Lambda mocked Payload is a string in STRICT/PRESENT validation; a raw JSON text string is accepted. NONE accepts a JSON object Payload without rewriting it.",
+      "evidence": [
+        "west-mock-task-object",
+        "paced-west-mock-task-string-payload",
+        "mock-payload-object-PRESENT",
+        "mock-payload-object-NONE"
+      ]
+    },
+    {
+      "finding": "Map inspection omits absent selector/batcher stages and Parameters/result; default maxConcurrency is 0. ItemBatcher inspection represents each Items element as a JSON text string while the final output is the supplied mock result.",
+      "evidence": [
+        "west-mock-map-default",
+        "map-no-selector-inspection",
+        "map-batch-success"
+      ]
+    },
+    {
+      "finding": "Map mock result length is checked against post-batch iteration count; failure threshold evaluation precedes result cardinality validation. ItemReader requires supplied raw data and applies ItemsPointer before selection/batching.",
+      "evidence": [
+        "paced-west-mock-map-batch",
+        "paced-west-mock-map-failure-count",
+        "paced-west-mock-map-reader-missing-data",
+        "map-reader-success"
+      ]
+    },
+    {
+      "finding": "MapIterationFailureCount is rejected when testing a nested Task rather than the Map itself.",
+      "evidence": [
+        "nested-task-failure-count",
+        "nested-task-failure-count-all"
+      ]
+    },
+    {
+      "finding": "Retry/catch use compiled failure handlers, with retry count1 yielding backoff4 for interval2/backoff2; caught errors retain original input under ResultPath.",
+      "evidence": [
+        "paced-west-mock-error-retry",
+        "paced-west-mock-error-catch"
+      ]
+    }
+  ],
+  "limitations": [
+    "All27 us-east-1 attempts were throttled, including the first; those calls provide no semantic evidence.",
+    "No IAM role, state machine, activity, or integrated resource was created. All Task/Map/Parallel executions used explicit mocks.",
+    "HTTP transport/revealSecrets:true and actual task effects were not exercised by this capture."
+  ]
+}

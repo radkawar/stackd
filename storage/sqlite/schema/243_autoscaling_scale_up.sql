@@ -1,0 +1,1 @@
+ALTER TABLE asg_groups ADD COLUMN scale_up_version INTEGER NOT NULL DEFAULT 0;

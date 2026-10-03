@@ -1,0 +1,145 @@
+{
+  "source": "Observed native AWS CloudFormation and Lambda responses; not inferred from direct-API behavior",
+  "account": "000000000000",
+  "region": "us-east-1",
+  "actor": "arn:aws:iam::000000000000:user/Delegated",
+  "captures": [
+    {
+      "path": "testdata/aws/cloudformation/lambda_self_managed_kafka_mapping.json",
+      "scope": "Positive disabled creation, settings/removal, group/topic/authentication mutation, starting-position/timestamp collision and source replacement",
+      "workflow_complete": true,
+      "cleanup_complete": true,
+      "mapping_uuids": ["741075d6-b13f-4b31-8506-e3f3e9c64f61", "54cf3bbd-8fd8-4873-ac3d-4f59b8ea60ed"]
+    },
+    {
+      "path": "testdata/aws/cloudformation/lambda_self_managed_kafka_mapping_position.json",
+      "scope": "Positive disabled creation and rejected on-demand MetricsConfig admission; subsequent no-op removal submission preserved as ValidationError",
+      "workflow_complete": false,
+      "cleanup_complete": true,
+      "mapping_uuids": ["b556d950-224c-4e82-b200-485126c37f37"],
+      "boundary": "The probe originally attempted removal after rejected MetricsConfig and aborted on no updates. The script now skips removal when setting failed. No provisioned pollers were created and rejected admission was not repeated."
+    },
+    {
+      "path": "testdata/aws/cloudformation/lambda_self_managed_kafka_mapping_contract.json",
+      "scope": "Unexecuted group change-set planning, authentication reintroduction, omitted StartingPosition, successful timestamp/source replacement and timestamp removal",
+      "workflow_complete": true,
+      "cleanup_complete": true,
+      "mapping_uuids": ["baa55c4f-d710-4caa-a54e-ca1a90b7f8cf", "a0ef7c4b-ed8b-44b4-9113-a76b1d394b73", "26cea80d-e373-4be1-88a8-85333d8f98b2"],
+      "cleanup_only_recovery_exercised": true
+    }
+  ],
+  "observations": {
+    "initial_create": {
+      "status": "CREATE_COMPLETE",
+      "state": "Disabled",
+      "cfn_endpoint_property": "SelfManagedEventSource.Endpoints.KafkaBootstrapServers",
+      "lambda_endpoint_property": "SelfManagedEventSource.Endpoints.KAFKA_BOOTSTRAP_SERVERS",
+      "event_source_arn": "Not supplied or returned for self-managed Kafka",
+      "ref_equals_id_equals_uuid": true,
+      "arn_format": "arn:aws:lambda:us-east-1:000000000000:event-source-mapping:<UUID>",
+      "evidence": "lambda_self_managed_kafka_mapping.json#/findings/fresh-defaults"
+    },
+    "batch_and_window_removal": {
+      "same_uuid": true,
+      "batch_size": {"fresh": 100, "explicit": 17, "property_removed": 100},
+      "maximum_batching_window_seconds": {"fresh_response": "Property absent", "explicit": 2, "property_removed": 2},
+      "boundary": "The documented fresh Kafka window is 500 ms; the disabled control-plane capture does not measure polling latency. Omitting the configured window does not restore the fresh default.",
+      "evidence": "lambda_self_managed_kafka_mapping.json#/findings/property-removal"
+    },
+    "filter_and_tags_removal": {
+      "filter_property_omission": "Clears configured filter; FilterCriteria absent in GetEventSourceMapping",
+      "explicit_empty_filter": "Admitted; FilterCriteria absent in GetEventSourceMapping",
+      "tag_property_omission": "Removes owned-setting resource tag; retains stackd-probe stack tag and aws:cloudformation system tags",
+      "same_uuid": true,
+      "evidence": ["lambda_self_managed_kafka_mapping.json#/findings/property-removal", "lambda_self_managed_kafka_mapping.json#/findings/explicit-empty-filter"]
+    },
+    "consumer_group_execution": {
+      "change": "Replacement attempted; UPDATE_ROLLBACK_COMPLETE retaining original UUID/group because source+function+topics already exists",
+      "remove_config": "Replacement attempted; UPDATE_ROLLBACK_COMPLETE retaining original UUID/group for the same collision",
+      "native_event": "Requested update requires the creation of a new physical resource; hence creating one.",
+      "error_code": "AlreadyExists",
+      "evidence": ["lambda_self_managed_kafka_mapping.json#/findings/change-consumer-group", "lambda_self_managed_kafka_mapping.json#/findings/remove-consumer-group-config"]
+    },
+    "consumer_group_public_planning": {
+      "executed": false,
+      "action": "Modify",
+      "replacement": "False",
+      "requires_recreation": "Never",
+      "evaluation": "Static",
+      "property": "SelfManagedKafkaEventSourceConfig",
+      "boundary": "Public change-set planning differs from observed executed replacement. Do not report Replacement=True merely because execution requests replacement.",
+      "change_set_deleted_before_stack_updates": true,
+      "evidence": "lambda_self_managed_kafka_mapping_contract.json#/findings/group-change-set"
+    },
+    "topics": {
+      "change_and_omission": "UPDATE_ROLLBACK_COMPLETE; original UUID/topic retained",
+      "native_error": "Invalid request provided: Parameter 'Topics' can not be updated",
+      "error_code": "InvalidRequest",
+      "evidence": ["lambda_self_managed_kafka_mapping.json#/findings/change-topic", "lambda_self_managed_kafka_mapping.json#/findings/remove-topics"]
+    },
+    "source_access_configurations": {
+      "same_uuid": true,
+      "native_status_for_each_step": "UPDATE_COMPLETE",
+      "sequence": [
+        {"desired": "SASL_SCRAM_512_AUTH", "observed": "SASL_SCRAM_512_AUTH", "step": "fresh-defaults"},
+        {"desired": "SASL_SCRAM_256_AUTH", "observed": "SASL_SCRAM_256_AUTH", "step": "authentication-256"},
+        {"desired": "Property omitted", "observed": "SASL_SCRAM_256_AUTH", "step": "authentication-omitted"},
+        {"desired": "SASL_SCRAM_512_AUTH", "observed": "SASL_SCRAM_256_AUTH", "step": "authentication-reintroduced-512"},
+        {"desired": "SASL_SCRAM_256_AUTH", "observed": "SASL_SCRAM_256_AUTH", "step": "authentication-present-256"},
+        {"desired": "SASL_SCRAM_512_AUTH", "observed": "SASL_SCRAM_512_AUTH", "step": "authentication-present-512"}
+      ],
+      "boundary": "All steps use the same exact-owned dummy secret ARN. Omission and reintroduction retain actual settings; changing continuously present authentication applies. Secret URI replacement, additional access types and runtime authentication are not measured.",
+      "evidence": "lambda_self_managed_kafka_mapping_contract.json#/findings"
+    },
+    "starting_position_omission": {
+      "same_source": "Replacement attempted; UPDATE_ROLLBACK_COMPLETE retaining UUID on source+ConsumerGroupId AlreadyExists",
+      "changed_source": "UPDATE_COMPLETE with new UUID; native StartingPosition defaults TRIM_HORIZON",
+      "boundary": "The new disabled mapping has an explicit ConsumerGroupId. This proves CFN accepts omission under the captured controls, not broker offset selection or direct-API defaults.",
+      "evidence": ["lambda_self_managed_kafka_mapping_contract.json#/findings/remove-starting-position", "lambda_self_managed_kafka_mapping_contract.json#/findings/replace-source-without-starting-position"]
+    },
+    "source_replacement": {
+      "status": "UPDATE_COMPLETE",
+      "chronology": "New UUID UPDATE_COMPLETE precedes old UUID DELETE_IN_PROGRESS and DELETE_COMPLETE; old UUID GetEventSourceMapping returns ResourceNotFoundException",
+      "batching_window_on_fresh_replacement": "Absent in native response when omitted in desired template",
+      "evidence": "lambda_self_managed_kafka_mapping.json#/findings/replace-source-endpoint"
+    },
+    "timestamp": {
+      "changed_source_with_timestamp": "UPDATE_COMPLETE; new UUID with AT_TIMESTAMP and the supplied past Unix time",
+      "timestamp_only_change": "Replacement attempted; UPDATE_ROLLBACK_COMPLETE on source+ConsumerGroupId AlreadyExists",
+      "remove_timestamp_while_at_timestamp": "UPDATE_ROLLBACK_COMPLETE; original UUID/time retained",
+      "removal_error": "When the starting position is 'AT_TIMESTAMP', a starting position timestamp must be provided.",
+      "evidence": ["lambda_self_managed_kafka_mapping_contract.json#/findings/replace-source-with-starting-timestamp", "lambda_self_managed_kafka_mapping_contract.json#/findings/replace-timestamp-only", "lambda_self_managed_kafka_mapping_contract.json#/findings/remove-starting-timestamp"]
+    },
+    "metrics_admission": {
+      "requested": {"MetricsConfig": {"Metrics": ["EventCount"]}},
+      "status": "UPDATE_ROLLBACK_COMPLETE",
+      "native_error": "MetricsConfig is only available for Provisioned Mode. To configure MetricsConfig, please enable Provisioned Mode by specifying MinimumPollers in ProvisionedPollerConfig.",
+      "boundary": "No provisioned mode resource was created. Metrics property-removal semantics are not established because non-provisioned Kafka admission rejects setting it.",
+      "evidence": "lambda_self_managed_kafka_mapping_position.json#/findings/explicit-metrics"
+    }
+  },
+  "safety": {
+    "fresh_ethics_reviews": ["lambda_self_managed_kafka_mapping_review.json", "lambda_self_managed_kafka_mapping_position_review.json", "lambda_self_managed_kafka_mapping_contract_review.json"],
+    "all_templates_explicitly_disabled": true,
+    "all_endpoints_reserved_invalid": true,
+    "all_functions_reserved_concurrency_zero_confirmed": true,
+    "invoke_or_execute_change_set_calls": 0,
+    "role_policy": "Only secretsmanager:GetSecretValue on the exact-owned dummy secret ARN",
+    "cleanup": "All six observed mapping UUIDs, three functions, roles and secrets, and the one unexecuted change set verified absent. Unique stack names absent; exact deleted stack ARNs retain native DELETE_COMPLETE history.",
+    "unmeasured": ["Enabled polling and invocation", "Real broker connectivity and offsets", "KmsKeyArn/encrypted filters", "Provisioned pollers", "Destinations and schema registries", "Qualified function retargeting", "Additional source-access types or secret URI changes"]
+  },
+  "commands_exercised": [
+    "python3 scripts/aws/cloudformation_lambda_self_managed_kafka_probe.py --ethics-review testdata/aws/cloudformation/lambda_self_managed_kafka_mapping_review.json",
+    "python3 scripts/aws/cloudformation_lambda_self_managed_kafka_probe.py --position-only --output testdata/aws/cloudformation/lambda_self_managed_kafka_mapping_position.json --ethics-review testdata/aws/cloudformation/lambda_self_managed_kafka_mapping_position_review.json",
+    "python3 scripts/aws/cloudformation_lambda_self_managed_kafka_probe.py --contract-only --output testdata/aws/cloudformation/lambda_self_managed_kafka_mapping_contract.json --ethics-review testdata/aws/cloudformation/lambda_self_managed_kafka_mapping_contract_review.json",
+    "python3 scripts/aws/cloudformation_lambda_self_managed_kafka_probe.py --cleanup-only --output testdata/aws/cloudformation/lambda_self_managed_kafka_mapping_contract.json --ethics-review testdata/aws/cloudformation/lambda_self_managed_kafka_mapping_contract_review.json"
+  ],
+  "primary_sources": [
+    "https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-eventsourcemapping.md",
+    "https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-eventsourcemapping-endpoints.md",
+    "https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.md",
+    "https://docs.aws.amazon.com/lambda/latest/api/API_UpdateEventSourceMapping.md",
+    "https://docs.aws.amazon.com/lambda/latest/dg/kafka-esm-create.md",
+    "https://docs.aws.amazon.com/lambda/latest/dg/kafka-esm-parameters.md"
+  ]
+}
